@@ -253,5 +253,18 @@ public sealed class MigrationRunner
                 + "rolled back. The database is unchanged.",
                 ex);
         }
+        catch (Exception ex)
+        {
+            // Anything else — notably the StorageException that
+            // VerifyForeignKeyIntegrity throws, which is not a SqliteException.
+            //
+            // Disposing the transaction would roll back anyway, but rolling back
+            // explicitly means the guarantee does not depend on a `using` that a
+            // later edit might remove without realising it is load-bearing.
+            transaction.Rollback();
+
+            _log.MigrationFailed(migration.Version, ex);
+            throw;
+        }
     }
 }

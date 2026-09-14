@@ -226,10 +226,27 @@ public sealed class MigrationV2Tests : IDisposable
         Assert.Equal("Shopping List\nMilk", ContentOf(connection, id));
     }
 
+    /// <remarks>
+    /// <b>The migration's definition of "blank" is deliberately narrow:</b>
+    /// space, tab, CR and LF. It is not Unicode whitespace normalisation.
+    /// <para>
+    /// SQL <c>TRIM()</c> strips spaces only, which a test caught — a tab-only
+    /// title would otherwise have become an empty heading. Extending to the
+    /// full Unicode whitespace set would mean shipping a character classifier
+    /// inside a migration, which has to be right once, on data it cannot
+    /// inspect. These four characters cover what a user can type into a
+    /// single-line title field; anything more exotic is preserved verbatim
+    /// rather than silently discarded, which is the safer failure.
+    /// </para>
+    /// </remarks>
     [Theory]
     [InlineData("")]
-    [InlineData("   ")]
+    [InlineData(" ")]
+    [InlineData("    ")]
     [InlineData("\t")]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    [InlineData(" \t\r\n ")]
     public void An_empty_or_whitespace_title_changes_nothing(string title)
     {
         string id;
@@ -359,6 +376,101 @@ public sealed class MigrationV2Tests : IDisposable
 
         // The note still points at its folder after the table was rebuilt.
         Assert.Equal(folderId, ScalarString(connection, $"SELECT FolderId FROM Notes WHERE Id = '{noteId}';"));
+    }
+
+    [Fact]
+    public void Every_note_tag_relationship_survives_the_upgrade()
+    {
+        // The invariant foreign_key_check CANNOT prove. It answers "are the
+        // current references valid?", not "did the migration preserve the
+        // relationships that existed before?" — and a rebuild that silently
+        // empties NoteTags leaves a structurally valid database.
+        //
+        // So compare the full set, before and after.
+        var expected = new HashSet<string>(StringComparer.Ordinal);
+        string now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var v1 = OpenAtV1())
+        {
+            var noteIds = new List<string>();
+            var tagIds = new List<string>();
+
+            for (int i = 0; i < 5; i++)
+            {
+                noteIds.Add(InsertV1Note(v1, $"Title {i}", $"Body {i}"));
+
+                string tagId = Ulid.NewId();
+                Execute(v1, "INSERT INTO Tags (Id, Name, CreatedAt) VALUES ($id, $name, $now);",
+                    ("$id", tagId), ("$name", $"tag{i}"), ("$now", now));
+                tagIds.Add(tagId);
+            }
+
+            // A deliberately uneven mesh, so a bug that drops a subset shows up.
+            foreach (var (noteIndex, tagIndex) in new[]
+                     {
+                         (0, 0), (0, 1), (0, 2),
+                         (1, 1),
+                         (2, 0), (2, 4),
+                         (4, 3),
+                     })
+            {
+                Execute(v1, "INSERT INTO NoteTags (NoteId, TagId) VALUES ($n, $t);",
+                    ("$n", noteIds[noteIndex]), ("$t", tagIds[tagIndex]));
+
+                expected.Add($"{noteIds[noteIndex]}|{tagIds[tagIndex]}");
+            }
+        }
+
+        SqliteConnection.ClearAllPools();
+        UpgradeToLatest();
+
+        using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
+
+        var actual = new HashSet<string>(StringComparer.Ordinal);
+        using (var read = connection.CreateCommand())
+        {
+            read.CommandText = "SELECT NoteId, TagId FROM NoteTags;";
+            using var reader = read.ExecuteReader();
+            while (reader.Read())
+            {
+                actual.Add($"{reader.GetString(0)}|{reader.GetString(1)}");
+            }
+        }
+
+        Assert.Equal(expected.Count, actual.Count);
+        Assert.True(expected.SetEquals(actual), "NoteTags relationships changed across the migration.");
+    }
+
+    [Fact]
+    public void An_integrity_failure_rolls_back_and_restores_enforcement()
+    {
+        // VerifyForeignKeyIntegrity throws StorageException, not SqliteException,
+        // so it takes a different catch path from a SQL error. That path must
+        // still roll back and still restore enforcement.
+        var database = new NotoDatabase(_temp.DatabasePath);
+        database.Initialize();
+
+        using var connection = database.OpenConnection();
+        int versionBefore = MigrationRunner.GetSchemaVersion(connection);
+
+        var danglingReference = new Migration(
+            versionBefore + 1,
+            "creates a dangling foreign key",
+            "INSERT INTO NoteTags (NoteId, TagId) VALUES ('ghost-note', 'ghost-tag');",
+            RequiresForeignKeysDisabled: true,
+            TransformsUserData: true);
+
+        var error = Assert.Throws<StorageException>(
+            () => new MigrationRunner([danglingReference]).Run(connection));
+
+        Assert.Equal(StorageFailure.MigrationFailed, error.Reason);
+
+        // The dangling row was not committed.
+        Assert.Equal(0, ScalarLong(connection, "SELECT COUNT(*) FROM NoteTags;"));
+        Assert.Equal(versionBefore, MigrationRunner.GetSchemaVersion(connection));
+
+        // And enforcement came back despite the non-SqliteException path.
+        Assert.Equal(1, ScalarLong(connection, "PRAGMA foreign_keys;"));
     }
 
     [Fact]
