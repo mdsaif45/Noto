@@ -448,7 +448,7 @@ public sealed class ReorderNoteTests : IDisposable
 
             // `first` starts at 0 and only becomes 1 when the scope is
             // renumbered from the bottom.
-            if (_notes.FindActive(first)!.SortOrder == 1d)
+            if (HasBeenRenormalised(first))
             {
                 afterRenormalisation = AllSortOrdersExcept(mover).Order().ToList();
             }
@@ -458,7 +458,7 @@ public sealed class ReorderNoteTests : IDisposable
 
         // Every remaining row sits on a whole number...
         Assert.All(afterRenormalisation!, value => Assert.True(
-            value == Math.Floor(value),
+            IsWholeNumber(value),
             FormattableString.Invariant($"SortOrder {value:R} is not a whole number.")));
 
         // ...and they are exactly 1, 2, 3, ... with no gaps.
@@ -481,7 +481,7 @@ public sealed class ReorderNoteTests : IDisposable
             trigger = Create($"mover {i}");
             Reorder(trigger, first);
 
-            if (_notes.FindActive(first)!.SortOrder == 1d)
+            if (HasBeenRenormalised(first))
             {
                 break;
             }
@@ -489,8 +489,8 @@ public sealed class ReorderNoteTests : IDisposable
 
         double moved = _notes.FindActive(trigger)!.SortOrder;
 
-        Assert.Equal(1d, _notes.FindActive(first)!.SortOrder);
-        Assert.NotEqual(moved, Math.Floor(moved));
+        Assert.True(HasBeenRenormalised(first));
+        Assert.False(IsWholeNumber(moved), "the triggering note should sit on a midpoint");
 
         var others = AllSortOrdersExcept(trigger).Order().ToList();
         double below = others.Last(v => v < moved);
@@ -526,7 +526,7 @@ public sealed class ReorderNoteTests : IDisposable
         {
             trigger = Create($"mover {i}");
             Reorder(trigger, first);
-            renormalised = _notes.FindActive(first)!.SortOrder == 1d;
+            renormalised = HasBeenRenormalised(first);
         }
 
         Assert.True(renormalised, "renormalisation never fired");
@@ -690,6 +690,27 @@ public sealed class ReorderNoteTests : IDisposable
 
         return values;
     }
+
+    /// <summary>
+    /// Whether O6 has rewritten the scope, detected by its first row sitting
+    /// exactly on 1.
+    /// </summary>
+    /// <remarks>
+    /// Exact equality is deliberate and safe here. Renormalisation writes the
+    /// integers 1, 2, 3…, every one of which is exactly representable as a
+    /// double, so there is no rounding to tolerate. A tolerance would instead
+    /// weaken the assertion: 0.9999999 would pass while meaning the scope had
+    /// NOT been renumbered.
+    /// </remarks>
+    private bool HasBeenRenormalised(NoteId scopeStart) =>
+        _notes.FindActive(scopeStart)!.SortOrder.Equals(1d);
+
+    /// <summary>
+    /// Whether a value is a whole number — the signature of a renormalised row,
+    /// as opposed to an O3 midpoint.
+    /// </summary>
+    /// <remarks>Exact for the same reason as <see cref="HasBeenRenormalised"/>.</remarks>
+    private static bool IsWholeNumber(double value) => value.Equals(Math.Floor(value));
 
     private void SetPinned(NoteId id, bool pinned)
     {
