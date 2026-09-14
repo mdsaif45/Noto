@@ -54,6 +54,18 @@ public interface INoteRepository
     Note? FindActive(NoteId id);
 
     /// <summary>
+    /// The lifecycle state of a note.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FindActive"/> cannot answer this: it applies I1, so a deleted
+    /// note and a missing one both come back <see langword="null"/>. The
+    /// contract needs them separated — a mutation on a deleted note is
+    /// <see cref="Commands.CommandFailureReason.InvalidState"/> (I5), not
+    /// <see cref="Commands.CommandFailureReason.NotFound"/>.
+    /// </remarks>
+    NoteLifecycle GetLifecycle(NoteId id);
+
+    /// <summary>
     /// The lifecycle state of a folder, for validating a note's destination.
     /// </summary>
     /// <remarks>
@@ -79,6 +91,68 @@ public interface INoteRepository
     /// <c>SortOrder</c> but never participate in ordering (invariant I6).
     /// </remarks>
     double? MaxSortOrder(FolderId? folderId);
+
+    /// <summary>
+    /// Replaces a note's content and stamps <c>UpdatedAt</c>.
+    /// </summary>
+    /// <remarks>
+    /// A single-row update, so it needs no transaction (design §9). The caller
+    /// has already established that the note is active.
+    /// </remarks>
+    void UpdateContent(NoteId id, string content, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Moves a note to another scope and gives it a position there, in
+    /// <b>one transaction</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// O4 and design §9: the folder change and the new <c>SortOrder</c> are one
+    /// atomic unit. Committing the move without the position would leave the
+    /// note in the target scope at a value that means nothing there.
+    /// </para>
+    /// <para>
+    /// The placement may trigger renormalisation (O6), which rewrites the
+    /// target scope inside the same transaction.
+    /// </para>
+    /// </remarks>
+    void Move(NoteId id, FolderId? targetFolderId, NotePlacement placement, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Repositions a note within its current scope, in <b>one transaction</b>.
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/> when the note already occupies that position —
+    /// the no-op case, which writes nothing and stamps nothing (contract §5).
+    /// </returns>
+    /// <remarks>
+    /// Atomic with any renormalisation it triggers (design §9).
+    /// </remarks>
+    bool Reorder(NoteId id, NotePlacement placement, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Whether a note is an <b>active</b> member of the given scope.
+    /// </summary>
+    /// <remarks>
+    /// Validates a reorder target: it must be an active sibling in the same
+    /// scope (contract §5), and deleted rows never participate in ordering (I6).
+    /// </remarks>
+    bool IsActiveSiblingIn(NoteId id, FolderId? folderId);
+}
+
+/// <summary>
+/// Whether a note exists, and whether it is live.
+/// </summary>
+public enum NoteLifecycle
+{
+    /// <summary>No note has that id.</summary>
+    Missing = 0,
+
+    /// <summary>The note exists and is live.</summary>
+    Active,
+
+    /// <summary>The note exists but is in the recycle bin — inert (I5).</summary>
+    Deleted,
 }
 
 /// <summary>
