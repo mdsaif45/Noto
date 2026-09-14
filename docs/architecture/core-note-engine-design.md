@@ -3,7 +3,8 @@
 **Issue:** [#13](https://github.com/mdsaif45/Noto/issues/13)
 **Status:** Design proposal — **not implemented**
 **Date:** 2026-09-14
-**Verdict:** **HOLD** — four schema decisions must be settled first (§10)
+**Verdict:** **HOLD** — three schema decisions must be settled first (§10)
+**Superseded in part by:** [deletion-semantics.md](deletion-semantics.md) — `DeletedWithFolderId` is **rejected** there after working the lifecycle cases
 
 ---
 
@@ -293,21 +294,30 @@ Rules:
 | Delete tag | **Hard** — row removed, `NoteTags` cascades | A tag is a label, not content. Losing one loses nothing recoverable. |
 | Empty recycle bin | Hard delete | Deferred — needs a retention policy |
 
-### Restoring a folder needs a deletion group
+### Restoring a folder — resolved without a new column
 
-Restoring "Project X" must bring back the notes deleted *with* it, and not notes
-that were already individually in the bin.
+An earlier draft of this document proposed a `Notes.DeletedWithFolderId` column
+to identify which notes were deleted *with* a folder.
 
-`DeletedAt` alone cannot express that. Two options:
+**That proposal is rejected.** Working through the full lifecycle in
+[deletion-semantics.md](deletion-semantics.md) showed that `FolderId` plus
+`DeletedAt` already answer every case, and that the column breaks on the
+"restore one note out of a deleted folder, then restore the folder" case unless
+it carries its own invariant.
 
-- **A.** Match on identical `DeletedAt` timestamp. No schema change; fragile
-  (two deletions in the same millisecond collide).
-- **B.** A `DeletedWithFolderId` column on `Notes`. One nullable column, exact.
+```sql
+-- restore folder F: no marker needed
+UPDATE Folders SET DeletedAt = NULL WHERE Id = @F;
+UPDATE Notes   SET DeletedAt = NULL WHERE FolderId = @F AND DeletedAt IS NOT NULL;
+```
 
-> **Recommendation: B.** It is one column, it is precise, and it is cheaper now
-> than a bug report about missing notes. Add in migration 002.
+This also restores a note the user had deleted individually before the folder —
+and that is the better outcome: the user asked for the folder back as it last
+existed, and does not remember a deletion from three weeks ago.
 
----
+> The lesson is worth recording: the column looked correct because it solved the
+> restore *query*. It was wrong because the *lifecycle* had not been worked
+> through first.
 
 ## 9. Transactions
 
@@ -332,14 +342,14 @@ machinery belongs to sync, which does not exist.
 
 ## 10. Required schema changes — migration 002
 
-**This is what makes the verdict HOLD.** Four changes, all cheap now:
+**This is what makes the verdict HOLD.** Three changes, all cheap now:
 
 | # | Change | Reason |
 | - | ------ | ------ |
 | 1 | **Drop `Notes.Title`** | Parity B16 — title is derived (conflict C1) |
 | 2 | **Add `Folders.IsPinned`** | Parity C8 (conflict C3) |
 | 3 | **Add `Folders.DeletedAt`** + partial index | Parity C11 (conflict C3) |
-| 4 | **Add `Notes.DeletedWithFolderId`** | Correct folder restore (§8) |
+
 
 Nothing has shipped to a user and the domain layer is empty, so this costs one
 migration and no code. After #13 it would cost a migration *plus* every query,
@@ -472,7 +482,8 @@ Meaningful behaviour, not coverage.
 | `Notes.Title` as a second source of truth | Silent divergence from content; contradicts B16 | Drop the column | **YES** |
 | `ON DELETE SET NULL` orphans notes | Wrong product behaviour, contradicts C11 | Domain-level cascading soft delete | **YES** |
 | `Folders` cannot pin or soft-delete | Two parity MUSTs unimplementable | Add columns | **YES** |
-| Folder restore cannot identify its notes | Users lose notes on restore | `DeletedWithFolderId` | **YES** |
+| Folder restore cannot identify its notes | Users lose notes on restore | **Resolved without a column** — `FolderId` + `DeletedAt` suffice (deletion-semantics.md §5) | No |
+| Migration 002 transforms user data (`Title`) | Silent data loss if mishandled | Preserve title into content; **take a backup before migrating** (deletion-semantics.md §8, §9) | **YES** |
 | `SortOrder` precision exhaustion | Ordering silently breaks after ~50 same-spot drags | Renormalise, with a test | No — design settles it |
 | Fold state on the domain type | Possible ADR-009 tension | Reasoned in §5; move later if a second presentation disagrees | No |
 | Unused Dapper dependency | Dead weight | Remove | No |
@@ -503,12 +514,13 @@ Not because the design is unresolved — it is — but because **implementing it
 requires migration 002 first**, and that migration is a decision to approve, not
 a detail to slip into a feature PR.
 
-Four changes, all cheap because nothing has shipped and the domain is empty:
+Three changes, all cheap because nothing has shipped and the domain is empty:
 
-1. drop `Notes.Title` (parity B16)
+1. drop `Notes.Title` (parity B16) — **with the data transformation in
+   [deletion-semantics.md](deletion-semantics.md) §8; existing titles are
+   preserved into content, never discarded**
 2. add `Folders.IsPinned` (parity C8)
 3. add `Folders.DeletedAt` (parity C11)
-4. add `Notes.DeletedWithFolderId` (correct restore)
 
 Plus two non-blocking cleanups: remove the unused Dapper reference, and update
 the stale `data-model.md`.
