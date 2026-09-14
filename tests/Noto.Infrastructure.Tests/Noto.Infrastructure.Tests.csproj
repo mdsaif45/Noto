@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Noto.Infrastructure\Noto.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Noto.Core\Noto.Core.csproj" />
   </ItemGroup>
 
 </Project>

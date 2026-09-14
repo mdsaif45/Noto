@@ -50,9 +50,16 @@ dotnet_naming_symbols.interface_symbol.applicable_kinds = interface
 dotnet_naming_style.prefix_i_style.required_prefix = I
 dotnet_naming_style.prefix_i_style.capitalization = pascal_case
 
-# Private INSTANCE fields use _camelCase. Static readonly fields are
-# conventionally PascalCase, so they are deliberately excluded via
-# required_modifiers on a separate, higher-priority rule.
+# Private INSTANCE fields use _camelCase. Constants and static readonly fields
+# are conventionally PascalCase, so both are excluded via required_modifiers on
+# separate, higher-priority rules.
+dotnet_naming_rule.private_const_pascal.severity = warning
+dotnet_naming_rule.private_const_pascal.symbols = private_const_symbol
+dotnet_naming_rule.private_const_pascal.style = pascal_style
+dotnet_naming_symbols.private_const_symbol.applicable_kinds = field
+dotnet_naming_symbols.private_const_symbol.applicable_accessibilities = private
+dotnet_naming_symbols.private_const_symbol.required_modifiers = const
+
 dotnet_naming_rule.private_static_readonly_pascal.severity = warning
 dotnet_naming_rule.private_static_readonly_pascal.symbols = private_static_readonly_symbol
 dotnet_naming_rule.private_static_readonly_pascal.style = pascal_style
