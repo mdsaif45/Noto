@@ -33,6 +33,7 @@ jobs:
         with:
           languages: csharp
           queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Autobuild
         if: steps.detect.outputs.found == 'true'

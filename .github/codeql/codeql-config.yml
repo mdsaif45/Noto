@@ -1,0 +1,11 @@
+name: Noto CodeQL configuration
+
+# Build output is machine-generated and cannot be fixed by editing it, so
+# scanning it only buries genuine findings — XamlTypeInfo.g.cs alone produced
+# 26 alerts for code nobody wrote.
+paths-ignore:
+  - "**/bin/**"
+  - "**/obj/**"
+  # Throwaway prototypes, deleted once their question is answered. They are
+  # deliberately not held to production standards.
+  - "spikes/**"
