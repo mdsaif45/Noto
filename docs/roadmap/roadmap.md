@@ -2,97 +2,147 @@
 
 **Status:** Proposed
 **Last updated:** 2026-09-14
+**Strategy:** [strategy-audit-2026-09.md](../product/strategy-audit-2026-09.md)
 
 Milestones are **capability targets, not dates.** Noto has no external deadline,
 and inventing one would only distort scope decisions.
 
 ---
 
+## The strategy in one line
+
+> **Build an excellent Windows SideNotes first. Everything else comes after.**
+
+```
+  FOUNDATION ──> PARITY ──> HARDENING ──> v0.9 ──> EXPANSION ──> v1.0
+```
+
+Contextual notes, competitor features and Noto differentiators are real and
+planned — they are simply **not the first product**. The architecture is
+prepared for them (ADR-009); the schedule does not chase them.
+
+---
+
 ## Shape
 
 ```
-  M0  Foundation        ████████████        v0.1  it builds and persists
-  M1  Core Notes        ████████████████          it holds notes
-  M2  Workspace         ████████████████    v0.2  ◄── FIRST DOGFOODABLE
-  M3  Search            ████████            v0.3  it is a good notes app
-  M4  Floating Notes    ████████████        v0.4
-  M5  Context Engine    ████████████████    v0.5  ◄── THE THESIS
-                                            v0.6  window level
-  M6  Capture           ██████████          v0.7
-  M7  Windows Integr.   ████████████        v0.8
-  M8  Polish            ████████████████    v0.9
-  v1.0 Release          ████████            v1.0
+  ┌─ FOUNDATION ────────────────────────────────────────────┐
+  │ M0  Foundation & Architecture   ████████████   v0.1     │
+  │ M1  Core Note Engine            ████████████   v0.2     │
+  └─────────────────────────────────────────────────────────┘
+  ┌─ SIDENOTES ─────────────────────────────────────────────┐
+  │ M2  SideNotes Workspace         ████████████   v0.3  ◄ dogfood
+  │ M3  SideNotes Parity            ████████████████████ v0.5-0.8
+  │ M4  Hardening                   ████████████   v0.9     │
+  └─────────────────────────────────────────────────────────┘
+                        ▲
+         ═══════════ SIDENOTES PARITY COMPLETE ═══════════
+                        ▼
+  ┌─ EXPANSION ─────────────────────────────────────────────┐
+  │ M5  Windows Enhancements        ████████                │
+  │ M6  Contextual Notes            ████████████████        │
+  │ M7  Competitor Features         ████████                │
+  │ M8  Noto Differentiators        ████████                │
+  └─────────────────────────────────────────────────────────┘
+  │ M9  v1.0                        ████████                │
 ```
 
 Two milestones matter more than the rest:
 
-- **M2** is the first build that can be used daily. Everything after it is
-  informed by living with the product rather than reasoning about it.
-- **M5** validates or refutes the entire product thesis.
+- **M2** is the first build usable daily. Everything after it is informed by
+  living with the product rather than reasoning about it.
+- **M4** is the quality gate. Nothing in the expansion phase begins until
+  parity is production-quality.
+
+### What v1.0 means
+
+**v1.0 is Noto's polished Windows interpretation of SideNotes** — not
+"everything researched." Competitor features and differentiators are v1.1+.
+
+This is what makes "done" knowable. Without it, v1.0 recedes forever.
 
 ---
 
-## M0 — Foundation
+## M0 — Foundation & Architecture
 
-*Exit: an empty WinUI 3 app builds in CI, starts, logs, persists settings, and
-has a migrated SQLite database.*
+*Exit: the framework is decided on evidence, the solution builds in CI, and the
+architectural boundaries are enforced by tests rather than intentions.*
 
-- repository governance, ADRs, architecture documentation ✅
-- solution and project structure (ADR-001)
-- **the three ADR-001 validation spikes** — see below
+- ✅ repository governance, research, ADRs
+- **the window behavior spike** — the framework gate, see below
+- solution and project structure per ADR-009's boundaries
+- **architecture tests** enforcing that `Noto.Core` has no platform or
+  presentation dependency — the rule is worthless unenforced
+- command and event infrastructure (ADR-010)
+- design token foundation (ADR-011)
+- SQLite, connection management, migration runner (ADR-003)
 - structured logging that never records note content
 - global error handling
 - settings persistence
-- SQLite, connection management, migration runner (ADR-003)
 - test infrastructure
-- CI building and testing for real
+- performance measurement harness and baseline
+- CI building and testing real code
 
-### The validation gate
+### The framework gate
 
-Three throwaway spikes that can reverse the framework decision:
+ADR-001 accepts WinUI 3 **provisionally**. Noto's window requirements are
+unusual, and research found WinUI 3 weak at three of them.
+
+The spike must cover the **full** matrix, not merely "can it show a window":
 
 ```
-  spike 1   opacity + whole-window click-through
-            on Win10 22H2 AND Win11 24H2
-  spike 2   file drag & drop from Explorer
-  spike 3   follow a window via EVENT_OBJECT_LOCATIONCHANGE
-            during a fast drag, CPU measured
+  borderless / custom chrome      always-on-top
+  edge positioning                transparency & opacity
+  resize & move                   whole-window click-through
+  global hotkey                   multi-monitor
+  DPI at 100/125/150/200%         mixed-DPI across monitors
+  move & resize tracking          minimize / maximize / restore
+  screen-capture exclusion        Explorer drag & drop
 ```
 
-**If spikes 1 or 2 fail, Noto moves to WPF before application code is
-written.** They are first in M0 for exactly this reason — a framework switch
-costs days here and months later.
+Verified on **Windows 10 22H2 and Windows 11 24H2**.
+
+**If it fails, Noto moves to WPF before application code is written.** This is
+first in M0 for exactly that reason: a framework switch costs days here and
+months later.
 
 ---
 
-## M1 — Core Notes
+## M1 — Core Note Engine
 
-*Exit: notes survive restart and are editable.*
+*Exit: the domain works, is fully tested, and has never heard of a window.*
 
-- note, folder, tag, attachment entities and migrations (data-model.md)
-- repositories
-- create, edit, delete, restore from recycle bin
-- markdown editing — plain source (ADR-004)
-- task lists, code blocks
-- folders (one level), tags, colors, pin, archive
-- auto-save
+- `Note`, `Folder`, `Tag`, `Attachment`, `Task` — domain types with **no
+  platform or presentation dependency** (ADR-009)
+- repositories and migrations
+- commands and handlers for every mutation (ADR-010)
+- domain events
+- note content as markdown source (ADR-004)
+- soft delete and restore
 - attachment storage on disk
-- **backup and export to markdown** — required early, because ADR-002 promises
-  the data outlives the app and that promise should never be unbacked
+- **backup and export to markdown** — ADR-002 promises the data outlives the
+  app, and that promise should never be unbacked
+- search indexing foundation (FTS5 table and triggers)
+
+> The domain must be exercisable entirely from tests, with no UI. If it cannot
+> be, the boundary is wrong and it is cheaper to fix here than anywhere later.
 
 ---
 
-## M2 — Workspace ◄ v0.2, first dogfoodable
+## M2 — SideNotes Workspace ◄ v0.3, first dogfoodable
 
-*Exit: the primary interaction model works.*
+*Exit: Noto is usable daily as an edge-drawer notes app.*
 
 - edge-docked sidebar, snapped topmost window (ADR-007)
-- left/right, auto-hide, slide-in, adjustable width
+- left/right edge, auto-hide, slide-in, adjustable width
 - global shortcut
-- folder navigation, note list, reorder, drag & drop
-- **complete keyboard navigation**
-- **every activation surface independently disableable** (principle 7)
+- **every activation surface independently disableable** (principle 7) — the
+  direct answer to SideNotes' loudest, longest-running complaint
+- note list, folder navigation, selection
+- note editor
+- create, edit, delete, reorder, drag & drop
 - system tray, run at login
+- the design system applied to real surfaces (ADR-011)
 - per-monitor DPI and multi-monitor correctness
 
 > From here on, Noto is used daily by its author. Every subsequent milestone
@@ -100,113 +150,153 @@ costs days here and months later.
 
 ---
 
-## M3 — Search ◄ v0.3
+## M3 — SideNotes Parity ◄ the first product
 
-*Exit: find any note in under a second without touching the mouse.*
+*Exit: every item in the parity specification is implemented, tested and
+checked off.*
 
-- FTS5 external-content table and triggers (ADR-003)
-- **query escaping, with the apostrophe test**
-- search UI, results as you type
-- filter by folder and tag
-- keyboard-first throughout
+**The authoritative definition is
+[docs/product/sidenotes-parity.md](../product/sidenotes-parity.md).** This
+milestone is complete when that document is complete — not when it feels done.
 
-> Placed before floating notes, departing from the initial ordering: search is
-> a dependency of the core workflow, while floating notes are an additive
-> second mode.
+Broad areas (the specification is the detail):
 
----
+```
+  notes         pin, fold, colors, ordering, duplication
+  folders       nesting, moving, ordering, collapse
+  content       markdown, formatting, checklists, code,
+                images, attachments, file & folder shortcuts
+  search        full-text, filtering, keyboard-first
+  appearance    themes, light/dark, fonts, text size
+  keyboard      the full documented shortcut set
+  data          import, export, backup
+  integration   URI protocol, clipboard, drag & drop
+  floating      notes as independent desktop windows
+```
 
-## M4 — Floating Notes
+Two rules for this milestone:
 
-*Exit: a note can live on the desktop across restarts.*
+1. **Parity is functional, not visual.** Noto reproduces interaction concepts
+   in its own visual language and replaces macOS mechanisms with Windows ones —
+   menu bar becomes tray, iCloud becomes local-first, AppleScript becomes URI
+   protocol and CLI. Do not clone SideNotes pixel-for-pixel.
+2. **Every parity item is a tested requirement**, with acceptance criteria, not
+   a checkbox someone ticks.
 
-- promote a note to an independent window
-- always-on-top, resize, move, persisted position
-- restore to the correct monitor, and **never off-screen** when it is absent
-- opacity via XAML (ADR-007)
-- lock
-- whole-window ghost mode, with hotkey and tray exit
-- **screen-capture exclusion** — one API call, high perceived value
-- multiple floating notes
-
----
-
-## M5 — Context Engine ◄ the thesis
-
-*Exit: notes appear with the work they belong to.*
-
-### v0.5 — application level
-
-- `EVENT_SYSTEM_FOREGROUND` observer, debounced, never polling
-- **AUMID resolution for packaged apps** — without it, binding is useless for
-  Store applications
-- `ContextResolver` and `BindingMatcher` as pure, unit-tested functions
-- bind a note to an application in one gesture
-- show and hide on focus, **without stealing focus**
-- the confidence floor: unclear context shows nothing (ADR-005)
-
-> **Decision point.** If application-level context does not feel valuable in
-> two weeks of daily use, the thesis is wrong — and that must be discovered
-> before building the harder version.
-
-### v0.6 — window level
-
-- composite fingerprint identity (ADR-006)
-- `detached` as a first-class, non-alarming state
-- scoped `EVENT_OBJECT_LOCATIONCHANGE`, coalesced, hidden during drag
-- follow window position and size
-- minimise, restore, monitor change, occlusion
-
-**Before v0.6 begins:** the @/Anchored hands-on evaluation and the
-"Patent Pending" prior-art check (competitive-analysis.md §6, items 2 and 3).
+Floating notes live here because SideNotes has them — they are a parity
+feature, and under ADR-009 they are a presentation kind rather than a new
+milestone's worth of architecture.
 
 ---
 
-## M6 — Capture ◄ v0.7
+## M4 — Hardening ◄ v0.9, parity complete
 
-*Exit: capture without leaving the current application.*
+*Exit: the application feels production quality, not like a capable demo.*
 
-- global hotkey quick capture — type, save, return
-- clipboard capture
-- drag & drop text and files
-- screenshot capture via `Windows.Graphics.Capture`
-- image and file to note
-- URL capture
+- performance: every budget in principle 3, measured under a realistic note
+  count
+- cold and warm startup, idle CPU, memory
+- storage reliability, corruption recovery, migration from every prior version
+- backup and restore verified
+- crash handling and recovery
+- **accessibility**: screen reader, high contrast, focus order, full keyboard
+- DPI and multi-monitor hardening, including mixed DPI
+- window positioning edge cases — monitor disconnect, scaling change
+- editor and drag & drop reliability
+- search performance at scale
+- automated regression tests covering the parity specification
+- packaging, install, upgrade behavior
+
+> **This is a gate, not a phase.** Nothing in the expansion phase begins until
+> this is done. Shipping parity at 90% and starting context work is exactly the
+> fragile-demo outcome the strategy exists to prevent.
+
+```
+  ═══════════════ v0.9 — SIDENOTES PARITY, HARDENED ═══════════════
+```
 
 ---
 
-## M7 — Windows Integration
+## M5 — Windows Enhancements
+
+*The first things Noto does that SideNotes cannot, because it is native.*
 
 - app notifications (requires the sparse package, ADR-008)
 - `noto://` protocol activation
+- Jump Lists
 - File Explorer integration
 - Windows Search
+- clipboard capture
+- screenshot capture via `Windows.Graphics.Capture`
 - Windows Hello for locked notes
-- virtual desktop behavior via `DWMWA_CLOAKED` (ADR-007)
-- multi-monitor and DPI hardening
+- **screen-capture exclusion** — one API call, high perceived value (ADR-007)
+
+Not all of these ship. Each is evaluated on merit when reached.
 
 ---
 
-## M8 — Polish
+## M6 — Contextual Notes
 
-- accessibility: screen reader, high contrast, focus order
-- **live-styled markdown editing** (ADR-004) — a refinement, not a rewrite
-- animation and visual polish
-- performance: measure every budget in principle 3 under a realistic note count
-- memory profiling
-- crash recovery
-- settings UX
-- signed installer, sparse package, Velopack auto-update (ADR-008)
+*Now, and not before.*
+
+- foreground application detection, event-driven, never polling
+- AUMID resolution for packaged apps
+- bind a note to an application
+- show and hide on focus, **without stealing focus** — focus theft is
+  disqualifying for this feature
+- window-level binding and durable identity
+- `detached` as a first-class, non-alarming state
+
+**Before this milestone begins:**
+
+1. re-validate [ADR-005](../decisions/ADR-005-context-engine.md) and
+   [ADR-006](../decisions/ADR-006-window-binding-identity.md), both currently
+   **Proposed** — they were written two phases earlier and will have gone stale
+2. the @/Anchored hands-on evaluation
+3. the "Patent Pending" prior-art check
+
+Under ADR-009 this arrives as a **new presentation kind**. The `Note` type does
+not change.
 
 ---
 
-## v1.0
+## M7 — Competitor Features
+
+Selectively implement genuinely useful capabilities from Noticky, @/Anchored,
+Notezilla, Zhorn Stickies and others.
+
+Every candidate answers five questions before it is accepted:
+
+```
+  1. Does it solve a real user problem?
+  2. Does it fit Noto?                      (principles.md)
+  3. Is it maintainable for years?          (principle 9)
+  4. Does it complicate the core model?     (ADR-009)
+  5. Does it differentiate meaningfully?
+```
+
+Tracked in [competitor-enhancements.md](../product/competitor-enhancements.md),
+kept deliberately separate from the parity specification so that "we promised
+SideNotes parity" never blurs into "we are making Noto better."
+
+---
+
+## M8 — Noto Differentiators
+
+Genuinely new capabilities, explored only once the foundation is strong.
+
+Deliberately unspecified. Specifying them now would be guessing, and the most
+valuable input — a year of using the product — does not exist yet.
+
+---
+
+## M9 — v1.0
 
 - security review against SECURITY.md scope
 - performance validation
 - documentation and screenshots
-- migration and backup verification **from every prior version**
-- code-signing certificate — *confirm cost and process early, not here*
+- migration and backup verification from every prior version
+- signed installer — **confirm certificate cost and process during M0**
 - release
 
 ---
@@ -215,11 +305,11 @@ costs days here and months later.
 
 | Deferred | Note |
 | -------- | ---- |
-| Document- and URL-level context | The real differentiator. Needs its own research and ADR. |
+| Document- and URL-level context | The deepest differentiator. Needs its own research and ADR. |
 | BYO-folder sync | ADR-002. Requires solving the WAL-under-file-sync hazard first. |
-| Tables and images in notes | Each needs its own justification (ADR-004). |
 | AI / MCP surface | Explicitly **not** the answer to context resolution (ADR-005). |
-| Mobile, web, collaboration, plugins, cross-platform | Rejected by the vision. |
+| Plugin system | Internal extension boundaries only. Expose later if ever justified. |
+| Mobile, web, collaboration, cross-platform | Rejected by the vision. |
 
 ---
 
@@ -227,9 +317,9 @@ costs days here and months later.
 
 | Risk | Where it bites | Mitigation |
 | ---- | -------------- | ---------- |
-| Framework decision reverses | M0 → everything | Spikes are first in M0 |
-| Thesis is wrong | M5 | v0.5 before v0.6, deliberately |
-| Mixed-DPI defects surface late | M2, M4, M5 | In the test matrix from M2 |
-| Scope creep after dogfooding | M2 onward | mvp.md and principle 9 |
-| Patent exposure | v0.6 | Prior-art check before M5 window work |
-| Signing cost discovered at release | v1.0 | **Confirm during M0** |
+| Framework decision reverses | M0 → everything | The window spike is the first work in M0 |
+| Parity scope is underestimated | M3 | The parity spec is derived from Apptorium's own documentation, not from memory |
+| Expansion starts before hardening finishes | M4 → M5 | M4 is a gate, stated as one |
+| ADR-005/006 go stale before M6 | M6 | Both marked Proposed with explicit re-validation required |
+| Mixed-DPI defects surface late | M2, M3 | In the test matrix from M2 |
+| Signing cost discovered at release | M9 | Confirm during M0 |

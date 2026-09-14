@@ -2,10 +2,9 @@
 
 # Noto
 
-**Notes that live where you work.**
+**A proper notes drawer for Windows.**
 
-A Windows-native contextual notes application. Local-first, keyboard-first,
-and quiet.
+Native, local-first, keyboard-first, and quiet.
 
 [![CI](https://github.com/mdsaif45/Noto/actions/workflows/ci.yml/badge.svg)](https://github.com/mdsaif45/Noto/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -17,8 +16,13 @@ and quiet.
 
 > **Status: pre-alpha. There is nothing to install yet.**
 >
-> Noto is in its research and architecture phase. The documentation is real;
-> the application is not. Follow the [roadmap](docs/roadmap/roadmap.md).
+> Noto is in its foundation phase. The documentation is real; the application
+> is not. Follow the [roadmap](docs/roadmap/roadmap.md).
+>
+> **The first product is SideNotes parity on Windows** —
+> [SideNotes](https://www.apptorium.com/sidenotes/) is macOS-only, and nothing
+> on Windows offers its edge-drawer model. Contextual notes, capture and
+> competitor-inspired features come after that foundation is solid.
 
 ---
 
@@ -28,24 +32,36 @@ The information you need while working is almost never in the application
 where you need it. So it ends up in a scratch file, a browser tab, or a sticky
 note — and then it has to be found again.
 
-Noto keeps notes next to the work they belong to.
+Noto is a notes drawer that lives at the edge of your screen. Pull it out,
+write or find what you need, and dismiss it — without leaving what you were
+doing.
 
 ```
-  what you are doing        ->   what Noto shows you
-  ------------------             -------------------
-  VS Code, repo "api"            API notes, TODO for this branch
-  Chrome, a Jira ticket          that ticket's working notes
-  Terminal                       the commands you always forget
+     your work                    |  Noto
+  +--------------------------+    | +----------+
+  |                          |    | | folders  |
+  |    whatever you are      |    | | notes    |
+  |    actually doing        |    | | editor   |
+  |                          |    | |          |
+  +--------------------------+    | +----------+
+                                  ^
+                    a keystroke away, gone when dismissed
 ```
 
-Four ways a note can be present:
+Later, notes will also be able to follow the work they belong to — appearing
+with the application they were written for. That is planned (M6), not built.
 
-| Mode | What it is |
-| ---- | ---------- |
-| **Workspace** | An edge drawer you pull out to browse and find |
-| **Floating** | A note as a desktop object, pinned above your work |
-| **Contextual** | Notes that appear with the application they belong to |
-| **Capture** | A hotkey from anywhere, straight into a note |
+```
+  FIRST                          LATER
+  ─────────────────────────      ──────────────────────────────
+  Workspace   an edge drawer     Capture      a hotkey from anywhere
+              you pull out       Contextual   notes that appear with
+  Floating    a note pinned                   the app they belong to
+              above your work    and more
+```
+
+The workspace and floating notes are the first product. The rest is planned,
+sequenced, and deliberately not rushed.
 
 ---
 
@@ -64,11 +80,11 @@ Existing tools sit at one of two extremes:
                         present enough that you don't have to
 ```
 
-On Windows specifically, research found the gap is real: the best contextual
-notes apps ([SideNotes](https://www.apptorium.com/sidenotes/),
-[Noticky](https://www.noticky.app/)) are macOS-only, and **no mainstream
-Windows product in the category supports markdown or an edge-docked
-sidebar.**
+On Windows specifically, research found the gap is real: the best products in
+this category ([SideNotes](https://www.apptorium.com/sidenotes/),
+[Noticky](https://www.noticky.app/)) are **macOS-only**, and **no mainstream
+Windows product offers an edge-docked sidebar or supports markdown.** The
+Windows sticky-notes category looks like 2010.
 
 Full analysis: [docs/research/competitive-analysis.md](docs/research/competitive-analysis.md)
 
@@ -101,9 +117,10 @@ Two choices worth explaining, because both depart from the obvious answer:
 
 - **Not EF Core** — it cannot model FTS5, and full-text search is a core
   feature, not an add-on. ([ADR-003](docs/decisions/ADR-003-sqlite-data-access.md))
-- **WinUI 3 is provisional** — it is weak at translucency and click-through,
-  so the decision is gated on three validation spikes with WPF as the
-  fallback. ([ADR-001](docs/decisions/ADR-001-native-windows-stack.md))
+- **WinUI 3 is provisional** — it is weak at translucency, click-through and
+  drag & drop, so the decision is gated on a full window-behaviour spike with
+  WPF as the designated fallback.
+  ([ADR-001](docs/decisions/ADR-001-native-windows-stack.md))
 
 ---
 
@@ -113,7 +130,9 @@ Two choices worth explaining, because both depart from the obvious answer:
 | --- | --- |
 | [Vision](docs/product/vision.md) | What Noto is, and what it is not |
 | [Principles](docs/product/principles.md) | The rules that decide what gets built |
-| [MVP](docs/product/mvp.md) | What ships first, and what does not |
+| [First release](docs/product/first-release.md) | SideNotes parity — what ships first |
+| [SideNotes parity](docs/product/sidenotes-parity.md) | The objective definition of done |
+| [Strategy audit](docs/product/strategy-audit-2026-09.md) | Why the plan is shaped this way |
 | [Roadmap](docs/roadmap/roadmap.md) | Milestones as capabilities |
 | [Architecture](docs/architecture/architecture-overview.md) | How it is put together |
 | [Data model](docs/architecture/data-model.md) | Schema and storage layout |

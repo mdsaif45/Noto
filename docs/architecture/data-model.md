@@ -110,9 +110,16 @@ CREATE TABLE Folders (
 );
 ```
 
-`ParentId` supports arbitrary nesting in the schema, but **the MVP UI permits
-one level** (mvp.md). The column costs nothing now and avoids a migration if
-deeper nesting is ever justified. The constraint is enforced in the application,
+`ParentId` supports nesting in the schema, but **the UI presents a flat,
+single-level folder list**, because that is what SideNotes does.
+
+The feature inventory found no sub-folder capability documented anywhere across
+45 tips, 18 articles and 40+ release notes — INFERRED flat, from documentation
+absence. Noto matches it for parity. **Deeper nesting is not a parity
+requirement and must not be added speculatively** (principle 9).
+
+The column is kept because it costs nothing and avoids a migration if nesting
+is ever justified by evidence. The constraint is enforced in the application,
 not the schema.
 
 ### Tags

@@ -3,7 +3,19 @@
 **Research date:** 2026-09-14
 **Status:** Master decision record for the initial product scope
 **Derived from:** [`competitive-analysis.md`](competitive-analysis.md) and [`_raw/`](_raw/)
-**Constrained by:** [`../product/principles.md`](../product/principles.md), [`../product/mvp.md`](../product/mvp.md)
+**Constrained by:** [`../product/principles.md`](../product/principles.md), [`../product/first-release.md`](../product/first-release.md)
+
+
+> **Note, 2026-09-14.** This matrix was written when the plan was sequenced
+> around validating contextual notes. The strategy has since changed to
+> **SideNotes parity first** — see
+> [strategy-audit-2026-09.md](../product/strategy-audit-2026-09.md).
+>
+> The competitor *findings* here are unchanged and still valid. The **Noto
+> decision** and **Priority** columns reflect the earlier sequencing, so where
+> this matrix and
+> [sidenotes-parity.md](../product/sidenotes-parity.md) disagree about what
+> ships first, **the parity specification wins**.
 
 ---
 
@@ -116,7 +128,7 @@ once they arrive rather than helping them see the right thing sooner.
 **Skins** fails principle 8 and principle 9: Noto follows the system theme and
 Mica, and every skin is a rendering path to keep working across Windows
 updates. **Backlinks, wikilinks, daily notes** are a knowledge base, explicitly
-rejected in `mvp.md`; TSNotes is the only product in the set that has them, and
+rejected in `first-release.md`; TSNotes is the only product in the set that has them, and
 TSNotes is also the product we could not verify.
 
 ---
@@ -492,8 +504,8 @@ credential is a second thing to lose and a second recovery flow to maintain.
 | Peer-to-peer / LAN transfer | ❌ | ❌ | ❌ | ✅ | ✅ *TCP/SMTP* | ❌ | ❌ | ❌ | REJECT | — | L |
 | Export to markdown files | ❌ *images* | ✅ *md/pdf/txt* | ? | ? | ❌ | ❌ | ✅ *txt/rtf* | ? | KEEP | P0 | S |
 | Backup / restore | ✅ *automatic* | ? | ? | ? | ? | ? | ✅ | ? | KEEP | P0 | S |
-| Mobile client | ✅ *separate $* | ✅ *separate $* | ❌ | ✅ *free* | ❌ | ✅ | ❌ | ❌ | **REJECT** *mvp.md* | — | XL |
-| Web client | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ | **REJECT** *mvp.md* | — | XL |
+| Mobile client | ✅ *separate $* | ✅ *separate $* | ❌ | ✅ *free* | ❌ | ✅ | ❌ | ❌ | **REJECT** *first-release.md* | — | XL |
+| Web client | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ | **REJECT** *first-release.md* | — | XL |
 | Cross-platform desktop | ❌ | ❌ | ❌ | ❌ | ❌ | ~ *Mac lacks it* | ❌ | ✅ | **REJECT** *principle 8* | — | XL |
 | Collaboration / sharing | ❌ | ❌ | ~ *planned* | ✅ *LAN/email* | ✅ | ✅ | ~ *social share* | ❌ | REJECT *principle 9* | — | XL |
 
@@ -509,7 +521,7 @@ P2 while vendor cloud sync is a flat REJECT. Anchored's planned phase 5 is
 exactly the BYO-drive model, and it is worth noting that shipping two AI/interop
 phases before sync tells you where that vendor's priorities are.
 
-Mobile, web and cross-platform are rejected in `mvp.md` and by principle 8. The
+Mobile, web and cross-platform are rejected in `first-release.md` and by principle 8. The
 entire value proposition is Windows integration — window tracking, edge docking,
 DPI, capture exclusion — which is precisely what a cross-platform wrapper is
 worst at, and there is no portability benefit to trade against.
@@ -538,7 +550,7 @@ URL scheme is rare in this category — and it is Noticky's self-admitted gap. O
 Windows there is almost nothing: Zhorn's public API is the only automation
 surface in the entire Windows set.
 
-That is a real opening, but not an MVP one. `mvp.md` puts the URI protocol at
+That is a real opening, but not an MVP one. `first-release.md` puts the URI protocol at
 M7, and everything heavier waits for post-v1. The exception is the shape of the
 deferral: MCP is DEFER rather than REJECT because Noticky shipping a revocable,
 permissioned MCP server is genuinely category-first and worth tracking, and
@@ -585,7 +597,7 @@ present. A reminder is something the user has to do once they arrive, not
 something that helps them see the right thing sooner. Worse, reminders pull the
 product toward task management, which is a different product with different
 competitors, and they require notifications, which principle 2 forbids by
-default. `mvp.md` records this as "post-v1, if ever" — the "if ever" is the
+default. `first-release.md` records this as "post-v1, if ever" — the "if ever" is the
 honest part.
 
 Note the ordering consequence: rejecting reminders is what makes toast
@@ -677,7 +689,7 @@ that does not.
 | AI reading the window to infer context (Atlas) | **6** | Inference substituting for identity. Unexplainable notes destroy trust. |
 | Trackpad / touch edge gesture | **7** | The exact feature whose undisableable version produced principle 7. |
 | Cross-platform desktop | **8** | The entire value is Windows integration; wrappers are worst at exactly that. |
-| Mobile clients, web client | **8**, mvp.md | Contradicts the Windows-native focus. |
+| Mobile clients, web client | **8**, first-release.md | Contradicts the Windows-native focus. |
 | Rich text as a second content model | **9** | A second paradigm alongside markdown. |
 | Skins / themed note styles | **8**, **9** | System theme and Mica instead; each skin is a rendering path to maintain. |
 | Note layout modes (stack / grid / free) | **9** | A preference added instead of a decision. |
@@ -689,12 +701,12 @@ that does not.
 | Peer-to-peer / LAN / email note transfer | **9** | A networking stack for a use nobody has asked Noto for. |
 | Vendor cloud sync, accounts | **4**, ADR-002 | Core must never require an account or a backend. |
 | Collaboration, sharing, multi-user | **9**, vision | Not the product. |
-| Backlinks, wikilinks, daily notes, graph view | **1**, mvp.md | That is a knowledge base. |
+| Backlinks, wikilinks, daily notes, graph view | **1**, first-release.md | That is a knowledge base. |
 | Per-pixel click-through | ADR-007 | Not technically achievable in the framework. Not a scheduling choice. |
 | OS automation framework hooks | — | No Windows analogue to Shortcuts exists to integrate with. |
 
 Two rejections deserve a second look before v1, and both are flagged rather than
-buried: **reminders** (four of eight competitors have them, and `mvp.md` says
+buried: **reminders** (four of eight competitors have them, and `first-release.md` says
 "if ever" rather than "never") and **encryption at rest**, which is DEFER not
 REJECT but depends on an unresolved verification item about Notezilla.
 
@@ -832,13 +844,13 @@ The non-obvious edges, stated plainly:
 
 ## Contradictions found
 
-Reviewed against `principles.md` and `mvp.md`. Three items where the source
+Reviewed against `principles.md` and `first-release.md`. Three items where the source
 documents are in tension or where this matrix had to make a call that is not
 strictly derivable from them. None is resolved silently.
 
 ### 1. Checklists are rejected as task management but shipped as markdown
 
-`mvp.md` lists **task lists** as in-scope MVP markdown, and §12 of this matrix
+`first-release.md` lists **task lists** as in-scope MVP markdown, and §12 of this matrix
 rejects task management on principle 1. ADR-004 resolves this by noting task
 lists "come free" with the markdown parser, and the distinction held here is
 that a checkbox is content whereas a reminder is behavior.
@@ -851,7 +863,7 @@ down before the first such request, not during it.**
 
 ### 2. Reminders — resolved to DEFER
 
-**This was a genuine contradiction and has been corrected.** `mvp.md` places
+**This was a genuine contradiction and has been corrected.** `first-release.md` places
 reminders under *Deferred to later milestones* with the target "post-v1, if
 ever"; this matrix originally recorded REJECT.
 
@@ -868,14 +880,14 @@ simple per-note reminder post-v1, should evidence justify one.
 The matrix rows have been updated accordingly. The REJECT in §12 applies to
 task management as a subsystem, not to the existence of any reminder.
 
-### 3. Screen-capture exclusion is P1 here and MVP-scoped in `mvp.md`
+### 3. Screen-capture exclusion is P1 here and MVP-scoped in `first-release.md`
 
-`mvp.md` places capture exclusion in the MVP under *Privacy*, alongside per-note
+`first-release.md` places capture exclusion in the MVP under *Privacy*, alongside per-note
 lock and no-telemetry. This matrix rates it P1 rather than P0.
 
 Not a contradiction in scope — it is in the MVP either way, and at XS complexity
 the priority is close to academic. It is recorded because the rating reflects a
-judgement `mvp.md` does not make: the product's thesis survives without capture
+judgement `first-release.md` does not make: the product's thesis survives without capture
 exclusion, whereas it does not survive without markdown, the sidebar, or app
 binding. If the preference is that privacy features are P0 by definition, this
 row should be raised.
@@ -884,13 +896,13 @@ row should be raised.
 
 - **Anchored's six-note-per-window cap** is not copied. No source document
   requires a cap, and principle 9 does not argue for one.
-- **Overlay rather than reserved work area** for the sidebar. `mvp.md` says
+- **Overlay rather than reserved work area** for the sidebar. `first-release.md` says
   "snapped topmost window", ADR-007 gives the reason. Consistent.
-- **Encryption at rest deferred while per-note lock ships.** `mvp.md` scopes
+- **Encryption at rest deferred while per-note lock ships.** `first-release.md` scopes
   per-note lock to the MVP and does not mention at-rest encryption, and open
   verification item 4 (does Notezilla encrypt locally by default?) is still open.
   Consistent, and correctly sequenced.
-- **MCP deferred rather than rejected.** `mvp.md` lists the AI/MCP surface under
+- **MCP deferred rather than rejected.** `first-release.md` lists the AI/MCP surface under
   *Rejected for v1 entirely*, but with the qualifier "Post-v1 at the earliest".
   This matrix records DEFER to post-v1, which matches the qualifier. The
   separate, harder REJECT — AI as the *mechanism for context resolution* — is

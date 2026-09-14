@@ -52,8 +52,25 @@ What format stores note content, and what editing model does the user get?
 ## Decision
 
 **Markdown as the storage format (CommonMark plus GitHub-flavoured task lists),
-with live-styled editing (Option E) as the target and plain editing (Option C)
-as the acceptable MVP.**
+with live-styled editing (Option E) — "invisible markdown" — as a parity
+requirement rather than a later refinement.**
+
+> **Revised 2026-09-14 after the SideNotes feature inventory.** This ADR
+> originally treated live-styled editing as an M8 refinement and plain-source
+> editing as acceptable for the first release. That is wrong.
+>
+> SideNotes 1.5 shipped **"Invisible Markdown"** — markup hidden by default,
+> toggled with `⇧⌘R` — and rebuilt its entire editor around it. It is the
+> editor's defining characteristic, not a display option. A Windows SideNotes
+> that shows raw `**asterisks**` by default is not at parity, however good the
+> rest is.
+>
+> Live styling therefore moves into **M3 (SideNotes Parity)**, with a
+> show/hide-markup toggle. The storage format is unchanged, so this is a
+> change of schedule and editor ambition — not of data.
+
+Plain-source editing remains valid as an *intermediate* state during M2 while
+the editor is built. It is not an acceptable end state for parity.
 
 ### Scope of supported syntax
 
@@ -123,10 +140,19 @@ A preview pane splits a small note in half, doubles the screen cost, and adds a
 mode. Live styling — where `**bold**` renders bold as you type while the
 source remains editable — avoids the mode entirely and suits short notes.
 
-It is harder to build, which is why plain source editing is acceptable for the
-MVP and live styling is the target. Shipping C then moving to E is a
-refinement, not a rewrite, because **the storage format does not change**. That
-is the point of deciding storage separately from editing.
+It is harder to build, and SideNotes needed a full editor rebuild (1.5) to get
+there — which is a realistic signal of the cost. Shipping C then moving to E is
+still not a rewrite of *data*, because **the storage format does not change**;
+that is the point of deciding storage separately from editing. But it is a
+substantial editor rebuild, and the parity inventory makes clear it cannot be
+skipped.
+
+**Scope note from the inventory:** SideNotes' markdown is a deliberate subset —
+five heading levels, bold/italic/bold-italic, strikethrough, a non-standard
+`::mark::` highlight, quotes, both list types, tasks, inline and block code,
+`#rrggbb` colour swatches, inline links, and `---` separators. **Tables are
+absent from its documentation.** Noto's in-scope list should match this subset
+for parity; tables remain deferred and are not a parity gap.
 
 ### Why not rich text
 

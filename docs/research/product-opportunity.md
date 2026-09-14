@@ -116,7 +116,7 @@ problem (UI Automation, per-application behavior, performance).
 
 The strategic sequencing decision — application level in v0.5, window level in
 v0.6, document level post-v1 — exists so the thesis is validated before the
-hardest engineering is attempted. (mvp.md, ADR-005)
+hardest engineering is attempted. (first-release.md, ADR-005)
 
 ### 2.4 Cheap wins with high perceived value
 
