@@ -1,0 +1,10 @@
+# Default owner for everything in the repository.
+*                       @mdsaif45
+
+# Architecture decisions and product direction require deliberate review.
+/docs/decisions/        @mdsaif45
+/docs/product/          @mdsaif45
+/docs/architecture/     @mdsaif45
+
+# Repository governance and release machinery.
+/.github/               @mdsaif45

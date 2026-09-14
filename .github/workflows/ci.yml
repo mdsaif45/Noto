@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # The solution does not exist until M0 lands. Until then CI validates the
+      # repository itself rather than failing on an absent project.
+      - name: Detect solution
+        id: detect
+        shell: pwsh
+        run: |
+          $sln = Get-ChildItem -Path . -Filter *.sln -Recurse -File -ErrorAction SilentlyContinue |
+                 Select-Object -First 1
+          if ($sln) {
+            "found=true"          | Out-File $env:GITHUB_OUTPUT -Append
+            "path=$($sln.FullName)" | Out-File $env:GITHUB_OUTPUT -Append
+            Write-Host "Solution: $($sln.FullName)"
+          } else {
+            "found=false" | Out-File $env:GITHUB_OUTPUT -Append
+            Write-Host "::notice::No solution found yet - skipping build and test."
+          }
+
+      - name: Setup .NET
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        if: steps.detect.outputs.found == 'true'
+        run: dotnet restore "${{ steps.detect.outputs.path }}"
+
+      - name: Verify formatting
+        if: steps.detect.outputs.found == 'true'
+        run: dotnet format "${{ steps.detect.outputs.path }}" --verify-no-changes --no-restore
+
+      - name: Build
+        if: steps.detect.outputs.found == 'true'
+        run: dotnet build "${{ steps.detect.outputs.path }}" --configuration Release --no-restore /warnaserror
+
+      - name: Test
+        if: steps.detect.outputs.found == 'true'
+        run: >
+          dotnet test "${{ steps.detect.outputs.path }}"
+          --configuration Release --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory ./artifacts/test-results
+
+      - name: Upload test results
+        if: always() && steps.detect.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./artifacts/test-results
+          if-no-files-found: ignore
+
+  docs:
+    name: Validate docs & governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate issue forms and workflows are valid YAML
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import sys, pathlib, yaml
+          bad = []
+          for p in list(pathlib.Path('.github').rglob('*.yml')) + list(pathlib.Path('.github').rglob('*.yaml')):
+              try:
+                  yaml.safe_load(p.read_text(encoding='utf-8'))
+              except Exception as e:
+                  bad.append(f"{p}: {e}")
+          if bad:
+              print("::error::Invalid YAML:")
+              for b in bad: print("  " + b)
+              sys.exit(1)
+          print("All .github YAML files parse cleanly.")
+          PY
+
+      - name: Check required governance files exist
+        shell: bash
+        run: |
+          missing=0
+          for f in README.md CONTRIBUTING.md SECURITY.md CHANGELOG.md LICENSE \
+                   .github/CODEOWNERS .github/dependabot.yml .github/pull_request_template.md; do
+            if [ ! -f "$f" ]; then echo "::error::Missing $f"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Check ADRs are indexed
+        shell: bash
+        run: |
+          shopt -s nullglob
+          fail=0
+          for adr in docs/decisions/ADR-*.md; do
+            base=$(basename "$adr")
+            if ! grep -q "$base" docs/decisions/README.md 2>/dev/null; then
+              echo "::error::$base is not listed in docs/decisions/README.md"
+              fail=1
+            fi
+          done
+          exit $fail

@@ -1,0 +1,67 @@
+name: Build artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Build configuration
+        type: choice
+        options: [Release, Debug]
+        default: Release
+  workflow_call:
+    inputs:
+      configuration:
+        type: string
+        default: Release
+    outputs:
+      artifact-name:
+        description: Name of the uploaded artifact
+        value: noto-windows
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Detect solution
+        id: detect
+        shell: pwsh
+        run: |
+          $sln = Get-ChildItem -Path . -Filter *.sln -Recurse -File -ErrorAction SilentlyContinue |
+                 Select-Object -First 1
+          if ($sln) {
+            "found=true"            | Out-File $env:GITHUB_OUTPUT -Append
+            "path=$($sln.FullName)" | Out-File $env:GITHUB_OUTPUT -Append
+          } else {
+            "found=false" | Out-File $env:GITHUB_OUTPUT -Append
+            Write-Host "::warning::No solution to package yet."
+          }
+
+      - name: Setup .NET
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish
+        if: steps.detect.outputs.found == 'true'
+        run: >
+          dotnet publish src/Noto.App/Noto.App.csproj
+          --configuration ${{ inputs.configuration || 'Release' }}
+          --runtime win-x64
+          --self-contained false
+          --output ./artifacts/publish
+
+      - name: Upload build artifact
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: noto-windows
+          path: ./artifacts/publish
+          if-no-files-found: error
+          retention-days: 14
