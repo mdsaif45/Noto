@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Noto.Infrastructure.Storage;
 
 /// <summary>
@@ -19,10 +21,23 @@ public sealed class NotoStoragePaths
     private const string DatabaseFileName = "noto.db";
 
     /// <summary>The real per-user location.</summary>
-    public static NotoStoragePaths ForCurrentUser() => new(
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            FolderName));
+    public static NotoStoragePaths ForCurrentUser()
+    {
+        string localAppData = Environment.GetFolderPath(
+            Environment.SpecialFolder.LocalApplicationData);
+
+        if (string.IsNullOrWhiteSpace(localAppData))
+        {
+            // Should not happen on Windows, but a silent empty string here
+            // would resolve the database to the working directory.
+            throw new InvalidOperationException(
+                "The local application data folder could not be determined.");
+        }
+
+        // FolderName is a compile-time literal and is never rooted, so this
+        // Combine cannot discard localAppData.
+        return new NotoStoragePaths(Path.Combine(localAppData, FolderName));
+    }
 
     /// <summary>An explicit root. Used by tests, and by any future portable mode.</summary>
     public static NotoStoragePaths At(string root) => new(root);
@@ -30,29 +45,54 @@ public sealed class NotoStoragePaths
     private NotoStoragePaths(string root)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
-        Root = root;
+
+        // Normalise once, here, so every derived path below is provably safe.
+        //
+        // Path.Combine silently discards earlier arguments when a later one is
+        // rooted, so combining an unvalidated root with a literal segment can
+        // produce a path somewhere entirely unexpected. Resolving to a full
+        // path up front means Root is always absolute and the fixed literal
+        // segments can never be rooted.
+        Root = Path.GetFullPath(root);
+    }
+
+    /// <summary>
+    /// Joins a fixed, known-relative segment onto <see cref="Root"/>.
+    /// </summary>
+    /// <remarks>
+    /// Every caller passes a compile-time literal, never user input, so this
+    /// cannot be used to escape the root. The assertion documents and enforces
+    /// that invariant rather than leaving it to convention.
+    /// </remarks>
+    private string Resolve(string relativeSegment)
+    {
+        Debug.Assert(
+            !Path.IsPathRooted(relativeSegment),
+            $"'{relativeSegment}' must be relative; a rooted segment would discard Root.");
+
+        return Path.Combine(Root, relativeSegment);
     }
 
     /// <summary>e.g. <c>%LOCALAPPDATA%\Noto</c></summary>
     public string Root { get; }
 
     /// <summary>The SQLite database. Its -wal and -shm siblings live beside it.</summary>
-    public string DatabaseFile => Path.Combine(Root, DatabaseFileName);
+    public string DatabaseFile => Resolve(DatabaseFileName);
 
     /// <summary>
     /// Attachment binaries. Files live on disk, not in the database: blobs
     /// would bloat it, slow backup, and make the store harder to inspect.
     /// </summary>
-    public string AttachmentsDirectory => Path.Combine(Root, "attachments");
+    public string AttachmentsDirectory => Resolve("attachments");
 
     /// <summary>
     /// Backup snapshots. Plain .db files produced by SQLite's backup API —
     /// never a file copy, which can catch a half-written WAL.
     /// </summary>
-    public string BackupsDirectory => Path.Combine(Root, "backups");
+    public string BackupsDirectory => Resolve("backups");
 
     /// <summary>Logs. Never contain note content or user file paths.</summary>
-    public string LogsDirectory => Path.Combine(Root, "logs");
+    public string LogsDirectory => Resolve("logs");
 
     /// <summary>Creates the directories. Idempotent.</summary>
     public void EnsureCreated()

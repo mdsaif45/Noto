@@ -15,7 +15,11 @@ public sealed class TempDatabase : IDisposable
 
     public TempDatabase()
     {
-        _directory = Path.Combine(Path.GetTempPath(), "noto-tests", Guid.NewGuid().ToString("N"));
+        // GetFullPath normalises the root once; "noto-tests" and the GUID are
+        // literals/generated and never rooted, so Combine cannot discard it.
+        _directory = Path.GetFullPath(
+            Path.Combine(Path.GetTempPath(), "noto-tests", Guid.NewGuid().ToString("N")));
+
         Directory.CreateDirectory(_directory);
         DatabasePath = Path.Combine(_directory, "test.db");
     }
@@ -36,12 +40,13 @@ public sealed class TempDatabase : IDisposable
                 Directory.Delete(_directory, recursive: true);
             }
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // A leaked temp directory is noise, not a test failure.
-        }
-        catch (UnauthorizedAccessException)
-        {
+            // A leaked temp directory is noise, not a test failure — the OS
+            // reclaims it. Reported rather than swallowed silently, so a
+            // systematic cleanup problem is visible instead of invisible.
+            Console.Error.WriteLine(
+                $"TempDatabase cleanup left '{_directory}' behind: {ex.GetType().Name}: {ex.Message}");
         }
     }
 }
