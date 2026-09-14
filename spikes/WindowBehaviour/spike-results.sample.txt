@@ -1,0 +1,119 @@
+=======================================================================
+NOTO SPIKE — WINDOW BEHAVIOUR (issue #2)
+=======================================================================
+OS                 : Microsoft Windows NT 10.0.26200.0
+.NET               : 8.0.31
+64-bit process     : True
+Packaged identity  : no (unpackaged) — expected, matches ADR-008 sparse-package plan
+Run at             : 2026-09-14 17:38:25
+
+1. PRESENTER — borderless, always-on-top, resize
+----------------------------------------------------------------------
+  presenter kind        : Overlapped
+  IsAlwaysOnTop = true  : True   PASS
+  borderless            : applied (HasBorder=False, HasTitleBar=False)
+  resizable/min/max     : True/True/True
+  RESULT                : PASS — no interop required
+
+2. MONITORS / WORK AREA / DPI
+----------------------------------------------------------------------
+MONITORS: 1
+
+  \\.\DISPLAY1  [PRIMARY]
+    bounds     (0,0)-(1920,1080) 1920x1080
+    work area  (0,0)-(1920,1032) 1920x1032
+    dpi        96x96  (100% scaling)
+    taskbar    bottom
+    orient     landscape
+    dock L     (0,0)-(320,1032) 320x1032   (320 DIP -> 320px)
+    dock R     (1600,0)-(1920,1032) 320x1032   (320 DIP -> 320px)
+
+  Uniform DPI across all monitors — mixed-DPI NOT exercised on this machine
+
+3. THIS WINDOW'S DPI
+----------------------------------------------------------------------
+  GetDpiForWindow       : 96  (100% scaling)
+  DIP->px factor        : 1
+  320 DIP               : 320 px
+
+4. FRAME BOUNDS — the invisible-border trap
+----------------------------------------------------------------------
+  GetWindowRect         : (182,182)-(1622,935) 1440x753
+  DWMWA_EXTENDED_FRAME  : (189,182)-(1615,928) 1426x746
+  difference L/R        : 7px / 7px
+  RESULT                : CONFIRMED — GetWindowRect is 7px off; using it would misalign every docked window
+
+5. EDGE DOCKING (AppWindow.MoveAndResize, no AppBar)
+----------------------------------------------------------------------
+  desired (visible)     : (1600,0)-(1920,1032) 320x1032
+  naive MoveAndResize   : (1607,0)-(1913,1025) 306x1025
+  gap at right edge     : 7px  <- the bug
+
+  measured inset L/T/R/B: 7/0/7/7
+  compensated           : (1600,0)-(1920,1032) 320x1032
+  RESULT                : PASS — flush to the right work-area edge (taskbar at bottom)
+  FINDING               : AppWindow.MoveAndResize uses OUTER window rect.
+                          A panel positioned naively sits ~7px away from the
+                          screen edge. Production MUST compensate by the
+                          outer-vs-frame inset, per edge, per DPI.
+  NOTE                  : SHAppBarMessage deliberately NOT used (ADR-007) —
+                          a crash without ABM_REMOVE leaves the desktop work
+                          area shrunken until logoff.
+
+6. OPACITY — via XAML root, not SetLayeredWindowAttributes
+----------------------------------------------------------------------
+  root.Opacity = 0.85   : 0.8500000238418579   PASS
+  RESULT                : PASS — ADR-007's approach works, no interop,
+                          and no fight with DirectComposition.
+
+7. WHOLE-WINDOW CLICK-THROUGH (ghost mode)
+----------------------------------------------------------------------
+  WS_EX_LAYERED|TRANSPARENT applied : True
+  restored                          : True
+  RESULT                : PASS — whole-window ghost mode settable
+  NOTE                  : exiting ghost mode CANNOT use a click on the
+                          window — a hotkey and tray item are mandatory.
+  NOTE                  : per-pixel click-through remains impossible in
+                          WinUI 3, and is not a Noto requirement.
+
+8. SCREEN-CAPTURE EXCLUSION
+----------------------------------------------------------------------
+  SetWindowDisplayAffinity(0x11) : True
+  read back                      : 0x11
+  RESULT                : PASS — constant is 0x11, not 0x2
+  NOTE                  : describe as 'hide from screen sharing', NEVER as
+                          security — Microsoft disclaims it and a bypass exists.
+
+9. VIRTUAL DESKTOP VISIBILITY (DWMWA_CLOAKED)
+----------------------------------------------------------------------
+  IsCloaked(this)       : False
+  RESULT                : PASS — documented, version-stable. Avoids the
+                          undocumented IVirtualDesktopManager interfaces
+                          whose IIDs change between Windows builds.
+
+10. GLOBAL HOTKEYS + AltGr
+----------------------------------------------------------------------
+GLOBAL HOTKEYS (RegisterHotKey)
+
+  [OK    ] Ctrl+Shift+N  (recommended shape)
+  [FAIL(1409)] Win+Shift+Space (recommended shape)
+  [OK    ] Ctrl+Alt+Q    (AltGr HAZARD)
+            ^ AltGr conflict: intercepts typing on DE/FR/PL layouts
+  [FAIL(1409)] Ctrl+Shift+N  (duplicate — must fail)
+  [FAIL(1409)] Win+L         (OS-reserved — expect failure)
+  [OK    ] F13 alone     (no modifier)
+
+  Win32 error 1409 = ERROR_HOTKEY_ALREADY_REGISTERED
+  Conflicts surface as a clean boolean false, not an exception,
+  so Noto can report them in settings and keep running.
+
+11. SHOW / HIDE / FOCUS LIFECYCLE
+----------------------------------------------------------------------
+  Hide()                : IsVisible=False
+  Show()                : IsVisible=True
+  foreground is spike   : False
+  RESULT                : PASS — AppWindow.Hide/Show is the correct
+                          primitive for an auto-hiding drawer.
+
+=======================================================================
+END
