@@ -18,8 +18,8 @@ outlive the application. That imposes three rules:
 2. the schema is documented, and changing it is a breaking change requiring a
    migration
 3. **only the minimal model actually required.** The initial project direction
-   listed eleven candidate entities; this model has eight tables, and two of
-   those are infrastructure.
+   listed eleven candidate entities; this model has six entity tables plus one
+   join table, one FTS5 virtual table, and one settings table.
 
 Entities are added when a feature needs them, not in anticipation.
 
@@ -198,7 +198,7 @@ indexed. Their ranking is ADR-006's, and it is the whole design:
 `LastMatchedAt` is what lets the UI distinguish *attached* from *detached*
 without probing the OS.
 
-`Kind` is `application` only in the MVP. `window` arrives in v0.5; `document`
+`Kind` is `application` only in the MVP. `window` arrives in v0.6; `document`
 and `url` are reserved and unimplemented — the column accepts them so that
 adding the finer ladder rungs does not require a schema migration.
 
@@ -366,6 +366,6 @@ bound-to: Code.exe
 | Question | Needed by |
 | -------- | --------- |
 | Attachment size limit, and behavior when exceeded | M1 |
-| Whether `Position` JSON should become typed columns once window binding lands | v0.5 |
+| Whether `Position` JSON should become typed columns once window binding lands | v0.6 |
 | Backup retention policy | M1 |
 | Whether `Color` palette keys need to be user-extensible | M1 |

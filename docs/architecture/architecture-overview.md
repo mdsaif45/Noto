@@ -123,8 +123,9 @@ single owner makes them tractable.
 
 ## Context engine
 
-The differentiator, detailed in [context-engine.md](context-engine.md) and
-decided in ADR-005.
+The differentiator, decided in
+[ADR-005](../decisions/ADR-005-context-engine.md) and
+[ADR-006](../decisions/ADR-006-window-binding-identity.md).
 
 ```
   Windows                Noto.Windows           Noto.Core

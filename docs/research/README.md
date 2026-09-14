@@ -6,7 +6,7 @@ Research conducted before implementation, September 2026.
 
 | Document | What it answers |
 | -------- | --------------- |
-| [competitive-analysis.md](competitive-analysis.md) | What the nine competing products actually do, and where the market is split |
+| [competitive-analysis.md](competitive-analysis.md) | What the eight competing products do (plus WindowTop, studied as a feasibility proof rather than a competitor), and where the market is split |
 | [feature-matrix.md](feature-matrix.md) | Every feature, every competitor, and Noto's decision with a reason |
 | [windows-landscape.md](windows-landscape.md) | What Windows supports, what it does not, and where the obvious implementation is a trap |
 | [ux-analysis.md](ux-analysis.md) | Interaction lessons, drawn mainly from competitors' unresolved complaints |

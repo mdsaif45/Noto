@@ -36,7 +36,7 @@ a milestone of its own.
 **The resolution: ship the bottom rung of the context ladder, and ship it
 well.** Application-level binding is deterministic, cheap, reliable, and it
 proves the thesis. Window-level binding — the part with unsolved identity
-problems — is v0.5, not v0.4.
+problems — is v0.6, not v0.5.
 
 ---
 
@@ -102,11 +102,18 @@ problems — is v0.5, not v0.4.
 - `detached` as a first-class, non-alarming state (ADR-006)
 - the confidence floor: when context is unclear, show nothing (ADR-005)
 
-### Capture
+### Capture — M6 / v0.7, after the thesis is validated
+
+Capture is in the MVP, but it ships **after** context (M5), not alongside it.
+The reasoning is the same sequencing logic used everywhere else: capture makes
+Noto pleasant, context makes it Noto. If the thesis fails at v0.5, capture work
+done beforehand would have been spent on the wrong product.
 
 - global hotkey quick capture — type, save, return to the previous application
 - clipboard capture
 - drag and drop text and files into a note
+
+Screenshot capture is a whole subsystem and is deferred within M6 itself.
 
 ### Privacy
 
@@ -133,9 +140,9 @@ than relitigated from scratch.
 
 | Deferred | To | Why |
 | -------- | -- | --- |
-| **Window-level binding** | M5 / v0.5 | Durable identity (ADR-006) is the hard problem. Application-level proves the thesis without it. |
+| **Window-level binding** | M5 / v0.6 | Durable identity (ADR-006) is the hard problem. Application-level proves the thesis without it. |
 | **Document / URL-level context** | Post-v1 | Requires UI Automation. This is the real differentiator and deserves its own research and ADR, not a rushed MVP slot. |
-| **Window following** | M5 / v0.5 | Depends on window binding. Also the most likely area of patent exposure — needs the freedom-to-operate check first. |
+| **Window following** | M5 / v0.6 | Depends on window binding. Also the most likely area of patent exposure — needs the freedom-to-operate check first. |
 | **Screenshot capture** | M6 | `Windows.Graphics.Capture` works, but capture is a whole subsystem. Clipboard and drag/drop cover the common paths. |
 | **Live-styled markdown editing** | M8 | A refinement. Storage format does not change, so this is not a rewrite. |
 | **Tables and images in notes** | Post-MVP | Each needs its own justification (ADR-004). |
@@ -172,26 +179,37 @@ The MVP is not one release. It is validated incrementally:
         └─ proves: it is a usable notes app
         └─ FIRST DOGFOODABLE BUILD
 
-  v0.3  Search + Floating   FTS5 search, floating notes, always-on-top,
-                            opacity, ghost mode, capture exclusion
+  v0.3  Search             M3. FTS5 search, keyboard-first search UI
         └─ proves: it is a good notes app
 
-  v0.4  Context (app level) app binding, show/hide on focus, quick capture,
-                            clipboard, drag & drop
+  v0.4  Floating Notes     M4. floating windows, always-on-top, opacity,
+                           lock, ghost mode, capture exclusion
+
+  v0.5  Context (app)      M5. app binding, show/hide on focus
         └─ proves: THE THESIS
 
-  v0.5  Context (window)    window binding, durable identity, follow
+  v0.6  Context (window)   M5. window binding, durable identity, follow
         └─ proves: the differentiator at full strength
 
-  v1.0  Hardening           accessibility, performance, installer,
-                            auto-update, security review, docs
+  v0.7  Capture            M6. quick capture hotkey, clipboard,
+                           drag & drop, screenshot
+
+  v0.8  Windows integr.    M7. notifications, protocol, Explorer,
+                           Hello, virtual desktops
+
+  v0.9  Polish             M8. accessibility, live-styled markdown,
+                           performance, installer, auto-update
+
+  v1.0  Release            security review, docs, signed installer
 ```
+
+One version per milestone, so nothing is unversioned.
 
 **v0.2 is the most important milestone in this plan**, because it is the first
 build that can be used daily. Everything after it is informed by actually
 living with the product rather than reasoning about it.
 
-**v0.4 is the decision point.** If application-level context does not feel
+**v0.5 is the decision point.** If application-level context does not feel
 valuable in daily use, the thesis is wrong, and that must be discovered before
 building the harder window-level version — not after.
 
@@ -218,7 +236,7 @@ from a good sidebar.
 | Risk | Mitigation |
 | ---- | ---------- |
 | ADR-001 validation gate fails; framework changes | Spikes are scheduled in M0, when a switch costs days |
-| Application-level context feels too coarse to be useful | Discovered at v0.4, before window-level work begins. This is deliberate sequencing. |
+| Application-level context feels too coarse to be useful | Discovered at v0.5, before window-level work begins. This is deliberate sequencing. |
 | Mixed-DPI multi-monitor defects | Identified as the dominant defect theme in comparable software; in the test matrix from the start (ADR-007) |
 | Markdown alienates non-technical users | Target audience already writes markdown; revisit only with evidence |
 | Scope creep during M1–M2 | This document, and principle 9 |
@@ -230,7 +248,7 @@ from a good sidebar.
 One judgement call is worth flagging explicitly, because reasonable people
 would differ:
 
-> **Should window-level binding be in the MVP rather than v0.5?**
+> **Should window-level binding be in the MVP rather than v0.6?**
 
 The argument for including it: it is what @/Anchored does, and it is the more
 impressive demo.
@@ -240,5 +258,5 @@ which has no clean solution (ADR-006), and building it before validating that
 contextual notes are useful at all risks spending the hardest engineering
 effort on an unproven premise.
 
-If the preference is to include it, M5 moves before M4 and v0.4 absorbs v0.5.
+If the preference is to include it, v0.5 and v0.6 merge into a single context release.
 That is a legitimate choice; it is simply not the recommended one.

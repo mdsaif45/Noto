@@ -10,9 +10,16 @@
 Noto must choose how note content is stored and edited. Research found a
 striking gap:
 
-> **No Windows product in the researched set supports markdown.** OneNote still
-> has "zero native markdown support" as of February 2026, despite years of
-> requests. CONFIRMED.
+> **No mainstream Windows product in the researched set supports markdown.**
+> OneNote still has "zero native markdown support" as of February 2026, despite
+> years of requests. CONFIRMED.
+>
+> One qualification: **TSNotes** is a $10 Windows/Mac/Linux tool whose listing
+> mentions hashtags and wikilinks, so it may be markdown-adjacent. Both of its
+> official domains returned HTTP 403 to research, so this is **UNVERIFIED**. It
+> is also absent from every 2026 roundup found. The claim above holds for every
+> product a Windows user is likely to encounter; it should not be stated as
+> absolute until TSNotes is checked by hand.
 
 Meanwhile Noto's target users — developers, designers, analysts, technical
 staff — already write markdown daily, in GitHub, Slack, Obsidian, and their

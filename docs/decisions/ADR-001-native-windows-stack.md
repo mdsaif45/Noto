@@ -110,7 +110,7 @@ Technical research identified three genuine problems (full detail in
 
 | Risk | Finding | Mitigation |
 | ---- | ------- | ---------- |
-| **Per-window opacity** | `WS_EX_LAYERED` + `SetLayeredWindowAttributes` fights WinUI 3's DirectComposition renderer. Combined with Mica/Acrylic it produces black or fully transparent regions. | **Set `Opacity` on the root XAML element instead.** Same visual result, zero platform risk. The Win32 route is reserved for an experimental ghost mode behind a flag. |
+| **Per-window opacity** | `WS_EX_LAYERED` + `SetLayeredWindowAttributes` fights WinUI 3's DirectComposition renderer. Combined with Mica/Acrylic it produces black or fully transparent regions. | **Set `Opacity` on the root XAML element instead.** Same visual result, zero platform risk. `SetLayeredWindowAttributes` is not used for opacity at all (ADR-007); `WS_EX_LAYERED` appears only as the prerequisite for whole-window click-through. |
 | **Per-pixel click-through** | Structurally impossible. WinUI 3 draws through composition, so "the contents are never really seen by the window itself, so the window will never know how to pass input through." | **Noto only needs whole-window click-through**, which works via `WS_EX_LAYERED \| WS_EX_TRANSPARENT`. Per-pixel is not a requirement. |
 | **Explorer drag and drop** | Open WinUI 3 bugs spanning 2020–2025. | Spike 2 validates it early. Capture has fallbacks (clipboard, hotkey) if drop is unreliable. |
 

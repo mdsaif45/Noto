@@ -11,16 +11,17 @@ and inventing one would only distort scope decisions.
 ## Shape
 
 ```
-  M0  Foundation        ████████████        it builds, starts, persists
-  M1  Core Notes        ████████████████    it holds notes
-  M2  Workspace         ████████████████    ◄── FIRST DOGFOODABLE (v0.2)
-  M3  Search            ████████            it is a good notes app (v0.3)
-  M4  Floating Notes    ████████████
-  M5  Context Engine    ████████████████    ◄── THE THESIS (v0.4 / v0.5)
-  M6  Capture           ██████████
-  M7  Windows Integr.   ████████████
-  M8  Polish            ████████████████
-  v1.0 Release          ████████
+  M0  Foundation        ████████████        v0.1  it builds and persists
+  M1  Core Notes        ████████████████          it holds notes
+  M2  Workspace         ████████████████    v0.2  ◄── FIRST DOGFOODABLE
+  M3  Search            ████████            v0.3  it is a good notes app
+  M4  Floating Notes    ████████████        v0.4
+  M5  Context Engine    ████████████████    v0.5  ◄── THE THESIS
+                                            v0.6  window level
+  M6  Capture           ██████████          v0.7
+  M7  Windows Integr.   ████████████        v0.8
+  M8  Polish            ████████████████    v0.9
+  v1.0 Release          ████████            v1.0
 ```
 
 Two milestones matter more than the rest:
@@ -134,7 +135,7 @@ costs days here and months later.
 
 *Exit: notes appear with the work they belong to.*
 
-### v0.4 — application level
+### v0.5 — application level
 
 - `EVENT_SYSTEM_FOREGROUND` observer, debounced, never polling
 - **AUMID resolution for packaged apps** — without it, binding is useless for
@@ -148,7 +149,7 @@ costs days here and months later.
 > two weeks of daily use, the thesis is wrong — and that must be discovered
 > before building the harder version.
 
-### v0.5 — window level
+### v0.6 — window level
 
 - composite fingerprint identity (ADR-006)
 - `detached` as a first-class, non-alarming state
@@ -156,12 +157,12 @@ costs days here and months later.
 - follow window position and size
 - minimise, restore, monitor change, occlusion
 
-**Before v0.5 begins:** the @/Anchored hands-on evaluation and the
+**Before v0.6 begins:** the @/Anchored hands-on evaluation and the
 "Patent Pending" prior-art check (competitive-analysis.md §6, items 2 and 3).
 
 ---
 
-## M6 — Capture
+## M6 — Capture ◄ v0.7
 
 *Exit: capture without leaving the current application.*
 
@@ -227,8 +228,8 @@ costs days here and months later.
 | Risk | Where it bites | Mitigation |
 | ---- | -------------- | ---------- |
 | Framework decision reverses | M0 → everything | Spikes are first in M0 |
-| Thesis is wrong | M5 | v0.4 before v0.5, deliberately |
+| Thesis is wrong | M5 | v0.5 before v0.6, deliberately |
 | Mixed-DPI defects surface late | M2, M4, M5 | In the test matrix from M2 |
 | Scope creep after dogfooding | M2 onward | mvp.md and principle 9 |
-| Patent exposure | v0.5 | Prior-art check before M5 window work |
+| Patent exposure | v0.6 | Prior-art check before M5 window work |
 | Signing cost discovered at release | v1.0 | **Confirm during M0** |

@@ -11,8 +11,8 @@ There is a real, uncontested position on Windows: **a well-built notes
 application whose context resolution is automatic and deterministic.** The best
 products in this category are macOS-only. The Windows products that exist are
 either capable but dated (Notezilla), or contextual but not actually notes
-applications (@/Anchored). No Windows product in the set supports markdown or
-an edge-docked sidebar. The differentiator is not the idea of contextual notes,
+applications (@/Anchored). No mainstream Windows product in the set supports
+markdown or an edge-docked sidebar. The differentiator is not the idea of contextual notes,
 which already exists — it is the *mechanism*, which everyone currently gets
 wrong in one of two ways.
 
@@ -23,11 +23,11 @@ wrong in one of two ways.
 Contextual notes on Windows are **not greenfield**. That assumption had to be
 corrected during research:
 
-| Product | Context feature | Mechanism |
-| ------- | --------------- | --------- |
-| Notezilla | "Stick notes to webpages, documents, programs, apps, folders, or any window" | **User-authored window-title patterns with `*` wildcards** |
-| Zhorn Stickies | Attach to application, website, document or folder | Undocumented; inferred title-based |
-| @/Anchored | Note follows a live window | Undisclosed |
+| Product | Context feature | Mechanism | Evidence |
+| ------- | --------------- | --------- | -------- |
+| Notezilla | "Stick notes to webpages, documents, programs, apps, folders, or any window" | **User-authored window-title patterns with `*` wildcards** | CONFIRMED — vendor help docs |
+| Zhorn Stickies | Attach to application, website, document or folder | Undocumented; inferred title-based | Feature CONFIRMED; mechanism UNKNOWN |
+| @/Anchored | Note follows a live window | Undisclosed | Vendor claim only; UNVERIFIED |
 
 This is good news. A paid product has sold this for years, which means the
 demand is real and the concept needs no market education.
@@ -63,9 +63,10 @@ as a feature, and it points directly at the unsolved problem.
 
 ### 2.1 Markdown — highest ratio, lowest risk
 
-**No Windows product in the researched set supports markdown.** OneNote still
-has "zero native markdown support" as of February 2026, despite years of
-requests.
+**No mainstream Windows product in the researched set supports markdown.**
+OneNote still has "zero native markdown support" as of February 2026, despite
+years of requests. The one possible exception, TSNotes, could not be verified —
+both of its domains returned HTTP 403 — and it appears in no 2026 roundup.
 
 Meanwhile the target audience — developers, designers, analysts, technical
 staff — writes markdown every day.
@@ -113,8 +114,8 @@ Application-level binding is achievable now and proves the thesis.
 Document-level binding is the defensible position, and it is a genuine research
 problem (UI Automation, per-application behavior, performance).
 
-The strategic sequencing decision — application level in v0.4, window level in
-v0.5, document level post-v1 — exists so the thesis is validated before the
+The strategic sequencing decision — application level in v0.5, window level in
+v0.6, document level post-v1 — exists so the thesis is validated before the
 hardest engineering is attempted. (mvp.md, ADR-005)
 
 ### 2.4 Cheap wins with high perceived value
@@ -161,12 +162,12 @@ The honest one-line position:
 | Risk | Severity | Assessment |
 | ---- | -------- | ---------- |
 | **@/Anchored's "Patent Pending"** | Unclear | Self-asserted, unexamined, scope unknown. Substantial prior art exists — Notezilla and Zhorn have shipped window attachment for years. **Needs a real freedom-to-operate check before window-following becomes a headline claim.** |
-| **Context may not be as valuable as assumed** | High | The core bet. Mitigated by sequencing: v0.4 validates it cheaply before v0.5 spends the hard effort. |
+| **Context may not be as valuable as assumed** | High | The core bet. Mitigated by sequencing: v0.5 validates it cheaply before v0.6 spends the hard effort. |
 | **Deterministic resolution may not be achievable** | High | Document-level resolution via UI Automation is unproven across applications. Fallback: window-level still beats title matching. |
 | **Mixed-DPI multi-monitor defects** | Medium | The dominant defect theme in comparable software. In the test matrix from M2, not bolted on later. |
 | **Framework risk** | Medium | WinUI 3 is weak at exactly what Noto leans on. Gated by ADR-001 spikes with WPF as fallback. |
 | **Markdown alienates non-technical users** | Low | The target audience already writes it. Revisit only with evidence. |
-| **A competitor closes the gap** | Low-Medium | @/Anchored is actively developed and could add search and organization. Its 6-note-per-window limit and coarse binding suggest architectural constraints, but this should be monitored. |
+| **A competitor closes the gap** | Low-Medium | @/Anchored is actively developed and could add search and organization. Its coarse binding, and a six-slot-per-window limit it advertises, may indicate architectural constraints — but both are vendor claims, so this is a hypothesis to monitor rather than a finding. |
 
 The patent item is the only one that could invalidate the plan rather than
 merely delay it, and it is cheap to check.
@@ -177,7 +178,7 @@ merely delay it, and it is cheap to check.
 
 Stated in advance, so the answer is not rationalised later:
 
-- **Two weeks of daily use at v0.4, and contextual notes are never the reason a
+- **Two weeks of daily use at v0.5, and contextual notes are never the reason a
   note was found.** If every note is still found by searching, context is
   decoration.
 - **Application-level binding proves too coarse to be useful, and document-level
@@ -186,7 +187,7 @@ Stated in advance, so the answer is not rationalised later:
 - **Focus-stealing or wrong-note surfacing cannot be eliminated.** A contextual
   feature users disable is worse than no feature.
 
-The v0.4 decision point in the roadmap exists specifically to force this
+The v0.5 decision point in the roadmap exists specifically to force this
 question early.
 
 ---

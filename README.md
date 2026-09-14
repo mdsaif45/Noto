@@ -66,8 +66,9 @@ Existing tools sit at one of two extremes:
 
 On Windows specifically, research found the gap is real: the best contextual
 notes apps ([SideNotes](https://www.apptorium.com/sidenotes/),
-[Noticky](https://www.noticky.app/)) are macOS-only, and **no Windows product
-in the category supports markdown or an edge-docked sidebar.**
+[Noticky](https://www.noticky.app/)) are macOS-only, and **no mainstream
+Windows product in the category supports markdown or an edge-docked
+sidebar.**
 
 Full analysis: [docs/research/competitive-analysis.md](docs/research/competitive-analysis.md)
 

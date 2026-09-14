@@ -170,8 +170,10 @@ Three findings define the opportunity.
    on Windows at all. Windows users have sticky notes.
 
 2. **The one Windows product built around context has no notes app behind it.**
-   @/Anchored anchors notes to windows convincingly, but research could not
-   confirm that it has search, tags, folders, or even a note list. It is an
+   @/Anchored claims to anchor notes to windows and to follow them live — though
+   every one of those claims comes from its own marketing site, with no
+   independent verification found. Research could not confirm it has search,
+   tags, folders, or even a note list. On the available evidence it is an
    anchoring engine attached to a plain sticky note.
 
 3. **Contextual notes on Windows are not greenfield — but they are shallow.**
@@ -207,9 +209,10 @@ automatically**, at the level of the document, file or URL, with no pattern for
 the user to author and no inference. Doing that well is the hard engineering
 problem, and the actual moat.
 
-The related finding is that **no Windows product in this category supports
-markdown**, and none offers an edge-docked sidebar. The whole category looks
-like 2010.
+The related finding is that **no mainstream Windows product in this category
+supports markdown**, and none offers an edge-docked sidebar. (TSNotes may be an
+exception, but its site could not be reached and it appears in no 2026 roundup.)
+The whole category looks like 2010.
 
 ---
 
