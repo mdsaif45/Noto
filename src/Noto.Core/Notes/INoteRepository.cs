@@ -138,6 +138,36 @@ public interface INoteRepository
     /// scope (contract §5), and deleted rows never participate in ordering (I6).
     /// </remarks>
     bool IsActiveSiblingIn(NoteId id, FolderId? folderId);
+
+    /// <summary>
+    /// Sets a note's pinned flag and stamps <c>UpdatedAt</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Touches <c>IsPinned</c> and nothing else.</b> Pinning is a display
+    /// partition (O2) laid over the sequence, not a rewrite of it — which is
+    /// what makes the contract's promise that <c>UnpinNote</c> "returns to
+    /// <c>SortOrder</c> position" possible. A pin that moved the note to the
+    /// top of the scope would destroy the position it is supposed to return to.
+    /// </remarks>
+    void SetPinned(NoteId id, bool isPinned, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Sets a note's folded flag and stamps <c>UpdatedAt</c>.
+    /// </summary>
+    /// <remarks>
+    /// Folded-ness is user-authored note state that must persist identically in
+    /// every surface (design §5, parity B12), not a rendering coordinate.
+    /// </remarks>
+    void SetFolded(NoteId id, bool isFolded, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Sets a note's palette key, or clears it, and stamps <c>UpdatedAt</c>.
+    /// </summary>
+    /// <param name="colorKey">
+    /// One of <see cref="NoteColor.Keys"/>, or <see langword="null"/> to clear.
+    /// The caller has already validated it.
+    /// </param>
+    void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt);
 }
 
 /// <summary>

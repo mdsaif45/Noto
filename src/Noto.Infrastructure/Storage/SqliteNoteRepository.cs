@@ -376,6 +376,68 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
+    public void SetPinned(NoteId id, bool isPinned, DateTimeOffset updatedAt) =>
+        // Note the SET list: IsPinned and UpdatedAt only. SortOrder is
+        // deliberately absent — see the interface remarks.
+        UpdateNoteField(id, "IsPinned", isPinned ? 1 : 0, updatedAt, "pin");
+
+    public void SetFolded(NoteId id, bool isFolded, DateTimeOffset updatedAt) =>
+        UpdateNoteField(id, "IsFolded", isFolded ? 1 : 0, updatedAt, "fold");
+
+    public void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt) =>
+        UpdateNoteField(id, "ColorKey", (object?)colorKey ?? DBNull.Value, updatedAt, "colour");
+
+    /// <summary>
+    /// Updates one column of one active note, plus its timestamp.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A single-row write, so no transaction: design §9 lists the five
+    /// operations that need one, and none of these is among them. Adding one
+    /// for symmetry would be machinery without a purpose.
+    /// </para>
+    /// <para>
+    /// The column name is supplied only by this class's own callers, never by
+    /// input — it names a compile-time constant in each case — while the value
+    /// is always parameterised.
+    /// </para>
+    /// </remarks>
+    private void UpdateNoteField(
+        NoteId id,
+        string column,
+        object value,
+        DateTimeOffset updatedAt,
+        string operation)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // The DeletedAt filter is belt-and-braces: the handler has already
+            // rejected a deleted note with InvalidState (I5). It is here so the
+            // repository cannot be the thing that edits something in the bin.
+            command.CommandText =
+                $"""
+                 UPDATE Notes
+                 SET {column} = $value, UpdatedAt = $updatedAt
+                 WHERE Id = $id AND DeletedAt IS NULL;
+                 """;
+            command.Parameters.AddWithValue("$value", value);
+            command.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
+            command.Parameters.AddWithValue("$id", id.Value);
+
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not {operation} note '{id}'.",
+                ex);
+        }
+    }
+
     private static Note ReadNote(SqliteDataReader reader) => new()
     {
         Id = NoteId.From(reader.GetString(0)),
