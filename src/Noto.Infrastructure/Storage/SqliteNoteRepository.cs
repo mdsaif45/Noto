@@ -47,8 +47,18 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                      $sortOrder, $createdAt, $updatedAt, $deletedAt);
                 """;
 
+            // Pattern-matched rather than written as `note.FolderId?.Value`,
+            // because two different members called `Value` meet on that
+            // expression: Nullable<FolderId>.Value, which throws when the
+            // folder is absent, and FolderId.Value, the ULID string. The
+            // null-conditional binds to the first and the access to the
+            // second, which is safe but reads as though it might not be — and
+            // a null-analyser cannot tell the two apart either. Naming the
+            // unwrapped folder removes the ambiguity for both readers.
             command.Parameters.AddWithValue("$id", note.Id.Value);
-            command.Parameters.AddWithValue("$folderId", (object?)note.FolderId?.Value ?? DBNull.Value);
+            command.Parameters.AddWithValue(
+                "$folderId",
+                note.FolderId is { } folder ? folder.Value : DBNull.Value);
             command.Parameters.AddWithValue("$content", note.Content);
             command.Parameters.AddWithValue("$colorKey", (object?)note.ColorKey ?? DBNull.Value);
             command.Parameters.AddWithValue("$isPinned", note.IsPinned ? 1 : 0);

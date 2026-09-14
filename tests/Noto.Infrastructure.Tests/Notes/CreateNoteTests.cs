@@ -187,6 +187,33 @@ public sealed class CreateNoteTests : IDisposable
         Assert.Equal("durable", new SqliteNoteRepository(reopened).FindActive(id)!.Content);
     }
 
+    // ---- the FolderId parameter reaches the column correctly -------------
+
+    [Fact]
+    public void A_root_note_persists_a_null_folder_column()
+    {
+        // The absent folder must become SQL NULL, not the empty string and not
+        // a literal "DBNull" — otherwise root notes would not match the
+        // "FolderId IS NULL" scope query that ordering and listing rely on.
+        var id = Handler().Handle(new CreateNote(null, "at root")).Value;
+
+        Assert.Equal(1L, CountNotes(
+            "SELECT COUNT(*) FROM Notes WHERE Id = $id AND FolderId IS NULL;",
+            ("$id", id.Value)));
+    }
+
+    [Fact]
+    public void A_foldered_note_persists_its_folder_id()
+    {
+        FolderId folder = InsertFolder("Work");
+
+        var id = Handler().Handle(new CreateNote(folder, "in a folder")).Value;
+
+        Assert.Equal(1L, CountNotes(
+            "SELECT COUNT(*) FROM Notes WHERE Id = $id AND FolderId = $folderId;",
+            ("$id", id.Value), ("$folderId", folder.Value)));
+    }
+
     // ---- O3: a new note is placed at the END of its scope ----------------
 
     [Fact]
@@ -291,6 +318,20 @@ public sealed class CreateNoteTests : IDisposable
     public void A_null_command_throws()
     {
         Assert.Throws<ArgumentNullException>(() => Handler().Handle(null!));
+    }
+
+    private long CountNotes(string sql, params (string Name, object Value)[] parameters)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+
+        foreach ((string name, object value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+
+        return (long)command.ExecuteScalar()!;
     }
 
     private long ScalarLong(string sql)
