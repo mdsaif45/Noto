@@ -234,7 +234,7 @@ Commands per ADR-010. **Queries are not commands** — reading goes direct.
 ```
 
 Queries: `GetNote`, `ListNotesInFolder`, `ListFolders`, `ListTags`,
-`ListNotesForTag`, `ListDeleted`.
+`ListNotesForTag`, `ListDeletedNotes`, `ListDeletedFolders`.
 
 ### DEFER
 
