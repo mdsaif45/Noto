@@ -567,13 +567,37 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     }
 
     /// <summary>
-    /// O6: rewrites a scope's <c>SortOrder</c> to 1, 2, 3… preserving the
+    /// O6: rewrites the scope's <c>SortOrder</c> to 1, 2, 3… preserving the
     /// current order, inside the caller's transaction.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>The moving note is excluded</b>, so what this rewrites is the scope
+    /// <i>minus</i> that note. It is about to be positioned explicitly by
+    /// <see cref="ResolvePosition"/>, and including it would assign a value
+    /// that the very next statement overwrites.
+    /// </para>
+    /// <para>
+    /// The consequence is worth stating plainly, because the method name alone
+    /// suggests otherwise: after the whole operation the scope is
+    /// <b>not</b> contiguous. Renormalisation restores 1, 2, 3… and the
+    /// insertion then places the moving note between two of them:
+    /// </para>
+    /// <code>
+    ///   before      A=1.0  X=1.0000000005  B=2.0   M=9.0   (gap exhausted)
+    ///   renormalise A=1    X=2             B=3     M=9.0   &lt;- O6, this method
+    ///   place M     A=1    M=1.5           X=2     B=3     &lt;- O3 midpoint
+    /// </code>
+    /// <para>
+    /// That satisfies the contract: O6 governs what renormalisation produces,
+    /// O3 governs the insertion that follows, and O5 says the resulting gaps
+    /// are harmless. What matters observably is that the order is correct and
+    /// the neighbours are once again far enough apart to split.
+    /// </para>
+    /// <para>
     /// Every row it rewrites is a row it changes, so each takes the
-    /// transaction's single timestamp (contract §4). The moving note is
-    /// excluded: it is about to be positioned explicitly.
+    /// transaction's single timestamp (contract §4).
+    /// </para>
     /// </remarks>
     private static void Renormalise(
         SqliteConnection connection,

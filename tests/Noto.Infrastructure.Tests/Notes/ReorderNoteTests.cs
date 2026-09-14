@@ -280,6 +280,73 @@ public sealed class ReorderNoteTests : IDisposable
         Assert.NotEqual(_clock.UtcNow, _notes.FindActive(a)!.UpdatedAt);
     }
 
+    // ---- O2: pinning is a view rule, not a SortOrder rule -----------------
+
+    [Fact]
+    public void Pinning_does_not_change_a_notes_sort_order()
+    {
+        // Contract §11 row 8: UnpinNote "returns to SortOrder position". That
+        // is only possible if SortOrder is maintained independently of
+        // IsPinned — pinning is a partition applied to the VIEW (O2), not a
+        // rewrite of the underlying sequence.
+        var a = Create("a");
+        var b = Create("b");
+        var c = Create("c");
+
+        double orderBefore = _notes.FindActive(b)!.SortOrder;
+        SetPinned(b, true);
+
+        Assert.Equal(orderBefore, _notes.FindActive(b)!.SortOrder);
+
+        // Pinned, b is displayed first even though its SortOrder is unchanged.
+        Assert.Equal([b, a, c], OrderedIds(null));
+
+        SetPinned(b, false);
+
+        // Unpinned, it returns to exactly where it was.
+        Assert.Equal([a, b, c], OrderedIds(null));
+    }
+
+    [Fact]
+    public void A_note_can_be_reordered_after_a_pinned_sibling()
+    {
+        // O2 partitions the VIEW, so "after" is resolved in the underlying
+        // SortOrder sequence. The unpinned note takes a position after the
+        // pinned one in that sequence; the view still lifts pinned notes to
+        // the top. Both facts hold at once, which is why the reorder engine
+        // is deliberately pin-agnostic.
+        var a = Create("a");
+        var b = Create("b");
+        var c = Create("c");
+
+        SetPinned(a, true);
+
+        Assert.True(Reorder(c, a).IsSuccess);
+
+        // View: the pinned note leads regardless of SortOrder.
+        Assert.Equal([a, c, b], OrderedIds(null));
+
+        // Sequence: c really does sit after a and before b.
+        Assert.True(_notes.FindActive(c)!.SortOrder > _notes.FindActive(a)!.SortOrder);
+        Assert.True(_notes.FindActive(c)!.SortOrder < _notes.FindActive(b)!.SortOrder);
+
+        // And unpinning a leaves the sequence intact, as row 8 requires.
+        SetPinned(a, false);
+        Assert.Equal([a, c, b], OrderedIds(null));
+    }
+
+    [Fact]
+    public void Reordering_a_pinned_note_keeps_it_pinned()
+    {
+        var a = Create("a");
+        var b = Create("b");
+        SetPinned(b, true);
+
+        Reorder(b, a);
+
+        Assert.True(_notes.FindActive(b)!.IsPinned);
+    }
+
     // ---- O6 renormalisation and precision ---------------------------------
 
     [Fact]
@@ -320,39 +387,23 @@ public sealed class ReorderNoteTests : IDisposable
     }
 
     [Fact]
-    public void Renormalisation_produces_contiguous_values()
+    public void No_surviving_gap_is_ever_left_below_the_threshold()
     {
-        // O6: renormalisation rewrites the scope to 1, 2, 3...
+        // REGRESSION, threshold boundary.
+        //
+        // An earlier implementation tested the gap an insertion FOUND rather
+        // than the one it would LEAVE:
+        //
+        //     gap 2e-9  ->  passes `gap > 1e-9`
+        //               ->  writes a midpoint 1e-9 from its neighbour
+        //               ->  under the threshold, nothing left to split
+        //
+        // Both versions renormalise, both keep the order correct, and both
+        // produce 1, 2, 3 — so every other test in this file passes either
+        // way. The single observable difference is the smallest gap that
+        // survives, which is what this asserts.
         var first = Create("first");
-        Create("last");
-
-        for (int i = 0; i < 60; i++)
-        {
-            var mover = Create($"mover {i}");
-            Reorder(mover, first);
-        }
-
-        var sortOrders = AllSortOrders(null);
-
-        // After renormalisation has occurred at least once, values must be
-        // sane rather than vanishingly small fractions.
-        Assert.All(sortOrders, value => Assert.True(
-            Math.Abs(value) < 1_000_000,
-            $"SortOrder {value} suggests ordering was never renormalised."));
-
-        Assert.Equal(sortOrders.Count, sortOrders.Distinct().Count());
-    }
-
-    [Fact]
-    public void Renormalisation_actually_fires_within_sixty_reorders()
-    {
-        // Guards against the precision test passing vacuously. Repeated
-        // midpoints between the same pair halve the gap each time, so from a
-        // gap of 1.0 the engine's threshold is crossed around the 31st insert.
-        // If renormalisation never ran, the smallest gap would keep shrinking
-        // toward 1e-18 instead of being rebuilt to whole numbers.
-        var first = Create("first");
-        Create("last");
+        Create("second");
 
         for (int i = 0; i < 60; i++)
         {
@@ -368,7 +419,132 @@ public sealed class ReorderNoteTests : IDisposable
 
         Assert.True(
             smallestGap > 1e-9,
-            $"smallest gap {smallestGap:E3} is below the threshold, so the scope was never renormalised.");
+            FormattableString.Invariant(
+                $"smallest surviving gap {smallestGap:E3} is at or below the threshold, so an insertion left neighbours it could not later split."));
+    }
+
+    [Fact]
+    public void Renormalisation_rewrites_the_scope_to_one_two_three()
+    {
+        // O6 literally: "rewrite that folder's SortOrder to 1, 2, 3...".
+        //
+        // Asserted at the moment renormalisation happens, not at the end of a
+        // long run: once the scope has been rewritten, further reorders
+        // legitimately re-fragment it with O3 midpoints, so a whole-number
+        // assertion over the final state would be asserting the wrong thing.
+        //
+        // The loop stops as soon as the scope snaps back to whole numbers,
+        // which is the observable signature of O6 having run.
+        var first = Create("first");
+        Create("second");
+        Create("third");
+
+        List<double>? afterRenormalisation = null;
+
+        for (int i = 0; i < 60 && afterRenormalisation is null; i++)
+        {
+            var mover = Create($"mover {i}");
+            Reorder(mover, first);
+
+            // `first` starts at 0 and only becomes 1 when the scope is
+            // renumbered from the bottom.
+            if (_notes.FindActive(first)!.SortOrder == 1d)
+            {
+                afterRenormalisation = AllSortOrdersExcept(mover).Order().ToList();
+            }
+        }
+
+        Assert.NotNull(afterRenormalisation);
+
+        // Every remaining row sits on a whole number...
+        Assert.All(afterRenormalisation!, value => Assert.True(
+            value == Math.Floor(value),
+            FormattableString.Invariant($"SortOrder {value:R} is not a whole number.")));
+
+        // ...and they are exactly 1, 2, 3, ... with no gaps.
+        Assert.Equal(
+            Enumerable.Range(1, afterRenormalisation!.Count).Select(i => (double)i).ToList(),
+            afterRenormalisation);
+    }
+
+    [Fact]
+    public void The_triggering_note_lands_between_two_renormalised_neighbours()
+    {
+        // The other half: the note that triggered renormalisation is placed by
+        // O3, not by O6, so it sits on a midpoint between two whole numbers.
+        var first = Create("first");
+        Create("second");
+
+        NoteId trigger = first;
+        for (int i = 0; i < 60; i++)
+        {
+            trigger = Create($"mover {i}");
+            Reorder(trigger, first);
+
+            if (_notes.FindActive(first)!.SortOrder == 1d)
+            {
+                break;
+            }
+        }
+
+        double moved = _notes.FindActive(trigger)!.SortOrder;
+
+        Assert.Equal(1d, _notes.FindActive(first)!.SortOrder);
+        Assert.NotEqual(moved, Math.Floor(moved));
+
+        var others = AllSortOrdersExcept(trigger).Order().ToList();
+        double below = others.Last(v => v < moved);
+        double above = others.First(v => v > moved);
+
+        // Strictly between two adjacent renormalised neighbours.
+        Assert.Equal(1d, above - below);
+        Assert.Equal(below + 0.5, moved);
+    }
+
+    [Fact]
+    public void Renormalisation_stamps_every_row_it_rewrites_with_one_timestamp()
+    {
+        // Contract §4: "within a transaction, all affected rows receive one
+        // timestamp captured once for that transaction". Renormalisation
+        // rewrites many rows, so this is the case where a per-row clock read
+        // would be visible — and wrong.
+        FolderId otherScope = InsertFolder("Elsewhere");
+        var bystander = Create("in another scope", otherScope);
+        DateTimeOffset bystanderStamp = _notes.FindActive(bystander)!.UpdatedAt;
+
+        var first = Create("first");
+        Create("second");
+
+        // Advance the clock so the renormalising command is distinguishable
+        // from everything written before it.
+        _clock.Advance(TimeSpan.FromHours(5));
+
+        NoteId trigger = first;
+        bool renormalised = false;
+
+        for (int i = 0; i < 60 && !renormalised; i++)
+        {
+            trigger = Create($"mover {i}");
+            Reorder(trigger, first);
+            renormalised = _notes.FindActive(first)!.SortOrder == 1d;
+        }
+
+        Assert.True(renormalised, "renormalisation never fired");
+
+        DateTimeOffset commandStamp = _notes.FindActive(trigger)!.UpdatedAt;
+
+        // The moved note carries the command's timestamp.
+        Assert.Equal(_clock.UtcNow, commandStamp);
+
+        // Every row the renormalisation rewrote carries the SAME timestamp —
+        // not merely a similar one.
+        Assert.Equal(commandStamp, _notes.FindActive(first)!.UpdatedAt);
+
+        var stamps = RootStampsExcept(trigger);
+        Assert.All(stamps, stamp => Assert.Equal(commandStamp, stamp));
+
+        // A note in a different scope is untouched.
+        Assert.Equal(bystanderStamp, _notes.FindActive(bystander)!.UpdatedAt);
     }
 
     [Fact]
@@ -447,6 +623,51 @@ public sealed class ReorderNoteTests : IDisposable
         return ids;
     }
 
+    private List<DateTimeOffset> RootStampsExcept(NoteId excluded)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT UpdatedAt FROM Notes
+            WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $excluded;
+            """;
+        command.Parameters.AddWithValue("$excluded", excluded.Value);
+
+        var stamps = new List<DateTimeOffset>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            stamps.Add(DateTimeOffset.Parse(
+                reader.GetString(0),
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind));
+        }
+
+        return stamps;
+    }
+
+    private List<double> AllSortOrdersExcept(NoteId excluded)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT SortOrder FROM Notes
+            WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $excluded;
+            """;
+        command.Parameters.AddWithValue("$excluded", excluded.Value);
+
+        var values = new List<double>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            values.Add(reader.GetDouble(0));
+        }
+
+        return values;
+    }
+
     private List<double> AllSortOrders(FolderId? folder)
     {
         using var connection = _database.OpenConnection();
@@ -468,6 +689,16 @@ public sealed class ReorderNoteTests : IDisposable
         }
 
         return values;
+    }
+
+    private void SetPinned(NoteId id, bool pinned)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Notes SET IsPinned = $pinned WHERE Id = $id;";
+        command.Parameters.AddWithValue("$pinned", pinned ? 1 : 0);
+        command.Parameters.AddWithValue("$id", id.Value);
+        command.ExecuteNonQuery();
     }
 
     private FolderId InsertFolder(string name)
