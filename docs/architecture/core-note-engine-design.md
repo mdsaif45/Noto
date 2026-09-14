@@ -3,7 +3,7 @@
 **Issue:** [#13](https://github.com/mdsaif45/Noto/issues/13)
 **Status:** Design proposal — **not implemented**
 **Date:** 2026-09-14
-**Verdict:** **HOLD** — three schema decisions must be settled first (§10)
+**Verdict:** **ACCEPTED** — the three schema prerequisites shipped in migration 002 (§10)
 **Superseded in part by:** [deletion-semantics.md](deletion-semantics.md) — `DeletedWithFolderId` is **rejected** there after working the lifecycle cases
 
 ---
@@ -324,8 +324,8 @@ existed, and does not remember a deletion from three weeks ago.
 Atomic units — anything that would leave the store inconsistent if half-applied:
 
 ```
-  DeleteFolder     folder + its notes + deletion grouping
-  RestoreFolder    folder + its grouped notes
+  DeleteFolder     folder + its active notes
+  RestoreFolder    folder + its still-deleted notes
   MoveNoteToFolder folder change + new SortOrder
   ReorderNote      the write + any renormalisation
   DeleteTag        tag + NoteTags cascade
@@ -508,22 +508,31 @@ Meaningful behaviour, not coverage.
 
 ## 17. Verdict
 
-# HOLD
+# ACCEPTED
 
-Not because the design is unresolved — it is — but because **implementing it
-requires migration 002 first**, and that migration is a decision to approve, not
-a detail to slip into a feature PR.
+This gate was held at **HOLD** until migration 002 landed. **It has**, on `main`
+at `8b86a5a`, and every prerequisite is satisfied:
 
-Three changes, all cheap because nothing has shipped and the domain is empty:
+| Prerequisite | Status |
+| ------------ | ------ |
+| drop `Notes.Title` (parity B16) | ✅ migration 002, with existing titles preserved into content per [deletion-semantics.md](deletion-semantics.md) §8 |
+| add `Folders.IsPinned` (parity C8) | ✅ migration 002 |
+| add `Folders.DeletedAt` (parity C11) | ✅ migration 002 |
+| remove the unused Dapper reference | ✅ no package reference remains |
 
-1. drop `Notes.Title` (parity B16) — **with the data transformation in
-   [deletion-semantics.md](deletion-semantics.md) §8; existing titles are
-   preserved into content, never discarded**
-2. add `Folders.IsPinned` (parity C8)
-3. add `Folders.DeletedAt` (parity C11)
+Verified against the real database rather than the C# definitions:
+`user_version = 2`, `foreign_keys = 1`, `foreign_key_check = 0`, `Notes` has no
+`Title`, `Folders` has both new columns, and existing `NoteTags` relationships
+survived as a set.
 
-Plus two non-blocking cleanups: remove the unused Dapper reference, and update
-the stale `data-model.md`.
+**No substantive design decision changed when this verdict was updated.** The
+model in §5, the ordering rules in §7, the deletion semantics in §8 and the
+transaction boundaries in §9 are exactly as reviewed. The only edit was removing
+two stale words ("deletion grouping") that described the rejected
+`DeletedWithFolderId` mechanism.
+
+The remaining non-blocking cleanup is to update the stale SQL blocks in
+`data-model.md`; its header already carries an implementation note.
 
 **On approval, the order is:** migration 002 → domain types → repositories →
 commands → tests. Implementing the domain against the current schema would

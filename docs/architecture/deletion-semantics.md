@@ -3,7 +3,7 @@
 **Related:** [#13 design gate](core-note-engine-design.md), migration 002
 **Status:** Proposal — **not implemented**
 **Date:** 2026-09-14
-**Verdict:** **REQUEST CHANGES** to the earlier proposal — `DeletedWithFolderId` is rejected (§5)
+**Verdict:** **ACCEPTED** — `DeletedWithFolderId` rejected (§5); the revised migration shipped as 002
 
 ---
 
@@ -356,16 +356,31 @@ is M2.
 
 ## 12. Verdict
 
-# REQUEST CHANGES
+# ACCEPTED
 
-Against the earlier #13 proposal, not against the repository.
+This document opened as **REQUEST CHANGES** against the earlier #13 proposal,
+not against the repository. Those changes were made and have shipped.
 
-| Earlier proposal | Now |
-| ---------------- | --- |
-| `DeletedWithFolderId` column | **Rejected** — `FolderId` + `DeletedAt` are sufficient and correct |
-| Four schema changes | **Three** |
-| Title data handling unspecified | **Specified** — preserved into content, never discarded |
-| Backup before migration unaddressed | **Flagged** — first migration touching user data needs one |
+| Earlier proposal | Resolution | Status |
+| ---------------- | ---------- | ------ |
+| `DeletedWithFolderId` column | **Rejected** — `FolderId` + `DeletedAt` answer every lifecycle case (§5) | ✅ never added |
+| Four schema changes | Reduced to **three** | ✅ migration 002 |
+| Title data handling unspecified | Specified (§8) — preserved into content, never discarded | ✅ implemented and tested |
+| Backup before migration unaddressed | Flagged as a runner gap (§9) | ✅ `MigrationSafetyCopy`, scoped to migration safety only |
 
-The three remaining changes are unchanged and still required by parity rows
-B16, C8 and C11.
+Migration 002 additionally established a capability this document did not
+anticipate: **per-migration control of foreign key enforcement.** It is not
+optional. A probe showed `PRAGMA foreign_keys` is a no-op inside a transaction,
+and that rebuilding `Notes` with enforcement on silently empties `NoteTags`
+while `foreign_key_check` still reports clean.
+
+**Nothing in §3–§6 changed.** The lifecycle, the seven cases, the rejection of
+the tracking column and the six query invariants are exactly as reviewed, and
+they remain the specification for #13.
+
+### Still deferred, unchanged
+
+Purge / empty bin, bin UI, retention limits, and restoring into a purged
+folder. **#13 implements delete and restore for notes and folders**, with the
+§6 invariants. The bin is reachable through repository queries; surfacing it is
+M2.
