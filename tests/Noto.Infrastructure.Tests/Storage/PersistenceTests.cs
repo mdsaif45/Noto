@@ -184,11 +184,10 @@ public sealed class PersistenceTests : IDisposable
     [Fact]
     public void Opening_a_nonexistent_directory_fails_with_a_useful_error()
     {
-        // A directory that does not exist. Built from the temp root so the
-        // test cannot touch anything real, and normalised so the segments
-        // cannot be reinterpreted.
-        string missing = Path.GetFullPath(
-            Path.Combine(_temp.DatabasePath, "no", "such", "directory", "noto.db"));
+        // A directory that does not exist, under the temp root so the test
+        // cannot touch anything real. Path.Join concatenates without
+        // reinterpreting a rooted segment.
+        string missing = Path.Join(_temp.DatabasePath, "no", "such", "directory", "noto.db");
 
         var database = new NotoDatabase(missing);
 

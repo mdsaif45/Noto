@@ -15,13 +15,14 @@ public sealed class TempDatabase : IDisposable
 
     public TempDatabase()
     {
-        // GetFullPath normalises the root once; "noto-tests" and the GUID are
-        // literals/generated and never rooted, so Combine cannot discard it.
-        _directory = Path.GetFullPath(
-            Path.Combine(Path.GetTempPath(), "noto-tests", Guid.NewGuid().ToString("N")));
+        // Built by appending one known-relative segment at a time onto an
+        // absolute root, so no call can discard what came before it.
+        var root = new DirectoryInfo(Path.GetTempPath());
+        var suite = root.CreateSubdirectory("noto-tests");
+        var isolated = suite.CreateSubdirectory(Guid.NewGuid().ToString("N"));
 
-        Directory.CreateDirectory(_directory);
-        DatabasePath = Path.Combine(_directory, "test.db");
+        _directory = isolated.FullName;
+        DatabasePath = Path.Join(_directory, "test.db");
     }
 
     /// <summary>Full path to the database file. It does not exist until opened.</summary>
