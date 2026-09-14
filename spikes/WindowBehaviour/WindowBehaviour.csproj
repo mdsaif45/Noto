@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SPIKE — throwaway. Not production code, not referenced by src/.
+    Answers issue #2: can WinUI 3 + Windows App SDK deliver Noto's window model?
+
+    Deliberately unpackaged (WindowsPackageType=None) and self-contained,
+    matching ADR-008's intended shape, so the spike tests the deployment mode
+    Noto will actually ship in rather than a convenient one.
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- LibraryImport source generator emits unsafe code; required, not optional. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>Noto.Spike.WindowBehaviour</RootNamespace>
+    <AssemblyName>Noto.Spike.WindowBehaviour</AssemblyName>
+    <!-- Per-monitor DPI v2 is required for correct mixed-DPI behaviour. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+  </ItemGroup>
+
+</Project>

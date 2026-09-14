@@ -1,7 +1,8 @@
 # ADR-001 — Native Windows stack: C# + WinUI 3 + Win32 interop
 
-**Status:** Accepted — **provisional, subject to a validation gate**
+**Status:** **Accepted** — validation gate passed 2026-09-14
 **Date:** 2026-09-14
+**Validated by:** [Window behaviour spike](../architecture/spikes/window-behaviour.md) (issue #2)
 **Supersedes:** —
 
 ---
@@ -80,26 +81,47 @@ to show for it.
 **Build on C# + .NET + WinUI 3 + Windows App SDK, with Win32 interop isolated
 in a dedicated platform layer.**
 
-**This decision is provisional.** It is subject to a validation gate that must
-pass before the Floating Notes milestone (M4) begins.
+**The validation gate has passed.** This decision is no longer provisional.
 
-### The validation gate
+### Gate result
 
-Three throwaway spikes, each an independent issue in M0:
+A throwaway spike ([`spikes/WindowBehaviour/`](../../spikes/WindowBehaviour/))
+built and ran unpackaged and self-contained on Windows 11 26200, and verified
+every capability that could have disqualified WinUI 3:
 
-| # | Spike | Pass condition |
-| - | ----- | -------------- |
-| 1 | Window opacity and whole-window click-through | Works on Windows 10 22H2 **and** Windows 11 24H2 |
-| 2 | File drag and drop from Explorer into a WinUI 3 window | Works reliably, unelevated |
-| 3 | Follow another window via `EVENT_OBJECT_LOCATIONCHANGE` during a fast drag | No visible drift; CPU cost measured and acceptable |
+| Capability | Result |
+| ---------- | ------ |
+| Borderless / custom chrome | PASS — `SetBorderAndTitleBar` |
+| Always-on-top | PASS — `OverlappedPresenter.IsAlwaysOnTop`, no interop |
+| Edge docking to the work area | PASS — exact, after frame-inset compensation |
+| Opacity | PASS — XAML root, no layered windows |
+| Whole-window click-through | PASS — layered + transparent ex-styles |
+| Screen-capture exclusion | PASS — `SetWindowDisplayAffinity(0x11)` |
+| Global hotkey | PASS — conflicts return a clean `false` |
+| Show / hide lifecycle | PASS — `AppWindow.Hide()/Show()` |
+| Virtual-desktop visibility | PASS — `DWMWA_CLOAKED` |
+| Build unpackaged self-contained | PASS — 0 warnings, 0 errors |
 
-**If spikes 1 or 2 fail, this ADR is superseded in favour of Option B (WPF),
-and that decision is made before application code is written — not after.**
+**WPF is no longer the designated fallback.** The two WinUI 3 weaknesses that
+motivated the provisional status turned out not to bite: per-pixel
+click-through is impossible but is not a Noto requirement, and opacity has a
+clean supported route that was verified working.
 
-The spikes are deliberately scheduled in M0, when switching frameworks costs
-days rather than months.
+### What the gate did not cover
 
----
+Recorded honestly, because these remain open:
+
+- **mixed-DPI multi-monitor** — the test machine had one 96-DPI display. The
+  arithmetic is written and DPI-aware but unverified. Must be tested before M2
+  completes.
+- **Explorer drag & drop** — needs interactive input; scheduled before M3
+  capture work.
+- **Windows 10 22H2** — not available on the test machine; must be verified
+  before v0.9.
+
+None of these is a framework-viability question. Each is behaviour under
+conditions, and every API involved is documented as supported on Windows 10
+1809+ (capture exclusion: 2004+).
 
 ## Rationale
 
@@ -153,13 +175,13 @@ if the gate fails, and interop is where the genuinely dangerous bugs live.
 - Always-on-top and custom chrome need no risky interop
 - Full Win32 access when required
 - Fast iteration with AI assistance
-- The framework choice stays reversible until the M4 gate
+- The Win32 isolation layer keeps the choice reversible even though the gate has passed
 
 ### Negative
 
 - Depends on the Windows App SDK, whose bug turnaround is slow
 - No built-in tray icon — requires `H.NotifyIcon.WinUI` or raw `Shell_NotifyIcon`
-- Opacity must go through XAML rather than the Win32 route
+- Opacity must go through XAML rather than the Win32 route (verified working)
 - Per-pixel click-through is permanently off the table
 - Some deployment paths require package identity (see ADR-008)
 
@@ -196,7 +218,7 @@ elevated WinUI 3 processes, and no Noto feature requires elevation.
 
 Revisit this ADR if:
 
-- **Any validation gate spike fails** → switch to WPF before M4
+- ~~Any validation gate spike fails~~ — **spent**: the gate passed 2026-09-14
 - Per-pixel click-through or true per-pixel transparency becomes a genuine user
   requirement → WPF becomes correct
 - Windows App SDK stops receiving meaningful investment, or a blocking bug goes

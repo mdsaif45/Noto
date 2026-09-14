@@ -71,3 +71,7 @@ $RECYCLE.BIN/
 ## Tooling
 .code-review-graph/
 node_modules/
+
+## Spike build output (the sample results file is committed deliberately)
+spikes/**/bin/
+spikes/**/obj/

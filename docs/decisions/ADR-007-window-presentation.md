@@ -76,8 +76,28 @@ reserved desktop work area **persists until the user logs off**. The user is
 left with a permanently shrunken desktop and no visible cause. It also has
 known per-monitor DPI defects.
 
-Instead: a topmost window positioned against `DisplayArea.WorkArea`, with
+Instead: a topmost window positioned against the monitor's work area, with
 slide-in and auto-hide implemented by Noto.
+
+#### The frame inset — measured, not theoretical
+
+**`AppWindow.MoveAndResize` takes OUTER window coordinates.** The *visible*
+frame is inset from those by the invisible resize border, so a panel positioned
+naively at the work-area edge sits away from the screen edge:
+
+```
+  desired (visible)   (1600,0)-(1920,1032)  320x1032
+  naive               (1607,0)-(1913,1025)  306x1025   <- 7px gap, 14px narrow
+  compensated         (1600,0)-(1920,1032)  320x1032   <- exact
+```
+
+Measured in the [window behaviour spike](../architecture/spikes/window-behaviour.md)
+on Windows 11 26200 at 96 DPI. The inset was **7/0/7/7** (L/T/R/B) — *not
+uniform*, and in physical pixels, so it differs per DPI.
+
+**Rule:** compute `inset = GetWindowRect − DWMWA_EXTENDED_FRAME_BOUNDS` **per
+edge**, compensate, and **re-measure after any DPI change**. Do not cache a
+single global value.
 
 The trade-off is accepted knowingly: maximised windows will slide underneath
 the sidebar rather than being pushed aside by the shell. That is a cosmetic
