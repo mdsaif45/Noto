@@ -116,20 +116,44 @@ public sealed class GetNoteTests : IDisposable
     }
 
     [Fact]
-    public void A_deleted_note_is_still_addressable_by_id()
+    public void A_deleted_note_is_NotFound()
     {
-        // Invariant I1 governs the queries that LIST notes. Addressing one
-        // directly is how the bin is inspected and how restore confirms what it
-        // is restoring; DeletedAt makes the state visible, so no caller is
-        // misled (contract §11, Q1).
+        // Invariant I1: GetNote is an ordinary query, so it filters
+        // DeletedAt IS NULL. The recycle bin has exactly one surface —
+        // ListDeletedNotes (I2) — which arrives in Slice 3.
         var id = Create("in the bin");
         SoftDelete(id);
 
         var result = Query().Execute(id);
 
-        Assert.True(result.IsSuccess);
-        Assert.True(result.Value.IsDeleted);
-        Assert.NotNull(result.Value.DeletedAt);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CommandFailureReason.NotFound, result.Failure!.Reason);
+    }
+
+    [Fact]
+    public void A_deleted_note_is_indistinguishable_from_a_missing_one()
+    {
+        // Both report NotFound. The bin is not reachable by guessing at the
+        // ordinary query surface.
+        var id = Create("in the bin");
+        SoftDelete(id);
+
+        var deleted = Query().Execute(id);
+        var missing = Query().Execute(NoteId.New());
+
+        Assert.Equal(missing.Failure!.Reason, deleted.Failure!.Reason);
+    }
+
+    [Fact]
+    public void An_active_sibling_is_unaffected_when_another_note_is_deleted()
+    {
+        // The filter must not be so broad that it hides live notes.
+        var deleted = Create("gone");
+        var live = Create("still here");
+        SoftDelete(deleted);
+
+        Assert.False(Query().Execute(deleted).IsSuccess);
+        Assert.True(Query().Execute(live).IsSuccess);
     }
 
     [Fact]

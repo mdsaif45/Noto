@@ -28,19 +28,19 @@ public sealed class GetNoteQuery(INoteRepository notes)
     /// Reads the note.
     /// </summary>
     /// <returns>
-    /// The note, or <see cref="CommandFailureReason.NotFound"/> when no note
-    /// has that id.
+    /// The note, or <see cref="CommandFailureReason.NotFound"/> when no
+    /// <b>active</b> note has that id.
     /// </returns>
     /// <remarks>
-    /// A note in the recycle bin is returned. Invariant I1 ("active by
-    /// default") governs the queries that <i>list</i> notes; addressing one
-    /// directly by id is how the bin is inspected and how restore confirms what
-    /// it is restoring. Whether a note is deleted is visible on
-    /// <see cref="Note.DeletedAt"/>, so no caller is misled.
+    /// Invariant I1 applies: this is an ordinary query, so a note in the
+    /// recycle bin is <b>not</b> returned — it is reported as
+    /// <see cref="CommandFailureReason.NotFound"/>, exactly like an id that
+    /// never existed. The bin has one explicit surface,
+    /// <c>ListDeletedNotes</c> (I2), which arrives in Slice 3.
     /// </remarks>
     public CommandResult<Note> Execute(NoteId id)
     {
-        Note? note = _notes.Find(id);
+        Note? note = _notes.FindActive(id);
 
         return note is null
             ? CommandResult.Failed<Note>(CommandFailure.NotFound($"No note '{id}'."))

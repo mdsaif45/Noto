@@ -24,6 +24,18 @@ public sealed record CreateNote(FolderId? FolderId, string Content);
 /// </remarks>
 public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
 {
+    /// <summary>
+    /// Where the first note in an empty scope sits.
+    /// </summary>
+    /// <remarks>
+    /// The schema defaults <c>SortOrder</c> to 0, so starting there keeps a
+    /// scope's first note consistent with a row written by any other path.
+    /// The value itself carries no meaning — only the relative order does
+    /// (design §7) — and leaving room below it costs nothing, because O3's
+    /// other end-insertion is min−1.
+    /// </remarks>
+    private const double InitialSortOrder = 0;
+
     private readonly INoteRepository _notes = notes
         ?? throw new ArgumentNullException(nameof(notes));
 
@@ -48,14 +60,26 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
             throw new ArgumentException("Content must not be null.", nameof(command));
         }
 
-        if (command.FolderId is { } folderId && !_notes.ActiveFolderExists(folderId))
+        if (command.FolderId is { } folderId)
         {
-            // Deliberately NotFound for both "no such folder" and "that folder
-            // is in the bin": distinguishing them would leak the existence of a
-            // deleted folder, and the caller's response is the same either way
-            // — refresh the folder list.
-            return CommandResult.Failed<NoteId>(
-                CommandFailure.NotFound($"No active folder '{folderId}'."));
+            // Two distinct outcomes, as the contract's CreateNote row requires:
+            // a folder that never existed is NotFound, while one in the recycle
+            // bin is InvalidState — it exists but is inert (invariant I5).
+            switch (_notes.GetFolderState(folderId))
+            {
+                case FolderState.Missing:
+                    return CommandResult.Failed<NoteId>(
+                        CommandFailure.NotFound($"No folder '{folderId}'."));
+
+                case FolderState.Deleted:
+                    return CommandResult.Failed<NoteId>(
+                        CommandFailure.InvalidState(
+                            $"Folder '{folderId}' is deleted and cannot receive a note."));
+
+                case FolderState.Active:
+                default:
+                    break;
+            }
         }
 
         // One timestamp, used for both fields: a note that reports being
@@ -63,19 +87,24 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
         // under "sort by modified" (contract §4).
         DateTimeOffset now = _clock.UtcNow;
 
+        // O3: a new note goes at the END of its scope, which is max + 1. An
+        // empty scope starts at the documented base rather than at max+1 of
+        // nothing. Ordering is scoped per folder, and root is its own scope
+        // (O1), so the scope is read from the note's destination.
+        double? highest = _notes.MaxSortOrder(command.FolderId);
+        double sortOrder = highest is { } max ? max + 1 : InitialSortOrder;
+
         var note = new Note
         {
             Id = NoteId.New(),
             Content = command.Content,
             FolderId = command.FolderId,
+            SortOrder = sortOrder,
             CreatedAt = now,
             UpdatedAt = now,
 
             // Remaining fields take their documented defaults: no colour, not
-            // pinned, not folded, not deleted. SortOrder is assigned by the
-            // ordering rules in Slice 2; until reordering exists, every note
-            // sorts by the Id tiebreak, which is creation order (design §7
-            // rule 2, ADR-012).
+            // pinned, not folded, not deleted.
         };
 
         _notes.Add(note);

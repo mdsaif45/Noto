@@ -31,32 +31,67 @@ public interface INoteRepository
     void Add(Note note);
 
     /// <summary>
-    /// Reads a note by id, <b>including</b> one in the recycle bin.
+    /// Reads an <b>active</b> note by id. A note in the recycle bin is not
+    /// found by this method.
     /// </summary>
-    /// <returns>The note, or <see langword="null"/> when no row has that id.</returns>
+    /// <returns>
+    /// The note, or <see langword="null"/> when no active row has that id.
+    /// </returns>
     /// <remarks>
     /// <para>
-    /// <see langword="null"/> here means "no such row" and nothing else — this
-    /// is the persistence seam, not the application API. The command layer
-    /// turns it into <see cref="Commands.CommandFailureReason.NotFound"/> so
-    /// that callers never see an overloaded null (contract §6).
+    /// Invariant I1 — active by default — applies here, so the
+    /// <c>DeletedAt IS NULL</c> filter lives in the query rather than in each
+    /// caller. The recycle bin is reached only through
+    /// <c>ListDeletedNotes</c> (I2), which arrives in Slice 3.
     /// </para>
     /// <para>
-    /// Deleted notes are returned so that the operations which legitimately act
-    /// on them — restore, and the precondition checks that must answer "deleted"
-    /// rather than "missing" — can see them. Invariant I1 is enforced by the
-    /// query methods that list notes, not by this one.
+    /// <see langword="null"/> means "no active row" and nothing else — this is
+    /// the persistence seam, not the application API. The layer above turns it
+    /// into <see cref="Commands.CommandFailureReason.NotFound"/> so that
+    /// callers never see an overloaded null (contract §6).
     /// </para>
     /// </remarks>
-    Note? Find(NoteId id);
+    Note? FindActive(NoteId id);
 
     /// <summary>
-    /// Whether an <b>active</b> folder with this id exists.
+    /// The lifecycle state of a folder, for validating a note's destination.
     /// </summary>
     /// <remarks>
-    /// Used to validate a note's destination on create. It answers about the
-    /// folder rather than returning one, because Slice 1 needs the fact, not
-    /// the entity.
+    /// Three-valued rather than a boolean, because the contract requires
+    /// <c>CreateNote</c> to distinguish a folder that does not exist
+    /// (<see cref="Commands.CommandFailureReason.NotFound"/>) from one that is
+    /// in the recycle bin (<see cref="Commands.CommandFailureReason.InvalidState"/>,
+    /// invariant I5). A boolean cannot carry that distinction.
     /// </remarks>
-    bool ActiveFolderExists(FolderId id);
+    FolderState GetFolderState(FolderId id);
+
+    /// <summary>
+    /// The highest <c>SortOrder</c> among the <b>active</b> notes of a scope,
+    /// or <see langword="null"/> when the scope holds none.
+    /// </summary>
+    /// <param name="folderId">
+    /// The scope. <see langword="null"/> is the root scope, which is its own
+    /// scope and not a catch-all (ordering rule O1).
+    /// </param>
+    /// <remarks>
+    /// Feeds the O3 end-insertion rule — <c>max + 1</c> — so a new note lands
+    /// after its siblings. Only active notes count: deleted rows keep their
+    /// <c>SortOrder</c> but never participate in ordering (invariant I6).
+    /// </remarks>
+    double? MaxSortOrder(FolderId? folderId);
+}
+
+/// <summary>
+/// Whether a folder exists, and whether it is live.
+/// </summary>
+public enum FolderState
+{
+    /// <summary>No folder has that id.</summary>
+    Missing = 0,
+
+    /// <summary>The folder exists and is live.</summary>
+    Active,
+
+    /// <summary>The folder exists but is in the recycle bin.</summary>
+    Deleted,
 }

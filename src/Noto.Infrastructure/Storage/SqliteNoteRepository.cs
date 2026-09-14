@@ -74,19 +74,22 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    public Note? Find(NoteId id)
+    public Note? FindActive(NoteId id)
     {
         try
         {
             using var connection = _database.OpenConnection();
             using var command = connection.CreateCommand();
 
+            // Invariant I1: the DeletedAt filter lives here, in the query, so
+            // that a caller cannot forget it. The recycle bin is reached only
+            // through ListDeletedNotes (I2).
             command.CommandText =
                 """
                 SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
                        SortOrder, CreatedAt, UpdatedAt, DeletedAt
                 FROM Notes
-                WHERE Id = $id;
+                WHERE Id = $id AND DeletedAt IS NULL;
                 """;
             command.Parameters.AddWithValue("$id", id.Value);
 
@@ -103,30 +106,82 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    public bool ActiveFolderExists(FolderId id)
+    public FolderState GetFolderState(FolderId id)
     {
         try
         {
             using var connection = _database.OpenConnection();
             using var command = connection.CreateCommand();
 
-            // Invariant I1: a deleted folder is not an active one, so the
-            // filter belongs in the query rather than in the caller.
+            // Selecting DeletedAt rather than filtering on it: the caller must
+            // tell "no such folder" from "that folder is in the bin", because
+            // the contract maps them to different failures.
             command.CommandText =
                 """
-                SELECT 1
+                SELECT DeletedAt
                 FROM Folders
-                WHERE Id = $id AND DeletedAt IS NULL;
+                WHERE Id = $id;
                 """;
             command.Parameters.AddWithValue("$id", id.Value);
 
-            return command.ExecuteScalar() is not null;
+            using var reader = command.ExecuteReader();
+
+            if (!reader.Read())
+            {
+                return FolderState.Missing;
+            }
+
+            return reader.IsDBNull(0) ? FolderState.Active : FolderState.Deleted;
         }
         catch (SqliteException ex)
         {
             throw new StorageException(
                 StorageFailure.Unknown,
                 $"Could not check folder '{id}'.",
+                ex);
+        }
+    }
+
+    public double? MaxSortOrder(FolderId? folderId)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // Root (FolderId IS NULL) is its own scope, not a catch-all (O1),
+            // so the two cases need different SQL: "FolderId = NULL" matches
+            // nothing in SQL's three-valued logic.
+            //
+            // Deleted notes are excluded because they keep their SortOrder but
+            // never participate in ordering (I6). MAX over an empty set is
+            // NULL, which is exactly "the scope is empty".
+            command.CommandText = folderId is null
+                ? """
+                  SELECT MAX(SortOrder)
+                  FROM Notes
+                  WHERE FolderId IS NULL AND DeletedAt IS NULL;
+                  """
+                : """
+                  SELECT MAX(SortOrder)
+                  FROM Notes
+                  WHERE FolderId = $folderId AND DeletedAt IS NULL;
+                  """;
+
+            if (folderId is { } scope)
+            {
+                command.Parameters.AddWithValue("$folderId", scope.Value);
+            }
+
+            object? result = command.ExecuteScalar();
+
+            return result is null or DBNull ? null : Convert.ToDouble(result, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not read the ordering scope.",
                 ex);
         }
     }
