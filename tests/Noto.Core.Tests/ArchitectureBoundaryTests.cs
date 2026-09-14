@@ -84,32 +84,26 @@ public sealed class ArchitectureBoundaryTests
     [Fact]
     public void Core_exposes_no_presentation_concept()
     {
-        var violations = new List<string>();
+        var types = CoreAssembly.GetExportedTypes();
 
-        foreach (var type in CoreAssembly.GetExportedTypes())
-        {
-            foreach (var term in PresentationTerms)
-            {
-                if (type.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
-                {
-                    violations.Add($"type {type.FullName} contains '{term}'");
-                }
-            }
+        var typeViolations =
+            from type in types
+            from term in PresentationTerms
+            where type.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+            select $"type {type.FullName} contains '{term}'";
 
-            foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
-            {
-                foreach (var term in PresentationTerms)
-                {
-                    if (member.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
-                    {
-                        violations.Add($"{type.Name}.{member.Name} contains '{term}'");
-                    }
-                }
-            }
-        }
+        var memberViolations =
+            from type in types
+            from member in type.GetMembers(
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            from term in PresentationTerms
+            where member.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+            select $"{type.Name}.{member.Name} contains '{term}'";
+
+        var violations = typeViolations.Concat(memberViolations).ToArray();
 
         Assert.True(
-            violations.Count == 0,
+            violations.Length == 0,
             $"""
              Noto.Core has gained a presentation concept:
 
