@@ -14,6 +14,15 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Noto.Infrastructure\Noto.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Noto.Core\Noto.Core.csproj" />
+
+    <!--
+      The command handlers live in Noto.UseCases and their repositories in
+      Noto.Infrastructure. Proving a handler actually persists anything means
+      wiring the two together, which only a test that references both can do.
+      This does NOT give Noto.Infrastructure a reference to Noto.UseCases —
+      the production dependency still points inward (ADR-009).
+    -->
+    <ProjectReference Include="..\..\src\Noto.UseCases\Noto.UseCases.csproj" />
   </ItemGroup>
 
 </Project>
