@@ -4,7 +4,7 @@
     Persistence and I/O: SQLite, repositories, migrations, FTS5, files,
     settings, logging (ADR-003).
 
-    No storage packages yet — #8 introduces Microsoft.Data.Sqlite and Dapper
+    Storage per ADR-003: Microsoft.Data.Sqlite, no ORM
     along with the migration runner. This project currently exists to hold the
     boundary, not to hide an empty implementation.
   -->
@@ -15,7 +15,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
-    <PackageReference Include="Dapper" />
   </ItemGroup>
 
   <ItemGroup>

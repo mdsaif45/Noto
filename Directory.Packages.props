@@ -17,9 +17,16 @@
   </ItemGroup>
 
   <ItemGroup Label="Persistence">
-    <!-- ADR-003: Microsoft.Data.Sqlite + Dapper, no ORM. -->
+    <!--
+      ADR-003: Microsoft.Data.Sqlite, no ORM.
+
+      Dapper was referenced in anticipation of #13 and never used. Removed
+      after evaluation: 5 tables, 26 flat columns, one join. Dapper would
+      remove reader boilerplate at the cost of a dependency and an indirection
+      at the layer where seeing the row-to-domain mapping is still worth more.
+      Reversible — revisit if #13's mapping code proves genuinely repetitive.
+    -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.0" />
-    <PackageVersion Include="Dapper" Version="2.1.66" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">

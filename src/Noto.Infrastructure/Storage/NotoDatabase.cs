@@ -139,6 +139,28 @@ public sealed class NotoDatabase
     public void Initialize()
     {
         using var connection = OpenConnection();
+
+        int current = MigrationRunner.GetSchemaVersion(connection);
+
+        // A migration that only creates tables on an empty file has nothing to
+        // protect. One that rewrites rows the user wrote does. Taking the copy
+        // only in that case keeps startup fast for the common path.
+        //
+        // Deliberately NOT Noto's backup feature: no schedule, no retention,
+        // no restore command, no UI.
+        // current == 0 is a brand-new file: there are no rows to lose, so a
+        // copy would just be an empty database written on every first run.
+        bool hasExistingData = current > 0;
+
+        bool willTransformUserData = hasExistingData
+            && MigrationRunner.Migrations.Any(m => m.Version > current && m.TransformsUserData);
+
+        if (willTransformUserData)
+        {
+            string copy = MigrationSafetyCopy.Create(connection, DatabasePath, current);
+            _log.SafetyCopyCreated(current, copy);
+        }
+
         var runner = new MigrationRunner(_log);
         runner.Run(connection);
     }
