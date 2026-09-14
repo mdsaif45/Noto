@@ -8,7 +8,41 @@ namespace Noto.Infrastructure.Storage;
 /// <param name="Version">1-based, contiguous, and never reused.</param>
 /// <param name="Description">What it does, for logs and diagnostics.</param>
 /// <param name="Sql">The statements, applied inside a transaction.</param>
-public sealed record Migration(int Version, string Description, string Sql);
+/// <param name="RequiresForeignKeysDisabled">
+/// Whether foreign key enforcement must be suspended while this migration runs.
+/// </param>
+/// <param name="TransformsUserData">
+/// Whether this migration rewrites rows the user authored, rather than only
+/// creating or extending empty structures.
+/// </param>
+/// <remarks>
+/// <para>
+/// <b>On <c>RequiresForeignKeysDisabled</c>.</b> SQLite's table-rebuild pattern
+/// (create new, copy, drop old, rename) fires <c>ON DELETE</c> actions when the
+/// old table is dropped. With enforcement on, rebuilding <c>Notes</c> cascades
+/// into <c>NoteTags</c> and destroys every tag relationship — measured, not
+/// assumed: a probe rebuilt a table with one child row and the child count went
+/// from 1 to 0, while <c>PRAGMA foreign_key_check</c> still reported clean.
+/// </para>
+/// <para>
+/// <c>PRAGMA foreign_keys</c> is a <b>no-op inside a transaction</b>, also
+/// measured. So the runner must toggle it around the transaction, which is why
+/// this is a property of the migration rather than something its SQL can do.
+/// </para>
+/// <para>
+/// <b>On <c>TransformsUserData</c>.</b> Migration 001 created tables on an
+/// empty file; there was nothing to lose. A migration that rewrites note
+/// content can lose it, so those run behind a pre-migration safety copy. The
+/// two flags are independent: a migration could rebuild a table without
+/// touching user content, or rewrite content without rebuilding.
+/// </para>
+/// </remarks>
+public sealed record Migration(
+    int Version,
+    string Description,
+    string Sql,
+    bool RequiresForeignKeysDisabled = false,
+    bool TransformsUserData = false);
 
 /// <summary>
 /// Applies pending migrations, tracked by <c>PRAGMA user_version</c> (ADR-003).
@@ -62,6 +96,8 @@ public sealed class MigrationRunner
     public static IReadOnlyList<Migration> Migrations { get; } =
     [
         new(1, "Initial schema: folders, notes, tags", SchemaV1.Sql),
+        new(2, "Align with parity: drop Notes.Title, add Folders.IsPinned and DeletedAt",
+            SchemaV2.Sql, RequiresForeignKeysDisabled: true, TransformsUserData: true),
     ];
 
     /// <summary>The version a fully migrated database reports.</summary>
@@ -116,7 +152,56 @@ public sealed class MigrationRunner
         return pending.Length;
     }
 
+    private static void VerifyForeignKeyIntegrity(
+        SqliteConnection connection, SqliteTransaction transaction, Migration migration)
+    {
+        using var check = connection.CreateCommand();
+        check.Transaction = transaction;
+        check.CommandText = "SELECT COUNT(*) FROM pragma_foreign_key_check;";
+
+        long violations = Convert.ToInt64(
+            check.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+
+        if (violations > 0)
+        {
+            throw new StorageException(
+                StorageFailure.MigrationFailed,
+                $"Migration {migration.Version} left {violations} foreign key violation(s). "
+                + "Rolled back; the database is unchanged.");
+        }
+    }
+
     private void Apply(SqliteConnection connection, Migration migration)
+    {
+        // Toggled OUTSIDE the transaction: PRAGMA foreign_keys is silently
+        // ignored inside one. Restored in the finally block so enforcement is
+        // never left off, including when the migration throws.
+        if (migration.RequiresForeignKeysDisabled)
+        {
+            SetForeignKeys(connection, enabled: false);
+        }
+
+        try
+        {
+            ApplyCore(connection, migration);
+        }
+        finally
+        {
+            if (migration.RequiresForeignKeysDisabled)
+            {
+                SetForeignKeys(connection, enabled: true);
+            }
+        }
+    }
+
+    private static void SetForeignKeys(SqliteConnection connection, bool enabled)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = enabled ? "PRAGMA foreign_keys = ON;" : "PRAGMA foreign_keys = OFF;";
+        command.ExecuteNonQuery();
+    }
+
+    private void ApplyCore(SqliteConnection connection, Migration migration)
     {
         using var transaction = connection.BeginTransaction();
 
@@ -143,6 +228,14 @@ public sealed class MigrationRunner
                     System.Globalization.CultureInfo.InvariantCulture,
                     $"PRAGMA user_version = {migration.Version};");
                 versionCommand.ExecuteNonQuery();
+            }
+
+            // A rebuild that leaves a dangling reference must not be committed.
+            // Checked inside the transaction so a failure rolls the whole
+            // migration back.
+            if (migration.RequiresForeignKeysDisabled)
+            {
+                VerifyForeignKeyIntegrity(connection, transaction, migration);
             }
 
             transaction.Commit();

@@ -8,22 +8,29 @@
 [ADR-006](../decisions/ADR-006-window-binding-identity.md)
 
 
-> **Implementation note, 2026-09-14.** Migration 001 (#8) has shipped. It
-> creates **Folders, Notes, Tags, NoteTags and Settings** only — the minimum M1
-> needs. `Attachments`, `NotesFts`, `NotePresentations` and `ContextBindings`
-> are documented below but **not yet created**; each arrives with the feature
-> that needs it, and a test asserts they are absent so the schema cannot drift
-> ahead of the code.
+> **Implementation note, 2026-09-14.** Migrations 001 (#8) and 002 have
+> shipped. The live schema is **Folders, Notes, Tags, NoteTags, Settings**.
+> `Attachments`, `NotesFts`, `NotePresentations` and `ContextBindings` are
+> documented below but **not yet created**; a test asserts their absence so the
+> schema cannot drift ahead of the code.
 >
-> Two changes from the sketch below, both deliberate:
+> Four differences from the sketch below, all deliberate:
 >
-> - **Identifiers are ULIDs stored as `TEXT`, not `INTEGER PRIMARY KEY`**
->   ([ADR-012](../decisions/ADR-012-entity-identifiers.md)). Integer keys
->   collide across machines, which breaks import and any future sync, and make
->   note URLs unstable across a restore.
+> - **Identifiers are ULIDs stored as `TEXT`**, not `INTEGER PRIMARY KEY`
+>   ([ADR-012](../decisions/ADR-012-entity-identifiers.md)).
 > - **`Folders` has no `ParentId`.** Folders are flat, matching SideNotes
->   (parity row C3). Adding nesting later is a migration; shipping an unused
->   hierarchy column invites code that half-supports it.
+>   (parity row C3).
+> - **`Notes` has no `Title`** (migration 002). Parity row B16 states the title
+>   is the first line of the content and there is "no separate title field". A
+>   stored title is a second source of truth that diverges. Existing titles were
+>   preserved into the content as headings, never discarded.
+> - **`Folders` has `IsPinned` and `DeletedAt`** (migration 002), required by
+>   parity rows C8 and C11.
+>
+> Migration 002 also established two runner capabilities: a pre-migration safety
+> copy for migrations that transform user data, and per-migration control of
+> foreign key enforcement. The second is not optional — rebuilding `Notes` with
+> enforcement on silently empties `NoteTags`, measured.
 
 ---
 

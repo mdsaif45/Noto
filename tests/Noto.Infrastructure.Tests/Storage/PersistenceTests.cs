@@ -29,11 +29,10 @@ public sealed class PersistenceTests : IDisposable
             using var insert = connection.CreateCommand();
             insert.CommandText =
                 """
-                INSERT INTO Notes (Id, Title, Content, CreatedAt, UpdatedAt)
-                VALUES ($id, $title, $content, $now, $now);
+                INSERT INTO Notes (Id, Content, CreatedAt, UpdatedAt)
+                VALUES ($id, $content, $now, $now);
                 """;
             insert.Parameters.AddWithValue("$id", id);
-            insert.Parameters.AddWithValue("$title", "Survives a restart");
             insert.Parameters.AddWithValue("$content", "# heading\n\n- [ ] a task");
             insert.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
             insert.ExecuteNonQuery();
@@ -47,13 +46,15 @@ public sealed class PersistenceTests : IDisposable
 
         using var verify = reopened.OpenConnection();
         using var select = verify.CreateCommand();
-        select.CommandText = "SELECT Title, Content FROM Notes WHERE Id = $id;";
+        select.CommandText = "SELECT Content FROM Notes WHERE Id = $id;";
         select.Parameters.AddWithValue("$id", id);
 
         using var reader = select.ExecuteReader();
         Assert.True(reader.Read());
-        Assert.Equal("Survives a restart", reader.GetString(0));
-        Assert.Equal("# heading\n\n- [ ] a task", reader.GetString(1));
+
+        // Title is the first line of the content now (parity B16); there is
+        // no separate column to read back.
+        Assert.Equal("# heading\n\n- [ ] a task", reader.GetString(0));
     }
 
     [Fact]
@@ -68,8 +69,8 @@ public sealed class PersistenceTests : IDisposable
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO Notes (Id, FolderId, Title, Content, CreatedAt, UpdatedAt)
-            VALUES ($id, $folder, '', '', $now, $now);
+            INSERT INTO Notes (Id, FolderId, Content, CreatedAt, UpdatedAt)
+            VALUES ($id, $folder, '', $now, $now);
             """;
         command.Parameters.AddWithValue("$id", Ulid.NewId());
         command.Parameters.AddWithValue("$folder", "NOT-A-REAL-FOLDER-ID");
@@ -99,8 +100,8 @@ public sealed class PersistenceTests : IDisposable
 
         Execute(connection,
             """
-            INSERT INTO Notes (Id, FolderId, Title, Content, CreatedAt, UpdatedAt)
-            VALUES ($id, $folder, 'kept', '', $now, $now);
+            INSERT INTO Notes (Id, FolderId, Content, CreatedAt, UpdatedAt)
+            VALUES ($id, $folder, 'kept', $now, $now);
             """,
             ("$id", noteId), ("$folder", folderId), ("$now", now));
 
@@ -128,7 +129,7 @@ public sealed class PersistenceTests : IDisposable
         using var connection = database.OpenConnection();
 
         Execute(connection,
-            "INSERT INTO Notes (Id, Title, Content, CreatedAt, UpdatedAt) VALUES ($id, '', '', $now, $now);",
+            "INSERT INTO Notes (Id, Content, CreatedAt, UpdatedAt) VALUES ($id, '', $now, $now);",
             ("$id", noteId), ("$now", now));
 
         Execute(connection,
@@ -214,7 +215,7 @@ public sealed class PersistenceTests : IDisposable
             using var insert = connection.CreateCommand();
             insert.Transaction = transaction;
             insert.CommandText =
-                "INSERT INTO Notes (Id, Title, Content, CreatedAt, UpdatedAt) VALUES ($id, 'rolled back', '', $now, $now);";
+                "INSERT INTO Notes (Id, Content, CreatedAt, UpdatedAt) VALUES ($id, 'rolled back', $now, $now);";
             insert.Parameters.AddWithValue("$id", Ulid.NewId());
             insert.Parameters.AddWithValue("$now", now);
             insert.ExecuteNonQuery();

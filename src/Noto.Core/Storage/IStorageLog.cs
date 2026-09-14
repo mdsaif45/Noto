@@ -11,6 +11,13 @@ namespace Noto.Core.Storage;
 /// </remarks>
 public interface IStorageLog
 {
+    /// <summary>
+    /// A pre-migration safety copy was written. The path is infrastructure, not
+    /// user content, so recording it is safe — and it is what a user needs if a
+    /// migration goes wrong.
+    /// </summary>
+    void SafetyCopyCreated(int fromVersion, string path);
+
     void MigrationStarting(int fromVersion, int toVersion, int pendingCount);
 
     void MigrationApplied(int version, string description);
@@ -30,6 +37,10 @@ public sealed class NullStorageLog : IStorageLog
     public static NullStorageLog Instance { get; } = new();
 
     private NullStorageLog()
+    {
+    }
+
+    public void SafetyCopyCreated(int fromVersion, string path)
     {
     }
 
