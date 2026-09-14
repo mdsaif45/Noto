@@ -290,7 +290,7 @@ Rules:
 | ------ | --------- | --- |
 | Delete note | Soft — set `DeletedAt` | B23; data cannot be recovered from a server (ADR-002) |
 | Delete folder | Soft — set `DeletedAt` on folder **and its notes**, one transaction | **C11**, resolving conflict C2 |
-| Restore folder | Restore folder and the notes deleted *with* it | Needs the grouping below |
+| Restore folder | Restore the folder and **every still-deleted note pointing at it** | [deletion-semantics.md](deletion-semantics.md) §4, Case D |
 | Delete tag | **Hard** — row removed, `NoteTags` cascades | A tag is a label, not content. Losing one loses nothing recoverable. |
 | Empty recycle bin | Hard delete | Deferred — needs a retention policy |
 
@@ -459,8 +459,9 @@ Meaningful behaviour, not coverage.
 
 **Deletion:**
 - deleting a folder soft-deletes its notes, in one transaction
-- restoring a folder restores exactly the notes deleted with it, and **not**
-  notes already individually in the bin
+- restoring a folder restores every still-deleted note pointing at it,
+  including one the user had deleted individually beforehand
+  ([deletion-semantics.md](deletion-semantics.md) §4, Case D)
 - deleted notes are excluded from listings and included in the bin
 - deleting a tag removes `NoteTags` and leaves notes intact
 - a failed multi-step delete rolls back completely
