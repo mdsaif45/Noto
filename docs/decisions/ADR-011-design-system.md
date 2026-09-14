@@ -74,11 +74,52 @@ opted out of that, so the rule is absolute.
 | **Color — text** | Primary, Secondary, Tertiary, Disabled, OnAccent, Link |
 | **Color — accent** | Accent, AccentHover, AccentPressed, AccentMuted |
 | **Color — semantic** | Success, Warning, Danger, Info |
-| **Color — note palette** | The user-selectable note colours, defined **as palette keys** so they adapt to theme — the data model stores the key, never a hex value |
+| **Color — note palette** | `note1`…`note6` — the six user-selectable note colours, defined **as palette keys** so they adapt to theme. The data model stores the key, never a hex value. Enumerated below. |
 | **Borders** | Subtle, Default, Strong, Focus |
 | **Elevation** | Flat, Raised, Floating, Overlay |
 | **Motion** | Instant, Fast (~120ms), Normal (~200ms), Slow (~320ms), plus easing curves |
 | **Interaction states** | Rest, Hover, Pressed, Selected, Disabled, **Focused** |
+
+### The note palette
+
+Parity B15 requires **six note colours plus none** ("Six, not 'some'"), G23/G24
+bind them to `Ctrl+1`–`Ctrl+6` and `Ctrl+0`, and F4 requires a theme to cover
+all six. The keys are therefore fixed:
+
+| Key | Shortcut |
+| --- | -------- |
+| `note1` | `Ctrl+1` |
+| `note2` | `Ctrl+2` |
+| `note3` | `Ctrl+3` |
+| `note4` | `Ctrl+4` |
+| `note5` | `Ctrl+5` |
+| `note6` | `Ctrl+6` |
+| *(null)* | `Ctrl+0` — no colour |
+
+Rules that make these safe to persist:
+
+- **They are stored, so they are durable.** A note written today must mean the
+  same thing after any future release (ADR-002: the storage format outlives the
+  application). These keys therefore never change meaning and are never renumbered.
+- **The rendered colour is theme-defined**, per position. Swapping a theme
+  repaints every note and rewrites none of them — which is the entire reason the
+  column holds a key rather than a hex value.
+- **The shortcut mapping is part of the identity.** `Ctrl+3` is `note3` in every
+  theme; it does not select "the third entry of whatever palette is loaded".
+- **No colour is `null`**, not a seventh key. `Ctrl+0` clears.
+- **Any other value is invalid** and is rejected rather than stored.
+
+The names are deliberately ordinal rather than hues. Every accepted source
+already names these colours by position — parity G23 *"Set note color 1–6"*,
+F4 *"the six note colors"*, J24 *"one of six"* — and none assigns a hue or a
+meaning to any position. A key called `yellow` would contradict the rule
+directly above it, because a theme is free to render that position as something
+that is not yellow; `note3` stays true whatever the theme paints.
+
+They are also not roles. `Success`/`Warning`/`Danger` above are semantic because
+the product gives them meaning. The note palette has none: it is a user's own
+visual shorthand, and inventing roles for it would manufacture semantics parity
+does not have.
 
 ### Theming
 
