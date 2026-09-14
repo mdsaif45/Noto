@@ -113,6 +113,7 @@ These protect against the failures that are unrecoverable or invisible:
 | **FTS5 query escaping** | `MATCH` takes a query language; an apostrophe crashes it. |
 | **Backup and restore** | ADR-002 promises the data outlives the app. |
 | **Mixed-DPI multi-monitor** | The dominant recurring defect theme in comparable software. |
+| **Non-US keyboard layouts** | On German, French and Polish layouts **AltGr arrives as `Ctrl+Alt`**, so a shortcut bound there swallows characters the user is typing. macOS has no analogue, so no competitor faced it. See sidenotes-parity.md §12a. |
 
 ### Rules
 
@@ -177,6 +178,7 @@ M4 (Hardening) is a gate, not a phase. Expansion does not begin until:
 - [ ] backup and restore verified
 - [ ] accessibility: screen reader, high contrast, focus order, full keyboard
 - [ ] mixed-DPI multi-monitor verified on both target Windows versions
+- [ ] the shortcut set verified on at least one non-US keyboard layout (AltGr)
 - [ ] crash recovery verified
 - [ ] install, upgrade and uninstall verified on clean machines
 - [ ] no known data-loss defect

@@ -12,10 +12,14 @@
 > [strategy-audit-2026-09.md](../product/strategy-audit-2026-09.md).
 >
 > The competitor *findings* here are unchanged and still valid. The **Noto
-> decision** and **Priority** columns reflect the earlier sequencing, so where
-> this matrix and
-> [sidenotes-parity.md](../product/sidenotes-parity.md) disagree about what
-> ships first, **the parity specification wins**.
+> decision** and **Priority** columns, the milestone references (M3–M8), the
+> version numbers (v0.4, v0.5) and the "thesis" framing throughout all reflect
+> the earlier sequencing and are **stale**.
+>
+> Where this matrix disagrees with
+> [sidenotes-parity.md](../product/sidenotes-parity.md) about what ships first,
+> **the parity specification wins**. This document is retained as competitive
+> research, not as a plan.
 
 ---
 

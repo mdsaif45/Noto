@@ -52,6 +52,13 @@ most likely to be violated in practice:
 Cells are deliberately short. **Reasoning lives in the prose paragraph under
 each table**, not crammed into a cell.
 
+**On IDs.** Categories A–F, H and I reuse the inventory's own IDs verbatim, so
+every row is traceable to a numbered source item — all 172 are present here,
+none invented. The inventory's **G (shortcuts)** and **J (preferences)**
+sections are unnumbered tables, so this document assigns `G1`–`G52` and
+`J1`–`J40` and each row carries the SideNotes chord or setting it derives from
+in the `SideNotes` column. Those IDs originate here and are stable from now on.
+
 ### Decision vocabulary
 
 | Level | Meaning |
@@ -74,7 +81,7 @@ That labelling is preserved here.
 - Rows sourced from **INFERRED** or **UNKNOWN** evidence are marked
   **`⚠ provisional`** in Notes.
 - A provisional row's *requirement* may be correct, but its *fidelity to
-  SideNotes* is unverified. See [Open questions](#8-open-questions).
+  SideNotes* is unverified. See [Open questions](#13-open-questions).
 - **A provisional row may not be the sole justification for a MUST.** Where a
   provisional item is nonetheless MUST, it is because Noto needs the capability
   on its own merits, not because SideNotes is proven to have it.
@@ -117,7 +124,7 @@ opens accidentally and an extra menu-bar icon, with no keyboard-only mode.
 Principle 7 makes every activation surface independently disableable, which
 turns SideNotes' `Hide Open Bar = always` restriction (only available in Hot
 Side and Menubar modes) into an unconditional capability. That is recorded as a
-BETTER row in section 6 rather than bloating this table.
+BETTER row in section 12 rather than bloating this table.
 
 **A8 splits.** "Always on top, including over full-screen apps" is a MUST and
 is the harder half. "Stage Manager compatible" is meaningless on Windows and is
@@ -148,7 +155,7 @@ never as the only path to anything (principle 7).
 | `[ ]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | — | |
 | `[ ]` | B5 | New note placement | top / bottom / over current / under current | The same four options | MUST | — | |
 | `[ ]` | B6 | Ask for folder on global create | Setting: prompt for destination folder | Same setting | SHOULD | — | |
-| `[ ]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | See B23 / section 6 |
+| `[ ]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | See B23 / section 12 |
 | `[ ]` | B8 | Move note up / down | `⇧⌥⌘↑` / `⇧⌥⌘↓` | Same action, Windows chord | MUST | — | |
 | `[ ]` | B9 | Move note to top / bottom | Exists; chord unpublished | Move to top / bottom, keyboard reachable | SHOULD | — | ⚠ provisional — UNKNOWN chord |
 | `[ ]` | B10 | Drag & drop reordering | Reorder notes and folders; note-onto-note disabled | Same, incl. the note-onto-note prohibition | MUST | — | |
@@ -173,7 +180,7 @@ never as the only path to anything (principle 7).
 a confirmation popover, and has no trash — the inventory is explicit that
 recovery is via backups only. Noto inverts this: soft delete into a recycle
 bin, which removes the need for a modal confirmation on every delete. This is a
-BETTER row and is justified in section 6; it is also already M1 work, so it
+BETTER row and is justified in section 12; it is also already M1 work, so it
 costs M3 nothing.
 
 **B16 is load-bearing and easy to get wrong.** SideNotes has no title field.
@@ -291,7 +298,7 @@ stored verbatim in the markdown source, export remains lossless regardless
 
 **D7 needs a decision before it can be built.** SideNotes added underline in
 1.6 but published neither syntax nor shortcut. Noto must pick a representation
-that survives round-tripping to plain markdown. Listed in section 8.
+that survives round-tripping to plain markdown. Listed in section 13.
 
 **D20 deviates from a literal mapping on purpose.** `⌘⌥[` / `⌘⌥]` translates
 to `Ctrl+Alt+[` / `Ctrl+Alt+]`, which no Windows user would guess. `Alt+Up` /
@@ -558,7 +565,7 @@ built.** Pin-note and insert-picture cannot both be `Ctrl+Shift+P`. Insert
 picture (G35) has the stronger claim — it maps literally from `⇧⌘P` and is
 CONFIRMED in SideNotes; pin-note has no documented chord at all. Provisional
 resolution: G35 keeps `Ctrl+Shift+P`, G26 takes an unbound-by-default slot.
-Recorded in section 8.
+Recorded in section 13.
 
 **`Ctrl+Alt+<key>` is the systemic risk, not any individual chord.** On German,
 French, Polish and several other keyboard layouts, `AltGr` is delivered to
@@ -603,7 +610,7 @@ SideNotes' integration surface is largely a list of Mac software — Hookmark,
 PopClip, Dropzone, MindNode, Things, Dropshare, Workspaces, Alfred. These are
 not features SideNotes built; they are products that exist on macOS and do not
 exist on Windows. "Noto lacks Hookmark integration" is not a parity gap, it is
-a statement about Hookmark. See [section 9](#9-where-noto-deliberately-differs).
+a statement about Hookmark. See [section 11](#11-where-noto-deliberately-differs).
 
 **H3, H4 and H5 collapse into one piece of work.** ADR-010 requires every
 mutation to go through a command, so a URI handler, a CLI and a future
@@ -674,7 +681,7 @@ also the list of every configuration surface M3 is allowed to ship.
 
 | Status | ID | Pane → Setting | SideNotes options | Noto requirement | Level | Issue | Notes |
 | :----: | -- | -------------- | ----------------- | ---------------- | :---: | :---: | ----- |
-| `[ ]` | J1 | General → Show or Hide Notes | Open Bar / Hot Side / Menubar Icon | Edge handle / Hover / Tray — **independently toggled** | ADAPT | — | Not exclusive modes; see section 10 |
+| `[ ]` | J1 | General → Show or Hide Notes | Open Bar / Hot Side / Menubar Icon | Edge handle / Hover / Tray — **independently toggled** | ADAPT | — | Not exclusive modes; see A3/A4 and §12 |
 | `[ ]` | J2 | General → Hide Open Bar | never / mouse inactive / always | Same three, **unconditionally available** | BETTER | — | SideNotes gates `always` on other modes |
 | `[ ]` | J3 | General → Side | Left / Right (default Right) | Same | MUST | — | = A2 |
 | `[ ]` | J4 | General → Launch on Startup | on / off | Same, off by default | MUST | — | = A16 |
@@ -821,6 +828,40 @@ better than SideNotes; the roadmap puts them in M5–M8 and
 The rows above earn their place because two of the three themes are already M1
 work mandated by an ADR, and the third is a settings decision rather than a
 feature.
+
+---
+
+## 12a. Keyboard constraint: `Ctrl+Alt` and AltGr
+
+**This is a real defect risk, not a preference, and it has no macOS analogue.**
+
+On German, French, Polish and several other layouts, **AltGr is delivered to
+applications as `Ctrl+Alt`**. A global or in-app shortcut bound to
+`Ctrl+Alt+<key>` therefore intercepts characters the user is actively typing:
+
+```
+  German layout     AltGr+Q  ->  @        <- swallowed by Ctrl+Alt+Q
+  Polish layout     AltGr+A  ->  a-ogonek <- swallowed by Ctrl+Alt+A
+  French layout     AltGr+E  ->  euro     <- swallowed by Ctrl+Alt+E
+```
+
+SideNotes never faced this: macOS uses Option for the same characters, and its
+shortcuts use Command.
+
+**Eight rows in section G map a SideNotes chord onto `Ctrl+Alt+<key>`.** Each
+must be re-mapped before implementation.
+
+### Rules
+
+1. **No default shortcut uses `Ctrl+Alt+<letter>`.** Prefer `Ctrl+Shift+<key>`,
+   `Alt+<key>` or a chord.
+2. **Every shortcut is rebindable** — the mitigation of last resort, and
+   required anyway by principle 7.
+3. **Test on a non-US layout** before shipping the shortcut set. This belongs in
+   the M4 gate.
+
+One internal collision is also unresolved: **pin-note and insert-picture both
+map to `Ctrl+Shift+P`.** Resolve when G rows become issues.
 
 ---
 
