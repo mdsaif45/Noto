@@ -35,8 +35,16 @@ Entities are added when a feature needs them, not in anticipation.
            │
            ├──< Attachment
            │
-           └──< ContextBinding
+           ├──< Task              (checklist items)
+           │
+           └──< NotePresentation  (floating now, contextual at M6)
+
+  deferred to M6:
+         Note ──< ContextBinding
 ```
+
+A note owns its content and organization. It does **not** own how it is shown —
+`NotePresentation` references it (ADR-009).
 
 Deliberately absent from the MVP model:
 
@@ -156,9 +164,18 @@ security boundary: a filename arriving from a drag-and-drop is untrusted input
 and must never reach the file system (principle 10). Deleting a note cascades
 the rows; orphaned files are removed by a sweep, not synchronously.
 
-### Context bindings
+### Context bindings — **M6, not in the initial schema**
 
-The differentiator (ADR-005, ADR-006).
+> This table is **not created by migration 001**. Contextual notes are M6,
+> after SideNotes parity and hardening, and it arrives in the migration that
+> introduces them.
+>
+> It is documented here because the shape matters to ADR-009: context binding
+> is a *presentation concern that needs queryable fields*, which is why it gets
+> real columns rather than living in `NotePresentations.State` JSON. Recording
+> that now costs nothing and prevents the wrong choice later.
+
+Design per ADR-005 and ADR-006, both held at **Proposed**:
 
 ```sql
 CREATE TABLE ContextBindings (
@@ -202,27 +219,57 @@ without probing the OS.
 and `url` are reserved and unimplemented — the column accepts them so that
 adding the finer ladder rungs does not require a schema migration.
 
-### Floating note state
+### Note presentations
+
+**A note is not a window** (ADR-009). Presentation is a separate concern that
+references a note, never a property of it.
 
 ```sql
-CREATE TABLE FloatingWindows (
-    NoteId       INTEGER PRIMARY KEY REFERENCES Notes(Id) ON DELETE CASCADE,
-    X            INTEGER NOT NULL,
-    Y            INTEGER NOT NULL,
-    Width        INTEGER NOT NULL,
-    Height       INTEGER NOT NULL,
-    MonitorId    TEXT    NULL,     -- device path; restore to the right screen
-    Opacity      REAL    NOT NULL DEFAULT 1.0,
-    IsAlwaysOnTop INTEGER NOT NULL DEFAULT 1,
-    IsLocked     INTEGER NOT NULL DEFAULT 0,
-    IsClickThrough INTEGER NOT NULL DEFAULT 0
+CREATE TABLE NotePresentations (
+    Id         INTEGER PRIMARY KEY,
+    NoteId     INTEGER NOT NULL REFERENCES Notes(Id) ON DELETE CASCADE,
+    Kind       TEXT    NOT NULL,   -- 'floating' | 'contextual' (M6) | ...
+    State      TEXT    NOT NULL,   -- JSON; shape defined per kind
+    CreatedAt  TEXT    NOT NULL,
+    UpdatedAt  TEXT    NOT NULL
 );
+
+CREATE INDEX IX_Presentations_Note ON NotePresentations(NoteId);
+CREATE INDEX IX_Presentations_Kind ON NotePresentations(Kind);
 ```
 
-`MonitorId` stores a device path so a note can be restored to the screen it was
-on. When that monitor is absent, the note is repositioned onto the primary
-display — **never restored off-screen**, which is the classic failure of this
-feature and is a required test case.
+This replaces the earlier `FloatingWindows` table, which was keyed on `NoteId`
+and therefore encoded "a note has at most one floating state" — the model
+ADR-009 exists to reject.
+
+Three deliberate choices:
+
+- **No `UNIQUE(NoteId, Kind)`.** The same note floating on two monitors is a
+  legitimate thing to want.
+- **`State` is JSON.** Each kind has a different shape, presentation state is
+  read by exactly one component, and it is never queried across kinds. Contrast
+  `ContextBindings`, where `AppIdentity` *is* queried and so *is* a column.
+- **The sidebar is not stored here.** Every note is in the sidebar; that is not
+  a presentation record. Its position is `Notes.SortOrder`, which is
+  organization, not presentation.
+
+For `Kind = 'floating'`, `State` carries:
+
+```json
+{
+  "x": 120, "y": 340, "width": 300, "height": 400,
+  "monitorId": "\\.\DISPLAY1",
+  "opacity": 1.0,
+  "alwaysOnTop": true,
+  "locked": false,
+  "clickThrough": false
+}
+```
+
+`monitorId` is a device path so a note returns to the screen it was on. When
+that monitor is absent the note is repositioned onto the primary display —
+**never restored off-screen**, which is the classic failure of this feature and
+is a required test case.
 
 ### Full-text search
 

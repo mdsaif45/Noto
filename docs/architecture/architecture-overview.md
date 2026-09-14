@@ -19,23 +19,26 @@ daemon, no IPC, no microservices. One process, several windows.
   |         composition root, lifetime, DI wiring             |
   +----------------------------------------------------------+
   |                     Noto.UI                               |
-  |   sidebar   note editor   floating notes   settings       |
-  |   ViewModels, XAML, navigation                            |
+  |   design tokens, components, views, XAML                  |
+  +----------------------------------------------------------+
+  |                  Noto.Presentation                        |
+  |   sidebar / floating / (M6) contextual view models        |
+  |   the ONLY layer that knows a note can be *shown*         |
   +----------------------------------------------------------+
   |                     Noto.Core                             |
-  |   domain model      note service      context resolver    |
-  |   search service    binding matcher   visibility policy   |
+  |   Note  Folder  Tag  Attachment  Task                     |
+  |   commands, handlers, events, queries, services           |
   |                                                           |
-  |   NO Win32. NO SQL. NO XAML. Pure, testable.              |
+  |   NO Win32. NO SQL. NO XAML.                              |
+  |   NO windows, coordinates, monitors or z-order.           |
   +-------------------------+--------------------------------+
               |                              |
   +-----------v-----------+    +-------------v----------------+
   |  Noto.Infrastructure  |    |       Noto.Windows           |
   |                       |    |                              |
-  |  SQLite, migrations   |    |  P/Invoke, WinEvent hooks    |
-  |  repositories, FTS5   |    |  window presentation         |
-  |  file & attachments   |    |  hotkeys, tray, capture      |
-  |  settings, logging    |    |  DPI, monitors               |
+  |  SQLite, migrations   |    |  P/Invoke, window management |
+  |  repositories, FTS5   |    |  hotkeys, tray, clipboard    |
+  |  files, settings, log |    |  DPI, monitors, capture      |
   +-----------------------+    +------------------------------+
               |                              |
         +-----v------+              +--------v--------+
@@ -44,23 +47,31 @@ daemon, no IPC, no microservices. One process, several windows.
         +------------+              +-----------------+
 ```
 
-### The one rule
+### The two rules
 
-**`Noto.Core` depends on nothing platform-specific.**
-
+**1. `Noto.Core` depends on nothing platform-specific.**
 It defines interfaces; `Infrastructure` and `Windows` implement them.
 Dependencies point inward.
 
-This is not architecture for its own sake — principle 9 forbids that. It buys
-two specific things:
+**2. `Noto.Core` contains no type that refers to a window, screen, monitor,
+coordinate, z-order or presentation surface.** (ADR-009)
 
-1. **Testability where it matters.** Context resolution and binding matching
-   are the logic most likely to be wrong and hardest to debug in situ. Keeping
-   them free of OS dependencies makes them unit-testable without a desktop
-   session.
-2. **A reversible framework decision.** ADR-001 is provisional. If the
-   validation gate fails and Noto moves to WPF, `Core` and `Infrastructure` are
-   untouched; `UI` is rewritten and `Windows` largely survives.
+A note is not a sidebar note, a floating note or a contextual note. It is a
+note, and it may be *presented* in any of those ways — several at once.
+
+Both rules are enforced by architecture tests, not by good intentions.
+
+This is not abstraction for its own sake — principle 9 forbids that. It buys
+three specific things:
+
+1. **Testability where it matters.** Domain logic is unit-testable with no UI
+   and no desktop session.
+2. **A reversible framework decision.** ADR-001 is provisional. If the gate
+   fails and Noto moves to WPF, `Core`, `Presentation` and `Infrastructure`
+   survive; only `UI` is rewritten.
+3. **Additive expansion.** Floating notes (M3) and contextual notes (M6) are
+   new presentation kinds, not domain changes. This is what makes deferring
+   context to M6 safe rather than merely optimistic.
 
 ### What this is not
 
@@ -74,14 +85,18 @@ implementation or a test seam that earns it — nowhere else.
 
 | Project | Contains | Depends on |
 | ------- | -------- | ---------- |
-| `Noto.App` | Entry point, composition root, app lifetime | all |
-| `Noto.UI` | Views, ViewModels, XAML, navigation | Core |
-| `Noto.Core` | Domain model, services, context logic | — |
+| `Noto.App` | Entry point, composition root, command registry wiring | all |
+| `Noto.UI` | Design tokens, shared components, views, XAML | Presentation |
+| `Noto.Presentation` | View models; sidebar, floating and later contextual presentation state | Core |
+| `Noto.Core` | Domain model, commands, handlers, events, queries, services | — |
 | `Noto.Infrastructure` | SQLite, repositories, migrations, FTS5, files, settings, logging | Core |
-| `Noto.Windows` | All Win32 interop, window presentation, hooks, hotkeys, tray, capture | Core |
-| `Noto.Core.Tests` | Unit tests | Core |
+| `Noto.Windows` | Win32 interop, window management, hotkeys, tray, clipboard, DPI | Core |
+| `Noto.Core.Tests` | Domain, command and **architecture** tests | Core |
 | `Noto.Infrastructure.Tests` | Storage, migration, search tests | Infrastructure |
 | `Noto.Windows.Tests` | Interop tests requiring a desktop session | Windows |
+
+`Noto.Presentation` exists to hold the line in ADR-009. Without it, presentation
+state has nowhere to live except the domain or the views — and both are wrong.
 
 `Noto.Sync` is **not created yet**. ADR-002 defers sync past v1, and empty
 directories for appearance are forbidden.
@@ -121,40 +136,59 @@ single owner makes them tractable.
 
 ---
 
-## Context engine
+## Extension boundary: contextual notes (M6)
 
-The differentiator, decided in
-[ADR-005](../decisions/ADR-005-context-engine.md) and
-[ADR-006](../decisions/ADR-006-window-binding-identity.md).
+Contextual notes are **milestone M6** — after SideNotes parity and hardening.
+No context code is written before then.
+
+What exists now is the *boundary* that makes adding it additive:
 
 ```
-  Windows                Noto.Windows           Noto.Core
-  -------                ------------           ---------
+  M6 adds:                              M6 does NOT change:
 
-  EVENT_SYSTEM_      ->  ContextObserver   ->   ContextResolver
-  FOREGROUND             debounce,              pure function
-                         scoped hooks,          signal -> identity
-  EVENT_OBJECT_          never global           + confidence
-  LOCATIONCHANGE                                      |
-  (scoped to bound                                    v
-   window only)                                 BindingMatcher
-                                                pure function
-                                                identity -> notes
-                                                      |
-                                                      v
-                                                VisibilityPolicy
-                                                      |
-  WindowCoordinator  <----------------------------- show / hide
+  Noto.Windows                          Note
+    ContextObserver                     Folder
+    (foreground / window events)        Tag
+         |                              Attachment
+         v                              the commands
+  Noto.Core                             the events
+    ContextResolver  (pure)             the schema for any of them
+    BindingMatcher   (pure)
+         |
+         v
+  Noto.Presentation
+    a new presentation kind:
+    'contextual'  -> NotePresentations
 ```
 
-Three properties worth stating here because they constrain everything:
+Contextual notes arrive as **a new value in `NotePresentations.Kind`** plus a
+resolver. The `Note` type does not gain a field. That is the entire point of
+ADR-009.
 
-- **Observation never polls.** Foreground changes are events.
-- **Hooks are never global.** `EVENT_OBJECT_LOCATIONCHANGE` is scoped to the
-  `(pid, tid)` of a specifically bound window. A global hook of that type is
-  the largest available performance mistake.
-- **Resolution is pure.** `ContextResolver` and `BindingMatcher` take a signal
-  record and return a result. No OS calls, fully unit-testable.
+The design itself is recorded in [ADR-005](../decisions/ADR-005-context-engine.md)
+and [ADR-006](../decisions/ADR-006-window-binding-identity.md), both held at
+**Proposed** and to be re-validated when M6 begins.
+
+---
+
+## Commands and events
+
+Every mutation goes through a command (ADR-010):
+
+```
+  sidebar  ─┐
+  shortcut ─┤
+  hotkey   ─┼─> CreateNote ─> handler ─> repository ─> NoteCreated event
+  menu     ─┤                                              │
+  URL      ─┘                                    ┌─────────┴────────┐
+                                                 v                  v
+                                            UI refresh        later: backup,
+                                                              sync, context
+```
+
+Reads do not go through commands — wrapping queries in command ceremony buys
+nothing. Dispatch is an explicit registry, not reflection, because startup time
+is a hard budget.
 
 ---
 

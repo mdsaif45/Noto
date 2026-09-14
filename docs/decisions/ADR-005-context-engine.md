@@ -1,10 +1,23 @@
 # ADR-005 — Context engine: deterministic resolution, layered sources
 
-**Status:** Accepted
+**Status:** **Proposed** — deferred to M6
 **Date:** 2026-09-14
 **Related:** ADR-006 (window identity), ADR-002 (local-first)
 
 ---
+
+> **Deferred — read this first.** The clarified product strategy makes
+> **SideNotes parity** the first product; contextual notes are milestone **M6**,
+> after parity and hardening. This ADR is therefore **Proposed, not Accepted**:
+> the research behind it is sound and it is the starting point for M6, but it
+> must **not** shape the core domain model before then.
+>
+> [ADR-009](ADR-009-note-presentation-separation.md) is what makes this
+> deferral safe — contextual notes arrive as a new presentation kind, additive
+> to a domain that does not change to accommodate them.
+>
+> Re-validate against current research when M6 begins. Decisions made two
+> phases early go stale.
 
 ## Context
 
