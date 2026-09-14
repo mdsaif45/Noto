@@ -16,6 +16,12 @@
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
   </ItemGroup>
 
+  <ItemGroup Label="Persistence">
+    <!-- ADR-003: Microsoft.Data.Sqlite + Dapper, no ORM. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageVersion Include="Dapper" Version="2.1.66" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.2" />
@@ -25,7 +31,6 @@
 
   <!--
     Deliberately NOT here yet, each with the issue that introduces it:
-      Microsoft.Data.Sqlite + Dapper  -> #8   (ADR-003)
       a markdown renderer             -> #14  (ADR-004)
       a tray-icon library             -> M2
     Principle 9: a dependency arrives when a feature needs it, not before.

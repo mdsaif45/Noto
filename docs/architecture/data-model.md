@@ -7,6 +7,24 @@
 [ADR-004](../decisions/ADR-004-markdown-content.md),
 [ADR-006](../decisions/ADR-006-window-binding-identity.md)
 
+
+> **Implementation note, 2026-09-14.** Migration 001 (#8) has shipped. It
+> creates **Folders, Notes, Tags, NoteTags and Settings** only — the minimum M1
+> needs. `Attachments`, `NotesFts`, `NotePresentations` and `ContextBindings`
+> are documented below but **not yet created**; each arrives with the feature
+> that needs it, and a test asserts they are absent so the schema cannot drift
+> ahead of the code.
+>
+> Two changes from the sketch below, both deliberate:
+>
+> - **Identifiers are ULIDs stored as `TEXT`, not `INTEGER PRIMARY KEY`**
+>   ([ADR-012](../decisions/ADR-012-entity-identifiers.md)). Integer keys
+>   collide across machines, which breaks import and any future sync, and make
+>   note URLs unstable across a restore.
+> - **`Folders` has no `ParentId`.** Folders are flat, matching SideNotes
+>   (parity row C3). Adding nesting later is a migration; shipping an unused
+>   hierarchy column invites code that half-supports it.
+
 ---
 
 ## Principle
