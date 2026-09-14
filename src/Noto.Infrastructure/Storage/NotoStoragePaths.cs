@@ -34,9 +34,10 @@ public sealed class NotoStoragePaths
                 "The local application data folder could not be determined.");
         }
 
-        // FolderName is a compile-time literal and is never rooted, so this
-        // Combine cannot discard localAppData.
-        return new NotoStoragePaths(Path.Combine(localAppData, FolderName));
+        // Path.Join rather than Path.Combine: Combine reinterprets a rooted
+        // second argument and silently discards the first, which is a sharp
+        // edge with no upside here.
+        return new NotoStoragePaths(Path.Join(localAppData, FolderName));
     }
 
     /// <summary>An explicit root. Used by tests, and by any future portable mode.</summary>
@@ -70,7 +71,8 @@ public sealed class NotoStoragePaths
             !Path.IsPathRooted(relativeSegment),
             $"'{relativeSegment}' must be relative; a rooted segment would discard Root.");
 
-        return Path.Combine(Root, relativeSegment);
+        // Path.Join concatenates without reinterpreting a rooted segment.
+        return Path.Join(Root, relativeSegment);
     }
 
     /// <summary>e.g. <c>%LOCALAPPDATA%\Noto</c></summary>
