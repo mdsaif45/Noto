@@ -1,0 +1,88 @@
+name: 🔬 Research / RFC
+description: Investigate a question or propose an architectural decision.
+title: "[RFC]: "
+labels: ["type:research", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for anything that must be **decided before it can be built**.
+        Significant architectural outcomes become an ADR in `docs/decisions/`.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Research question
+      description: State the question in one or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why does this need answering now? What depends on it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals
+      placeholder: |
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: nongoals
+    attributes:
+      label: Non-goals
+      description: What is explicitly out of scope for this investigation?
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options under consideration
+      placeholder: |
+        ### Option A
+        ### Option B
+        ### Option C
+
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+      description: Fill in as research progresses. Distinguish confirmed from inferred.
+
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Links to documentation, prior art and measurements.
+
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+      description: What should we do, and what are the trade-offs?
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Expected outcome
+      options:
+        - An ADR in docs/decisions/
+        - A research document in docs/research/
+        - A product decision in docs/product/
+        - Implementation issues only
+        - Information only, no decision required
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: adr
+    attributes:
+      label: Architecture impact
+      options:
+        - label: This may contradict an existing ADR, which must be reviewed before implementing.

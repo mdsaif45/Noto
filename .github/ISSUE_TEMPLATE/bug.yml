@@ -1,0 +1,130 @@
+name: 🐛 Bug Report
+description: Report a reproducible problem in Noto.
+title: "[Bug]: "
+labels: ["type:bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Noto. Please search existing issues first.
+
+        **Do not report security vulnerabilities here** — see the [security policy](https://github.com/mdsaif45/Noto/security/policy).
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and found no duplicate.
+          required: true
+        - label: I am running a supported version of Windows.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the problem clearly and concisely.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Noto
+        2. Create a note
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical — data loss, crash on startup, or unusable
+        - High — core feature broken, no workaround
+        - Medium — feature broken but there is a workaround
+        - Low — cosmetic or minor annoyance
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Noto is affected?
+      options:
+        - Unsure
+        - Workspace / sidebar
+        - Notes / editor
+        - Floating notes
+        - Context engine (app & window binding)
+        - Capture (clipboard, screenshot, drag & drop)
+        - Search
+        - Storage / data
+        - Settings
+        - Installer / update
+        - Accessibility
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2 (build 26100)"
+    validations:
+      required: true
+
+  - type: input
+    id: noto-version
+    attributes:
+      label: Noto version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: displays
+    attributes:
+      label: Display setup
+      description: Relevant for window, DPI and multi-monitor issues.
+      placeholder: "2 monitors, 3840x2160 @ 150% and 1920x1080 @ 100%"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant log output or error messages. Remove anything sensitive.
+      render: text
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recording
+      description: Strongly encouraged for anything visual or window-related.
+
+  - type: textarea
+    id: regression
+    attributes:
+      label: Regression
+      description: Did this work in an earlier version? If so, which one?

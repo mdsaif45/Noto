@@ -1,0 +1,63 @@
+name: 🛡️ Security Hardening
+description: Propose defensive work. NOT for reporting vulnerabilities.
+title: "[Security]: "
+labels: ["type:security", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⛔ Do not report a vulnerability here
+
+        This form is for **planned hardening work** that is safe to discuss in public.
+
+        If you have found a vulnerability in Noto, report it privately through the
+        [security policy](https://github.com/mdsaif45/Noto/security/policy) instead.
+        Public disclosure puts users at risk.
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is NOT a vulnerability report, and discussing it publicly puts no user at risk.
+          required: true
+
+  - type: textarea
+    id: concern
+    attributes:
+      label: Security concern
+      description: What weakness or risk should be addressed?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Local data at rest
+        - File and path handling
+        - Clipboard handling
+        - URL and protocol handling
+        - Attachment handling
+        - Screen capture and privacy
+        - Note locking and authentication
+        - Dependency or supply chain
+        - Build and release integrity
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact if unaddressed
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Proposed mitigation
+    validations:
+      required: true

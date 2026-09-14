@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - "type:task"
+      - "area:build"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # Windows App SDK and WinUI move together; splitting them creates broken PRs.
+      windows-app-sdk:
+        patterns:
+          - "Microsoft.WindowsAppSDK*"
+          - "Microsoft.Windows.SDK*"
+      test-dependencies:
+        patterns:
+          - "xunit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "FluentAssertions"
+          - "NSubstitute"
+          - "coverlet*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - "type:task"
+      - "area:build"
+    commit-message:
+      prefix: "chore(ci)"

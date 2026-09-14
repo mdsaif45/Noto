@@ -1,0 +1,78 @@
+name: ✨ Feature Request
+description: Propose a new capability for Noto.
+title: "[Feature]: "
+labels: ["type:feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Noto deliberately stays small. A good feature request explains the **problem**,
+        not just the solution, and respects the product principles in
+        [docs/product/principles.md](https://github.com/mdsaif45/Noto/blob/main/docs/product/principles.md).
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and discussions for this idea.
+          required: true
+        - label: I have read the product principles and believe this fits Noto's scope.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the capability. Focus on behavior, not implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else could solve this problem? Why is your proposal better?
+
+  - type: textarea
+    id: competitors
+    attributes:
+      label: Prior art
+      description: Do other products solve this? How? Links and screenshots help.
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this to be considered done?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode does this affect?
+      multiple: true
+      options:
+        - Workspace (edge sidebar)
+        - Floating notes
+        - Contextual notes
+        - Capture
+        - Cross-cutting / none of these
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope considerations
+      description: What is explicitly *not* part of this request?

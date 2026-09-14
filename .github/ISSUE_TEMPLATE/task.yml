@@ -1,0 +1,95 @@
+name: 🧱 Implementation Task
+description: A concrete, independently reviewable unit of work.
+title: "[Task]: "
+labels: ["type:task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A task should be small enough to implement, test and review on its own.
+        If it is not, split it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or wrong today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What will be true when this is done?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      placeholder: |
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: nongoals
+    attributes:
+      label: Non-goals
+      description: What this task deliberately does not do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: Sketch the implementation. Name the APIs, files or layers involved.
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical considerations
+      description: Windows APIs, performance budgets, DPI, multi-monitor, threading, migration.
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing requirements
+      value: |
+        - [ ] Unit tests
+        - [ ] Integration tests
+        - [ ] Manual verification steps documented
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      placeholder: |
+        Blocked by #
+        Blocks #
+        Related to #
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done
+      value: |
+        - [ ] Implemented behind the agreed architecture
+        - [ ] Tests added or updated and passing in CI
+        - [ ] Documentation or ADR updated if behavior or architecture changed
+        - [ ] No known regressions
