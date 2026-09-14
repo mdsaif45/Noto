@@ -220,7 +220,7 @@ public sealed class ReorderNoteTests : IDisposable
     [Fact]
     public void A_deleted_target_is_InvalidInput()
     {
-        var a = Create("a");
+        Create("a");
         var b = Create("b");
         var c = Create("c");
         SoftDeleteNote(b);
@@ -378,13 +378,10 @@ public sealed class ReorderNoteTests : IDisposable
         var b = Create("b");
         var c = Create("c");
 
-        // Force many midpoints between a and b specifically.
-        var movers = new List<NoteId>();
+        // Force many midpoints immediately after `a`.
         for (int i = 0; i < 60; i++)
         {
-            var mover = Create($"m{i}");
-            Reorder(mover, a);
-            movers.Add(mover);
+            Reorder(Create($"m{i}"), a);
         }
 
         var order = OrderedIds(null);
