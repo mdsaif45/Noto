@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Use cases: commands, handlers, events, queries (ADR-010).
+    Depends on Core only. Also platform-free, so use-case logic stays
+    testable without a desktop session.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Noto.Core\Noto.Core.csproj" />
+  </ItemGroup>
+
+</Project>

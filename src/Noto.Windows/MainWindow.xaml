@@ -1,0 +1,27 @@
+<Window
+    x:Class="Noto.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Noto">
+
+    <!--
+        Bootstrap placeholder. The real interface begins at M2
+        (SideNotes Workspace) and is built on the design tokens from #22.
+        Deliberately unstyled — there is no design system to style it with yet.
+    -->
+    <StackPanel
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Spacing="8">
+        <TextBlock
+            Text="Noto"
+            FontSize="32"
+            HorizontalAlignment="Center" />
+        <TextBlock
+            x:Name="StatusText"
+            Text="Production foundation initialized"
+            Opacity="0.6"
+            HorizontalAlignment="Center" />
+    </StackPanel>
+
+</Window>

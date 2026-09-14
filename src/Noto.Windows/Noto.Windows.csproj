@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The WinUI 3 application: startup, composition root, XAML, views.
+    No domain logic. No Win32 interop (that is Noto.Platform.Windows).
+
+    Deployment shape matches ADR-008 and was validated by the spike:
+    unpackaged, self-contained, per-monitor DPI v2.
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <!--
+      WindowsAppSDKSelfContained needs a concrete RID at build time. Default to
+      win-x64 and allow an override (e.g. -p:RuntimeIdentifier=win-arm64);
+      RuntimeIdentifiers (plural) alone leaves the architecture unresolved.
+    -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>Noto</RootNamespace>
+    <AssemblyName>Noto</AssemblyName>
+    <ApplicationIcon />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Noto.UseCases\Noto.UseCases.csproj" />
+    <ProjectReference Include="..\Noto.Infrastructure\Noto.Infrastructure.csproj" />
+    <ProjectReference Include="..\Noto.Platform.Windows\Noto.Platform.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

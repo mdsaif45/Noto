@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The domain. ADR-009's boundary lives here:
+
+      NO platform dependency  — no WinUI, no Win32, no SQLite
+      NO presentation concept — no window, screen, monitor, coordinate, z-order
+
+    A note is not a sidebar note or a floating note. It is a note, which may be
+    PRESENTED in those ways, several at once.
+
+    Deliberately targets plain net9.0, not net9.0-windows: the build itself
+    then makes a Windows dependency impossible rather than merely discouraged.
+    Enforced by architecture tests (#20).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+</Project>

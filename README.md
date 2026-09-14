@@ -16,8 +16,9 @@ Native, local-first, keyboard-first, and quiet.
 
 > **Status: pre-alpha. There is nothing to install yet.**
 >
-> Noto is in its foundation phase. The documentation is real; the application
-> is not. Follow the [roadmap](docs/roadmap/roadmap.md).
+> The production solution now builds and the application starts — but it is a
+> **foundation only**. No note, no editor, no sidebar, no storage. Those begin
+> at M1. Follow the [roadmap](docs/roadmap/roadmap.md).
 >
 > **The first product is SideNotes parity on Windows** —
 > [SideNotes](https://www.apptorium.com/sidenotes/) is macOS-only, and nothing

@@ -1,0 +1,42 @@
+<Project>
+
+  <!--
+    Shared build configuration for every Noto project.
+    Kept deliberately small — see ADR-011 and principle 9.
+  -->
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- Reproducible builds: the same source produces the same binary. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Noto is Windows-only by design (ADR-001); suppress the pointless
+         cross-platform nag on projects that legitimately target Windows. -->
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+
+    <Authors>mdsaif45</Authors>
+    <Product>Noto</Product>
+    <Copyright>Copyright (c) 2026 mdsaif45</Copyright>
+    <RepositoryUrl>https://github.com/mdsaif45/Noto</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!--
+    Test projects. Warnings-as-errors still applies — tests are code — but
+    CA1707 is disabled because Method_under_test_does_this is the established
+    xUnit naming convention and reads far better than MethodUnderTestDoesThis.
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+</Project>

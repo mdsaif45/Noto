@@ -69,10 +69,11 @@ This is what makes "done" knowable. Without it, v1.0 recedes forever.
 architectural boundaries are enforced by tests rather than intentions.*
 
 - ✅ repository governance, research, ADRs
-- **the window behavior spike** — the framework gate, see below
-- solution and project structure per ADR-009's boundaries
-- **architecture tests** enforcing that `Noto.Core` has no platform or
-  presentation dependency — the rule is worthless unenforced
+- ✅ **the window behaviour spike** — framework gate passed, ADR-001 confirmed
+- ✅ solution and project structure per ADR-009's boundaries
+- ✅ **architecture tests** enforcing that `Noto.Core` has no platform or
+  presentation dependency — verified to fail when violated, not just to pass
+- ✅ CI builds and tests the real solution
 - command and event infrastructure (ADR-010)
 - design token foundation (ADR-011)
 - SQLite, connection management, migration runner (ADR-003)
