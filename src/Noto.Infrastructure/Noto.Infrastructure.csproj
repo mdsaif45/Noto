@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Persistence and I/O: SQLite, repositories, migrations, FTS5, files,
+    settings, logging (ADR-003).
+
+    No storage packages yet — #8 introduces Microsoft.Data.Sqlite and Dapper
+    along with the migration runner. This project currently exists to hold the
+    boundary, not to hide an empty implementation.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Noto.Core\Noto.Core.csproj" />
+  </ItemGroup>
+
+</Project>

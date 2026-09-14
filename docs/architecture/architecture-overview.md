@@ -15,26 +15,22 @@ daemon, no IPC, no microservices. One process, several windows.
 
 ```
   +----------------------------------------------------------+
-  |                     Noto.App                              |
-  |         composition root, lifetime, DI wiring             |
+  |                   Noto.Windows                            |
+  |   WinUI 3 app: startup, composition root, XAML, views     |
   +----------------------------------------------------------+
-  |                     Noto.UI                               |
-  |   design tokens, components, views, XAML                  |
-  +----------------------------------------------------------+
-  |                  Noto.Presentation                        |
-  |   sidebar / floating / (M6) contextual view models        |
-  |   the ONLY layer that knows a note can be *shown*         |
+  |                   Noto.UseCases                           |
+  |   commands, handlers, events, queries (ADR-010)           |
   +----------------------------------------------------------+
   |                     Noto.Core                             |
-  |   Note  Folder  Tag  Attachment  Task                     |
-  |   commands, handlers, events, queries, services           |
+  |   Note  Folder  Tag  Attachment  Task  (M1)               |
+  |   domain rules and services                               |
   |                                                           |
   |   NO Win32. NO SQL. NO XAML.                              |
   |   NO windows, coordinates, monitors or z-order.           |
   +-------------------------+--------------------------------+
               |                              |
   +-----------v-----------+    +-------------v----------------+
-  |  Noto.Infrastructure  |    |       Noto.Windows           |
+  |  Noto.Infrastructure  |    |   Noto.Platform.Windows      |
   |                       |    |                              |
   |  SQLite, migrations   |    |  P/Invoke, window management |
   |  repositories, FTS5   |    |  hotkeys, tray, clipboard    |
@@ -85,18 +81,24 @@ implementation or a test seam that earns it — nowhere else.
 
 | Project | Contains | Depends on |
 | ------- | -------- | ---------- |
-| `Noto.App` | Entry point, composition root, command registry wiring | all |
-| `Noto.UI` | Design tokens, shared components, views, XAML | Presentation |
-| `Noto.Presentation` | View models; sidebar, floating and later contextual presentation state | Core |
-| `Noto.Core` | Domain model, commands, handlers, events, queries, services | — |
+| `Noto.UseCases` | Commands, handlers, events, queries (ADR-010) | Core |
+| `Noto.Core` | Domain model and services. Targets plain `net9.0`, so a Windows dependency is impossible rather than merely discouraged | — |
 | `Noto.Infrastructure` | SQLite, repositories, migrations, FTS5, files, settings, logging | Core |
-| `Noto.Windows` | Win32 interop, window management, hotkeys, tray, clipboard, DPI | Core |
-| `Noto.Core.Tests` | Domain, command and **architecture** tests | Core |
+| `Noto.Platform.Windows` | All Win32 interop: window management, hotkeys, clipboard, capture, DPI, monitors | Core |
+| `Noto.Windows` | The WinUI 3 application: startup, composition root, XAML, views | UseCases, Infrastructure, Platform.Windows |
+| `Noto.Core.Tests` | Domain, command and **architecture boundary** tests | Core |
+| `Noto.UseCases.Tests` | Use-case and boundary tests | UseCases |
 | `Noto.Infrastructure.Tests` | Storage, migration, search tests | Infrastructure |
-| `Noto.Windows.Tests` | Interop tests requiring a desktop session | Windows |
 
-`Noto.Presentation` exists to hold the line in ADR-009. Without it, presentation
-state has nowhere to live except the domain or the views — and both are wrong.
+**The layer is named `Noto.UseCases`, not `Noto.Application`.** The latter
+shadows `Microsoft.UI.Xaml.Application` and forces fully-qualified names
+throughout the WinUI project — discovered while building the solution, not
+theorised.
+
+A separate `Noto.Presentation` project is **not** created yet. ADR-009's
+boundary is currently held by `Noto.Core` targeting plain `net9.0` and by the
+architecture tests. Presentation view models arrive with the workspace in M2;
+creating an empty project for them now would be a directory for appearance.
 
 `Noto.Sync` is **not created yet**. ADR-002 defers sync past v1, and empty
 directories for appearance are forbidden.

@@ -21,52 +21,30 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # The solution does not exist until M0 lands. Until then CI validates the
-      # repository itself rather than failing on an absent project.
-      - name: Detect solution
-        id: detect
-        shell: pwsh
-        run: |
-          $sln = Get-ChildItem -Path . -Filter *.sln -Recurse -File -ErrorAction SilentlyContinue |
-                 Select-Object -First 1
-          if ($sln) {
-            "found=true"          | Out-File $env:GITHUB_OUTPUT -Append
-            "path=$($sln.FullName)" | Out-File $env:GITHUB_OUTPUT -Append
-            Write-Host "Solution: $($sln.FullName)"
-          } else {
-            "found=false" | Out-File $env:GITHUB_OUTPUT -Append
-            Write-Host "::notice::No solution found yet - skipping build and test."
-          }
-
       - name: Setup .NET
-        if: steps.detect.outputs.found == 'true'
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
       - name: Restore
-        if: steps.detect.outputs.found == 'true'
-        run: dotnet restore "${{ steps.detect.outputs.path }}"
+        run: dotnet restore Noto.sln
 
       - name: Verify formatting
-        if: steps.detect.outputs.found == 'true'
-        run: dotnet format "${{ steps.detect.outputs.path }}" --verify-no-changes --no-restore
+        run: dotnet format Noto.sln --verify-no-changes --no-restore
 
       - name: Build
-        if: steps.detect.outputs.found == 'true'
-        run: dotnet build "${{ steps.detect.outputs.path }}" --configuration Release --no-restore /warnaserror
+        run: dotnet build Noto.sln --configuration Release --no-restore
 
       - name: Test
-        if: steps.detect.outputs.found == 'true'
         run: >
-          dotnet test "${{ steps.detect.outputs.path }}"
+          dotnet test Noto.sln
           --configuration Release --no-build
           --logger "trx;LogFileName=test-results.trx"
           --collect:"XPlat Code Coverage"
           --results-directory ./artifacts/test-results
 
       - name: Upload test results
-        if: always() && steps.detect.outputs.found == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results

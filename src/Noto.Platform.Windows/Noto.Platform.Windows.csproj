@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Every Win32 interop in Noto lives here — nowhere else.
+
+    Targets net9.0-windows (not a WinUI project): window management, hotkeys,
+    clipboard, capture, DPI and monitor arithmetic are Win32 concerns and do
+    not need the XAML stack. Keeping them out of Noto.Windows is what makes
+    them testable and what keeps ADR-001's framework decision reversible.
+
+    Interop rules, validated by the window-behaviour spike (issue #2):
+      - DWMWA_EXTENDED_FRAME_BOUNDS for all alignment; GetWindowRect is ~7px off
+      - MoveAndResize takes OUTER coordinates; compensate per edge, per DPI
+      - root every delegate passed to Win32 in a field
+      - LibraryImport needs AllowUnsafeBlocks; it cannot marshal MONITORINFOEXW
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <!-- The LibraryImport source generator emits unsafe code (SYSLIB1062). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Noto.Core\Noto.Core.csproj" />
+  </ItemGroup>
+
+</Project>
