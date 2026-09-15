@@ -188,35 +188,12 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         try
         {
             using var connection = _database.OpenConnection();
-            using var command = connection.CreateCommand();
 
             // Root (FolderId IS NULL) is its own scope, not a catch-all (O1),
-            // so the two cases need different SQL: "FolderId = NULL" matches
-            // nothing in SQL's three-valued logic.
-            //
-            // Deleted notes are excluded because they keep their SortOrder but
-            // never participate in ordering (I6). MAX over an empty set is
-            // NULL, which is exactly "the scope is empty".
-            command.CommandText = folderId is null
-                ? """
-                  SELECT MAX(SortOrder)
-                  FROM Notes
-                  WHERE FolderId IS NULL AND DeletedAt IS NULL;
-                  """
-                : """
-                  SELECT MAX(SortOrder)
-                  FROM Notes
-                  WHERE FolderId = $folderId AND DeletedAt IS NULL;
-                  """;
-
-            if (folderId is { } scope)
-            {
-                command.Parameters.AddWithValue("$folderId", scope.Value);
-            }
-
-            object? result = command.ExecuteScalar();
-
-            return result is null or DBNull ? null : Convert.ToDouble(result, System.Globalization.CultureInfo.InvariantCulture);
+            // which SortOrderScope.NotesIn encodes. Deleted notes are excluded
+            // because they keep their SortOrder but never participate in
+            // ordering (I6).
+            return SortOrderEngine.MaxSortOrder(connection, SortOrderScope.NotesIn(folderId?.Value));
         }
         catch (SqliteException ex)
         {
@@ -269,7 +246,13 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             // O4: the folder change and the new SortOrder are one unit. A
             // commit between them would leave the note in the target scope
             // holding a value that means nothing there.
-            double sortOrder = ResolvePosition(connection, transaction, targetFolderId, placement, movingNote: id, updatedAt);
+            double sortOrder = SortOrderEngine.ResolvePosition(
+                connection,
+                transaction,
+                SortOrderScope.NotesIn(targetFolderId?.Value),
+                ToEnginePlacement(placement),
+                id.Value,
+                updatedAt);
 
             using (var command = connection.CreateCommand())
             {
@@ -307,10 +290,12 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             using var connection = _database.OpenConnection();
             using var transaction = connection.BeginTransaction();
 
-            FolderId? scope = ReadScope(connection, transaction, id);
+            FolderId? folderScope = ReadScope(connection, transaction, id);
+            SortOrderScope scope = SortOrderScope.NotesIn(folderScope?.Value);
             double current = ReadSortOrder(connection, transaction, id);
 
-            if (AlreadyInPosition(connection, transaction, id, scope, placement, current))
+            if (SortOrderEngine.AlreadyInPosition(
+                connection, transaction, scope, ToEnginePlacement(placement), id.Value, current))
             {
                 // Same position: write nothing, stamp nothing (contract §5).
                 // Rolling back rather than committing an empty transaction
@@ -319,7 +304,8 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                 return false;
             }
 
-            double sortOrder = ResolvePosition(connection, transaction, scope, placement, movingNote: id, updatedAt);
+            double sortOrder = SortOrderEngine.ResolvePosition(
+                connection, transaction, scope, ToEnginePlacement(placement), id.Value, updatedAt);
 
             using (var command = connection.CreateCommand())
             {
@@ -543,315 +529,24 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    private static Note ReadNote(SqliteDataReader reader) => new()
-    {
-        Id = NoteId.From(reader.GetString(0)),
-        FolderId = reader.IsDBNull(1) ? null : FolderId.From(reader.GetString(1)),
-        Content = reader.GetString(2),
-        ColorKey = reader.IsDBNull(3) ? null : reader.GetString(3),
-        IsPinned = reader.GetInt64(4) != 0,
-        IsFolded = reader.GetInt64(5) != 0,
-        SortOrder = reader.GetDouble(6),
-        CreatedAt = Parse(reader.GetString(7)),
-        UpdatedAt = Parse(reader.GetString(8)),
-        DeletedAt = reader.IsDBNull(9) ? null : Parse(reader.GetString(9)),
-    };
-
-    // ---- ordering (O1-O6) ------------------------------------------------
-
     /// <summary>
-    /// The gap below which a midpoint is no longer meaningfully between its
-    /// neighbours, so the scope is renormalised instead.
+    /// Translates the domain's placement into the engine's row-level one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Implementation-defined.</b> The contract fixes the observable
-    /// behaviour — ordering stays correct, renormalisation is atomic and yields
-    /// 1, 2, 3… — and states that the numeric trigger is deliberately not part
-    /// of it (contract §5, U5).
-    /// </para>
-    /// <para>
-    /// Chosen well above the point where <c>double</c> actually fails: with ~52
-    /// bits of mantissa, midpoints between neighbours around 1.0 stop being
-    /// distinguishable after roughly 50 halvings. Renormalising at 1e-9 leaves a
-    /// wide margin, so the ordering is rebuilt long before two notes could
-    /// collide.
-    /// </para>
+    /// The boundary where strong ids become plain row ids. The engine orders
+    /// rows in a table; giving it <c>NoteId</c> would tie one algorithm to one
+    /// domain, so the translation lives here rather than there.
     /// </remarks>
-    private const double RenormalisationThreshold = 1e-9;
-
-    /// <summary>Where a renormalised scope starts, then 2, 3, … (O6).</summary>
-    private const double RenormalisationStart = 1;
-
-    /// <summary>
-    /// Turns a <see cref="NotePlacement"/> into a concrete <c>SortOrder</c>,
-    /// renormalising the scope first if the gap is exhausted.
-    /// </summary>
-    /// <remarks>
-    /// The single place ordering values are produced, shared by
-    /// <see cref="Move"/> and <see cref="Reorder"/> so the two cannot drift.
-    /// </remarks>
-    private static double ResolvePosition(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        FolderId? scope,
-        NotePlacement placement,
-        NoteId movingNote,
-        DateTimeOffset updatedAt)
-    {
-        (double? before, double? after) = Neighbours(connection, transaction, scope, placement, movingNote);
-
-        // An end of the scope: O3's min - 1 / max + 1. No renumbering.
-        if (before is null && after is null)
-        {
-            return RenormalisationStart;
-        }
-
-        if (before is null)
-        {
-            return after!.Value - 1;
-        }
-
-        if (after is null)
-        {
-            return before.Value + 1;
-        }
-
-        double gap = after.Value - before.Value;
-
-        // Tested against the gap this insertion would LEAVE BEHIND, not the one
-        // it finds. Checking `gap` alone lets a gap of 2e-9 through, which then
-        // writes a midpoint 1e-9 away from its neighbour — under the threshold,
-        // and the next insertion there has nothing left to split.
-        if (gap / 2 > RenormalisationThreshold)
-        {
-            // Midpoint: one row written, not the whole scope (design §7).
-            return before.Value + (gap / 2);
-        }
-
-        // O6: the gap is exhausted. Rewrite the scope to 1, 2, 3... inside this
-        // transaction, then take the midpoint of the now-separated neighbours.
-        Renormalise(connection, transaction, scope, movingNote, updatedAt);
-
-        (before, after) = Neighbours(connection, transaction, scope, placement, movingNote);
-
-        return (before, after) switch
-        {
-            (null, null) => RenormalisationStart,
-            (null, { } a) => a - 1,
-            ({ } b, null) => b + 1,
-            ({ } b, { } a) => b + ((a - b) / 2),
-        };
-    }
-
-    /// <summary>
-    /// The <c>SortOrder</c> values a placement sits between, excluding the note
-    /// being moved.
-    /// </summary>
-    /// <remarks>
-    /// The moving note is excluded so that its own current position never acts
-    /// as its own neighbour, which would make "move after my predecessor" a
-    /// no-op by accident. Deleted rows are excluded because they never
-    /// participate in ordering (I6).
-    /// </remarks>
-    private static (double? Before, double? After) Neighbours(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        FolderId? scope,
-        NotePlacement placement,
-        NoteId movingNote)
+    private static SortOrderPlacement ToEnginePlacement(NotePlacement placement)
     {
         if (placement.AtEnd)
         {
-            return (ScopeExtreme(connection, transaction, scope, movingNote, highest: true), null);
+            return SortOrderPlacement.Last;
         }
 
-        if (placement.AfterSibling is not { } sibling)
-        {
-            // First position: nothing before, the current minimum after.
-            return (null, ScopeExtreme(connection, transaction, scope, movingNote, highest: false));
-        }
-
-        double anchor = ReadSortOrder(connection, transaction, sibling);
-
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-
-        // The next active sibling strictly after the anchor. Ties on SortOrder
-        // fall back to Id, matching O2's total order, so "after" is
-        // unambiguous even when two rows share a value.
-        command.CommandText = scope is null
-            ? """
-              SELECT MIN(SortOrder) FROM Notes
-              WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $moving
-                AND (SortOrder > $anchor OR (SortOrder = $anchor AND Id > $sibling));
-              """
-            : """
-              SELECT MIN(SortOrder) FROM Notes
-              WHERE FolderId = $folderId AND DeletedAt IS NULL AND Id <> $moving
-                AND (SortOrder > $anchor OR (SortOrder = $anchor AND Id > $sibling));
-              """;
-
-        command.Parameters.AddWithValue("$anchor", anchor);
-        command.Parameters.AddWithValue("$sibling", sibling.Value);
-        command.Parameters.AddWithValue("$moving", movingNote.Value);
-        if (scope is { } folder)
-        {
-            command.Parameters.AddWithValue("$folderId", folder.Value);
-        }
-
-        object? next = command.ExecuteScalar();
-
-        return (anchor, next is null or DBNull ? null : ToDouble(next));
-    }
-
-    /// <summary>The highest or lowest active <c>SortOrder</c> in a scope.</summary>
-    private static double? ScopeExtreme(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        FolderId? scope,
-        NoteId excluding,
-        bool highest)
-    {
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-
-        string aggregate = highest ? "MAX" : "MIN";
-
-        command.CommandText = scope is null
-            ? $"SELECT {aggregate}(SortOrder) FROM Notes WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $moving;"
-            : $"SELECT {aggregate}(SortOrder) FROM Notes WHERE FolderId = $folderId AND DeletedAt IS NULL AND Id <> $moving;";
-
-        command.Parameters.AddWithValue("$moving", excluding.Value);
-        if (scope is { } folder)
-        {
-            command.Parameters.AddWithValue("$folderId", folder.Value);
-        }
-
-        object? result = command.ExecuteScalar();
-
-        return result is null or DBNull ? null : ToDouble(result);
-    }
-
-    /// <summary>
-    /// O6: rewrites the scope's <c>SortOrder</c> to 1, 2, 3… preserving the
-    /// current order, inside the caller's transaction.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The moving note is excluded</b>, so what this rewrites is the scope
-    /// <i>minus</i> that note. It is about to be positioned explicitly by
-    /// <see cref="ResolvePosition"/>, and including it would assign a value
-    /// that the very next statement overwrites.
-    /// </para>
-    /// <para>
-    /// The consequence is worth stating plainly, because the method name alone
-    /// suggests otherwise: after the whole operation the scope is
-    /// <b>not</b> contiguous. Renormalisation restores 1, 2, 3… and the
-    /// insertion then places the moving note between two of them:
-    /// </para>
-    /// <code>
-    ///   before      A=1.0  X=1.0000000005  B=2.0   M=9.0   (gap exhausted)
-    ///   renormalise A=1    X=2             B=3     M=9.0   &lt;- O6, this method
-    ///   place M     A=1    M=1.5           X=2     B=3     &lt;- O3 midpoint
-    /// </code>
-    /// <para>
-    /// That satisfies the contract: O6 governs what renormalisation produces,
-    /// O3 governs the insertion that follows, and O5 says the resulting gaps
-    /// are harmless. What matters observably is that the order is correct and
-    /// the neighbours are once again far enough apart to split.
-    /// </para>
-    /// <para>
-    /// Every row it rewrites is a row it changes, so each takes the
-    /// transaction's single timestamp (contract §4).
-    /// </para>
-    /// </remarks>
-    private static void Renormalise(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        FolderId? scope,
-        NoteId excluding,
-        DateTimeOffset updatedAt)
-    {
-        var ids = new List<string>();
-
-        using (var read = connection.CreateCommand())
-        {
-            read.Transaction = transaction;
-
-            // O2's ordering, so renormalising preserves what the user sees.
-            read.CommandText = scope is null
-                ? """
-                  SELECT Id FROM Notes
-                  WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $moving
-                  ORDER BY SortOrder ASC, Id ASC;
-                  """
-                : """
-                  SELECT Id FROM Notes
-                  WHERE FolderId = $folderId AND DeletedAt IS NULL AND Id <> $moving
-                  ORDER BY SortOrder ASC, Id ASC;
-                  """;
-
-            read.Parameters.AddWithValue("$moving", excluding.Value);
-            if (scope is { } folder)
-            {
-                read.Parameters.AddWithValue("$folderId", folder.Value);
-            }
-
-            using var reader = read.ExecuteReader();
-            while (reader.Read())
-            {
-                ids.Add(reader.GetString(0));
-            }
-        }
-
-        double position = RenormalisationStart;
-
-        foreach (string id in ids)
-        {
-            using var write = connection.CreateCommand();
-            write.Transaction = transaction;
-            write.CommandText =
-                """
-                UPDATE Notes SET SortOrder = $sortOrder, UpdatedAt = $updatedAt WHERE Id = $id;
-                """;
-            write.Parameters.AddWithValue("$sortOrder", position);
-            write.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
-            write.Parameters.AddWithValue("$id", id);
-            write.ExecuteNonQuery();
-
-            position++;
-        }
-    }
-
-    /// <summary>Whether the note already sits where the placement asks.</summary>
-    /// <remarks>
-    /// Compared by neighbours rather than by value: the question is not "is the
-    /// number already right" but "is anything actually between the note and
-    /// where it is being asked to go".
-    /// </remarks>
-    private static bool AlreadyInPosition(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        NoteId id,
-        FolderId? scope,
-        NotePlacement placement,
-        double current)
-    {
-        if (placement.AfterSibling is { } sibling && sibling == id)
-        {
-            // "After itself" is meaningless; treat it as staying put rather
-            // than computing a position from its own value.
-            return true;
-        }
-
-        (double? before, double? after) = Neighbours(connection, transaction, scope, placement, id);
-
-        // Already after `before` and before `after` means nothing would move.
-        bool afterLowerBound = before is null || current > before.Value;
-        bool beforeUpperBound = after is null || current < after.Value;
-
-        return afterLowerBound && beforeUpperBound;
+        return placement.AfterSibling is { } sibling
+            ? SortOrderPlacement.After(sibling.Value)
+            : SortOrderPlacement.First;
     }
 
     private static FolderId? ReadScope(SqliteConnection connection, SqliteTransaction transaction, NoteId id)
@@ -875,18 +570,24 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
 
         object? result = command.ExecuteScalar();
 
-        return result is null or DBNull ? 0 : ToDouble(result);
+        return result is null or DBNull ? 0 : Convert.ToDouble(result, System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private static double ToDouble(object value) =>
-        Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+    private static Note ReadNote(SqliteDataReader reader) => new()
+    {
+        Id = NoteId.From(reader.GetString(0)),
+        FolderId = reader.IsDBNull(1) ? null : FolderId.From(reader.GetString(1)),
+        Content = reader.GetString(2),
+        ColorKey = reader.IsDBNull(3) ? null : reader.GetString(3),
+        IsPinned = reader.GetInt64(4) != 0,
+        IsFolded = reader.GetInt64(5) != 0,
+        SortOrder = reader.GetDouble(6),
+        CreatedAt = Parse(reader.GetString(7)),
+        UpdatedAt = Parse(reader.GetString(8)),
+        DeletedAt = reader.IsDBNull(9) ? null : Parse(reader.GetString(9)),
+    };
 
-    private static string Format(DateTimeOffset value) =>
-        value.ToUniversalTime().ToString(TimestampFormat, System.Globalization.CultureInfo.InvariantCulture);
+    private static string Format(DateTimeOffset value) => Timestamps.Format(value);
 
-    private static DateTimeOffset Parse(string value) =>
-        DateTimeOffset.Parse(
-            value,
-            System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.RoundtripKind);
+    private static DateTimeOffset Parse(string value) => Timestamps.Parse(value);
 }
