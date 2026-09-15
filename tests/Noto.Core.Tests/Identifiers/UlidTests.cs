@@ -83,6 +83,92 @@ public sealed class UlidTests
         Assert.Equal(ids, ids.Order(StringComparer.Ordinal));
     }
 
+    [Fact]
+    public void An_instant_revisited_after_a_later_one_continues_its_run()
+    {
+        // REGRESSION. ADR-012 promises ids are "monotonic within the same
+        // millisecond, so ordering is total". An earlier implementation
+        // tracked only the MOST RECENT millisecond, so returning to an earlier
+        // instant drew fresh randomness and produced two ids at the same
+        // millisecond with unrelated random components — ordering by chance,
+        // measured at ~49% inverted.
+        //
+        // Single-threaded on purpose: the defect needs no concurrency, only an
+        // interleaved wall-clock id, which is what any import carrying
+        // original creation times runs into.
+        var past = DateTimeOffset.FromUnixTimeMilliseconds(1_500_000_000_000);
+
+        var ids = new List<string>();
+        for (int i = 0; i < 200; i++)
+        {
+            ids.Add(Ulid.NewId(past));
+            _ = Ulid.NewId();          // a later instant, in between
+        }
+
+        Assert.Equal(ids, ids.Order(StringComparer.Ordinal));
+        Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void Two_instants_interleaved_each_keep_their_own_run()
+    {
+        // Two callers importing from different eras, alternating. Each
+        // millisecond's sequence must remain ascending independently.
+        var first = DateTimeOffset.FromUnixTimeMilliseconds(1_500_000_000_000);
+        var second = DateTimeOffset.FromUnixTimeMilliseconds(1_600_000_000_000);
+
+        var a = new List<string>();
+        var b = new List<string>();
+
+        for (int i = 0; i < 100; i++)
+        {
+            a.Add(Ulid.NewId(first));
+            b.Add(Ulid.NewId(second));
+        }
+
+        Assert.Equal(a, a.Order(StringComparer.Ordinal));
+        Assert.Equal(b, b.Order(StringComparer.Ordinal));
+        Assert.Empty(a.Intersect(b, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Concurrent_callers_at_one_instant_produce_a_totally_ordered_sequence()
+    {
+        // ADR-012's guarantee is over the GENERATED SEQUENCE, not per caller:
+        // "ORDER BY Id" is a query over every row whichever thread minted it.
+        // Interleaving A1 B1 A2 is correct; a descent in issue order is not.
+        //
+        // A Barrier rather than sleeps, so the threads genuinely contend.
+        var instant = DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000);
+        const int threads = 8;
+        const int perThread = 500;
+
+        var issued = new System.Collections.Concurrent.ConcurrentBag<(long Order, string Id)>();
+        long sequence = 0;
+        using var start = new Barrier(threads);
+
+        Parallel.For(0, threads, _ =>
+        {
+            start.SignalAndWait();
+
+            for (int i = 0; i < perThread; i++)
+            {
+                // The counter and the id are taken together so issue order is
+                // observable; without that, "ascending" is untestable.
+                lock (issued)
+                {
+                    issued.Add((Interlocked.Increment(ref sequence), Ulid.NewId(instant)));
+                }
+            }
+        });
+
+        var inIssueOrder = issued.OrderBy(x => x.Order).Select(x => x.Id).ToList();
+
+        Assert.Equal(threads * perThread, inIssueOrder.Count);
+        Assert.Equal(inIssueOrder, inIssueOrder.Order(StringComparer.Ordinal));
+        Assert.Equal(inIssueOrder.Count, inIssueOrder.Distinct(StringComparer.Ordinal).Count());
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

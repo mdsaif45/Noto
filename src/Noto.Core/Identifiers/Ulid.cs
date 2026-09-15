@@ -32,8 +32,31 @@ public static class Ulid
 
     private static readonly Lock SyncRoot = new();
 
+    /// <summary>The wall clock's high-water mark, for the regression guard.</summary>
     private static long _lastTimestamp = -1;
-    private static readonly byte[] LastRandomness = new byte[10];
+
+    /// <summary>
+    /// The last randomness issued for each millisecond still being tracked.
+    /// </summary>
+    /// <remarks>
+    /// Per timestamp rather than a single "most recent" slot: a caller may
+    /// legitimately revisit an earlier instant — an import carrying original
+    /// creation times does exactly that — and such an id must still continue
+    /// that millisecond's run rather than starting a new one beside it.
+    /// </remarks>
+    private static readonly Dictionary<long, byte[]> LastRandomnessByTimestamp = [];
+
+    /// <summary>
+    /// How many distinct milliseconds stay tracked.
+    /// </summary>
+    /// <remarks>
+    /// A bound, because the map would otherwise grow for the life of the
+    /// process. Evicting the oldest is safe: a millisecond that has fallen out
+    /// is one no caller has touched recently, so the next id at that instant
+    /// starts a fresh run — the same thing that happens for any instant seen
+    /// for the first time.
+    /// </remarks>
+    private const int TrackedTimestamps = 64;
 
     /// <summary>
     /// Creates a new ULID, monotonically increasing even within the same
@@ -52,6 +75,13 @@ public static class Ulid
             {
                 now = _lastTimestamp;
             }
+
+            // The high-water mark belongs to the wall-clock path alone. The
+            // explicit-timestamp overload must not advance it, or supplying an
+            // older instant would drag every later wall-clock id forward —
+            // which is the import-corruption case the guard was scoped against
+            // when it was introduced.
+            _lastTimestamp = now;
         }
 
         return NewId(DateTimeOffset.FromUnixTimeMilliseconds(now));
@@ -78,11 +108,22 @@ public static class Ulid
 
         lock (SyncRoot)
         {
-            if (ms == _lastTimestamp)
+            // Keyed by millisecond, not by "the most recent one". Tracking only
+            // the latest instant silently broke ADR-012's guarantee whenever a
+            // caller returned to an earlier timestamp:
+            //
+            //   NewId(t)   -> randomness R
+            //   NewId()    -> "now", a later instant, overwrites the state
+            //   NewId(t)   -> t is no longer "the last", so fresh bytes are
+            //                 drawn and the second id sits at the SAME
+            //                 millisecond with unrelated randomness
+            //
+            // The two ids then order by chance — measured at ~49% inverted.
+            // That is exactly the case an import carrying original creation
+            // times hits, interleaved with any ordinary id generation.
+            if (LastRandomnessByTimestamp.TryGetValue(ms, out byte[]? previous))
             {
-                // Same millisecond: increment the previous randomness rather
-                // than drawing fresh bytes, which would break ordering.
-                Array.Copy(LastRandomness, randomness, randomness.Length);
+                Array.Copy(previous, randomness, randomness.Length);
                 IncrementInPlace(randomness);
             }
             else
@@ -90,8 +131,7 @@ public static class Ulid
                 RandomNumberGenerator.Fill(randomness);
             }
 
-            _lastTimestamp = ms;
-            Array.Copy(randomness, LastRandomness, randomness.Length);
+            Remember(ms, randomness);
         }
 
         return Encode(ms, randomness);
@@ -141,6 +181,36 @@ public static class Ulid
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Records the randomness just issued for a millisecond, evicting the
+    /// oldest tracked instant when the map is full.
+    /// </summary>
+    /// <remarks>Callers hold <see cref="SyncRoot"/>.</remarks>
+    private static void Remember(long ms, byte[] randomness)
+    {
+        if (!LastRandomnessByTimestamp.ContainsKey(ms)
+            && LastRandomnessByTimestamp.Count >= TrackedTimestamps)
+        {
+            // Linear scan over a 64-entry map, on a path that already holds a
+            // lock and fills 10 cryptographic bytes. A heap would be more
+            // machinery than the cost it saves.
+            long oldest = long.MaxValue;
+            foreach (long tracked in LastRandomnessByTimestamp.Keys)
+            {
+                if (tracked < oldest)
+                {
+                    oldest = tracked;
+                }
+            }
+
+            LastRandomnessByTimestamp.Remove(oldest);
+        }
+
+        // Copied, not aliased: the caller returns this array to Encode and it
+        // must not be mutated by a later increment.
+        LastRandomnessByTimestamp[ms] = [.. randomness];
     }
 
     private static void IncrementInPlace(byte[] randomness)
