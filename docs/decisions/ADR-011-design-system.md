@@ -66,10 +66,10 @@ opted out of that, so the rule is absolute.
 #### Each dictionary merges what it consumes
 
 Splitting the layers across files makes the dependency between them real, and
-WinUI does not resolve it the way the file list suggests. A `StaticResource` or
-`ThemeResource` inside a merged `ResourceDictionary` resolves against **that
-dictionary and its own merge tree only** — never against a sibling merged
-alongside it in the parent. So this does *not* work, however carefully ordered:
+WinUI does not resolve it the way the file list suggests. A resource reference
+inside a merged `ResourceDictionary` resolves against **that dictionary and its
+own merge tree**, not against a sibling merged alongside it in the parent. So
+this does *not* work, however carefully ordered:
 
 ```xml
 <!-- WRONG: FolderRow cannot see Tokens, they are siblings -->
@@ -83,12 +83,17 @@ Each dictionary must merge its own dependencies instead: `FolderRow.xaml` merges
 Brushes and Tokens, `Brushes.xaml` merges Colors. The entry point then lists the
 leaves in any order, because order carries no meaning.
 
-This is worth stating because the failure is not a silent fallback to a default.
-The lookup fails while `Application.Resources` is still being constructed, before
-any handler exists, and the process is terminated with `0xC0000C04` — no
-exception, no XAML parse error, and a build that reports zero warnings. Merge
-order that *looks* correct is the trap: it produces exactly the same crash as
-merge order that is obviously wrong.
+**`StaticResource` and `ThemeResource` fail differently, and that is the trap.**
+`StaticResource` is resolved as the dictionary is parsed, so a sibling reference
+fails while `Application.Resources` is still being constructed — before any
+handler exists. The process is terminated with `0xC0000C04`: no exception, no
+XAML parse error, and a build reporting zero warnings. `ThemeResource` defers to
+runtime, so the same mistake *starts up perfectly* and only misresolves later,
+when something actually renders. Both were observed while building this system:
+the `StaticResource` form crashed on launch, the `ThemeResource` form did not.
+
+So a design system that starts cleanly is not evidence that its dictionaries are
+wired correctly — only that no deferred reference has been rendered yet.
 
 ### Token groups
 
