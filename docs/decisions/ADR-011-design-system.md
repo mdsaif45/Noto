@@ -63,6 +63,33 @@ That indirection is the whole point: changing dark-mode surface colour means
 editing one primitive, not sixty views. A view that hardcodes `#1F1F1F` has
 opted out of that, so the rule is absolute.
 
+#### Each dictionary merges what it consumes
+
+Splitting the layers across files makes the dependency between them real, and
+WinUI does not resolve it the way the file list suggests. A `StaticResource` or
+`ThemeResource` inside a merged `ResourceDictionary` resolves against **that
+dictionary and its own merge tree only** — never against a sibling merged
+alongside it in the parent. So this does *not* work, however carefully ordered:
+
+```xml
+<!-- WRONG: FolderRow cannot see Tokens, they are siblings -->
+<ResourceDictionary.MergedDictionaries>
+  <ResourceDictionary Source=".../Tokens.xaml" />
+  <ResourceDictionary Source=".../FolderRow.xaml" />
+</ResourceDictionary.MergedDictionaries>
+```
+
+Each dictionary must merge its own dependencies instead: `FolderRow.xaml` merges
+Brushes and Tokens, `Brushes.xaml` merges Colors. The entry point then lists the
+leaves in any order, because order carries no meaning.
+
+This is worth stating because the failure is not a silent fallback to a default.
+The lookup fails while `Application.Resources` is still being constructed, before
+any handler exists, and the process is terminated with `0xC0000C04` — no
+exception, no XAML parse error, and a build that reports zero warnings. Merge
+order that *looks* correct is the trap: it produces exactly the same crash as
+merge order that is obviously wrong.
+
 ### Token groups
 
 | Group | Contents |
@@ -216,6 +243,8 @@ against. This ADR is what makes that decision coherent.
 3. Every interactive component has a visible focus state.
 4. New tokens are added when a surface needs one — not speculatively.
 5. A component is built once and reused; a second copy is a bug.
+6. Every dictionary merges the dictionaries it consumes; none relies on a
+   consumer's merge order (see *Each dictionary merges what it consumes*).
 
 ### Testing requirements
 
@@ -224,6 +253,10 @@ against. This ADR is what makes that decision coherent.
 - [ ] Component gallery page rendering every component in every state, in each
       theme — the cheapest possible visual regression surface
 - [ ] Keyboard focus is visible on every interactive component
+- [ ] Every component style is exercised on a **realised container** — a style
+      that merely resolves has not been tested. A `ControlTemplate`'s resource
+      references are evaluated only when a control actually materialises, so a
+      list with no items proves nothing.
 
 ---
 

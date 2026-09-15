@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The design system: semantic tokens, themes and component styles (ADR-011).
+
+    XAML resources only. No domain logic, no view-models, no code-behind.
+
+    This project references NOTHING — not Core, not UseCases, not
+    Infrastructure. A design system that can reach the domain eventually does,
+    and ADR-009's direction only holds while presentation is a leaf. The
+    WindowsAppSDK reference below is the XAML compiler, not a dependency on
+    application code.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <!--
+      A library, not an application: no OutputType, no RuntimeIdentifier and no
+      WindowsAppSDKSelfContained. Noto.Windows owns the deployment shape
+      (ADR-008); this project only contributes resources to it.
+    -->
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <RootNamespace>Noto.UI</RootNamespace>
+    <AssemblyName>Noto.UI</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+  </ItemGroup>
+
+</Project>
