@@ -196,16 +196,7 @@ public static class Ulid
             // Linear scan over a 64-entry map, on a path that already holds a
             // lock and fills 10 cryptographic bytes. A heap would be more
             // machinery than the cost it saves.
-            long oldest = long.MaxValue;
-            foreach (long tracked in LastRandomnessByTimestamp.Keys)
-            {
-                if (tracked < oldest)
-                {
-                    oldest = tracked;
-                }
-            }
-
-            LastRandomnessByTimestamp.Remove(oldest);
+            LastRandomnessByTimestamp.Remove(LastRandomnessByTimestamp.Keys.Min());
         }
 
         // Copied, not aliased: the caller returns this array to Encode and it
