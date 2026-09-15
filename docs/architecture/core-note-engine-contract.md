@@ -14,11 +14,21 @@ altering a rule that was already stated:
 |---|---|---|---|
 | U12a | 2026-09-15 | Tag names are trimmed before validation, comparison and persistence | new §7a; §6 `InvalidInput` row; §11 rows 19, 20 |
 | U12b | 2026-09-15 | `RemoveTagFromNote` does not validate the tag's existence | §7 precondition ladder; §11 row 23 |
+| U13a | 2026-09-15 | `ListTags` orders by `Name COLLATE NOCASE ASC` | new §5a; §11 row Q4 |
+| U13b | 2026-09-15 | `ListNotesForTag` orders by `UpdatedAt DESC` | new §5a; §11 row Q5 |
 
-Both resolve silences found at the Slice 5 design gate, not contradictions:
-nothing in the contract previously said whether a tag name was trimmed, and the
-`RemoveTagFromNote` reading was already implied by §11 row 23's failure set but
-was not stated outright.
+U12a and U12b resolve silences found at the Slice 5 design gate, not
+contradictions: nothing in the contract previously said whether a tag name was
+trimmed, and the `RemoveTagFromNote` reading was already implied by §11 row 23's
+failure set but was not stated outright.
+
+U13a and U13b resolve the same kind of silence, found at the Slice 6 design
+gate. §11's Q4 row carried an empty obligation column and Q5's named the join
+and I1 but no ordering, so neither could be implemented without choosing an
+order — a product-visible decision the contract had not made.
+
+**Q2 needed no amendment.** Its obligation already cites O1/O2, and O2 is stated
+in full in §5; the ordering was specified, not silent (see §5a).
 
 **Authoritative sources:**
 
@@ -268,6 +278,68 @@ its trigger (§9), and renormalisation yields contiguous 1, 2, 3…
 part of this contract. Design §7 gives the reason (~52 mantissa bits, ~50
 same-spot operations) without a number; §14 requires a ~60-insert test, which
 is the real guarantee.
+
+---
+
+## 5a. Query ordering
+
+Every list query returns rows in a **deterministic** order. O1–O6 govern the
+ordering of *entities within a scope*; this section states what each **query**
+returns, because two of them order rows that no `SortOrder` can compare.
+
+| Query | Order | Status |
+|---|---|---|
+| `ListNotesInFolder` (Q2) | O2 in full — `IsPinned DESC, SortOrder ASC, Id ASC` | SPECIFIED (§5, O2) |
+| `ListFolders` (Q3) | O2 in full — pinned first | SPECIFIED (§5, O2) |
+| `ListTags` (Q4) | `Name COLLATE NOCASE ASC` | **APPROVED, U13a** |
+| `ListNotesForTag` (Q5) | `UpdatedAt DESC` | **APPROVED, U13b** |
+| `ListDeletedNotes` (Q6) | `DeletedAt DESC, Id ASC` | implemented; most recently binned first |
+| `ListDeletedFolders` (Q7) | `DeletedAt DESC, Id ASC` | implemented |
+
+### Q2 and Q3 apply O2 in full (clarification, not an amendment)
+
+Both cite O2, and O2 is `ORDER BY IsPinned DESC, SortOrder ASC, Id ASC`. The
+pinned partition applies to **both**, even though only Q3's test column says
+"pinned first" — the two rows cite the same rule and the asymmetry is in the
+prose, not the requirement. Pinning is a display partition laid over the
+sequence (§5), so a pinned entity sorts above an unpinned one without its
+`SortOrder` having been disturbed.
+
+### `ListTags` — `Name COLLATE NOCASE ASC` (APPROVED, U13a)
+
+> **`ListTags` returns every tag ordered by `Name`, compared
+> case-insensitively, ascending.**
+
+Deterministic, with no pagination, no filtering, no caller-selectable sort and
+no mutation. The collation is the same one `UX_Tags_Name` already uses, so the
+index serves the order directly and "the order tags are listed in" agrees with
+"the order two names collide in" — one rule, not two.
+
+`Name` is unique case-insensitively (design §5), so the order is total: no two
+tags can compare equal, and no tie-break is needed.
+
+### `ListNotesForTag` — `UpdatedAt DESC` (APPROVED, U13b)
+
+> **`ListNotesForTag` returns the active notes carrying the tag, most recently
+> updated first.**
+
+Notes reached through a tag come from **many folders**, and `SortOrder` is
+scoped per folder (O1) — values from different scopes are not comparable, so
+ordering by it would be meaningless rather than merely unhelpful. That is why
+this query needed a rule of its own instead of inheriting O2.
+
+`UpdatedAt` is the one field every note carries that is comparable across
+scopes, `IX_Notes_Updated` already indexes it, and "most recently touched
+first" is the useful reading of a tag as a working set.
+
+**No secondary tie-break is specified.** Two notes sharing an `UpdatedAt` is
+possible — §4 gives every row in one transaction the same timestamp — and the
+contract does not say how they order relative to each other. This is left open
+deliberately rather than resolved by invention; if a total order is later
+required, it is a further amendment.
+
+Deleted notes are excluded by I1, and membership is determined solely through
+`NoteTags`.
 
 ---
 
@@ -566,10 +638,10 @@ Every public operation. **Failure** lists business reasons only —
 | # | Query | Source | Obligation | Result | Failure | Tests |
 |---|---|---|---|---|---|---|
 | Q1 | `GetNote` | §6, U8 | by id; I1 | the note | `NotFound` | never returns null as a failure channel |
-| Q2 | `ListNotesInFolder` | §6 | scope + O1/O2; I1, I6 | ordered list; **empty if none** | — | root is its own scope; deleted excluded |
-| Q3 | `ListFolders` | §6 | O2; I1 | ordered list | — | pinned first |
-| Q4 | `ListTags` | §6 | — | list | — | — |
-| Q5 | `ListNotesForTag` | §6 | join via `NoteTags`; I1 | list | — | deleted notes excluded |
+| Q2 | `ListNotesInFolder` | §6, **§5a** | scope + **O2 in full**; I1, I6 | ordered list; **empty if none** | — | root is its own scope; deleted excluded; **pinned first** |
+| Q3 | `ListFolders` | §6, **§5a** | **O2 in full**; I1 | ordered list | — | pinned first |
+| Q4 | `ListTags` | §6, **§5a**, **U13a** | **`Name COLLATE NOCASE ASC`** | ordered list | — | case-insensitive alphabetical; total order (names are unique) |
+| Q5 | `ListNotesForTag` | §6, **§5a**, **U13b** | join via `NoteTags`; **`UpdatedAt DESC`**; I1 | ordered list | — | deleted notes excluded; **not** ordered by `SortOrder` — scopes differ (O1) |
 | Q6 | `ListDeletedNotes` | I2 | **only** deleted | list | — | the I2 explicit-bin method |
 | Q7 | `ListDeletedFolders` | I2 | **only** deleted | list | — | notes and folders separate |
 
@@ -616,11 +688,22 @@ models. `Title` is not persisted.
 | **U11** | Tag relationship idempotency | **RESOLVED** — §7 |
 | **U12a** | Tag name whitespace normalisation | **RESOLVED** — §7a |
 | **U12b** | Whether `RemoveTagFromNote` validates the tag | **RESOLVED** — §7 |
+| **U13a** | `ListTags` ordering | **RESOLVED** — §5a |
+| **U13b** | `ListNotesForTag` ordering | **RESOLVED** — §5a |
 
 **No unresolved gap remains.**
 
 U12a and U12b were found at the Slice 5 design gate, after the freeze. Both were
 silences rather than contradictions — see the amendment table in the header.
+
+U13a and U13b were found at the Slice 6 design gate, likewise silences: §11's Q4
+row had an empty obligation column and Q5's specified no order. `ListNotesInFolder`
+needed no amendment — its ordering was already specified by O2.
+
+**One narrower question is deliberately left open** rather than resolved by
+invention: `ListNotesForTag` has no secondary tie-break when two notes share an
+`UpdatedAt` (§5a). It is recorded there, not counted as a gap, because the
+contract's stated obligation is satisfiable without it.
 
 ---
 
@@ -642,9 +725,10 @@ silences rather than contradictions — see the amendment table in the header.
 
 ## 15. Implementation plan
 
-Five vertical slices; each ends with passing tests. Domain rules in
+Five vertical **command** slices; each ends with passing tests. Domain rules in
 `Noto.Core.Tests` (no database); everything touching persistence in
-`Noto.Infrastructure.Tests` against **real SQLite**.
+`Noto.Infrastructure.Tests` against **real SQLite**. The queries were not
+assigned by this plan and are added as Slice 6 below.
 
 ```
   Slice 1   domain types, title algorithm (§3), id structs,
@@ -668,6 +752,27 @@ Five vertical slices; each ends with passing tests. Domain rules in
 
 The architecture guard must still pass with domain types present: `Noto.Core`
 gains no platform or storage reference.
+
+### Slice 6 — the remaining queries (APPROVED, Slice 6 design gate)
+
+Slices 1–5 are merged and every one of the 23 commands in §1 exists. The plan
+above never assigned the **queries**, and four of the seven remain:
+
+```
+  Slice 6   Q2 ListNotesInFolder    Q3 ListFolders
+            Q4 ListTags             Q5 ListNotesForTag
+```
+
+`GetNote` (Q1) shipped in Slice 1, and `ListDeletedNotes` / `ListDeletedFolders`
+(Q6, Q7) in Slice 3. **Slice 6 completes issue #13**, whose acceptance criterion
+*"folders list correctly and notes can move between them"* is still half unmet —
+the move exists, the list does not.
+
+No migration, no schema change and no new abstraction: the tables and every
+index these four need already exist. Ordering is fixed by §5a.
+
+This is the **last slice of the Core Note Engine**. Markdown (#14), export
+(#15), search (#17) and purge are separate issues and are not part of it (§14).
 
 ---
 
