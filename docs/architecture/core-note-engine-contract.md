@@ -7,6 +7,19 @@ change, no migration, no implementation PR**
 **Date:** 2026-09-15
 **Baseline:** `main` @ `4cc669b` (PR #39, Case D correction)
 
+**Amendments since the freeze** — each decided at a gate, each additive, none
+altering a rule that was already stated:
+
+| # | Date | Change | Sections |
+|---|---|---|---|
+| U12a | 2026-09-15 | Tag names are trimmed before validation, comparison and persistence | new §7a; §6 `InvalidInput` row; §11 rows 19, 20 |
+| U12b | 2026-09-15 | `RemoveTagFromNote` does not validate the tag's existence | §7 precondition ladder; §11 row 23 |
+
+Both resolve silences found at the Slice 5 design gate, not contradictions:
+nothing in the contract previously said whether a tag name was trimmed, and the
+`RemoveTagFromNote` reading was already implied by §11 row 23's failure set but
+was not stated outright.
+
 **Authoritative sources:**
 
 | Document | Status |
@@ -278,7 +291,7 @@ value versus exception**.
 |---|---|---|
 | `NotFound` | I3/I5 presuppose identity; U8 | every command except the 4 creates; `GetNote` |
 | `DuplicateName` | `Tag.Name` case-insensitively unique (design §5); `UX_Tags_Name` in SchemaV1 | `CreateTag`, `RenameTag` |
-| `InvalidInput` | design §14 — *"empty folder name rejected; unknown colour key rejected"* | `CreateFolder`, `RenameFolder`, `SetNoteColor`, `ReorderNote`, `ReorderFolder` |
+| `InvalidInput` | design §14 — *"empty folder name rejected; unknown colour key rejected"*; §7a — a tag name empty after trimming | `CreateFolder`, `RenameFolder`, `SetNoteColor`, `ReorderNote`, `ReorderFolder`, `CreateTag`, `RenameTag` |
 | `InvalidState` | I5 — deleted entities are inert; restore/purge are the only legal transitions | every mutation on a deleted entity; `RestoreNote`/`RestoreFolder` on a non-deleted one |
 
 **Exactly four reasons. No reason was invented, and none was added for U11** —
@@ -344,12 +357,41 @@ edited, moved, reordered, pinned or tagged"*):
 ```
   1. note exists?          no  -> NotFound
   2. note ACTIVE?          no  -> InvalidState      <-- I5, checked BEFORE idempotency
-  3. tag exists?           no  -> NotFound          (AssignTagToNote)
+  3. tag exists?           no  -> NotFound          (AssignTagToNote ONLY)
   4. relationship state    ->  present/absent as required  -> write
                            ->  already as requested        -> SUCCESS, no write
 ```
 
 A deleted note plus an already-assigned tag is **`InvalidState`, not success.**
+
+### `RemoveTagFromNote` does not validate the tag (APPROVED, U12b)
+
+Step 3 applies to **`AssignTagToNote` only**. `RemoveTagFromNote` checks the
+note and then attempts the removal:
+
+```
+  RemoveTagFromNote(noteId, tagId)
+      note missing      ->  NotFound
+      note deleted      ->  InvalidState            <-- I5, still first
+      tag does not exist ->  SUCCESS, no write      <-- not NotFound
+      relationship absent ->  SUCCESS, no write
+```
+
+**Rationale (APPROVED):** a tag that does not exist cannot be related to the
+note, so the requested end state — *this note does not carry that tag* — already
+holds. Returning `NotFound` would make the command report failure for a
+condition it was asked to bring about, and would break the symmetry that makes
+`Remove(A,B)` safe to retry.
+
+This was already the contract's position rather than a change to it: §11 row 23
+lists the failure set as `NotFound` (**note**) and `InvalidState`, naming no tag
+failure, and step 3 above was annotated for `AssignTagToNote`. The rule is
+stated explicitly here because a reader could otherwise take row 23's bare
+`NotFound` to cover both arguments.
+
+**Asymmetry with `AssignTagToNote` is deliberate.** Assign must reach an end
+state that *requires* the tag to exist, so a missing tag is a genuine
+`NotFound`. Remove must reach an end state that a missing tag already satisfies.
 
 ### What the sources do and do not say
 
@@ -360,11 +402,60 @@ A deleted note plus an already-assigned tag is **`InvalidState`, not success.**
 | `DeleteTag` is hard; `NoteTags` cascades | design §8, §14 |
 | Duplicate relationships are unstorable | `PRIMARY KEY (NoteId, TagId)`, SchemaV1 |
 | **Whether a repeated command succeeds or fails** | **not stated anywhere** — decided at the gate |
+| **Whether a tag name is trimmed** | **not stated anywhere** — decided at the gate (U12a below) |
 
 > Tags appear in **no** parity row and in **no** feature-inventory row. They are
 > a Noto addition, so — as with the recycle bin (deletion-semantics §2) — there
 > is no external product to copy and the behaviour had to be chosen explicitly
 > rather than derived.
+
+---
+
+## 7a. Tag name normalisation (APPROVED, U12a)
+
+> **A tag name is trimmed of leading and trailing whitespace before validation,
+> before uniqueness comparison, before persistence, and before the rename
+> comparison. The trimmed value is what is stored.**
+
+```
+  " Work "    ->  "Work"
+  "Work "     ->  "Work"
+  " Work"     ->  "Work"
+
+  "Work Item" ->  "Work Item"        internal whitespace is NEVER touched
+```
+
+| Input | Outcome |
+|---|---|
+| `""`, `"   "`, `"\t"`, any whitespace-only | empty after trimming → **`InvalidInput`** |
+| `" Work "` when `"Work"` exists | collides → **`DuplicateName`** |
+| `"work "` when `"Work"` exists | collides → **`DuplicateName`** (trim *and* case-insensitivity) |
+| `"Work Item"` | stored verbatim as `"Work Item"` |
+
+**Why this was a gap.** `UX_Tags_Name ... COLLATE NOCASE` (SchemaV1) makes
+`'work'` and `'Work'` collide, but collation says nothing about whitespace: the
+index treats `" Work"`, `"Work "` and `"Work"` as three distinct names. Without
+this rule the engine would admit tags that are indistinguishable in any list the
+user sees — the invisible-duplicate problem — while correctly rejecting the
+visible duplicate `'work'`.
+
+**Why trimming rather than rejecting untrimmed input.** Leading and trailing
+whitespace in a name is almost always an artefact of how the text arrived, not
+an intention. The engine already takes this position elsewhere: §3 finds the
+first line *"non-empty after trimming"* and maps whitespace-only content to an
+empty title, and `CreateFolder`/`RenameFolder` reject whitespace-only names as
+empty. Tags now agree with both.
+
+**Scope of the rule.** It governs `CreateTag` and `RenameTag` — the only
+commands that accept a name. It is an **application-layer** rule: the database
+enforces case-insensitive uniqueness (`UX_Tags_Name`), and normalisation happens
+before the value reaches it. No schema change and no migration follow from this
+decision.
+
+**Not in scope.** Internal whitespace is not collapsed (`"Work  Item"` with two
+spaces stays as typed), no Unicode normalisation form is applied, and no other
+entity's name is affected — folder names keep their own rule, where duplicates
+are legal (Case G).
 
 ---
 
@@ -464,11 +555,11 @@ Every public operation. **Failure** lists business reasons only —
 
 | # | Operation | Source | Obligation | Result | Failure | Atomic | Tests |
 |---|---|---|---|---|---|---|---|
-| 19 | `CreateTag` | §6, §5 | insert; ULID; `CreatedAt`. **No `UpdatedAt`** | `TagId` | `InvalidInput`, `DuplicateName` | no | `'work'` vs `'Work'` rejected (`UX_Tags_Name`) |
-| 20 | `RenameTag` | §6, §5 | replace `Name`. **Stamps nothing** | — | `NotFound`, `InvalidInput`, `DuplicateName` | no | CI uniqueness on rename |
+| 19 | `CreateTag` | §6, §5, **§7a** | **trim name (§7a)**; insert; ULID; `CreatedAt`. **No `UpdatedAt`** | `TagId` | `InvalidInput`, `DuplicateName` | no | `'work'` vs `'Work'` rejected (`UX_Tags_Name`); `' Work '` vs `'Work'` rejected; whitespace-only → `InvalidInput` |
+| 20 | `RenameTag` | §6, §5, **§7a** | **trim name (§7a)**; replace `Name`. **Stamps nothing** | — | `NotFound`, `InvalidInput`, `DuplicateName` | no | CI uniqueness on rename; trimmed collision rejected; internal whitespace preserved |
 | 21 | `DeleteTag` | §6, §8 | **HARD delete**; `NoteTags` cascades | — | `NotFound` | **yes** | **removes `NoteTags`, leaves notes intact** (§14) |
 | 22 | `AssignTagToNote` | §6, **U11a** | insert relationship; **existing → success, no write, no stamp** | — | `NotFound` (note/tag), `InvalidState` (note deleted) | no | idempotent: twice = one row; deleted note still `InvalidState` |
-| 23 | `RemoveTagFromNote` | §6, **U11b** | delete relationship; **absent → success, no write, no stamp** | — | `NotFound` (note), `InvalidState` | no | idempotent: twice succeeds; note unaffected |
+| 23 | `RemoveTagFromNote` | §6, **U11b**, **U12b** | delete relationship; **absent → success, no write, no stamp**; **tag not validated (§7)** | — | `NotFound` (**note only**), `InvalidState` | no | idempotent: twice succeeds; note unaffected; **missing tag → success**, not `NotFound` |
 
 ### Queries
 
@@ -523,8 +614,13 @@ models. `Title` is not persisted.
 | **U9** | Reorder scope | **RESOLVED** — §5 |
 | **U10** | C10 dependency | **RESOLVED** — §4 |
 | **U11** | Tag relationship idempotency | **RESOLVED** — §7 |
+| **U12a** | Tag name whitespace normalisation | **RESOLVED** — §7a |
+| **U12b** | Whether `RemoveTagFromNote` validates the tag | **RESOLVED** — §7 |
 
 **No unresolved gap remains.**
+
+U12a and U12b were found at the Slice 5 design gate, after the freeze. Both were
+silences rather than contradictions — see the amendment table in the header.
 
 ---
 
