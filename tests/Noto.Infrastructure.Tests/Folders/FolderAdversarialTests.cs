@@ -177,7 +177,7 @@ public sealed class FolderAdversarialTests : IDisposable
         // Stronger than asserting one folder's value: every folder in the
         // collection keeps its exact SortOrder across a pin and an unpin.
         var ids = Enumerable.Range(0, 5)
-            .Select(i => _context.SeedFolder($"f{i}", sortOrder: i * 10))
+            .Select(i => _context.SeedFolder($"f{i}", sortOrder: i * 10d))
             .ToList();
 
         var before = ids.ToDictionary(id => id, _context.SortOrderOf);

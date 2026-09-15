@@ -193,7 +193,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             // which SortOrderScope.NotesIn encodes. Deleted notes are excluded
             // because they keep their SortOrder but never participate in
             // ordering (I6).
-            return SortOrderEngine.MaxSortOrder(connection, SortOrderScope.NotesIn(folderId?.Value));
+            return SortOrderEngine.MaxSortOrder(connection, ScopeFor(folderId));
         }
         catch (SqliteException ex)
         {
@@ -249,7 +249,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             double sortOrder = SortOrderEngine.ResolvePosition(
                 connection,
                 transaction,
-                SortOrderScope.NotesIn(targetFolderId?.Value),
+                ScopeFor(targetFolderId),
                 ToEnginePlacement(placement),
                 id.Value,
                 updatedAt);
@@ -291,7 +291,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             using var transaction = connection.BeginTransaction();
 
             FolderId? folderScope = ReadScope(connection, transaction, id);
-            SortOrderScope scope = SortOrderScope.NotesIn(folderScope?.Value);
+            SortOrderScope scope = ScopeFor(folderScope);
             double current = ReadSortOrder(connection, transaction, id);
 
             if (SortOrderEngine.AlreadyInPosition(
@@ -537,6 +537,22 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     /// rows in a table; giving it <c>NoteId</c> would tie one algorithm to one
     /// domain, so the translation lives here rather than there.
     /// </remarks>
+    /// <summary>
+    /// The ordering scope for a note's folder, with root as its own scope (O1).
+    /// </summary>
+    /// <remarks>
+    /// Pattern-matched rather than written as <c>folderId?.Value</c>, because
+    /// two different members called <c>Value</c> meet on that expression:
+    /// <c>Nullable&lt;FolderId&gt;.Value</c>, which throws when the folder is
+    /// absent, and <c>FolderId.Value</c>, the ULID string. The null-conditional
+    /// binds to the first and the access to the second, which is safe but reads
+    /// as though it might not be — and a null-analyser cannot tell the two
+    /// apart either. Naming the unwrapped folder removes the ambiguity for both
+    /// readers, the same way <see cref="Add"/> does.
+    /// </remarks>
+    private static SortOrderScope ScopeFor(FolderId? folderId) =>
+        SortOrderScope.NotesIn(folderId is { } folder ? folder.Value : null);
+
     private static SortOrderPlacement ToEnginePlacement(NotePlacement placement)
     {
         if (placement.AtEnd)

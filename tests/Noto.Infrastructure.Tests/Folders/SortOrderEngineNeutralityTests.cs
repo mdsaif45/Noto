@@ -52,13 +52,12 @@ public sealed class SortOrderEngineNeutralityTests
         foreach (MethodInfo method in Engine.GetMethods(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
         {
-            foreach (Type type in method.GetParameters().Select(p => p.ParameterType).Append(method.ReturnType))
-            {
-                if (IsDomainType(type))
-                {
-                    offenders.Add($"{method.Name} -> {type.FullName}");
-                }
-            }
+            IEnumerable<Type> domainTypes = method.GetParameters()
+                .Select(p => p.ParameterType)
+                .Append(method.ReturnType)
+                .Where(IsDomainType);
+
+            offenders.AddRange(domainTypes.Select(type => $"{method.Name} -> {type.FullName}"));
         }
 
         Assert.True(
@@ -144,7 +143,12 @@ public sealed class SortOrderEngineNeutralityTests
 
         while (directory is not null)
         {
-            string candidate = Path.Combine(
+            // Path.Join rather than Path.Combine: Combine discards everything
+            // before a segment that looks rooted, so a rooted segment would
+            // silently escape the directory being walked. The segments here are
+            // constants, but the safe idiom is the one used elsewhere in these
+            // tests and is not worth making an exception to.
+            string candidate = Path.Join(
                 directory.FullName,
                 "src", "Noto.Infrastructure", "Storage", "SortOrderEngine.cs");
 
