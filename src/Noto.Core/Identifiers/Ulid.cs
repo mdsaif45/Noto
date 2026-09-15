@@ -32,16 +32,50 @@ public static class Ulid
 
     private static readonly Lock SyncRoot = new();
 
+    /// <summary>
+    /// The wall clock's high-water mark, and the randomness last issued at it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One slot, not a map. The wall clock only ever advances — the regression
+    /// guard below enforces it — so once a millisecond has passed, no
+    /// <see cref="NewId()"/> call can produce it again and its randomness is
+    /// dead. Keeping more than the current instant would retain state nothing
+    /// can ever consult.
+    /// </para>
+    /// <para>
+    /// This is why the generator's state is O(1) regardless of how long the
+    /// process runs or how many ids it mints.
+    /// </para>
+    /// </remarks>
     private static long _lastTimestamp = -1;
-    private static readonly byte[] LastRandomness = new byte[10];
+
+    private static readonly byte[] LastRandomness = new byte[RandomnessBytes];
+
+    /// <summary>The random component's width in bytes — 80 bits.</summary>
+    private const int RandomnessBytes = 10;
 
     /// <summary>
-    /// Creates a new ULID, monotonically increasing even within the same
-    /// millisecond.
+    /// Creates a new ULID for the current instant, strictly increasing even
+    /// within one millisecond.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Ids from this overload are unique and strictly increasing in the
+    /// generator's serialized allocation order — the guarantee design §7 rule 2
+    /// leans on when equal <c>SortOrder</c> falls back to the id "rather than
+    /// to chance".
+    /// </para>
+    /// <para>
+    /// It does <b>not</b> delegate to the explicit overload: that path draws
+    /// fresh randomness every call by design, which would discard the sequence
+    /// this one maintains.
+    /// </para>
+    /// </remarks>
     public static string NewId()
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        byte[] randomness = new byte[RandomnessBytes];
 
         lock (SyncRoot)
         {
@@ -52,36 +86,11 @@ public static class Ulid
             {
                 now = _lastTimestamp;
             }
-        }
 
-        return NewId(DateTimeOffset.FromUnixTimeMilliseconds(now));
-    }
-
-    /// <summary>
-    /// Creates a ULID for an explicit instant, <b>without</b> the monotonic
-    /// clock-regression guard.
-    /// </summary>
-    /// <remarks>
-    /// The guard exists to stop a wall-clock correction producing ids that sort
-    /// before existing data. Applying it here would silently override the
-    /// caller's instant, so this overload honours exactly what it is given.
-    /// Randomness is still incremented within a millisecond, so a run of ids at
-    /// one instant remains ordered.
-    /// </remarks>
-    public static string NewId(DateTimeOffset timestamp)
-    {
-        long ms = timestamp.ToUnixTimeMilliseconds();
-
-        // Monotonicity matters: two notes created in the same millisecond must
-        // still have a defined order, or "sort by id" is non-deterministic.
-        byte[] randomness = new byte[10];
-
-        lock (SyncRoot)
-        {
-            if (ms == _lastTimestamp)
+            if (now == _lastTimestamp)
             {
-                // Same millisecond: increment the previous randomness rather
-                // than drawing fresh bytes, which would break ordering.
+                // Same millisecond: continue the run rather than drawing fresh
+                // bytes, which would order the two ids by chance.
                 Array.Copy(LastRandomness, randomness, randomness.Length);
                 IncrementInPlace(randomness);
             }
@@ -90,9 +99,52 @@ public static class Ulid
                 RandomNumberGenerator.Fill(randomness);
             }
 
-            _lastTimestamp = ms;
+            // One slot, holding only the instant still being issued at. The
+            // clock never returns to an earlier millisecond, so nothing older
+            // is ever consulted again.
+            _lastTimestamp = now;
             Array.Copy(randomness, LastRandomness, randomness.Length);
         }
+
+        return Encode(now, randomness);
+    }
+
+    /// <summary>
+    /// Creates a ULID for an explicit instant, honouring exactly the timestamp
+    /// it is given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The caller's instant is used verbatim: the wall-clock regression guard
+    /// is deliberately <b>not</b> applied, because silently clamping a supplied
+    /// timestamp forward would corrupt an import carrying original creation
+    /// times (ADR-012 — "export and import are a contract").
+    /// </para>
+    /// <para>
+    /// The random component is drawn fresh from the CSPRNG on every call, and
+    /// <b>no per-instant sequence is retained</b>. Two ids sharing an
+    /// explicitly supplied instant are unique and stably comparable, but their
+    /// order does <b>not</b> reflect the order in which they were issued.
+    /// Same-instant issuance ordering is guaranteed for <see cref="NewId()"/>
+    /// alone.
+    /// </para>
+    /// <para>
+    /// That is a deliberate contract boundary, not an oversight. Retaining a
+    /// sequence per supplied instant would mean unbounded state: the overload
+    /// accepts any instant and may revisit any of them, so nothing would ever
+    /// license discarding an entry. The alternative — a bounded cache — silently
+    /// loses the sequence on eviction, which is the defect this replaced.
+    /// </para>
+    /// </remarks>
+    public static string NewId(DateTimeOffset timestamp)
+    {
+        long ms = timestamp.ToUnixTimeMilliseconds();
+
+        // No lock and no shared state: this path reads and writes nothing that
+        // another caller can observe, which is what makes it O(1) and free of
+        // the eviction problem entirely.
+        byte[] randomness = new byte[RandomnessBytes];
+        RandomNumberGenerator.Fill(randomness);
 
         return Encode(ms, randomness);
     }

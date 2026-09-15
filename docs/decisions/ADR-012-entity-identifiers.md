@@ -168,10 +168,54 @@ and update forever (principle 9).
 
 Requirements:
 
-- monotonic within the same millisecond, so ordering is total
 - generated from a cryptographically strong source for the random component
 - canonical 26-character Crockford base32, matching the published spec, so an
   external tool can read them
+
+### Ordering, precisely
+
+The earlier wording — *"monotonic within the same millisecond, so ordering is
+total"* — conflated two different things and is replaced by the following.
+"Total" meant the order is a total order, not that it records the order ids
+were issued in; read the other way it promises something a ULID cannot deliver.
+
+**Cross-timestamp ordering.** Ids order primarily by their 48-bit timestamp
+component. An id minted for an earlier instant therefore sorts *before* one
+already issued for a later instant. That is expected: lexical order reflects
+**creation time**, never **issuance order**, and the difference is what makes
+import possible at all.
+
+**Same-timestamp monotonicity — `NewId()`.** Ids sharing a timestamp are
+unique and strictly increasing in the generator's serialized allocation order.
+This is what design §7 rule 2 relies on when equal `SortOrder` falls back to
+the id "rather than to chance". Concurrent callers are serialized; which
+thread is served first is not specified, only that the ids the generator
+produces ascend in the order it produced them.
+
+**Same-timestamp behaviour — `NewId(timestamp)`.** An explicitly supplied
+instant is honoured verbatim, and the random component is drawn fresh from the
+CSPRNG. Ids sharing an explicitly supplied instant are unique and stably
+comparable once they exist, but **no guarantee is made that their order
+reflects caller or issuance order**.
+
+That asymmetry is deliberate. Giving the explicit overload a per-instant
+sequence would require remembering every instant ever supplied: the overload
+accepts any instant and may revisit any of them, so nothing would license
+discarding an entry, and a bounded cache silently loses the sequence when it
+evicts. Uniqueness — the property import actually needs — comes from the 80
+random bits, not from retained sequence state.
+
+**State, restart and machines.** The generator retains only the instant it is
+currently issuing at, so its state is O(1) however long the process runs.
+Monotonic state is per process and does not survive restart. Uniqueness across
+processes and machines rests on the random component alone, never on shared
+state — which is what "no coordination needed to mint an id, including
+offline" means.
+
+**Randomness is for collisions, not secrecy.** The CSPRNG requirement exists
+so that two machines generating offline do not collide. Ids appear in
+`noto://` URLs and are **not** access credentials; their unpredictability is a
+consequence of using a CSPRNG, not a property anything relies on.
 
 ---
 
@@ -196,11 +240,16 @@ Requirements:
 
 ### Testing requirements
 
-- [ ] Generated ids are 26 characters, valid Crockford base32
-- [ ] Ids are monotonically increasing, including within one millisecond
-- [ ] Ids sort lexicographically in creation order
-- [ ] A large batch generated in a tight loop produces no duplicates
-- [ ] The timestamp component decodes to the creation time
+- [x] Generated ids are 26 characters, valid Crockford base32
+- [x] `NewId()` ids are strictly increasing, including within one millisecond
+- [x] Ids sort lexicographically by creation time — an id for an earlier
+      instant sorts first, whenever it was issued
+- [x] A large batch generated in a tight loop produces no duplicates
+- [x] The timestamp component decodes to the creation time
+- [x] `NewId(timestamp)` produces unique ids at a repeated instant, retains no
+      per-instant state, and does not depend on previous calls
+- [x] Concurrent `NewId()` callers receive unique ids that ascend in the
+      generator's allocation order
 
 ---
 
