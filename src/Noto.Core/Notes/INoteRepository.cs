@@ -168,6 +168,47 @@ public interface INoteRepository
     /// The caller has already validated it.
     /// </param>
     void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Moves a note into the recycle bin: sets <c>DeletedAt</c>, and stamps
+    /// <c>UpdatedAt</c> with the same instant.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A soft delete.</b> The row stays, which is what lets the bin list it
+    /// and restore bring it back (B23, ADR-002 — data cannot be recovered from
+    /// a server, so it must not be destroyed locally).
+    /// </para>
+    /// <para>
+    /// Siblings are <b>not</b> renumbered. O5: deleting leaves gaps, and gaps
+    /// are harmless. The deleted row also keeps its own <c>SortOrder</c>, which
+    /// is what makes restore return it roughly where it was (I6).
+    /// </para>
+    /// </remarks>
+    void SoftDelete(NoteId id, DateTimeOffset deletedAt);
+
+    /// <summary>
+    /// Brings a note back out of the recycle bin: clears <c>DeletedAt</c> and
+    /// stamps <c>UpdatedAt</c>.
+    /// </summary>
+    /// <remarks>
+    /// Touches those two columns only. The note's <c>SortOrder</c> was never
+    /// disturbed, so it returns to roughly its old position without any
+    /// placement logic (I6). Its <c>FolderId</c> is untouched too — Case C
+    /// deliberately allows a restored note to point at a folder that is itself
+    /// still deleted.
+    /// </remarks>
+    void Restore(NoteId id, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Every note in the recycle bin.
+    /// </summary>
+    /// <remarks>
+    /// The I2 explicit-bin method: the only way to see deleted notes. There is
+    /// deliberately no <c>includeDeleted</c> flag on the ordinary queries —
+    /// that is "the shape that eventually gets passed <c>true</c> by accident".
+    /// </remarks>
+    IReadOnlyList<Note> ListDeleted();
 }
 
 /// <summary>

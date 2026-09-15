@@ -387,6 +387,111 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     public void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt) =>
         UpdateNoteField(id, "ColorKey", (object?)colorKey ?? DBNull.Value, updatedAt, "colour");
 
+    public void SoftDelete(NoteId id, DateTimeOffset deletedAt)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // UPDATE, never DELETE. The row is the source of truth the recycle
+            // bin lists and restore brings back; removing it would make B23
+            // unimplementable and the loss unrecoverable (ADR-002).
+            //
+            // Siblings are untouched: O5 says deleting leaves gaps, and this
+            // row keeps its own SortOrder so restore returns it roughly where
+            // it was (I6).
+            //
+            // One instant for both columns — a note whose UpdatedAt trails its
+            // DeletedAt would be claiming it changed after it was binned.
+            command.CommandText =
+                """
+                UPDATE Notes
+                SET DeletedAt = $now, UpdatedAt = $now
+                WHERE Id = $id AND DeletedAt IS NULL;
+                """;
+            command.Parameters.AddWithValue("$now", Format(deletedAt));
+            command.Parameters.AddWithValue("$id", id.Value);
+
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not delete note '{id}'.",
+                ex);
+        }
+    }
+
+    public void Restore(NoteId id, DateTimeOffset updatedAt)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // DeletedAt and UpdatedAt only. SortOrder, FolderId and every other
+            // field survive untouched, so the note comes back as it was rather
+            // than being reconstructed — including a FolderId that may still
+            // point at a deleted folder (Case C).
+            command.CommandText =
+                """
+                UPDATE Notes
+                SET DeletedAt = NULL, UpdatedAt = $now
+                WHERE Id = $id AND DeletedAt IS NOT NULL;
+                """;
+            command.Parameters.AddWithValue("$now", Format(updatedAt));
+            command.Parameters.AddWithValue("$id", id.Value);
+
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not restore note '{id}'.",
+                ex);
+        }
+    }
+
+    public IReadOnlyList<Note> ListDeleted()
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // The I2 inversion: DeletedAt IS NOT NULL. Ordered most-recently
+            // binned first, which is the order a bin is read in; the Id
+            // tiebreak keeps it total (O2's reasoning, applied here).
+            command.CommandText =
+                """
+                SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                FROM Notes
+                WHERE DeletedAt IS NOT NULL
+                ORDER BY DeletedAt DESC, Id ASC;
+                """;
+
+            var notes = new List<Note>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                notes.Add(ReadNote(reader));
+            }
+
+            return notes;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not read the recycle bin.",
+                ex);
+        }
+    }
+
     /// <summary>
     /// Updates one column of one active note, plus its timestamp.
     /// </summary>
