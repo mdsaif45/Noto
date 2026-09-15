@@ -198,6 +198,88 @@ public sealed class FolderAdversarialTests : IDisposable
     }
 
     // ------------------------------------------------------------------
+    // 4b. Pin/Unpin that writes when already in the requested state
+    //
+    // This is the mistake the original mutation suite MISSED. It shipped, and
+    // an independent review caught it: the handlers had no already-in-state
+    // check at all, so every redundant pin restamped UpdatedAt. The tests
+    // covering that path asserted only success and IsPinned, so they passed.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void A_redundant_pin_must_not_write()
+    {
+        // Wrong version — the one that actually shipped:
+        //
+        //   if (!Guard.TryEnsureActive(...)) return failure;
+        //   _folders.SetPinned(id, isPinned: true, _clock.UtcNow);   // always
+        //
+        // It is a plausible implementation: it pins, it guards the lifecycle,
+        // and pinning twice still succeeds. What it breaks is §4's rule that a
+        // command changing no row stamps nothing — observable through C10's
+        // "sort by modified".
+        var id = _context.SeedFolder(pinned: true);
+        string before = _context.UpdatedAtOf(id);
+
+        _context.Clock.Advance(TimeSpan.FromDays(1));
+
+        Assert.True(new PinFolderHandler(_context.Folders, _context.Clock)
+            .Handle(new PinFolder(id)).IsSuccess);
+
+        Assert.Equal(before, _context.UpdatedAtOf(id));
+    }
+
+    [Fact]
+    public void A_redundant_unpin_must_not_write()
+    {
+        var id = _context.SeedFolder(pinned: false);
+        string before = _context.UpdatedAtOf(id);
+
+        _context.Clock.Advance(TimeSpan.FromDays(1));
+
+        Assert.True(new UnpinFolderHandler(_context.Folders, _context.Clock)
+            .Handle(new UnpinFolder(id)).IsSuccess);
+
+        Assert.Equal(before, _context.UpdatedAtOf(id));
+    }
+
+    [Fact]
+    public void The_no_op_check_must_not_come_before_the_lifecycle_check()
+    {
+        // The other way to get this wrong: short-circuit on the flag first, so
+        // pinning an already-pinned DELETED folder returns success instead of
+        // InvalidState. §7 fixes the order — I5 is evaluated before
+        // idempotency — and a deleted entity is inert either way.
+        var deletedPinned = _context.SeedFolder(pinned: true, deletedAt: _context.Clock.UtcNow);
+        var deletedUnpinned = _context.SeedFolder(pinned: false, deletedAt: _context.Clock.UtcNow);
+
+        var pin = new PinFolderHandler(_context.Folders, _context.Clock);
+        var unpin = new UnpinFolderHandler(_context.Folders, _context.Clock);
+
+        Assert.Equal(
+            CommandFailureReason.InvalidState,
+            pin.Handle(new PinFolder(deletedPinned)).Failure!.Reason);
+
+        Assert.Equal(
+            CommandFailureReason.InvalidState,
+            unpin.Handle(new UnpinFolder(deletedUnpinned)).Failure!.Reason);
+    }
+
+    [Fact]
+    public void A_real_pin_still_stamps()
+    {
+        // The guard against "fixing" the no-op by never stamping at all.
+        var id = _context.SeedFolder(pinned: false);
+
+        DateTimeOffset pinnedAt = _context.Clock.Advance(TimeSpan.FromHours(1));
+
+        new PinFolderHandler(_context.Folders, _context.Clock).Handle(new PinFolder(id));
+
+        Assert.True(_context.IsPinnedOf(id));
+        Assert.Equal(pinnedAt.ToString("O"), _context.UpdatedAtOf(id));
+    }
+
+    // ------------------------------------------------------------------
     // 7. Accidental folder-name uniqueness
     // ------------------------------------------------------------------
 

@@ -54,6 +54,38 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         }
     }
 
+    public Folder? FindActive(FolderId id)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // Invariant I1: the DeletedAt filter lives here, in the query, so
+            // that a caller cannot forget it. The recycle bin is reached only
+            // through ListDeleted (I2).
+            command.CommandText =
+                """
+                SELECT Id, Name, ColorKey, IsPinned, IsCollapsed,
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                FROM Folders
+                WHERE Id = $id AND DeletedAt IS NULL;
+                """;
+            command.Parameters.AddWithValue("$id", id.Value);
+
+            using var reader = command.ExecuteReader();
+
+            return reader.Read() ? ReadFolder(reader) : null;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                $"Could not read folder '{id}'.",
+                ex);
+        }
+    }
+
     public void Add(Folder folder)
     {
         ArgumentNullException.ThrowIfNull(folder);
@@ -104,7 +136,8 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         // names are legal (Case G), and adding one here would turn a supported
         // state into a failure.
         ExecuteSingleRowUpdate(
-            "UPDATE Folders SET Name = $name, UpdatedAt = $updatedAt WHERE Id = $id;",
+            "UPDATE Folders SET Name = $name, UpdatedAt = $updatedAt "
+            + "WHERE Id = $id AND DeletedAt IS NULL;",
             id,
             updatedAt,
             command => command.Parameters.AddWithValue("$name", name),
@@ -115,7 +148,8 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
     {
         // IsPinned only — SortOrder is deliberately absent from this statement.
         ExecuteSingleRowUpdate(
-            "UPDATE Folders SET IsPinned = $isPinned, UpdatedAt = $updatedAt WHERE Id = $id;",
+            "UPDATE Folders SET IsPinned = $isPinned, UpdatedAt = $updatedAt "
+            + "WHERE Id = $id AND DeletedAt IS NULL;",
             id,
             updatedAt,
             command => command.Parameters.AddWithValue("$isPinned", isPinned ? 1 : 0),
@@ -350,18 +384,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                folders.Add(new Folder
-                {
-                    Id = FolderId.From(reader.GetString(0)),
-                    Name = reader.GetString(1),
-                    ColorKey = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    IsPinned = reader.GetInt64(3) != 0,
-                    IsCollapsed = reader.GetInt64(4) != 0,
-                    SortOrder = reader.GetDouble(5),
-                    CreatedAt = Timestamps.Parse(reader.GetString(6)),
-                    UpdatedAt = Timestamps.Parse(reader.GetString(7)),
-                    DeletedAt = reader.IsDBNull(8) ? null : Timestamps.Parse(reader.GetString(8)),
-                });
+                folders.Add(ReadFolder(reader));
             }
 
             return folders;
@@ -374,6 +397,27 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
                 ex);
         }
     }
+
+    /// <summary>
+    /// Maps one row to a <see cref="Folder"/>.
+    /// </summary>
+    /// <remarks>
+    /// Shared by <see cref="FindActive"/> and <see cref="ListDeleted"/>, which
+    /// select the same columns in the same order. Two copies would be two
+    /// places for a column index to drift.
+    /// </remarks>
+    private static Folder ReadFolder(SqliteDataReader reader) => new()
+    {
+        Id = FolderId.From(reader.GetString(0)),
+        Name = reader.GetString(1),
+        ColorKey = reader.IsDBNull(2) ? null : reader.GetString(2),
+        IsPinned = reader.GetInt64(3) != 0,
+        IsCollapsed = reader.GetInt64(4) != 0,
+        SortOrder = reader.GetDouble(5),
+        CreatedAt = Timestamps.Parse(reader.GetString(6)),
+        UpdatedAt = Timestamps.Parse(reader.GetString(7)),
+        DeletedAt = reader.IsDBNull(8) ? null : Timestamps.Parse(reader.GetString(8)),
+    };
 
     /// <summary>
     /// Translates the domain's placement into the engine's row-level one.
@@ -400,9 +444,18 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
     /// <c>UpdatedAt</c>, touch nothing else.
     /// </summary>
     /// <remarks>
-    /// Written once rather than three times. The caller has already established
-    /// that the folder is active, so no row matching is not an error here — it
-    /// is the concurrent-deletion case, and last-write-wins applies (§10).
+    /// <para>
+    /// Written once rather than twice. Every statement passed here carries
+    /// <c>AND DeletedAt IS NULL</c>, which is the persistence-layer half of
+    /// invariant I5: the command layer checks the lifecycle first, and this
+    /// clause means a folder binned between that check and this write is still
+    /// not modified. The note repository keeps the same guard on its own
+    /// single-field updates, and the folder cascades and reorder carry it too.
+    /// </para>
+    /// <para>
+    /// No row matching is therefore not an error here — it is the
+    /// concurrent-deletion case, and last-write-wins applies (§10).
+    /// </para>
     /// </remarks>
     private void ExecuteSingleRowUpdate(
         string sql,

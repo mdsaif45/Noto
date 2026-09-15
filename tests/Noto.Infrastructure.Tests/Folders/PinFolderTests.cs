@@ -147,17 +147,84 @@ public sealed class PinFolderTests : IDisposable
     }
 
     [Fact]
-    public void Pinning_an_already_pinned_folder_succeeds()
+    public void Pinning_an_already_pinned_folder_writes_nothing_and_stamps_nothing()
     {
-        // Idempotent at the contract level (§7): pinning twice is not an
-        // error. It does restamp UpdatedAt, which is the recorded deviation
-        // from the note handlers — they short-circuit on a read this
-        // repository surface deliberately does not have.
+        // Contract §4: "each entity row it changes" — a command that changes no
+        // row stamps nothing. The contract states this as a general
+        // consequence, not a per-command exception, which is why it also covers
+        // same-position reorder (§5) and both tag no-ops (§7).
+        //
+        // The UpdatedAt assertion is the point of this test. An earlier version
+        // asserted only success and IsPinned, and passed while the handler was
+        // restamping UpdatedAt on every redundant pin.
         var id = _context.SeedFolder(pinned: true);
+        string before = _context.UpdatedAtOf(id);
+
+        _context.Clock.Advance(TimeSpan.FromHours(1));
 
         var result = Pin().Handle(new PinFolder(id));
 
         Assert.True(result.IsSuccess);
         Assert.True(_context.IsPinnedOf(id));
+        Assert.Equal(before, _context.UpdatedAtOf(id));
+    }
+
+    [Fact]
+    public void Unpinning_an_already_unpinned_folder_writes_nothing_and_stamps_nothing()
+    {
+        // The symmetric case. Both directions are no-ops, so neither can drift
+        // into stamping on its own.
+        var id = _context.SeedFolder(pinned: false);
+        string before = _context.UpdatedAtOf(id);
+
+        _context.Clock.Advance(TimeSpan.FromHours(1));
+
+        var result = Unpin().Handle(new UnpinFolder(id));
+
+        Assert.True(result.IsSuccess);
+        Assert.False(_context.IsPinnedOf(id));
+        Assert.Equal(before, _context.UpdatedAtOf(id));
+    }
+
+    [Fact]
+    public void A_repeated_pin_never_stamps_however_often_it_is_called()
+    {
+        // The stronger form: the clock moves between every call, so an
+        // implementation that wrote even once would leave a different
+        // UpdatedAt behind.
+        var id = _context.SeedFolder(pinned: false);
+
+        DateTimeOffset firstPin = _context.Clock.Advance(TimeSpan.FromMinutes(1));
+        Pin().Handle(new PinFolder(id));
+
+        string afterRealPin = _context.UpdatedAtOf(id);
+        Assert.Equal(firstPin.ToString("O"), afterRealPin);
+
+        for (int i = 0; i < 5; i++)
+        {
+            _context.Clock.Advance(TimeSpan.FromMinutes(1));
+            Assert.True(Pin().Handle(new PinFolder(id)).IsSuccess);
+        }
+
+        Assert.Equal(afterRealPin, _context.UpdatedAtOf(id));
+    }
+
+    [Fact]
+    public void The_no_op_survives_a_reopen()
+    {
+        // The absence of a write is a persistence fact, not a cache artefact.
+        var id = _context.SeedFolder(pinned: true);
+        string before = _context.UpdatedAtOf(id);
+
+        _context.Clock.Advance(TimeSpan.FromHours(1));
+        Pin().Handle(new PinFolder(id));
+
+        var reopened = new Noto.Infrastructure.Storage.NotoDatabase(_context.DatabasePath);
+        var repository = new Noto.Infrastructure.Storage.SqliteFolderRepository(reopened);
+
+        Folder folder = repository.FindActive(id)!;
+
+        Assert.True(folder.IsPinned);
+        Assert.Equal(before, folder.UpdatedAt.ToString("O"));
     }
 }

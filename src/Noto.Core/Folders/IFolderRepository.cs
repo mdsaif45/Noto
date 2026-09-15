@@ -35,6 +35,35 @@ public interface IFolderRepository
     FolderLifecycle GetLifecycle(FolderId id);
 
     /// <summary>
+    /// Reads an <b>active</b> folder by id. A folder in the recycle bin is not
+    /// found by this method.
+    /// </summary>
+    /// <returns>
+    /// The folder, or <see langword="null"/> when no active row has that id.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// Invariant I1 — active by default — applies here, so the
+    /// <c>DeletedAt IS NULL</c> filter lives in the query rather than in each
+    /// caller, exactly as it does for <see cref="Notes.INoteRepository.FindActive"/>.
+    /// </para>
+    /// <para>
+    /// <see langword="null"/> means "no active row" and nothing else — this is
+    /// the persistence seam, not the application API. The layer above turns it
+    /// into <see cref="Commands.CommandFailureReason.NotFound"/> so that
+    /// callers never see an overloaded null (contract §6).
+    /// </para>
+    /// <para>
+    /// Needed because §4's no-op rule is decided by the folder's <i>current</i>
+    /// state: a command that changes no row stamps nothing, so
+    /// <c>PinFolder</c> must be able to see that the folder is already pinned.
+    /// <see cref="GetLifecycle"/> cannot answer that — it reports only whether
+    /// the row exists and is live.
+    /// </para>
+    /// </remarks>
+    Folder? FindActive(FolderId id);
+
+    /// <summary>
     /// Inserts a folder.
     /// </summary>
     void Add(Folder folder);

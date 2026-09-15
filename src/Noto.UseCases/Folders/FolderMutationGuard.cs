@@ -57,4 +57,46 @@ internal static class FolderMutationGuard
                 return false;
         }
     }
+
+    /// <summary>
+    /// Loads a folder that may legally be mutated.
+    /// </summary>
+    /// <returns>
+    /// The active folder, or the failure the contract requires: `NotFound` when
+    /// no such folder exists, `InvalidState` when it is in the recycle bin and
+    /// therefore inert (I5).
+    /// </returns>
+    /// <remarks>
+    /// The same shape as <c>NoteMutationGuard.TryLoadActive</c>. Used by the
+    /// commands that must compare against the folder's <i>current</i> state to
+    /// decide whether anything changes at all — §4's no-op rule — rather than
+    /// only whether the folder may be touched.
+    /// </remarks>
+    public static bool TryLoadActive(
+        IFolderRepository folders,
+        FolderId id,
+        string verb,
+        out Folder folder,
+        out CommandResult failure)
+    {
+        Folder? found = folders.FindActive(id);
+
+        if (found is not null)
+        {
+            folder = found;
+            failure = default;
+            return true;
+        }
+
+        folder = null!;
+
+        // FindActive applies I1, so it cannot distinguish "missing" from
+        // "deleted" — and the contract maps those to different failures.
+        failure = folders.GetLifecycle(id) == FolderLifecycle.Deleted
+            ? CommandResult.Failed(
+                CommandFailure.InvalidState($"Folder '{id}' is deleted and cannot be {verb}."))
+            : CommandResult.Failed(CommandFailure.NotFound($"No folder '{id}'."));
+
+        return false;
+    }
 }
