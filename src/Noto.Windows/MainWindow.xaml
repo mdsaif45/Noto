@@ -2,26 +2,55 @@
     x:Class="Noto.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Noto"
     Title="Noto">
 
     <!--
-        Bootstrap placeholder. The real interface begins at M2
-        (SideNotes Workspace) and is built on the design tokens from #22.
-        Deliberately unstyled — there is no design system to style it with yet.
+        M2-0 integration spike. This is NOT the workspace: no docking, no
+        hotkey, no sidebar (#16). It exists to prove one read and one write
+        reach real SQLite and come back.
+
+        Deliberately unstyled, and that is a rule rather than laziness.
+        ADR-011 says views consume semantic tokens and never primitives, and
+        the design system (#22, Noto.UI) does not exist yet — so this markup
+        sets no spacing, size, colour, radius or font value at all and inherits
+        WinUI defaults. Adding a single Margin="12" here would violate ADR-011.
     -->
-    <StackPanel
-        HorizontalAlignment="Center"
-        VerticalAlignment="Center"
-        Spacing="8">
-        <TextBlock
-            Text="Noto"
-            FontSize="32"
-            HorizontalAlignment="Center" />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Write path: CreateFolder -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <TextBox
+                x:Name="FolderNameInput"
+                PlaceholderText="Folder name" />
+            <Button
+                x:Name="CreateButton"
+                Content="Create folder"
+                Click="OnCreateFolderClick" />
+        </StackPanel>
+
+        <!-- Status: Loading / Empty / Error / MutationFailed -->
         <TextBlock
             x:Name="StatusText"
-            Text="Production foundation initialized"
-            Opacity="0.6"
-            HorizontalAlignment="Center" />
-    </StackPanel>
+            Grid.Row="1"
+            TextWrapping="Wrap" />
+
+        <!-- Read path: ListFolders -->
+        <ListView
+            Grid.Row="2"
+            ItemsSource="{x:Bind Folders}"
+            SelectionMode="None">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:FolderListItem">
+                    <TextBlock Text="{x:Bind Name}" />
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
 
 </Window>
