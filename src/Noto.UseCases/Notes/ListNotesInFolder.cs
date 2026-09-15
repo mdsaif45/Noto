@@ -24,6 +24,9 @@ public sealed class ListNotesInFolderQuery(INoteRepository notes)
     private readonly INoteRepository _notes = notes
         ?? throw new ArgumentNullException(nameof(notes));
 
+    /// <summary>
+    /// The active notes of one scope, in O2 order.
+    /// </summary>
     /// <param name="folderId">
     /// The scope. <see langword="null"/> is the root scope, its own scope and
     /// not a catch-all (O1).
