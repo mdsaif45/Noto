@@ -142,20 +142,24 @@ public sealed class CreateTagTests : IDisposable
     }
 
     [Fact]
-    public void Detects_a_duplicate_against_an_untrimmed_row_already_in_the_database()
+    public void Does_not_retro_normalise_a_row_written_outside_the_engine()
     {
-        // A row planted verbatim, as though written before §7a existed. The
-        // comparison still has to find it: FindIdByName relies on the column's
-        // NOCASE collation, which does not trim the STORED side either.
+        // A row planted verbatim, as though written before §7a existed.
+        //
+        // §7a normalises what the engine WRITES; it does not reach back and
+        // re-compare rows some other writer stored untrimmed. FindIdByName
+        // relies on the column's NOCASE collation, and collation does not trim
+        // the stored side either, so " Work " and "Work" remain distinct here
+        // and the create legitimately succeeds.
+        //
+        // This is a limit of the rule, not duplicate detection working. It is
+        // harmless because no writer in the engine can produce such a row —
+        // both CreateTag and RenameTag normalise first — and the only way to
+        // create one is the raw SQL this test uses.
         _context.SeedTag(" Work ");
 
         var result = Handler().Handle(new CreateTag("Work"));
 
-        // The stored name is " Work ", which is NOT equal to "Work" under
-        // NOCASE, so this legitimately succeeds. Recorded as the known limit of
-        // the rule: §7a normalises what the engine writes, and does not
-        // retro-normalise rows written by anything else. There is no such
-        // writer in the engine.
         Assert.True(result.IsSuccess);
         Assert.Equal(2, _context.TagCount());
     }

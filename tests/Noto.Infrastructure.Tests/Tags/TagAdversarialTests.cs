@@ -182,6 +182,21 @@ public sealed class TagAdversarialTests : IDisposable
     [Fact]
     public void DeleteTag_must_not_leave_relationships_behind()
     {
+        // This asserts the OUTCOME the contract specifies (§11 row 21: "removes
+        // NoteTags, leaves notes intact"), not the mechanism.
+        //
+        // Known limit, recorded rather than worked around: it cannot tell an
+        // explicit `DELETE FROM NoteTags` from a repository that deletes only
+        // the tag and lets the foreign key cascade. Measured — a tag-only
+        // delete leaves 0 join rows with foreign_keys=ON and 1 with OFF, and
+        // NotoDatabase.ApplyPragmas always enables them, so both
+        // implementations satisfy the contract identically here.
+        //
+        // The repository does the deletion explicitly anyway, so the rule does
+        // not rest on a pragma. That is an implementation preference, not a
+        // contract requirement, and is deliberately not pinned by a test: an
+        // earlier version asserted the exact SQL string and would have failed a
+        // correct implementation over a renamed parameter.
         var tag = _context.SeedTag("Work");
         var note = _context.SeedNote();
         _context.SeedRelationship(note, tag);
@@ -189,59 +204,6 @@ public sealed class TagAdversarialTests : IDisposable
         Delete().Handle(new DeleteTag(tag));
 
         Assert.Equal(0, _context.RelationshipCount());
-    }
-
-    [Fact]
-    public void DeleteTag_removes_the_relationships_itself_rather_than_relying_on_the_cascade()
-    {
-        // The behavioural test above CANNOT catch a repository that deletes only
-        // the tag: NoteTags declares ON DELETE CASCADE and NotoDatabase turns
-        // foreign keys on for every connection, so the join rows vanish either
-        // way. Measured directly — tag-only delete leaves 0 rows with
-        // foreign_keys=ON and 1 row with foreign_keys=OFF.
-        //
-        // That makes "removes NoteTags, leaves notes intact" (§11 row 21)
-        // depend on a pragma unless the repository does it explicitly. Since
-        // NotoDatabase.ApplyPragmas always enables foreign keys, no behavioural
-        // test can distinguish the two implementations; the statement's
-        // presence is the only observable difference, so that is what this
-        // asserts.
-        string source = RepositorySourcePath();
-
-        string text = File.ReadAllText(source);
-
-        Assert.Contains(
-            "DELETE FROM NoteTags WHERE TagId = $id;",
-            text,
-            StringComparison.Ordinal);
-    }
-
-    /// <summary>The tag repository's source file, located from the test assembly.</summary>
-    /// <remarks>
-    /// Walks up to the repository root rather than hard-coding a depth, and
-    /// fails loudly when the file is not found — a silently skipped guard is
-    /// worse than no guard.
-    /// </remarks>
-    private static string RepositorySourcePath()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            string candidate = Path.Join(
-                directory.FullName,
-                "src", "Noto.Infrastructure", "Storage", "SqliteTagRepository.cs");
-
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException(
-            "Could not locate SqliteTagRepository.cs from " + AppContext.BaseDirectory);
     }
 
     [Fact]
