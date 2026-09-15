@@ -5,8 +5,8 @@ Project:            Noto — a Windows-native notes application
 Current milestone:  M1 — Core Note Engine  (in progress)
 Current slice:      Slice 6 — Queries  (MERGED); Core Note Engine complete
 Overall status:     Backend engine under construction. No product UI exists.
-Last updated:       2026-09-15
-Evidence baseline:  main @ 4e9e09e (PR #52 merged)
+Last updated:       2026-09-16
+Evidence baseline:  main @ 5a127b6 (PR #54 merged); #22 on feat/22-design-system
 ```
 
 > **Read this first.** A working engine is not a working product. Noto currently
@@ -53,9 +53,9 @@ nine M0 issues remain open, including several that later milestones depend on
 
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
-| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection | — | #22 design tokens, #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
+| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system implemented (`Noto.UI`) — awaiting PR/merge** | #22 PR | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown, #15 export — both still open |
-| **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | — | — | The first dogfoodable build; where real UI begins |
+| **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | M2-0 integration spike merged (#54); M2-1 Folder Pane **design gate passed** — contract only, no implementation | — | M2-1 Folder Pane implementation, after #22 merges |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -185,17 +185,21 @@ This distinction matters more than any other line in this document.
 | | Status |
 | - | ------ |
 | Visual design language | **NOT STARTED** |
-| Design tokens / design system | **NOT STARTED** — #22 open |
+| Design tokens / design system | **IMPLEMENTED, UNMERGED** — #22 on `feat/22-design-system`: `Noto.UI` with tokens, Light/Dark/HighContrast themes and the FolderRow style |
 | Workspace layout, sidebar, drawer | **NOT STARTED** — M2 |
 | Note editor | **NOT STARTED** — #14 |
-| Folder UI | **NOT STARTED** |
-| Typography, components, motion, polish | **NOT STARTED** — ADR-011 defines tokens on paper only |
+| Folder UI | **DESIGNED, NOT IMPLEMENTED** — M2-1 Folder Pane contract agreed (states, selection, create, rename, keyboard, focus) |
+| Typography, components, motion, polish | **PARTIAL** — body/caption type, spacing, radius and one component (FolderRow) exist in `Noto.UI`; motion and the wider component library do not |
 
-The entire current interface is 27 lines of XAML whose own comment reads:
+The entire current interface is the 56-line M2-0 integration spike, whose own
+comment reads:
 
-> *"Bootstrap placeholder. The real interface begins at M2 (SideNotes Workspace)
-> and is built on the design tokens from #22. Deliberately unstyled — there is no
-> design system to style it with yet."*
+> *"M2-0 integration spike. This is NOT the workspace: no docking, no hotkey, no
+> sidebar (#16). It exists to prove one read and one write reach real SQLite and
+> come back."*
+
+It is still unstyled: #22's design system exists but is not yet applied to any
+surface, which is M2-1's work.
 
 ```
 WinUI 3 validated   ≠   Noto UI designed
@@ -281,8 +285,9 @@ but none is formally established as the next slice.
 
 - #14 markdown parsing / rendering / editing
 - #15 export and backup
-- Remaining M0 issues: #22 design tokens, #21 commands/events, #20 architecture
-  tests, #7 logging, #9 settings, #10 error handling, #11 perf harness
+- Remaining M0 issues: #21 commands/events, #20 architecture tests, #7 logging,
+  #9 settings, #10 error handling, #11 perf harness (#22 design tokens is
+  implemented and awaiting merge)
 - M2 — the first real UI
 
 ### DEFERRED
@@ -349,6 +354,10 @@ Markdown rendering        #14
 Tags                      Slice 5
 Any product UI            M2
 AI, plugins, sharing      not on the roadmap
+
+SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
+  benchmark                quality target cannot be measured against
+                           SideNotes, only designed toward
 ```
 
 ---
@@ -398,7 +407,7 @@ Done: Slice 6 — queries merged (PR #52); Core Note Engine complete
     ↓
 #14 markdown · #15 export — the remaining M1 issues
     ↓
-Remaining M0 work, notably #22 design tokens
+#22 design system — implemented, awaiting merge
     ↓
 M2 — SideNotes Workspace: the first real UI and the first dogfoodable build
     ↓
@@ -406,8 +415,8 @@ M3 — SideNotes parity: the first product
 ```
 
 The roadmap does not hold UI until the backend is finished. M2 is described as
-*"the first build usable daily. Everything after it is informed by"* it — but it
-depends on #22's design tokens, which are still open.
+*"the first build usable daily. Everything after it is informed by"* it — and it
+depends on #22's design tokens, which are now implemented and awaiting merge.
 
 ---
 

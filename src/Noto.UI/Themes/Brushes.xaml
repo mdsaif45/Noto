@@ -1,0 +1,42 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        The brushes views actually bind to.
+
+        Colours are declared once per theme in Colors.xaml; these brushes name
+        the ROLE and resolve to whichever colour the active theme supplies. A
+        view asks for SurfaceSidebarBrush and never learns which theme is
+        running — which is the whole point of the semantic layer (ADR-011).
+
+        Kept separate from Colors.xaml so the theme dictionaries stay a flat,
+        reviewable list of values: one file answers "what colour is this in
+        dark mode", the other "what is this colour FOR".
+
+        Colors.xaml is merged HERE rather than being assumed present in the
+        consumer. A resource reference inside a merged dictionary resolves
+        against that dictionary and its own merge tree only — never against a
+        sibling merged next to it in the parent. A dictionary that depends on
+        another must therefore merge it itself; relying on the consumer's merge
+        ORDER looks like it works and does not.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Colors.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{ThemeResource SurfaceWindowColor}" />
+    <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{ThemeResource SurfaceSidebarColor}" />
+
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{ThemeResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{ThemeResource TextSecondaryColor}" />
+
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="{ThemeResource BorderSubtleColor}" />
+    <SolidColorBrush x:Key="BorderFocusBrush" Color="{ThemeResource BorderFocusColor}" />
+
+    <SolidColorBrush x:Key="InteractionHoverBrush" Color="{ThemeResource InteractionHoverColor}" />
+    <SolidColorBrush x:Key="InteractionSelectedBrush" Color="{ThemeResource InteractionSelectedColor}" />
+    <SolidColorBrush x:Key="InteractionSelectedTextBrush" Color="{ThemeResource InteractionSelectedTextColor}" />
+
+</ResourceDictionary>

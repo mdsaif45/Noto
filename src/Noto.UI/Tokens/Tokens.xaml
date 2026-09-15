@@ -1,0 +1,66 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Theme-invariant semantic tokens: spacing, typography, radius.
+
+        Colour tokens are NOT here — they differ per theme and live in
+        Themes/*.xaml, one complete set each. ADR-011: "a missing dark value is
+        a bug, not a fallback."
+
+        Only what M2-1's folder pane consumes is defined. ADR-011 rule 4: "New
+        tokens are added when a surface needs one — not speculatively." The
+        remaining groups (Display/Heading/Code, Card/Floating/Overlay/Dialog,
+        accent, semantic colour, elevation, motion, note1…note6) have no M2-1
+        consumer and are deliberately absent.
+    -->
+
+    <!--
+        SPACING — ADR-011 fixes this scale: 2, 4, 8, 12, 16, 24, 32, 48,
+        "no value outside it". The values are the ADR's, not a choice made here.
+        Only the four the folder pane needs are declared.
+    -->
+    <x:Double x:Key="SpaceXS">4</x:Double>
+    <x:Double x:Key="SpaceS">8</x:Double>
+    <x:Double x:Key="SpaceM">12</x:Double>
+    <x:Double x:Key="SpaceL">16</x:Double>
+
+    <Thickness x:Key="FolderRowPadding">12,8,12,8</Thickness>
+    <Thickness x:Key="PanePadding">8</Thickness>
+
+    <!--
+        TYPOGRAPHY — Body and Caption only.
+
+        14px body matches the Windows shell default, so Noto reads as a native
+        application rather than a web page; 12px caption is the smallest size
+        that stays legible at 100% scaling. Line heights are 20 and 16 — ~1.4x,
+        loose enough for a dense list to remain scannable.
+
+        SemiBold (600) rather than Bold for the selected row: at 14px, Bold
+        shifts glyph widths enough to make the row visibly reflow on selection.
+    -->
+    <FontFamily x:Key="FontFamilyBody">Segoe UI Variable Text, Segoe UI</FontFamily>
+
+    <x:Double x:Key="FontSizeBody">14</x:Double>
+    <x:Double x:Key="LineHeightBody">20</x:Double>
+    <x:Double x:Key="FontSizeCaption">12</x:Double>
+    <x:Double x:Key="LineHeightCaption">16</x:Double>
+
+    <FontWeight x:Key="FontWeightRegular">Normal</FontWeight>
+    <FontWeight x:Key="FontWeightEmphasis">SemiBold</FontWeight>
+
+    <!--
+        RADIUS — one role. ADR-011 names four (Small, Medium, Large, Pill);
+        the folder pane needs only the smallest, so only it is declared.
+    -->
+    <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
+
+    <!--
+        BORDER WIDTHS — the focus ring is 2px because a 1px ring is easy to
+        lose against a selected background, and "focus is mandatory" (ADR-011).
+    -->
+    <Thickness x:Key="BorderThicknessSubtle">1</Thickness>
+    <Thickness x:Key="BorderThicknessFocus">2</Thickness>
+
+</ResourceDictionary>

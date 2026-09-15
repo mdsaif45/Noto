@@ -1,0 +1,87 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Semantic colour tokens, one complete set per theme.
+
+        ADR-011: "Every colour token is defined for light AND dark. No token may
+        exist in only one theme — a missing dark value is a bug, not a
+        fallback." Every key below therefore appears in all three dictionaries,
+        and WinUI's ThemeDictionaries mechanism selects the set rather than
+        falling through to a default.
+
+        High contrast is first-class, not an afterthought: it maps to the
+        SystemColor* resources the OS supplies, so the user's own high-contrast
+        choice wins over anything Noto would pick.
+
+        These are NOTO DESIGN VALUES. They are not SideNotes measurements —
+        SideNotes is macOS-only and could not be observed (see the blocked
+        quality-benchmark research). Nothing here claims parity with it.
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!--
+            LIGHT. Surfaces near-white rather than pure white: #FFFFFF against a
+            dark glyph is the highest-glare combination available, and a long
+            writing session is the use case.
+        -->
+        <ResourceDictionary x:Key="Light">
+            <Color x:Key="SurfaceWindowColor">#FAFAFA</Color>
+            <Color x:Key="SurfaceSidebarColor">#F3F3F3</Color>
+
+            <Color x:Key="TextPrimaryColor">#1A1A1A</Color>
+            <Color x:Key="TextSecondaryColor">#5E5E5E</Color>
+
+            <Color x:Key="BorderSubtleColor">#E0E0E0</Color>
+            <Color x:Key="BorderFocusColor">#005FB8</Color>
+
+            <Color x:Key="InteractionHoverColor">#EAEAEA</Color>
+            <Color x:Key="InteractionSelectedColor">#DCE9F7</Color>
+            <Color x:Key="InteractionSelectedTextColor">#12395E</Color>
+        </ResourceDictionary>
+
+        <!--
+            DARK. Surfaces near-black rather than pure black: #000000 with light
+            text produces halation on OLED panels, and pure black also removes
+            the elevation cue a slightly lighter sidebar gives.
+        -->
+        <ResourceDictionary x:Key="Dark">
+            <Color x:Key="SurfaceWindowColor">#1F1F1F</Color>
+            <Color x:Key="SurfaceSidebarColor">#272727</Color>
+
+            <Color x:Key="TextPrimaryColor">#F2F2F2</Color>
+            <Color x:Key="TextSecondaryColor">#A8A8A8</Color>
+
+            <Color x:Key="BorderSubtleColor">#383838</Color>
+            <Color x:Key="BorderFocusColor">#60CDFF</Color>
+
+            <Color x:Key="InteractionHoverColor">#333333</Color>
+            <Color x:Key="InteractionSelectedColor">#1E3A52</Color>
+            <Color x:Key="InteractionSelectedTextColor">#DCE9F7</Color>
+        </ResourceDictionary>
+
+        <!--
+            HIGH CONTRAST. Every value comes from the system, because the point
+            of the mode is that the USER chose the palette. Hardcoding even one
+            "accessible" colour here would override that choice.
+        -->
+        <ResourceDictionary x:Key="HighContrast">
+            <StaticResource x:Key="SurfaceWindowColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="SurfaceSidebarColor" ResourceKey="SystemColorWindowColor" />
+
+            <StaticResource x:Key="TextPrimaryColor" ResourceKey="SystemColorWindowTextColor" />
+            <StaticResource x:Key="TextSecondaryColor" ResourceKey="SystemColorGrayTextColor" />
+
+            <StaticResource x:Key="BorderSubtleColor" ResourceKey="SystemColorWindowTextColor" />
+            <StaticResource x:Key="BorderFocusColor" ResourceKey="SystemColorHighlightColor" />
+
+            <StaticResource x:Key="InteractionHoverColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="InteractionSelectedColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="InteractionSelectedTextColor" ResourceKey="SystemColorHighlightTextColor" />
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+</ResourceDictionary>
