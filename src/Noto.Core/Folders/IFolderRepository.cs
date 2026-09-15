@@ -181,6 +181,20 @@ public interface IFolderRepository
     /// <c>includeDeleted</c> flag anywhere on the ordinary queries.
     /// </remarks>
     IReadOnlyList<Folder> ListDeleted();
+
+    /// <summary>
+    /// The <b>active</b> folders, in display order (Q3).
+    /// </summary>
+    /// <returns>
+    /// The folders in O2 order — pinned first, then <c>SortOrder</c>, then
+    /// <c>Id</c> — or an empty list when none exist.
+    /// </returns>
+    /// <remarks>
+    /// Invariant I1: deleted folders are excluded here and reached only through
+    /// <see cref="ListDeleted"/> (I2). The folder collection is a single scope,
+    /// so there is no scope argument.
+    /// </remarks>
+    IReadOnlyList<Folder> ListActive();
 }
 
 /// <summary>

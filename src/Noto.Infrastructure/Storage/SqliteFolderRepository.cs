@@ -398,6 +398,43 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         }
     }
 
+    public IReadOnlyList<Folder> ListActive()
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // O2 in full — the same rule as the note list, and stated in §5a as
+            // applying to both. I1 excludes the bin, which is reached only
+            // through ListDeleted (I2).
+            command.CommandText =
+                """
+                SELECT Id, Name, ColorKey, IsPinned, IsCollapsed,
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                FROM Folders
+                WHERE DeletedAt IS NULL
+                ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
+                """;
+
+            var folders = new List<Folder>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                folders.Add(ReadFolder(reader));
+            }
+
+            return folders;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not list the folders.",
+                ex);
+        }
+    }
+
     /// <summary>
     /// Maps one row to a <see cref="Folder"/>.
     /// </summary>

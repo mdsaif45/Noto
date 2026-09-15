@@ -1,4 +1,5 @@
 using Noto.Core.Folders;
+using Noto.Core.Tags;
 
 namespace Noto.Core.Notes;
 
@@ -209,6 +210,53 @@ public interface INoteRepository
     /// that is "the shape that eventually gets passed <c>true</c> by accident".
     /// </remarks>
     IReadOnlyList<Note> ListDeleted();
+
+    /// <summary>
+    /// The <b>active</b> notes of one scope, in display order (Q2).
+    /// </summary>
+    /// <param name="folderId">
+    /// The scope. <see langword="null"/> is the root scope, which is its own
+    /// scope and not a catch-all (ordering rule O1) — a root note belongs to no
+    /// folder's list, and no folder's notes appear at root.
+    /// </param>
+    /// <returns>
+    /// The notes in O2 order — pinned first, then <c>SortOrder</c>, then
+    /// <c>Id</c> — or an empty list when the scope holds none. An empty scope
+    /// is not a failure (contract §11 Q2).
+    /// </returns>
+    /// <remarks>
+    /// Invariant I1 applies: deleted notes are excluded here, and are reached
+    /// only through <see cref="ListDeleted"/> (I2). I6 follows from the same
+    /// filter — a deleted row keeps its <c>SortOrder</c> but never participates
+    /// in ordering.
+    /// </remarks>
+    IReadOnlyList<Note> ListInFolder(FolderId? folderId);
+
+    /// <summary>
+    /// The <b>active</b> notes carrying a tag, most recently updated first (Q5).
+    /// </summary>
+    /// <returns>
+    /// The notes in <c>UpdatedAt DESC</c> order (contract §5a, U13b), or an
+    /// empty list when the tag has none — including when no such tag exists.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Not ordered by <c>SortOrder</c>.</b> Notes reached through a tag come
+    /// from many folders, and <c>SortOrder</c> is scoped per folder (O1), so
+    /// values from different scopes are not comparable. <c>UpdatedAt</c> is the
+    /// one field every note carries that is comparable across scopes.
+    /// </para>
+    /// <para>
+    /// <b>No secondary tie-break.</b> Two notes can share an <c>UpdatedAt</c> —
+    /// §4 gives every row in one transaction the same timestamp — and the
+    /// contract deliberately does not say how those order relative to each
+    /// other (§5a). Callers must not depend on it.
+    /// </para>
+    /// <para>
+    /// Membership comes solely from <c>NoteTags</c>; I1 excludes deleted notes.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<Note> ListForTag(TagId tagId);
 }
 
 /// <summary>
