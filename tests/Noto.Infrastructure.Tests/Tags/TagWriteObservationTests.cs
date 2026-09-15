@@ -188,6 +188,8 @@ public sealed class TagWriteObservationTests : IDisposable
         public bool HasRelationship(NoteId noteId, TagId tagId) =>
             inner.HasRelationship(noteId, tagId);
 
+        public IReadOnlyList<Tag> ListAll() => inner.ListAll();
+
         public void Assign(NoteId noteId, TagId tagId)
         {
             Assigns++;

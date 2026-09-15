@@ -71,13 +71,7 @@ public sealed class SqliteTagRepository(NotoDatabase database) : ITagRepository
                 return null;
             }
 
-            return new Tag
-            {
-                Id = TagId.From(reader.GetString(0)),
-                Name = reader.GetString(1),
-                ColorKey = reader.IsDBNull(2) ? null : reader.GetString(2),
-                CreatedAt = Timestamps.Parse(reader.GetString(3)),
-            };
+            return ReadTag(reader);
         }
         catch (SqliteException ex)
         {
@@ -87,6 +81,66 @@ public sealed class SqliteTagRepository(NotoDatabase database) : ITagRepository
                 ex);
         }
     }
+
+    public IReadOnlyList<Tag> ListAll()
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // U13a (§5a): Name COLLATE NOCASE ASC. The column is already
+            // declared COLLATE NOCASE and UX_Tags_Name indexes it with the same
+            // collation, so the index serves this order directly — and the
+            // order tags are listed in agrees with the order two names collide
+            // in, rather than being a second, separate rule.
+            //
+            // No tie-break, and none is needed: Name is unique
+            // case-insensitively, so no two tags compare equal here.
+            //
+            // No DeletedAt filter: Tags has no such column. DeleteTag is the
+            // engine's only hard delete (§8), so every row is live by
+            // construction.
+            command.CommandText =
+                """
+                SELECT Id, Name, ColorKey, CreatedAt
+                FROM Tags
+                ORDER BY Name COLLATE NOCASE ASC;
+                """;
+
+            var tags = new List<Tag>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                tags.Add(ReadTag(reader));
+            }
+
+            return tags;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not list the tags.",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Maps one row to a <see cref="Tag"/>.
+    /// </summary>
+    /// <remarks>
+    /// Shared by <see cref="Find"/> and <see cref="ListAll"/>, which select the
+    /// same columns in the same order. Two copies would be two places for a
+    /// column index to drift.
+    /// </remarks>
+    private static Tag ReadTag(SqliteDataReader reader) => new()
+    {
+        Id = TagId.From(reader.GetString(0)),
+        Name = reader.GetString(1),
+        ColorKey = reader.IsDBNull(2) ? null : reader.GetString(2),
+        CreatedAt = Timestamps.Parse(reader.GetString(3)),
+    };
 
     public void Add(Tag tag)
     {

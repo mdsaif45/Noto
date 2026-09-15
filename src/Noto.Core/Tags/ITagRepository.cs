@@ -117,4 +117,25 @@ public interface ITagRepository
     /// established that the note is active and the relationship exists.
     /// </remarks>
     void Remove(NoteId noteId, TagId tagId);
+
+    /// <summary>
+    /// Every tag, ordered by name (Q4).
+    /// </summary>
+    /// <returns>
+    /// The tags in <c>Name COLLATE NOCASE ASC</c> order (contract §5a, U13a),
+    /// or an empty list when none exist.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>Every</b> tag: there is no active/deleted distinction to make, because
+    /// <c>Tags</c> has no <c>DeletedAt</c> — <c>DeleteTag</c> is the engine's
+    /// only hard delete (§8). I1 has nothing to filter here.
+    /// </para>
+    /// <para>
+    /// The order is <b>total without a tie-break</b>: <c>Name</c> is unique
+    /// case-insensitively (design §5, <c>UX_Tags_Name</c>), so no two tags can
+    /// compare equal under the same collation.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<Tag> ListAll();
 }

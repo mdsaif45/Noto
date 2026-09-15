@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Core.Storage;
+using Noto.Core.Tags;
 
 namespace Noto.Infrastructure.Storage;
 
@@ -537,6 +538,111 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     /// rows in a table; giving it <c>NoteId</c> would tie one algorithm to one
     /// domain, so the translation lives here rather than there.
     /// </remarks>
+    public IReadOnlyList<Note> ListInFolder(FolderId? folderId)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // Two predicates rather than one, and this is not a style choice:
+            // `FolderId = NULL` matches NOTHING in SQL's three-valued logic, so
+            // a single parameterised `= $folderId` would silently return an
+            // empty root scope rather than failing. Root is its own scope (O1),
+            // not a catch-all, and `IS NULL` is the only way to say so.
+            //
+            // O2 in full: pinned first, then SortOrder, then Id as the
+            // deterministic tie-break (§5a, ADR-012 — ULIDs are
+            // creation-ordered). I1 excludes deleted notes, which is also I6:
+            // a deleted row keeps its SortOrder but never participates.
+            command.CommandText = folderId is null
+                ? """
+                  SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
+                         SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                  FROM Notes
+                  WHERE FolderId IS NULL AND DeletedAt IS NULL
+                  ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
+                  """
+                : """
+                  SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
+                         SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                  FROM Notes
+                  WHERE FolderId = $folderId AND DeletedAt IS NULL
+                  ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
+                  """;
+
+            if (folderId is { } scope)
+            {
+                command.Parameters.AddWithValue("$folderId", scope.Value);
+            }
+
+            var notes = new List<Note>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                notes.Add(ReadNote(reader));
+            }
+
+            return notes;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not list the notes in a folder.",
+                ex);
+        }
+    }
+
+    public IReadOnlyList<Note> ListForTag(TagId tagId)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // Membership comes from NoteTags and nothing else — a note is
+            // returned because the join row exists, never merely because the
+            // note does.
+            //
+            // UpdatedAt DESC (§5a, U13b). Deliberately NOT SortOrder: these
+            // notes span folders and SortOrder is scoped per folder (O1), so
+            // the values are not comparable across the result.
+            //
+            // No secondary tie-break, deliberately. Two notes can share an
+            // UpdatedAt (§4 gives one transaction's rows one timestamp) and the
+            // contract does not say how they order. Adding `Id ASC` here would
+            // be inventing a requirement the gate declined to make.
+            command.CommandText =
+                """
+                SELECT n.Id, n.FolderId, n.Content, n.ColorKey, n.IsPinned, n.IsFolded,
+                       n.SortOrder, n.CreatedAt, n.UpdatedAt, n.DeletedAt
+                FROM Notes n
+                INNER JOIN NoteTags nt ON nt.NoteId = n.Id
+                WHERE nt.TagId = $tagId AND n.DeletedAt IS NULL
+                ORDER BY n.UpdatedAt DESC;
+                """;
+
+            command.Parameters.AddWithValue("$tagId", tagId.Value);
+
+            var notes = new List<Note>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                notes.Add(ReadNote(reader));
+            }
+
+            return notes;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not list the notes for a tag.",
+                ex);
+        }
+    }
+
     /// <summary>
     /// The ordering scope for a note's folder, with root as its own scope (O1).
     /// </summary>
