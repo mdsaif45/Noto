@@ -3,10 +3,10 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M1 — Core Note Engine  (in progress)
-Current slice:      Slice 4 — Folder Commands  (MERGED); Slice 5 — tags not started
+Current slice:      Slice 5 — Tags  (MERGED); contract §15 slice plan complete
 Overall status:     Backend engine under construction. No product UI exists.
 Last updated:       2026-09-15
-Evidence baseline:  main @ 7b13269 (PR #48 merged)
+Evidence baseline:  main @ 66845c4 (PR #50 merged)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto currently
@@ -54,7 +54,7 @@ nine M0 issues remain open, including several that later milestones depend on
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection | — | #22 design tokens, #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
-| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | #13 slices 1–4 merged: domain types, title algorithm, failure model, note CRUD, ordering, lifecycle, recycle bin, **the seven folder commands** | — | **#13 Slice 5 — tags**; then #14 markdown, #15 export |
+| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | #13 slices 1–5 **all merged**: domain types, title algorithm, failure model, note CRUD, ordering, lifecycle, recycle bin, the seven folder commands, **the five tag commands** | — | #13's remaining non-slice surface (queries, purge); then #14 markdown, #15 export |
 | **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | — | — | The first dogfoodable build; where real UI begins |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
@@ -66,54 +66,52 @@ nine M0 issues remain open, including several that later milestones depend on
 
 ---
 
-## 3. Last Slice Completed — Slice 4, folder commands
+## 3. Last Slice Completed — Slice 5, tags
 
-**Slice 4 — Folder Commands** merged as PR #48 → `7b13269`. All seven
-operations exist, with the persistence surface they need.
-
-```
-CreateFolder   RenameFolder   DeleteFolder   RestoreFolder
-PinFolder      UnpinFolder    ReorderFolder
-```
-
-**The ordering algorithm was generalised first.** O1–O6 lived inside
-`SqliteNoteRepository`; folders needed the same rules, and a second copy is how
-two implementations drift apart. The engine now works over any table with an
-`Id`, a `SortOrder` and a `DeletedAt`.
+**Slice 5 — Tags** merged as PR #50 → `66845c4`. This was the **last slice of
+the contract §15 five-slice plan**; all five operations exist.
 
 ```
-src/Noto.Infrastructure/Storage/SortOrderEngine.cs       O1–O6, no domain types
-src/Noto.Infrastructure/Storage/SortOrderScope.cs        table + scope predicate
-src/Noto.Infrastructure/Storage/SortOrderPlacement.cs    first / after / last
-src/Noto.Infrastructure/Storage/Timestamps.cs            the shared "O" format
-src/Noto.Infrastructure/Storage/SqliteFolderRepository.cs  10 methods
-src/Noto.UseCases/Folders/                                 7 commands + guard
+CreateTag   RenameTag   DeleteTag   AssignTagToNote   RemoveTagFromNote
 ```
 
-**Existing note behaviour was preserved.** The extraction modified no test
-file, and a normalised comparison against the pre-extraction source showed
-every difference to be mechanical parameterisation — the threshold, the
-midpoint arithmetic, the `SortOrder`/`Id` tie-break and the `ORDER BY` clauses
-are unchanged.
-
-**Two atomic cascades, each on one timestamp:**
-
 ```
-DeleteFolder    Cases A + B   WHERE FolderId = @f AND DeletedAt IS NULL
-RestoreFolder   Case D        WHERE FolderId = @f AND DeletedAt IS NOT NULL
+src/Noto.Core/Tags/Tag.cs                  entity — CreatedAt only
+src/Noto.Core/Tags/TagName.cs              §7a normalisation, one function
+src/Noto.Core/Tags/ITagRepository.cs       8 methods
+src/Noto.Infrastructure/Storage/SqliteTagRepository.cs
+src/Noto.UseCases/Tags/                    5 commands + guard
 ```
 
-Case D restores **every** still-deleted note pointing at the folder, including
-one deleted independently beforehand. There is no provenance column and none
-was added (deletion-semantics §5).
+**Two contract decisions were gated before implementation**, both recorded as
+amendments in the frozen contract rather than assumed:
 
-> **Two defects were found by review after the first green build** and fixed
-> before merge. `PinFolder`/`UnpinFolder` stamped `UpdatedAt` even when the
-> folder was already in the requested state, violating contract §4's rule that
-> a command changing no row stamps nothing; and the repository's `Rename` and
-> `SetPinned` omitted `AND DeletedAt IS NULL`. A passing suite, clean CI and
-> clean CodeQL did not catch either — the mutation set had no mutant for the
-> pin no-op. Both now have sensitivity tests proven to fail without the fix.
+| | Decision |
+| --- | --- |
+| **U12a** (§7a) | Tag names are trimmed of leading/trailing whitespace before validation, uniqueness comparison and persistence; the trimmed value is stored. Internal whitespace is never touched. Whitespace-only → `InvalidInput`. |
+| **U12b** (§7) | `RemoveTagFromNote` does **not** validate the tag's existence — a missing tag cannot be related to the note, so the requested end state already holds. `AssignTagToNote` is deliberately asymmetric. |
+
+**Nothing stamps, structurally.** `Tags` has only `CreatedAt` and `NoteTags`
+has no timestamp columns at all, so contract §4's "these commands stamp
+nothing" cannot be violated by accident. Tagging never modifies
+`Note.UpdatedAt`, on the successful path as well as the no-op.
+
+**`DeleteTag` is the engine's only hard delete** — *"a tag is a label, not
+content"* (design §8). The row is removed, the `NoteTags` rows go with it in
+one transaction, and the notes are untouched.
+
+**No migration.** SchemaV1 already provided `Tags`, `NoteTags`,
+`UX_Tags_Name ... COLLATE NOCASE` and `IX_NoteTags_Tag`.
+
+> **Two test gaps were found by mutation after the first green build.**
+> A redundant `AssignTagToNote` write was invisible to state-based testing —
+> `NoteTags` has no timestamps and the note row is untouched, so an
+> `INSERT OR IGNORE` with no existence check passed all 110 tests. It is now
+> covered by a test-only decorator that counts repository calls. Separately, an
+> over-constrained test asserting the exact `DELETE FROM NoteTags` SQL string
+> was **removed**: the contract specifies the outcome, not the mechanism, and
+> that assertion would have failed a correct implementation over a renamed
+> parameter.
 
 ---
 
@@ -139,6 +137,9 @@ was added (deletion-semantics §5).
 | **Test-infrastructure pool isolation** | DONE | PR #47 → `4f49003` — replaced process-global `ClearAllPools` |
 | Generic ordering engine | DONE | PR #48 → `7b13269` — domain-neutral, shared by notes and folders |
 | Slice 4 — the seven folder commands | DONE | PR #48 → `7b13269` — Cases A, B, D, G; two atomic cascades |
+| Progress document | DONE | PR #49 → `a5c3b1f` |
+| **U12a / U12b contract amendments** | ACCEPTED | PR #50 → `66845c4` — §7a tag-name normalisation; §7 `RemoveTagFromNote` |
+| **Slice 5 — the five tag commands** | DONE | PR #50 → `66845c4` — hard delete, relationship idempotency, no migration |
 | CI — build/test, CodeQL, C# analysis, docs governance | DONE | `.github/workflows/ci.yml`; branch protection on `main` |
 
 ---
@@ -156,6 +157,7 @@ was added (deletion-semantics §5).
 | ---- | ------ | -------- |
 | Note CRUD, ordering, lifecycle (B1, B8, B10–B16, B19, B23) | **Engine only — no UI** | Slices 1–3; commands exist, nothing invokes them |
 | Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Engine only — no UI** | Slice 4; commands exist, nothing invokes them |
+| Tags — create/rename/delete/assign/remove | **Not a parity requirement** | Slice 5; tags appear in **no** parity row and no feature-inventory row — a Noto addition (contract §7) |
 | Note colours (B15) | **Engine only** | `note1`–`note6`, ADR-011 |
 | Recycle bin (B23, C11) | **Engine only** | `ListDeletedNotes` / `ListDeletedFolders` |
 | Markdown editing, invisible markdown (ADR-004, D-rows) | **Not started** | #14 open |
@@ -256,15 +258,18 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ### NOW
 
-- Nothing in progress. Slice 4 merged; no open PRs, no working branch.
+- Nothing in progress. Slice 5 merged; no open PRs, no working branch.
 
 ### NEXT
 
-**Slice 5 — tags**, the last slice of the contract's §15 plan:
-`CreateTag`, `RenameTag`, `DeleteTag`, `AssignTagToNote`, `RemoveTagFromNote`
-— idempotency (§7), the `NoteTags` cascade, case-insensitive name uniqueness.
-`ITagRepository` does not exist yet. This is the one place `DuplicateName` is
-actually used, and `DeleteTag` is the engine's only hard delete.
+**The §15 five-slice plan is complete.** All 23 commands of contract §1 are
+implemented. What remains inside issue #13 is the surface the slice plan never
+assigned — the **queries** (§1 lists 7; `GetNote`, `ListDeletedNotes` and
+`ListDeletedFolders` exist, so `ListNotesInFolder`, `ListFolders`, `ListTags`
+and `ListNotesForTag` do not) — and #13 is still open.
+
+The next slice is **not yet formally defined**. It must be established from the
+contract, the roadmap and the open issues rather than assumed.
 
 ### LATER
 
@@ -344,14 +349,14 @@ AI, plugins, sharing      not on the roadmap
 
 ## 13. Quality Gates
 
-Verified on `main` @ `7b13269`:
+Verified on `main` @ `66845c4`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                443 / 443 passing
-                       Noto.Core.Tests             84
+Tests                594 / 594 passing
+                       Noto.Core.Tests            119   (84 + 35 tag-name)
                        Noto.UseCases.Tests          1
-                       Noto.Infrastructure.Tests  358   (244 pre-Slice-4 + 114 folder)
+                       Noto.Infrastructure.Tests  474   (358 pre-Slice-5 + 116 tag)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
@@ -363,6 +368,16 @@ Branch protection    required checks, linear history, conversation resolution
 fixed — a ULID monotonicity bug (PR #46), a process-global SQLite pool race
 (PR #47), and in PR #48 the folder pin/unpin `UpdatedAt` no-op violation plus a
 missing `DeletedAt` guard on two repository updates.
+
+**One recorded follow-up.** A `UNIQUE` violation on `Tags.Name` surfaces as
+`StorageException`, not `DuplicateName`. Unreachable under §10's frozen
+"single user, single process" model — the check-then-insert window needs
+concurrent writers — so it is deferred rather than fixed.
+
+**Worth remembering:** PR #48 reached 428 passing tests, clean CI and clean
+CodeQL while still violating contract §4, and PR #50 passed 110 tests with a
+redundant write that state could not observe. Both were caught by challenging
+the contract and mutating the implementation, not by reading test results.
 
 **Worth remembering:** PR #48 reached 428 passing tests, clean CI and clean
 CodeQL while still violating contract §4. Review caught it by challenging the
