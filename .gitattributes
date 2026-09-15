@@ -1,0 +1,43 @@
+# Noto — line endings.
+#
+# LF is the canonical form in the repository. Git normalises text on commit and
+# checks it out as LF, so the stored bytes are the same whatever a contributor's
+# core.autocrlf happens to be. .editorconfig tells editors the same thing; this
+# file is what actually enforces it, because .editorconfig only binds tools that
+# read it.
+#
+# Why this exists: the repository was CRLF because .editorconfig declared
+# `end_of_line = crlf` and `dotnet format` enforced it. Every `git diff --check`
+# then reported a trailing-whitespace "artefact" on every line of every file,
+# which trains reviewers to ignore that check — the opposite of what it is for.
+
+# Default: treat as text, store LF, check out LF.
+* text=auto eol=lf
+
+# Binary — never normalise. None of these are tracked today; they are listed so
+# that adding one later cannot corrupt it silently.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.webp   binary
+*.pdf    binary
+*.zip    binary
+*.7z     binary
+*.gz     binary
+*.dll    binary
+*.exe    binary
+*.pdb    binary
+*.snk    binary
+*.ttf    binary
+*.otf    binary
+*.woff   binary
+*.woff2  binary
+
+# SQLite databases, should one ever be committed (tests create their own in a
+# temp directory, and the user's lives in %LOCALAPPDATA%).
+*.db     binary
+*.db-shm binary
+*.db-wal binary
+*.sqlite binary
