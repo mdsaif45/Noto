@@ -32,39 +32,50 @@ public static class Ulid
 
     private static readonly Lock SyncRoot = new();
 
-    /// <summary>The wall clock's high-water mark, for the regression guard.</summary>
+    /// <summary>
+    /// The wall clock's high-water mark, and the randomness last issued at it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One slot, not a map. The wall clock only ever advances — the regression
+    /// guard below enforces it — so once a millisecond has passed, no
+    /// <see cref="NewId()"/> call can produce it again and its randomness is
+    /// dead. Keeping more than the current instant would retain state nothing
+    /// can ever consult.
+    /// </para>
+    /// <para>
+    /// This is why the generator's state is O(1) regardless of how long the
+    /// process runs or how many ids it mints.
+    /// </para>
+    /// </remarks>
     private static long _lastTimestamp = -1;
 
-    /// <summary>
-    /// The last randomness issued for each millisecond still being tracked.
-    /// </summary>
-    /// <remarks>
-    /// Per timestamp rather than a single "most recent" slot: a caller may
-    /// legitimately revisit an earlier instant — an import carrying original
-    /// creation times does exactly that — and such an id must still continue
-    /// that millisecond's run rather than starting a new one beside it.
-    /// </remarks>
-    private static readonly Dictionary<long, byte[]> LastRandomnessByTimestamp = [];
+    private static readonly byte[] LastRandomness = new byte[RandomnessBytes];
+
+    /// <summary>The random component's width in bytes — 80 bits.</summary>
+    private const int RandomnessBytes = 10;
 
     /// <summary>
-    /// How many distinct milliseconds stay tracked.
+    /// Creates a new ULID for the current instant, strictly increasing even
+    /// within one millisecond.
     /// </summary>
     /// <remarks>
-    /// A bound, because the map would otherwise grow for the life of the
-    /// process. Evicting the oldest is safe: a millisecond that has fallen out
-    /// is one no caller has touched recently, so the next id at that instant
-    /// starts a fresh run — the same thing that happens for any instant seen
-    /// for the first time.
+    /// <para>
+    /// Ids from this overload are unique and strictly increasing in the
+    /// generator's serialized allocation order — the guarantee design §7 rule 2
+    /// leans on when equal <c>SortOrder</c> falls back to the id "rather than
+    /// to chance".
+    /// </para>
+    /// <para>
+    /// It does <b>not</b> delegate to the explicit overload: that path draws
+    /// fresh randomness every call by design, which would discard the sequence
+    /// this one maintains.
+    /// </para>
     /// </remarks>
-    private const int TrackedTimestamps = 64;
-
-    /// <summary>
-    /// Creates a new ULID, monotonically increasing even within the same
-    /// millisecond.
-    /// </summary>
     public static string NewId()
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        byte[] randomness = new byte[RandomnessBytes];
 
         lock (SyncRoot)
         {
@@ -76,54 +87,11 @@ public static class Ulid
                 now = _lastTimestamp;
             }
 
-            // The high-water mark belongs to the wall-clock path alone. The
-            // explicit-timestamp overload must not advance it, or supplying an
-            // older instant would drag every later wall-clock id forward —
-            // which is the import-corruption case the guard was scoped against
-            // when it was introduced.
-            _lastTimestamp = now;
-        }
-
-        return NewId(DateTimeOffset.FromUnixTimeMilliseconds(now));
-    }
-
-    /// <summary>
-    /// Creates a ULID for an explicit instant, <b>without</b> the monotonic
-    /// clock-regression guard.
-    /// </summary>
-    /// <remarks>
-    /// The guard exists to stop a wall-clock correction producing ids that sort
-    /// before existing data. Applying it here would silently override the
-    /// caller's instant, so this overload honours exactly what it is given.
-    /// Randomness is still incremented within a millisecond, so a run of ids at
-    /// one instant remains ordered.
-    /// </remarks>
-    public static string NewId(DateTimeOffset timestamp)
-    {
-        long ms = timestamp.ToUnixTimeMilliseconds();
-
-        // Monotonicity matters: two notes created in the same millisecond must
-        // still have a defined order, or "sort by id" is non-deterministic.
-        byte[] randomness = new byte[10];
-
-        lock (SyncRoot)
-        {
-            // Keyed by millisecond, not by "the most recent one". Tracking only
-            // the latest instant silently broke ADR-012's guarantee whenever a
-            // caller returned to an earlier timestamp:
-            //
-            //   NewId(t)   -> randomness R
-            //   NewId()    -> "now", a later instant, overwrites the state
-            //   NewId(t)   -> t is no longer "the last", so fresh bytes are
-            //                 drawn and the second id sits at the SAME
-            //                 millisecond with unrelated randomness
-            //
-            // The two ids then order by chance — measured at ~49% inverted.
-            // That is exactly the case an import carrying original creation
-            // times hits, interleaved with any ordinary id generation.
-            if (LastRandomnessByTimestamp.TryGetValue(ms, out byte[]? previous))
+            if (now == _lastTimestamp)
             {
-                Array.Copy(previous, randomness, randomness.Length);
+                // Same millisecond: continue the run rather than drawing fresh
+                // bytes, which would order the two ids by chance.
+                Array.Copy(LastRandomness, randomness, randomness.Length);
                 IncrementInPlace(randomness);
             }
             else
@@ -131,8 +99,52 @@ public static class Ulid
                 RandomNumberGenerator.Fill(randomness);
             }
 
-            Remember(ms, randomness);
+            // One slot, holding only the instant still being issued at. The
+            // clock never returns to an earlier millisecond, so nothing older
+            // is ever consulted again.
+            _lastTimestamp = now;
+            Array.Copy(randomness, LastRandomness, randomness.Length);
         }
+
+        return Encode(now, randomness);
+    }
+
+    /// <summary>
+    /// Creates a ULID for an explicit instant, honouring exactly the timestamp
+    /// it is given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The caller's instant is used verbatim: the wall-clock regression guard
+    /// is deliberately <b>not</b> applied, because silently clamping a supplied
+    /// timestamp forward would corrupt an import carrying original creation
+    /// times (ADR-012 — "export and import are a contract").
+    /// </para>
+    /// <para>
+    /// The random component is drawn fresh from the CSPRNG on every call, and
+    /// <b>no per-instant sequence is retained</b>. Two ids sharing an
+    /// explicitly supplied instant are unique and stably comparable, but their
+    /// order does <b>not</b> reflect the order in which they were issued.
+    /// Same-instant issuance ordering is guaranteed for <see cref="NewId()"/>
+    /// alone.
+    /// </para>
+    /// <para>
+    /// That is a deliberate contract boundary, not an oversight. Retaining a
+    /// sequence per supplied instant would mean unbounded state: the overload
+    /// accepts any instant and may revisit any of them, so nothing would ever
+    /// license discarding an entry. The alternative — a bounded cache — silently
+    /// loses the sequence on eviction, which is the defect this replaced.
+    /// </para>
+    /// </remarks>
+    public static string NewId(DateTimeOffset timestamp)
+    {
+        long ms = timestamp.ToUnixTimeMilliseconds();
+
+        // No lock and no shared state: this path reads and writes nothing that
+        // another caller can observe, which is what makes it O(1) and free of
+        // the eviction problem entirely.
+        byte[] randomness = new byte[RandomnessBytes];
+        RandomNumberGenerator.Fill(randomness);
 
         return Encode(ms, randomness);
     }
@@ -181,27 +193,6 @@ public static class Ulid
         }
 
         return true;
-    }
-
-    /// <summary>
-    /// Records the randomness just issued for a millisecond, evicting the
-    /// oldest tracked instant when the map is full.
-    /// </summary>
-    /// <remarks>Callers hold <see cref="SyncRoot"/>.</remarks>
-    private static void Remember(long ms, byte[] randomness)
-    {
-        if (!LastRandomnessByTimestamp.ContainsKey(ms)
-            && LastRandomnessByTimestamp.Count >= TrackedTimestamps)
-        {
-            // Linear scan over a 64-entry map, on a path that already holds a
-            // lock and fills 10 cryptographic bytes. A heap would be more
-            // machinery than the cost it saves.
-            LastRandomnessByTimestamp.Remove(LastRandomnessByTimestamp.Keys.Min());
-        }
-
-        // Copied, not aliased: the caller returns this array to Encode and it
-        // must not be mutated by a later increment.
-        LastRandomnessByTimestamp[ms] = [.. randomness];
     }
 
     private static void IncrementInPlace(byte[] randomness)
