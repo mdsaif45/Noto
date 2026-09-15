@@ -3,10 +3,10 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M1 — Core Note Engine  (in progress)
-Current slice:      Slice 5 — Tags  (MERGED); contract §15 slice plan complete
+Current slice:      Slice 6 — Queries  (MERGED); Core Note Engine complete
 Overall status:     Backend engine under construction. No product UI exists.
 Last updated:       2026-09-15
-Evidence baseline:  main @ 66845c4 (PR #50 merged)
+Evidence baseline:  main @ 4e9e09e (PR #52 merged)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto currently
@@ -54,7 +54,7 @@ nine M0 issues remain open, including several that later milestones depend on
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection | — | #22 design tokens, #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
-| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | #13 slices 1–5 **all merged**: domain types, title algorithm, failure model, note CRUD, ordering, lifecycle, recycle bin, the seven folder commands, **the five tag commands** | — | #13's remaining non-slice surface (queries, purge); then #14 markdown, #15 export |
+| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown, #15 export — both still open |
 | **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | — | — | The first dogfoodable build; where real UI begins |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
@@ -66,52 +66,45 @@ nine M0 issues remain open, including several that later milestones depend on
 
 ---
 
-## 3. Last Slice Completed — Slice 5, tags
+## 3. Last Slice Completed — Slice 6, queries
 
-**Slice 5 — Tags** merged as PR #50 → `66845c4`. This was the **last slice of
-the contract §15 five-slice plan**; all five operations exist.
-
-```
-CreateTag   RenameTag   DeleteTag   AssignTagToNote   RemoveTagFromNote
-```
+**Slice 6 — Queries** merged as PR #52 → `4e9e09e`. The four queries the §15
+slice plan never assigned, completing the engine's public surface.
 
 ```
-src/Noto.Core/Tags/Tag.cs                  entity — CreatedAt only
-src/Noto.Core/Tags/TagName.cs              §7a normalisation, one function
-src/Noto.Core/Tags/ITagRepository.cs       8 methods
-src/Noto.Infrastructure/Storage/SqliteTagRepository.cs
-src/Noto.UseCases/Tags/                    5 commands + guard
+Q2 ListNotesInFolder   Q3 ListFolders   Q4 ListTags   Q5 ListNotesForTag
 ```
 
-**Two contract decisions were gated before implementation**, both recorded as
-amendments in the frozen contract rather than assumed:
+**All 23 commands and all 7 queries of contract §1 now exist.** The contract
+records Slice 6 as *"the last slice of the Core Note Engine"*.
 
-| | Decision |
-| --- | --- |
-| **U12a** (§7a) | Tag names are trimmed of leading/trailing whitespace before validation, uniqueness comparison and persistence; the trimmed value is stored. Internal whitespace is never touched. Whitespace-only → `InvalidInput`. |
-| **U12b** (§7) | `RemoveTagFromNote` does **not** validate the tag's existence — a missing tag cannot be related to the note, so the requested end state already holds. `AssignTagToNote` is deliberately asymmetric. |
+| Query | Ordering | Source |
+| --- | --- | --- |
+| Q2 `ListNotesInFolder` | `IsPinned DESC, SortOrder ASC, Id ASC` | O2 in full |
+| Q3 `ListFolders` | `IsPinned DESC, SortOrder ASC, Id ASC` | O2 in full |
+| Q4 `ListTags` | `Name COLLATE NOCASE ASC` | **U13a** |
+| Q5 `ListNotesForTag` | `UpdatedAt DESC` | **U13b** |
 
-**Nothing stamps, structurally.** `Tags` has only `CreatedAt` and `NoteTags`
-has no timestamp columns at all, so contract §4's "these commands stamp
-nothing" cannot be violated by accident. Tagging never modifies
-`Note.UpdatedAt`, on the successful path as well as the no-op.
+**Two contract amendments were gated before implementation.** §11's Q4 row
+carried an *empty* obligation column and Q5's specified no order, so neither
+could be written without choosing one — a product-visible decision the contract
+had not made. Q2 needed no amendment: its obligation already cited O1/O2.
 
-**`DeleteTag` is the engine's only hard delete** — *"a tag is a label, not
-content"* (design §8). The row is removed, the `NoteTags` rows go with it in
-one transaction, and the notes are untouched.
+**Q5 deliberately has no secondary tie-break.** Two notes can share an
+`UpdatedAt` (§4 gives one transaction's rows one timestamp), and the contract
+does not say how they order. Recorded as open in §5a rather than resolved by
+invention, so the tests assert membership for ties and not a relative order.
 
-**No migration.** SchemaV1 already provided `Tags`, `NoteTags`,
-`UX_Tags_Name ... COLLATE NOCASE` and `IX_NoteTags_Tag`.
+**No migration.** Every table and index the four queries need already existed.
 
-> **Two test gaps were found by mutation after the first green build.**
-> A redundant `AssignTagToNote` write was invisible to state-based testing —
-> `NoteTags` has no timestamps and the note row is untouched, so an
-> `INSERT OR IGNORE` with no existence check passed all 110 tests. It is now
-> covered by a test-only decorator that counts repository calls. Separately, an
-> over-constrained test asserting the exact `DELETE FROM NoteTags` SQL string
-> was **removed**: the contract specifies the outcome, not the mechanism, and
-> that assertion would have failed a correct implementation over a renamed
-> parameter.
+> **A real test weakness was found by mutation before merge.** The ordering
+> tie-break tests seeded fresh ULIDs, which are creation-ordered — so insertion
+> order always equalled id order, and the tests passed whether or not the query
+> ordered by `Id`. Measured: with `Id ASC` SQLite returns AAA, MMM, ZZZ;
+> without it, insertion order. Ties are now seeded in *descending* id order.
+> 19 mutants killed, 1 equivalent — the equivalent one drops an explicit
+> `COLLATE NOCASE` that the column declaration already supplies, verified
+> against SQLite rather than assumed, and no test was manufactured to kill it.
 
 ---
 
@@ -140,6 +133,9 @@ one transaction, and the notes are untouched.
 | Progress document | DONE | PR #49 → `a5c3b1f` |
 | **U12a / U12b contract amendments** | ACCEPTED | PR #50 → `66845c4` — §7a tag-name normalisation; §7 `RemoveTagFromNote` |
 | **Slice 5 — the five tag commands** | DONE | PR #50 → `66845c4` — hard delete, relationship idempotency, no migration |
+| Progress document | DONE | PR #51 → `f86afac` |
+| **U13a / U13b contract amendments** | ACCEPTED | PR #52 → `4e9e09e` — §5a query ordering |
+| **Slice 6 — the four remaining queries** | DONE | PR #52 → `4e9e09e` — Q2–Q5; no migration; engine surface complete |
 | CI — build/test, CodeQL, C# analysis, docs governance | DONE | `.github/workflows/ci.yml`; branch protection on `main` |
 
 ---
@@ -158,6 +154,7 @@ one transaction, and the notes are untouched.
 | Note CRUD, ordering, lifecycle (B1, B8, B10–B16, B19, B23) | **Engine only — no UI** | Slices 1–3; commands exist, nothing invokes them |
 | Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Engine only — no UI** | Slice 4; commands exist, nothing invokes them |
 | Tags — create/rename/delete/assign/remove | **Not a parity requirement** | Slice 5; tags appear in **no** parity row and no feature-inventory row — a Noto addition (contract §7) |
+| Listing notes, folders and tags (Q2–Q5) | **Engine only — no UI** | Slice 6; queries exist, nothing invokes them |
 | Note colours (B15) | **Engine only** | `note1`–`note6`, ADR-011 |
 | Recycle bin (B23, C11) | **Engine only** | `ListDeletedNotes` / `ListDeletedFolders` |
 | Markdown editing, invisible markdown (ADR-004, D-rows) | **Not started** | #14 open |
@@ -258,18 +255,27 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ### NOW
 
-- Nothing in progress. Slice 5 merged; no open PRs, no working branch.
+- Nothing in progress. Slice 6 merged; no open implementation PRs.
 
 ### NEXT
 
-**The §15 five-slice plan is complete.** All 23 commands of contract §1 are
-implemented. What remains inside issue #13 is the surface the slice plan never
-assigned — the **queries** (§1 lists 7; `GetNote`, `ListDeletedNotes` and
-`ListDeletedFolders` exist, so `ListNotesInFolder`, `ListFolders`, `ListTags`
-and `ListNotesForTag` do not) — and #13 is still open.
+```
+No formally defined next implementation slice.
+```
 
-The next slice is **not yet formally defined**. It must be established from the
-contract, the roadmap and the open issues rather than assumed.
+**The Core Note Engine is complete.** Contract §15 records Slice 6 as *"the last
+slice of the Core Note Engine"*, all 23 commands and all 7 queries of §1 exist,
+and no document defines a Slice 7.
+
+Issue #13's six acceptance criteria and five testing requirements are all
+satisfied by merged code — including *"folders list correctly and notes can
+move between them"*, whose two halves are `ListFolders` (Slice 6) and
+`MoveNoteToFolder` (Slice 2a). **#13 remains OPEN on GitHub**; closing it is a
+repository decision, not something this document asserts.
+
+What comes next is a scoping decision, not an inference. The candidates already
+carry issues — #14 markdown, #15 export, #22 design tokens, M2's workspace —
+but none is formally established as the next slice.
 
 ### LATER
 
@@ -349,14 +355,14 @@ AI, plugins, sharing      not on the roadmap
 
 ## 13. Quality Gates
 
-Verified on `main` @ `66845c4`:
+Verified on `main` @ `4e9e09e`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                594 / 594 passing
-                       Noto.Core.Tests            119   (84 + 35 tag-name)
+Tests                650 / 650 passing
+                       Noto.Core.Tests            119
                        Noto.UseCases.Tests          1
-                       Noto.Infrastructure.Tests  474   (358 pre-Slice-5 + 116 tag)
+                       Noto.Infrastructure.Tests  530   (474 pre-Slice-6 + 56 query)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
@@ -388,11 +394,9 @@ contract and mutating the implementation, not by reading the test results.
 ## 14. Next Development Path
 
 ```
-Done: Slice 4 — folder commands merged (PR #48)
+Done: Slice 6 — queries merged (PR #52); Core Note Engine complete
     ↓
-Slice 5 — tags: the last slice of contract §15
-    ↓
-#14 markdown · #15 export; M1 complete
+#14 markdown · #15 export — the remaining M1 issues
     ↓
 Remaining M0 work, notably #22 design tokens
     ↓
