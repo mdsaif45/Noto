@@ -3,10 +3,10 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M1 — Core Note Engine  (in progress)
-Current slice:      Slice 4 — Folder Commands  (paused at a regression gate)
+Current slice:      Slice 4 — Folder Commands  (MERGED); Slice 5 — tags not started
 Overall status:     Backend engine under construction. No product UI exists.
 Last updated:       2026-09-15
-Evidence baseline:  main @ 4f49003 · branch feat/core-note-engine-slice-4
+Evidence baseline:  main @ 7b13269 (PR #48 merged)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto currently
@@ -54,7 +54,7 @@ nine M0 issues remain open, including several that later milestones depend on
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection | — | #22 design tokens, #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
-| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | #13 slices 1–3 merged: domain types, title algorithm, failure model, note CRUD, ordering, lifecycle, recycle bin | **#13 Slice 4 — folder commands, paused at the ordering-extraction gate** | Finish Slice 4, then Slice 5 (tags); then #14 markdown, #15 export |
+| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | #13 slices 1–4 merged: domain types, title algorithm, failure model, note CRUD, ordering, lifecycle, recycle bin, **the seven folder commands** | — | **#13 Slice 5 — tags**; then #14 markdown, #15 export |
 | **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | — | — | The first dogfoodable build; where real UI begins |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
@@ -66,37 +66,54 @@ nine M0 issues remain open, including several that later milestones depend on
 
 ---
 
-## 3. Current Slice — where work is paused
+## 3. Last Slice Completed — Slice 4, folder commands
 
-**Slice 4 — Folder Commands**, on branch `feat/core-note-engine-slice-4`,
-**uncommitted**, paused immediately after a mandatory regression gate.
-
-**Done in this slice:** the note-ordering algorithm was extracted into a
-domain-neutral engine so folders can reuse O1–O6 rather than owning a second
-copy of the same midpoint maths.
+**Slice 4 — Folder Commands** merged as PR #48 → `7b13269`. All seven
+operations exist, with the persistence surface they need.
 
 ```
-src/Noto.Infrastructure/Storage/SortOrderEngine.cs       new — O1–O6, no domain types
-src/Noto.Infrastructure/Storage/SortOrderScope.cs        new — table + scope predicate
-src/Noto.Infrastructure/Storage/SortOrderPlacement.cs    new — first / after / last
-src/Noto.Infrastructure/Storage/Timestamps.cs            new — the shared "O" format
-src/Noto.Infrastructure/Storage/SqliteNoteRepository.cs  −299 lines, rewired to the engine
+CreateFolder   RenameFolder   DeleteFolder   RestoreFolder
+PinFolder      UnpinFolder    ReorderFolder
 ```
 
-**Regression gate — passed, verified on the working tree:**
+**The ordering algorithm was generalised first.** O1–O6 lived inside
+`SqliteNoteRepository`; folders needed the same rules, and a second copy is how
+two implementations drift apart. The engine now works over any table with an
+`Id`, a `SortOrder` and a `DeletedAt`.
 
 ```
-Note-ordering tests    69 / 69 PASS   with ZERO test files modified
-Full suite            329 / 329 PASS  (Core 84 · UseCases 1 · Infrastructure 244)
-Build                 0 warnings, 0 errors
-Format                exit 0
-Domain neutrality     0 references to NoteId / FolderId / "Notes" / "Folders"
-                      inside SortOrderEngine
+src/Noto.Infrastructure/Storage/SortOrderEngine.cs       O1–O6, no domain types
+src/Noto.Infrastructure/Storage/SortOrderScope.cs        table + scope predicate
+src/Noto.Infrastructure/Storage/SortOrderPlacement.cs    first / after / last
+src/Noto.Infrastructure/Storage/Timestamps.cs            the shared "O" format
+src/Noto.Infrastructure/Storage/SqliteFolderRepository.cs  10 methods
+src/Noto.UseCases/Folders/                                 7 commands + guard
 ```
 
-> **Folder commands have NOT been implemented.** None of the seven exist yet.
-> `IFolderRepository` still has exactly one method, `ListDeleted()`, added in
-> Slice 3 so the recycle-bin query could return folders.
+**Existing note behaviour was preserved.** The extraction modified no test
+file, and a normalised comparison against the pre-extraction source showed
+every difference to be mechanical parameterisation — the threshold, the
+midpoint arithmetic, the `SortOrder`/`Id` tie-break and the `ORDER BY` clauses
+are unchanged.
+
+**Two atomic cascades, each on one timestamp:**
+
+```
+DeleteFolder    Cases A + B   WHERE FolderId = @f AND DeletedAt IS NULL
+RestoreFolder   Case D        WHERE FolderId = @f AND DeletedAt IS NOT NULL
+```
+
+Case D restores **every** still-deleted note pointing at the folder, including
+one deleted independently beforehand. There is no provenance column and none
+was added (deletion-semantics §5).
+
+> **Two defects were found by review after the first green build** and fixed
+> before merge. `PinFolder`/`UnpinFolder` stamped `UpdatedAt` even when the
+> folder was already in the requested state, violating contract §4's rule that
+> a command changing no row stamps nothing; and the repository's `Rename` and
+> `SetPinned` omitted `AND DeletedAt IS NULL`. A passing suite, clean CI and
+> clean CodeQL did not catch either — the mutation set had no mutant for the
+> pin no-op. Both now have sensitivity tests proven to fail without the fix.
 
 ---
 
@@ -120,7 +137,8 @@ Domain neutrality     0 references to NoteId / FolderId / "Notes" / "Folders"
 | Slice 3 — delete, restore, recycle bin | DONE | PR #45 → `9d81c21` |
 | **ULID C′ contract + implementation** | DONE | PR #46 → `fa0996d` — O(1) state, 80-bit CSPRNG kept |
 | **Test-infrastructure pool isolation** | DONE | PR #47 → `4f49003` — replaced process-global `ClearAllPools` |
-| Generic ordering engine | **UNCOMMITTED** | this branch; gate passed, not yet merged |
+| Generic ordering engine | DONE | PR #48 → `7b13269` — domain-neutral, shared by notes and folders |
+| Slice 4 — the seven folder commands | DONE | PR #48 → `7b13269` — Cases A, B, D, G; two atomic cascades |
 | CI — build/test, CodeQL, C# analysis, docs governance | DONE | `.github/workflows/ci.yml`; branch protection on `main` |
 
 ---
@@ -137,7 +155,7 @@ Domain neutrality     0 references to NoteId / FolderId / "Notes" / "Folders"
 | Area | Status | Evidence |
 | ---- | ------ | -------- |
 | Note CRUD, ordering, lifecycle (B1, B8, B10–B16, B19, B23) | **Engine only — no UI** | Slices 1–3; commands exist, nothing invokes them |
-| Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Designed only** | Slice 4 contract approved; not implemented |
+| Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Engine only — no UI** | Slice 4; commands exist, nothing invokes them |
 | Note colours (B15) | **Engine only** | `note1`–`note6`, ADR-011 |
 | Recycle bin (B23, C11) | **Engine only** | `ListDeletedNotes` / `ListDeletedFolders` |
 | Markdown editing, invisible markdown (ADR-004, D-rows) | **Not started** | #14 open |
@@ -229,7 +247,7 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-09-14  PR #45  Slice 3 — delete, restore, recycle bin
 2026-09-15  PR #46  ULID C′ — O(1) state, ordering semantics settled
 2026-09-15  PR #47  Test-infrastructure pool isolation
-2026-09-15  —       Slice 4 ordering extraction (uncommitted, gate passed)
+2026-09-15  PR #48  Slice 4 — ordering engine generalised; the seven folder commands
 ```
 
 ---
@@ -238,19 +256,18 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ### NOW
 
-- Slice 4 ordering extraction — **complete, gate passed, uncommitted**
+- Nothing in progress. Slice 4 merged; no open PRs, no working branch.
 
 ### NEXT
 
-1. Extend `IFolderRepository` with the folder persistence surface
-2. Implement `SqliteFolderRepository` including the two atomic cascades
-3. Implement the seven folder commands
-4. Tests: per-command, Cases A/B/D/G, rollback, adversarial attacks
-5. Open the Slice 4 PR
+**Slice 5 — tags**, the last slice of the contract's §15 plan:
+`CreateTag`, `RenameTag`, `DeleteTag`, `AssignTagToNote`, `RemoveTagFromNote`
+— idempotency (§7), the `NoteTags` cascade, case-insensitive name uniqueness.
+`ITagRepository` does not exist yet. This is the one place `DuplicateName` is
+actually used, and `DeleteTag` is the engine's only hard delete.
 
 ### LATER
 
-- Slice 5 — tags (`CreateTag`, `RenameTag`, `DeleteTag`, assign, remove)
 - #14 markdown parsing / rendering / editing
 - #15 export and backup
 - Remaining M0 issues: #22 design tokens, #21 commands/events, #20 architecture
@@ -266,12 +283,13 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ---
 
-## 10. Slice 4 Scope
+## 10. Slice 4 Scope (as delivered)
 
-Verified against the frozen contract §11 and §15.
+Verified against the frozen contract §11 and §15. Everything in the IN column
+is merged; nothing in the OUT column was introduced.
 
 ```
-IN                              OUT
+IN (all merged)                 OUT (none introduced)
 CreateFolder                    MoveFolder          folders are flat; stale ADR-010 wording
 RenameFolder                    ListFolders / Q3    no slice assigns it
 DeleteFolder     atomic         Nested folders      parity C3 MUST: flat
@@ -326,36 +344,40 @@ AI, plugins, sharing      not on the roadmap
 
 ## 13. Quality Gates
 
-Verified on the working tree at the time of writing:
+Verified on `main` @ `7b13269`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                329 / 329 passing
-                       Noto.Core.Tests            84
-                       Noto.UseCases.Tests         1
-                       Noto.Infrastructure.Tests  244
+Tests                443 / 443 passing
+                       Noto.Core.Tests             84
+                       Noto.UseCases.Tests          1
+                       Noto.Infrastructure.Tests  358   (244 pre-Slice-4 + 114 folder)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
+CodeQL               clean on the merged branch
 Branch protection    required checks, linear history, conversation resolution
 ```
 
-**Known issues:** none open. Two intermittent test failures found earlier were
-both real defects and are fixed — a ULID monotonicity bug (PR #46) and a
-process-global SQLite pool race (PR #47).
+**Known issues:** none open. Four defects found during M1 were all real and are
+fixed — a ULID monotonicity bug (PR #46), a process-global SQLite pool race
+(PR #47), and in PR #48 the folder pin/unpin `UpdatedAt` no-op violation plus a
+missing `DeletedAt` guard on two repository updates.
+
+**Worth remembering:** PR #48 reached 428 passing tests, clean CI and clean
+CodeQL while still violating contract §4. Review caught it by challenging the
+contract and mutating the implementation, not by reading the test results.
 
 ---
 
 ## 14. Next Development Path
 
 ```
-Current: Slice 4 ordering extraction, gate passed
+Done: Slice 4 — folder commands merged (PR #48)
     ↓
-Implement the seven folder commands
+Slice 5 — tags: the last slice of contract §15
     ↓
-Validate folder behaviour — Cases A/B/D/G, rollback, adversarial tests
-    ↓
-Slice 5 — tags; M1 engine complete
+#14 markdown · #15 export; M1 complete
     ↓
 Remaining M0 work, notably #22 design tokens
     ↓
