@@ -6,7 +6,7 @@ Current milestone:  M1 — Core Note Engine  (in progress)
 Current slice:      Slice 6 — Queries  (MERGED); Core Note Engine complete
 Overall status:     Backend engine under construction. No product UI exists.
 Last updated:       2026-09-16
-Evidence baseline:  main @ 5a127b6 (PR #54 merged); #22 on feat/22-design-system
+Evidence baseline:  main @ a060dff (PR #56 merged — #22 design system)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto currently
@@ -53,9 +53,9 @@ nine M0 issues remain open, including several that later milestones depend on
 
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
-| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system implemented (`Noto.UI`) — awaiting PR/merge** | #22 PR | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
+| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | — | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown, #15 export — both still open |
-| **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | M2-0 integration spike merged (#54); M2-1 Folder Pane **design gate passed** — contract only, no implementation | — | M2-1 Folder Pane implementation, after #22 merges |
+| **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | M2-0 integration spike merged (#54); M2-1 Folder Pane **design gate passed** — contract only, no implementation | — | M2-1 Folder Pane implementation — unblocked, #22 merged |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -185,7 +185,7 @@ This distinction matters more than any other line in this document.
 | | Status |
 | - | ------ |
 | Visual design language | **NOT STARTED** |
-| Design tokens / design system | **IMPLEMENTED, UNMERGED** — #22 on `feat/22-design-system`: `Noto.UI` with tokens, Light/Dark/HighContrast themes and the FolderRow style |
+| Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens, Light/Dark/HighContrast themes and the FolderRow style. Not yet applied to any surface |
 | Workspace layout, sidebar, drawer | **NOT STARTED** — M2 |
 | Note editor | **NOT STARTED** — #14 |
 | Folder UI | **DESIGNED, NOT IMPLEMENTED** — M2-1 Folder Pane contract agreed (states, selection, create, rename, keyboard, focus) |
@@ -287,7 +287,7 @@ but none is formally established as the next slice.
 - #15 export and backup
 - Remaining M0 issues: #21 commands/events, #20 architecture tests, #7 logging,
   #9 settings, #10 error handling, #11 perf harness (#22 design tokens is
-  implemented and awaiting merge)
+  merged as PR #56)
 - M2 — the first real UI
 
 ### DEFERRED
@@ -407,7 +407,7 @@ Done: Slice 6 — queries merged (PR #52); Core Note Engine complete
     ↓
 #14 markdown · #15 export — the remaining M1 issues
     ↓
-#22 design system — implemented, awaiting merge
+#22 design system — MERGED (PR #56)
     ↓
 M2 — SideNotes Workspace: the first real UI and the first dogfoodable build
     ↓
@@ -416,7 +416,7 @@ M3 — SideNotes parity: the first product
 
 The roadmap does not hold UI until the backend is finished. M2 is described as
 *"the first build usable daily. Everything after it is informed by"* it — and it
-depends on #22's design tokens, which are now implemented and awaiting merge.
+depends on #22's design tokens, which are now merged and available.
 
 ---
 
