@@ -58,9 +58,14 @@ public partial class App : Application
         // calls and is not IDisposable.
         var folders = new SqliteFolderRepository(database);
 
+        // One clock for every handler: two SystemClock reads inside a single
+        // user action could straddle a tick and stamp two rows differently.
+        IClock clock = SystemClock.Instance;
+
         _window = new MainWindow(
             new ListFoldersQuery(folders),
-            new CreateFolderHandler(folders, SystemClock.Instance));
+            new CreateFolderHandler(folders, clock),
+            new RenameFolderHandler(folders, clock));
 
         _window.Activate();
 

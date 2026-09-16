@@ -15,6 +15,14 @@
         SystemColor* resources the OS supplies, so the user's own high-contrast
         choice wins over anything Noto would pick.
 
+        SurfaceInput and TextDanger are the first instantiations of ADR-011's
+        already-declared "Color — surfaces: Input" and "Color — semantic:
+        Danger" roles. Rule 4 permits them now because M2-1's folder pane has a
+        real text input and a real validation message; they are not added
+        speculatively. An input reads as inset by contrasting with the sidebar
+        rather than by a shadow, which is why light is lighter and dark is
+        darker than the surrounding surface.
+
         These are NOTO DESIGN VALUES. They are not SideNotes measurements —
         SideNotes is macOS-only and could not be observed (see the blocked
         quality-benchmark research). Nothing here claims parity with it.
@@ -40,6 +48,9 @@
             <Color x:Key="InteractionHoverColor">#EAEAEA</Color>
             <Color x:Key="InteractionSelectedColor">#DCE9F7</Color>
             <Color x:Key="InteractionSelectedTextColor">#12395E</Color>
+
+            <Color x:Key="SurfaceInputColor">#FFFFFF</Color>
+            <Color x:Key="TextDangerColor">#B42318</Color>
         </ResourceDictionary>
 
         <!--
@@ -60,6 +71,9 @@
             <Color x:Key="InteractionHoverColor">#333333</Color>
             <Color x:Key="InteractionSelectedColor">#1E3A52</Color>
             <Color x:Key="InteractionSelectedTextColor">#DCE9F7</Color>
+
+            <Color x:Key="SurfaceInputColor">#2D2D2D</Color>
+            <Color x:Key="TextDangerColor">#FF99A4</Color>
         </ResourceDictionary>
 
         <!--
@@ -80,6 +94,9 @@
             <StaticResource x:Key="InteractionHoverColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="InteractionSelectedColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="InteractionSelectedTextColor" ResourceKey="SystemColorHighlightTextColor" />
+
+            <StaticResource x:Key="SurfaceInputColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="TextDangerColor" ResourceKey="SystemColorWindowTextColor" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
