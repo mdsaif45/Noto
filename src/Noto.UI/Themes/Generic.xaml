@@ -1,0 +1,24 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        The design system's single entry point. An application merges this one
+        dictionary and gets the whole system; the internal file split stays an
+        implementation detail it never has to know about.
+
+        Order does NOT matter here, and must not be made to. Each dictionary
+        merges whatever it consumes itself (FolderRow pulls in Brushes and
+        Tokens; Brushes pulls in Colors), because a resource reference inside a
+        merged dictionary cannot see a sibling merged beside it in the parent.
+        Listing the leaves in dependency order would only disguise that.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Colors.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Brushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/FolderRow.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

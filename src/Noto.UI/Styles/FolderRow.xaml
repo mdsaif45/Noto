@@ -1,0 +1,134 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        FolderRow — the first component from ADR-011's library.
+
+        A Style over the stock ListViewItem, not a custom Control. ADR-011 asks
+        for a component "built once and reused", reviewable in isolation; it
+        does not ask for a control framework. A templated ListViewItem gives the
+        four states, keyboard navigation, accessibility peers and virtualisation
+        that WinUI already implements correctly — reimplementing those in a
+        custom control would be work spent reaching parity with the framework.
+
+        Every visual value here is a semantic token. There is no literal colour,
+        size, spacing or radius in this file (ADR-011 rule 1).
+
+        States: Rest, PointerOver, Selected, Focused. ADR-011 rule 3 makes the
+        focus state mandatory, and "Focus is mandatory" calls it the most
+        commonly skipped one.
+
+        Selection is signalled by background AND weight, and focus by a border —
+        so the states remain distinguishable without relying on colour alone,
+        which matters for high contrast and for colour-blind users.
+
+        The dictionaries this style consumes are merged HERE. A resource
+        reference inside a merged dictionary resolves against that dictionary
+        and its own merge tree only — never against a sibling merged next to it
+        in the parent, so a style cannot rely on the consumer merging its tokens
+        first. Getting this wrong is not a silent fallback: the lookup fails
+        while Application.Resources is still being built and the process dies
+        (0xC0000C04) before any handler could see it.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Brushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Style x:Key="FolderRowStyle" TargetType="ListViewItem">
+        <Setter Property="Padding" Value="{StaticResource FolderRowPadding}" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}" />
+        <Setter Property="UseSystemFocusVisuals" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Grid x:Name="Root"
+                          Background="{TemplateBinding Background}"
+                          CornerRadius="{StaticResource RadiusSmall}">
+
+                        <!-- The focus ring. Drawn over the row so it stays
+                             visible on a selected row, where a background-only
+                             cue would be lost. -->
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{ThemeResource BorderFocusBrush}"
+                                BorderThickness="{StaticResource BorderThicknessFocus}"
+                                CornerRadius="{StaticResource RadiusSmall}"
+                                Opacity="0" />
+
+                        <ContentPresenter x:Name="Content"
+                                          Padding="{TemplateBinding Padding}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextWrapping="NoWrap" />
+
+                        <VisualStateManager.VisualStateGroups>
+
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Selected">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionSelectedBrush}" />
+                                        <Setter Target="Content.Foreground"
+                                                Value="{ThemeResource InteractionSelectedTextBrush}" />
+                                        <!-- Weight as well as colour: selection
+                                             must not depend on hue alone. -->
+                                        <Setter Target="Content.FontWeight"
+                                                Value="{StaticResource FontWeightEmphasis}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="PointerOverSelected">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionSelectedBrush}" />
+                                        <Setter Target="Content.Foreground"
+                                                Value="{ThemeResource InteractionSelectedTextBrush}" />
+                                        <Setter Target="Content.FontWeight"
+                                                Value="{StaticResource FontWeightEmphasis}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="FocusStates">
+                                <VisualState x:Name="Unfocused" />
+
+                                <!-- Keyboard focus only. A mouse click should
+                                     not paint a focus ring, or every click
+                                     leaves one behind. -->
+                                <VisualState x:Name="Focused">
+                                    <VisualState.Setters>
+                                        <Setter Target="FocusRing.Opacity" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="PointerFocused" />
+                            </VisualStateGroup>
+
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

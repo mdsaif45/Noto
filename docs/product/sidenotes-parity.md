@@ -242,6 +242,28 @@ inventing scope.
 deletes. Folder deletion taking its notes with it into the recycle bin is the
 only coherent behavior once B23 exists.
 
+### C2 / C13 — the M2-1 Folder Pane interpretation
+
+The M2-1 Folder Pane design gate had to decide how C2 and C13 are actually
+driven. The distinction matters, so it is stated explicitly:
+
+| | Source |
+| --- | --- |
+| `⌘N` creates a folder *in the folder list*; Noto's equivalent is `Ctrl+N` | **SideNotes documented capability** (C2) |
+| Rename is inline, and `Esc` cancels it | **SideNotes documented capability** (C13) |
+| `Ctrl+N` is scoped to the folder pane, not global | **Noto interpretation** — the global hotkey is a separate M2 surface, and principle 7 requires each activation surface to be independently disableable |
+| `F2` also starts a rename | **Noto interpretation** — the Windows convention for inline rename; no macOS analogue exists to copy |
+| Double-click does *not* start a rename | **Noto interpretation** — C4 reserves double-click for *enter folder* |
+| Focus loss cancels a rename rather than committing it | **Noto interpretation** — C13 documents only Esc-cancel; committing on blur would persist a value the user may have abandoned |
+
+**Folder names are deliberately not unique, and this is an engine rule rather
+than a parity one.** The frozen engine contract makes duplicate folder names
+legal (Case G), so `CreateFolder` and `RenameFolder` never return
+`DuplicateName`. The Folder Pane therefore has **no duplicate-name error
+state** — showing one would report a supported outcome as a failure. Tag names
+are the opposite case and *are* unique; the two must not be generalised to each
+other.
+
 ---
 
 ## 4. D — Editor & content

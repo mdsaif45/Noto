@@ -38,6 +38,7 @@
     <ProjectReference Include="..\Noto.UseCases\Noto.UseCases.csproj" />
     <ProjectReference Include="..\Noto.Infrastructure\Noto.Infrastructure.csproj" />
     <ProjectReference Include="..\Noto.Platform.Windows\Noto.Platform.Windows.csproj" />
+    <ProjectReference Include="..\Noto.UI\Noto.UI.csproj" />
   </ItemGroup>
 
 </Project>

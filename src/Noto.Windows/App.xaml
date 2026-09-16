@@ -7,10 +7,11 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!--
-                    Design tokens are merged here when #22 lands (ADR-011).
-                    Deliberately empty until then: dozens of unused components
-                    would be worse than none.
+                    The design system (ADR-011), merged after
+                    XamlControlsResources so Noto's tokens win where both
+                    define a key.
                 -->
+                <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Generic.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
