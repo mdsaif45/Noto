@@ -30,6 +30,15 @@
     <Thickness x:Key="PanePadding">8</Thickness>
 
     <!--
+        Text inputs carry their own padding rather than borrowing the folder
+        row's. The two happen to share values today, but they answer different
+        questions — how dense the list is, versus how much room a caret needs —
+        and a token named for a row cannot be retuned for one without silently
+        changing the other (ADR-011: tokens are named by role).
+    -->
+    <Thickness x:Key="InputPadding">12,8,12,8</Thickness>
+
+    <!--
         TYPOGRAPHY — Body and Caption only.
 
         14px body matches the Windows shell default, so Noto reads as a native

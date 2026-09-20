@@ -29,7 +29,7 @@
         <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
         <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
         <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
-        <Setter Property="Padding" Value="{StaticResource FolderRowPadding}" />
+        <Setter Property="Padding" Value="{StaticResource InputPadding}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
         <Setter Property="MinHeight" Value="0" />

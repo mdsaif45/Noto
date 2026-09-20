@@ -16,7 +16,8 @@
         unimplemented, which is why Enter is left unbound on a row.
     -->
 
-    <Grid Background="{ThemeResource SurfaceSidebarBrush}"
+    <Grid x:Name="PaneRoot"
+          Background="{ThemeResource SurfaceSidebarBrush}"
           Padding="{StaticResource PanePadding}"
           RowSpacing="{StaticResource SpaceS}">
 
@@ -60,17 +61,47 @@
         </Grid>
 
         <!--
-            One line, two roles, never both at once: a transient mutation
-            notice (danger) or ordinary guidance such as the empty state
-            (secondary). Collapsed when there is nothing to say, so it costs no
-            vertical space in the common case.
+            Guidance and notices are SEPARATE lines, stacked.
+
+            They answer different questions and can both be true at once: with
+            no folders and a failed create, the user needs to know that the
+            list is empty AND that the attempt failed. One shared line made the
+            notice destroy the empty-state context.
         -->
-        <TextBlock
-            x:Name="NoticeText"
-            Grid.Row="1"
-            Style="{StaticResource FolderPaneNoticeStyle}"
-            Visibility="Collapsed"
-            AutomationProperties.Name="Folder pane notice" />
+        <StackPanel Grid.Row="1" Spacing="{StaticResource SpaceXS}">
+
+            <TextBlock
+                x:Name="GuidanceText"
+                Style="{StaticResource FolderPaneGuidanceStyle}"
+                Visibility="Collapsed" />
+
+            <!--
+                No AutomationProperties.Name: a static name on a TextBlock
+                REPLACES its text for assistive technology, so a screen reader
+                would announce "Folder pane notice" and never the actual error.
+                The text is the name. LiveSetting announces it when it appears,
+                which is the whole point of a validation message.
+            -->
+            <TextBlock
+                x:Name="NoticeText"
+                Style="{StaticResource FolderPaneNoticeStyle}"
+                Visibility="Collapsed"
+                AutomationProperties.LiveSetting="Assertive" />
+
+            <!--
+                Recovery from Error. Only visible in Error, because there is
+                nothing to retry otherwise — and without it the pane is a dead
+                end: Error disables the list, the input and Create, so the
+                query can never be reattempted.
+            -->
+            <Button
+                x:Name="RetryButton"
+                Content="Retry"
+                Visibility="Collapsed"
+                Click="OnRetryClick"
+                AutomationProperties.Name="Retry loading folders" />
+
+        </StackPanel>
 
         <!--
             The inline rename editor (parity C13). One editor reused for
