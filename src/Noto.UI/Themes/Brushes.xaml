@@ -42,4 +42,7 @@
     <SolidColorBrush x:Key="SurfaceInputBrush" Color="{ThemeResource SurfaceInputColor}" />
     <SolidColorBrush x:Key="TextDangerBrush" Color="{ThemeResource TextDangerColor}" />
 
+    <SolidColorBrush x:Key="InteractionPressedBrush" Color="{ThemeResource InteractionPressedColor}" />
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="{ThemeResource TextDisabledColor}" />
+
 </ResourceDictionary>

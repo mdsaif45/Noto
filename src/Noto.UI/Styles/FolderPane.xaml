@@ -36,6 +36,112 @@
     </Style>
 
     <!--
+        The button. ADR-011 lists Button in the component library, and a stock
+        WinUI Button inside a tokenised surface carries a foreign visual
+        identity — the one thing the design system exists to prevent.
+
+        ONE button role, deliberately. ADR-011 declares accent tokens but a
+        primary/secondary hierarchy is a design decision nobody has taken, and
+        M2-1 has exactly two buttons that are both ordinary actions. Inventing
+        a hierarchy to decorate them would be exactly the speculation rule 4
+        forbids.
+
+        The four interaction states ADR-011 requires are all present — Rest,
+        Hover, Pressed, Disabled — plus the mandatory focus state (rule 3).
+        Focus is drawn as a ring over the button so it stays visible on top of
+        the hover and pressed fills, the same approach FolderRow uses.
+    -->
+    <Style x:Key="FolderPaneButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
+        <Setter Property="Padding" Value="{StaticResource InputPadding}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{StaticResource RadiusSmall}">
+
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{ThemeResource BorderFocusBrush}"
+                                BorderThickness="{StaticResource BorderThicknessFocus}"
+                                CornerRadius="{StaticResource RadiusSmall}"
+                                Opacity="0" />
+
+                        <ContentPresenter x:Name="Content"
+                                          Padding="{TemplateBinding Padding}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+
+                        <VisualStateManager.VisualStateGroups>
+
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionPressedBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <!--
+                                    Disabled dims the text and the border, not
+                                    the fill: a greyed-out fill against a
+                                    sidebar of similar value reads as "missing"
+                                    rather than "unavailable".
+                                -->
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Content.Foreground"
+                                                Value="{ThemeResource TextDisabledBrush}" />
+                                        <Setter Target="Root.BorderBrush"
+                                                Value="{ThemeResource TextDisabledBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="FocusStates">
+                                <VisualState x:Name="Unfocused" />
+
+                                <VisualState x:Name="Focused">
+                                    <VisualState.Setters>
+                                        <Setter Target="FocusRing.Opacity" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="PointerFocused" />
+                            </VisualStateGroup>
+
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
         The notice line. TextDangerBrush is the first consumer of the declared
         Danger semantic role, and the reason a validation message cannot reuse
         TextSecondaryBrush: secondary is a de-emphasis role, and an error that

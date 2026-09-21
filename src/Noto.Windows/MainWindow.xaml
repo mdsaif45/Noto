@@ -55,6 +55,7 @@
             <Button
                 x:Name="CreateButton"
                 Grid.Column="1"
+                Style="{StaticResource FolderPaneButtonStyle}"
                 Content="Create"
                 Click="OnCreateFolderClick"
                 AutomationProperties.Name="Create folder" />
@@ -96,6 +97,8 @@
             -->
             <Button
                 x:Name="RetryButton"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                HorizontalAlignment="Left"
                 Content="Retry"
                 Visibility="Collapsed"
                 Click="OnRetryClick"
