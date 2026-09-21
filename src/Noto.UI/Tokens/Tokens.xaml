@@ -26,6 +26,15 @@
     <x:Double x:Key="SpaceM">12</x:Double>
     <x:Double x:Key="SpaceL">16</x:Double>
 
+    <!--
+        One padding for every list row. Folder rows and note rows are
+        different components but the same kind of surface, and the list must
+        stay visually uniform when the user moves between them — a note list
+        that is denser than the folder list it replaced reads as a glitch.
+        FolderRowPadding remains as the folder row's existing name.
+    -->
+    <Thickness x:Key="ListRowPadding">12,8,12,8</Thickness>
+
     <Thickness x:Key="FolderRowPadding">12,8,12,8</Thickness>
     <Thickness x:Key="PanePadding">8</Thickness>
 
