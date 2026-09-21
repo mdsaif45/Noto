@@ -140,8 +140,10 @@ public sealed partial class MainWindow : Window
     {
         EnterLoading();
 
-        // Queued for the same reason as the initial load: the Loading state
-        // paints, then the query runs.
+        // Queued rather than called directly so the state change is applied
+        // and handed back to the framework before the read begins, matching
+        // the initial load. Whether a frame carrying it is actually presented
+        // depends on how long the read takes.
         _ = DispatcherQueue.TryEnqueue(Refresh);
     }
 
