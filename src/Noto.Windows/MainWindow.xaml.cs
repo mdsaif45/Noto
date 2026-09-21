@@ -626,14 +626,11 @@ public sealed partial class MainWindow : Window
 
     private void MoveFocusToList()
     {
-        if (Folders.Count > 0)
-        {
-            _ = FolderList.Focus(FocusState.Programmatic);
-        }
-        else
-        {
-            _ = FolderNameInput.Focus(FocusState.Programmatic);
-        }
+        // The list when there is one, the name box when there is not — only
+        // the target differs, so it is chosen rather than branched around.
+        Control destination = Folders.Count > 0 ? FolderList : FolderNameInput;
+
+        _ = destination.Focus(FocusState.Programmatic);
     }
 
     /// <summary>
