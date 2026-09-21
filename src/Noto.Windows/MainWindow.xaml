@@ -6,48 +6,164 @@
     Title="Noto">
 
     <!--
-        M2-0 integration spike. This is NOT the workspace: no docking, no
-        hotkey, no sidebar (#16). It exists to prove one read and one write
-        reach real SQLite and come back.
+        M2-1 — the Folder Pane. The first production surface, and the first to
+        consume the design system (ADR-011): every colour, spacing, radius and
+        type value below comes from a semantic token, and there is no literal
+        visual value in this file.
 
-        Deliberately unstyled, and that is a rule rather than laziness.
-        ADR-011 says views consume semantic tokens and never primitives, and
-        the design system (#22, Noto.UI) does not exist yet — so this markup
-        sets no spacing, size, colour, radius or font value at all and inherits
-        WinUI defaults. Adding a single Margin="12" here would violate ADR-011.
+        Still NOT the workspace: no docking (#16), no global hotkey, no note
+        list and no editor. Entering a folder is parity C4 and deliberately
+        unimplemented, which is why Enter is left unbound on a row.
     -->
-    <Grid>
+
+    <Grid x:Name="PaneRoot"
+          Background="{ThemeResource SurfaceSidebarBrush}"
+          Padding="{StaticResource PanePadding}"
+          RowSpacing="{StaticResource SpaceS}">
+
+        <!--
+            Ctrl+N creates a folder (parity C2). Scoped to this pane, not
+            registered globally: the global activation surface is a separate
+            M2 concern and principle 7 wants each one independently
+            disableable.
+        -->
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnCreateAccelerator" />
+        </Grid.KeyboardAccelerators>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Write path: CreateFolder -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal">
+        <!-- Create: the input and its affordance share one row. -->
+        <Grid Grid.Row="0" ColumnSpacing="{StaticResource SpaceS}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
             <TextBox
                 x:Name="FolderNameInput"
-                PlaceholderText="Folder name" />
+                Grid.Column="0"
+                Style="{StaticResource FolderNameInputStyle}"
+                PlaceholderText="New folder name"
+                KeyDown="OnCreateInputKeyDown"
+                AutomationProperties.Name="New folder name" />
+
             <Button
                 x:Name="CreateButton"
-                Content="Create folder"
-                Click="OnCreateFolderClick" />
+                Grid.Column="1"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                Content="Create"
+                Click="OnCreateFolderClick"
+                AutomationProperties.Name="Create folder" />
+        </Grid>
+
+        <!--
+            Guidance and notices are SEPARATE lines, stacked.
+
+            They answer different questions and can both be true at once: with
+            no folders and a failed create, the user needs to know that the
+            list is empty AND that the attempt failed. One shared line made the
+            notice destroy the empty-state context.
+        -->
+        <StackPanel Grid.Row="1" Spacing="{StaticResource SpaceXS}">
+
+            <TextBlock
+                x:Name="GuidanceText"
+                Style="{StaticResource FolderPaneGuidanceStyle}"
+                Visibility="Collapsed" />
+
+            <!--
+                No AutomationProperties.Name: a static name on a TextBlock
+                REPLACES its text for assistive technology, so a screen reader
+                would announce "Folder pane notice" and never the actual error.
+                The text is the name. LiveSetting announces it when it appears,
+                which is the whole point of a validation message.
+            -->
+            <TextBlock
+                x:Name="NoticeText"
+                Style="{StaticResource FolderPaneNoticeStyle}"
+                Visibility="Collapsed"
+                AutomationProperties.LiveSetting="Assertive" />
+
+            <!--
+                Recovery from Error. Only visible in Error, because there is
+                nothing to retry otherwise — and without it the pane is a dead
+                end: Error disables the list, the input and Create, so the
+                query can never be reattempted.
+            -->
+            <Button
+                x:Name="RetryButton"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                HorizontalAlignment="Left"
+                Content="Retry"
+                Visibility="Collapsed"
+                Click="OnRetryClick"
+                AutomationProperties.Name="Retry loading folders" />
+
         </StackPanel>
 
-        <!-- Status: Loading / Empty / Error / MutationFailed -->
-        <TextBlock
-            x:Name="StatusText"
-            Grid.Row="1"
-            TextWrapping="Wrap" />
+        <!--
+            The inline rename editor (parity C13). One editor reused for
+            whichever row is being renamed rather than an editable template on
+            every row: a TextBox per row would be created for every folder in
+            the list and only one can ever be active.
+        -->
+        <TextBox
+            x:Name="RenameEditor"
+            Grid.Row="2"
+            VerticalAlignment="Top"
+            Style="{StaticResource FolderNameInputStyle}"
+            Visibility="Collapsed"
+            KeyDown="OnRenameEditorKeyDown"
+            LostFocus="OnRenameEditorLostFocus"
+            Canvas.ZIndex="1"
+            AutomationProperties.Name="Rename folder" />
 
-        <!-- Read path: ListFolders -->
         <ListView
+            x:Name="FolderList"
             Grid.Row="2"
             ItemsSource="{x:Bind Folders}"
-            SelectionMode="None">
+            ItemContainerStyle="{StaticResource FolderRowStyle}"
+            SelectionMode="Single"
+            SelectionChanged="OnFolderSelectionChanged"
+            KeyDown="OnFolderListKeyDown"
+            AutomationProperties.Name="Folders">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="local:FolderListItem">
-                    <TextBlock Text="{x:Bind Name}" />
+                    <!--
+                        Pinned folders sort to the top (O2). The marker makes
+                        that grouping visible; without it the order looks
+                        arbitrary to the user.
+                    -->
+                    <Grid ColumnSpacing="{StaticResource SpaceXS}"
+                          AutomationProperties.Name="{x:Bind Name}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <!--
+                            A text glyph rather than an emoji: a colour emoji
+                            renders from the font's own palette, so it ignores
+                            the theme and stays the same pink in high contrast,
+                            where the user's chosen colours must win.
+                        -->
+                        <TextBlock
+                            Grid.Column="0"
+                            Text="●"
+                            Foreground="{ThemeResource TextSecondaryBrush}"
+                            FontSize="{StaticResource FontSizeCaption}"
+                            VerticalAlignment="Center"
+                            Visibility="{x:Bind PinnedMarkerVisibility}"
+                            AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Text="{x:Bind Name}"
+                            TextTrimming="CharacterEllipsis" />
+                    </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>

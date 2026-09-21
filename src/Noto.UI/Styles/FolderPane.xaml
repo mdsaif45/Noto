@@ -1,0 +1,173 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        The folder pane's own surfaces: the pane itself, the name input, and
+        the notice line that reports a failed mutation.
+
+        Every visual value is a semantic token; there is no literal colour,
+        size, spacing or radius in this file (ADR-011 rule 1). The dictionaries
+        these styles consume are merged here rather than assumed present in the
+        consumer, per rule 6.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Brushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!--
+        The name input, used both for creating a folder and for renaming one
+        in place. SurfaceInputBrush is the first consumer of ADR-011's
+        already-declared Input surface role: the field reads as inset because
+        it contrasts with the sidebar, not because it carries a shadow.
+    -->
+    <Style x:Key="FolderNameInputStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
+        <Setter Property="Padding" Value="{StaticResource InputPadding}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+
+    <!--
+        The button. ADR-011 lists Button in the component library, and a stock
+        WinUI Button inside a tokenised surface carries a foreign visual
+        identity — the one thing the design system exists to prevent.
+
+        ONE button role, deliberately. ADR-011 declares accent tokens but a
+        primary/secondary hierarchy is a design decision nobody has taken, and
+        M2-1 has exactly two buttons that are both ordinary actions. Inventing
+        a hierarchy to decorate them would be exactly the speculation rule 4
+        forbids.
+
+        The four interaction states ADR-011 requires are all present — Rest,
+        Hover, Pressed, Disabled — plus the mandatory focus state (rule 3).
+        Focus is drawn as a ring over the button so it stays visible on top of
+        the hover and pressed fills, the same approach FolderRow uses.
+    -->
+    <Style x:Key="FolderPaneButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
+        <Setter Property="Padding" Value="{StaticResource InputPadding}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{StaticResource RadiusSmall}">
+
+                        <Border x:Name="FocusRing"
+                                BorderBrush="{ThemeResource BorderFocusBrush}"
+                                BorderThickness="{StaticResource BorderThicknessFocus}"
+                                CornerRadius="{StaticResource RadiusSmall}"
+                                Opacity="0" />
+
+                        <ContentPresenter x:Name="Content"
+                                          Padding="{TemplateBinding Padding}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+
+                        <VisualStateManager.VisualStateGroups>
+
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background"
+                                                Value="{ThemeResource InteractionPressedBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <!--
+                                    Disabled dims the text and the border, not
+                                    the fill: a greyed-out fill against a
+                                    sidebar of similar value reads as "missing"
+                                    rather than "unavailable".
+                                -->
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Content.Foreground"
+                                                Value="{ThemeResource TextDisabledBrush}" />
+                                        <Setter Target="Root.BorderBrush"
+                                                Value="{ThemeResource TextDisabledBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="FocusStates">
+                                <VisualState x:Name="Unfocused" />
+
+                                <VisualState x:Name="Focused">
+                                    <VisualState.Setters>
+                                        <Setter Target="FocusRing.Opacity" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+
+                                <VisualState x:Name="PointerFocused" />
+                            </VisualStateGroup>
+
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The notice line. TextDangerBrush is the first consumer of the declared
+        Danger semantic role, and the reason a validation message cannot reuse
+        TextSecondaryBrush: secondary is a de-emphasis role, and an error that
+        is de-emphasised is the one message the user most needs to notice.
+
+        Caption size because the notice sits under the input as a subordinate
+        explanation rather than as a heading for it.
+    -->
+    <Style x:Key="FolderPaneNoticeStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource TextDangerBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
+        <Setter Property="LineHeight" Value="{StaticResource LineHeightCaption}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!--
+        Guidance shown in the empty state and while loading. Secondary rather
+        than danger: an empty folder list is an ordinary state, not a fault.
+    -->
+    <Style x:Key="FolderPaneGuidanceStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="LineHeight" Value="{StaticResource LineHeightBody}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+</ResourceDictionary>
