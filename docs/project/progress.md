@@ -2,16 +2,19 @@
 
 ```
 Project:            Noto — a Windows-native notes application
-Current milestone:  M1 — Core Note Engine  (in progress)
-Current slice:      Slice 6 — Queries  (MERGED); Core Note Engine complete
-Overall status:     Backend engine under construction. No product UI exists.
-Last updated:       2026-09-16
-Evidence baseline:  main @ a060dff (PR #56 merged — #22 design system)
+Current milestone:  M2 — SideNotes Workspace  (in progress)
+Current slice:      M2-2 Note List  (MERGED); folder pane and note list usable
+Overall status:     Engine complete. The first two production UI surfaces exist;
+                    the workspace shell (docking, hotkey, tray) does not.
+Last updated:       2026-09-22
+Evidence baseline:  main @ 667f294 (PR #60 merged — M2-2 note list)
 ```
 
-> **Read this first.** A working engine is not a working product. Noto currently
-> has a tested domain and persistence layer behind a placeholder window. The
-> interface a user would recognise as Noto has not been started.
+> **Read this first.** A working engine is not a working product. Noto has a
+> tested domain and persistence layer, and two real surfaces on top of it — a
+> folder pane and a note list. It is still not the application a user would
+> recognise as Noto: there is no note editor, and no edge-docked window, global
+> hotkey or tray to reach it by.
 
 ---
 
@@ -22,7 +25,7 @@ M0  Foundation & Architecture     ██████░░░░  IN PROGRESS   
         ↓
 M1  Core Note Engine              ████████░░  IN PROGRESS   3 issues open
         ↓
-M2  SideNotes Workspace           ░░░░░░░░░░  NOT STARTED   ◄ first real UI
+M2  SideNotes Workspace           ███░░░░░░░  IN PROGRESS   ◄ folder pane + note list
         ↓
 M3  SideNotes Feature Parity      ░░░░░░░░░░  NOT STARTED   ◄ the first product
         ↓
@@ -55,7 +58,7 @@ nine M0 issues remain open, including several that later milestones depend on
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | — | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown, #15 export — both still open |
-| **M2** SideNotes Workspace | **NOT STARTED** (1 closed / 2 open) | M2-0 integration spike merged (#54); M2-1 Folder Pane **design gate passed** — contract only, no implementation | — | M2-1 Folder Pane implementation — unblocked, #22 merged |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 2 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states | — | The workspace shell — docking (#16), global hotkey, tray — and the note editor |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -180,26 +183,25 @@ This distinction matters more than any other line in this document.
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
-### Actual Noto UI / UX — **not started**
+### Actual Noto UI / UX — **partially built**
 
 | | Status |
 | - | ------ |
-| Visual design language | **NOT STARTED** |
-| Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens, Light/Dark/HighContrast themes and the FolderRow style. Not yet applied to any surface |
-| Workspace layout, sidebar, drawer | **NOT STARTED** — M2 |
+| Visual design language | **PARTIAL** — expressed as tokens and three components; no wider language yet |
+| Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by both surfaces |
+| Workspace layout, sidebar, drawer | **NOT STARTED** — the shell (docking #16, hotkey, tray) is untouched |
 | Note editor | **NOT STARTED** — #14 |
-| Folder UI | **DESIGNED, NOT IMPLEMENTED** — M2-1 Folder Pane contract agreed (states, selection, create, rename, keyboard, focus) |
-| Typography, components, motion, polish | **PARTIAL** — body/caption type, spacing, radius and one component (FolderRow) exist in `Noto.UI`; motion and the wider component library do not |
+| Folder UI | **DONE** — M2-1 merged (PR #57): list, create, rename, selection, Loading/Loaded/Empty/Error + Retry, keyboard, focus |
+| Note list UI | **DONE** — M2-2 merged (PR #60): enter a folder, note list, selection, Loading/Loaded/Empty/Error + Retry, Esc/Back |
+| Typography, components, motion, polish | **PARTIAL** — body/caption type, spacing, radius and three components (FolderRow, NoteRow, Button) exist; motion and the wider component library do not |
 
-The entire current interface is the 56-line M2-0 integration spike, whose own
-comment reads:
+The interface is two surfaces that replace each other — the folder list, and the
+notes of the folder that was entered. Both consume the design system; neither is
+reachable the way the product intends, because the shell does not exist.
 
-> *"M2-0 integration spike. This is NOT the workspace: no docking, no hotkey, no
-> sidebar (#16). It exists to prove one read and one write reach real SQLite and
-> come back."*
-
-It is still unstyled: #22's design system exists but is not yet applied to any
-surface, which is M2-1's work.
+Notably absent, and deliberately so: creating, editing or deleting a **note**.
+M2-2 reads notes; nothing in the UI writes one. The engine has supported every
+note command since M1 — capability is not the same as a usable product.
 
 ```
 WinUI 3 validated   ≠   Noto UI designed
@@ -334,7 +336,7 @@ ReorderFolder    atomic         Purge · Tags · UI · Sync · Migration 003
 | **ULID C′** — `NewId()` is monotonic per instant; `NewId(t)` draws fresh randomness and keeps no state | ADR-012 |
 | **Ordering engine is domain-neutral** — notes and folders share one implementation | this slice |
 | **Local-first SQLite** — no sync architecture until it is actually built | ADR-002 |
-| **No UI implementation yet** — the real interface starts at M2, on #22's tokens | roadmap; `MainWindow.xaml` |
+| **UI implementation has started** — M2-1 folder pane and M2-2 note list are merged, both on #22's tokens; the shell is not | roadmap; `MainWindow.xaml` |
 
 ---
 
@@ -352,7 +354,7 @@ Search / FTS5             #17
 Export                    #15
 Markdown rendering        #14
 Tags                      Slice 5
-Any product UI            M2
+Note editor, note CRUD    M2/M3 — the folder pane and note list now exist
 AI, plugins, sharing      not on the roadmap
 
 SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI

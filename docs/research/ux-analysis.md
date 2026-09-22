@@ -269,9 +269,26 @@ compete is for invocation to cost nothing perceptible. A sidebar that takes
 | How is a contextual note visually distinguished from an ordinary one? | M5 |
 | Where does a contextual note appear — near the window, or in the sidebar? | M5 |
 | What happens when several notes bind to the same application? | M5 |
-| Is the sidebar a list, or a list plus preview? | M2 |
 | How does a user discover that context binding exists at all? | M5 |
 
 The last one matters more than it looks. The differentiating feature is
 invisible until used, and a feature nobody finds is a feature that does not
 exist.
+
+### Resolved
+
+**"Is the sidebar a list, or a list plus preview?" — a list. Replacing
+navigation.** The folder list is the top-level view; entering a folder replaces
+it with that folder's notes, and leaving restores it. Implemented by M2-1
+(PR #57) and M2-2 (PR #60).
+
+The inventory settles this rather than taste: C1 records that *"the folder list
+is the top-level view; entering a folder shows its notes"*, C5 that leaving
+means *"return to the folder list"*, and A12 that the default Escape behaviour
+*"returns to folder list"* — all CONFIRMED. A permanently visible folder list
+would leave nothing for those to return to. A1 also describes a single vertical
+panel, and B25 has notes filling the panel width, which leaves no room for a
+second persistent column.
+
+**No preview pane is a requirement.** Nothing in the sources describes one, and
+none is implemented.
