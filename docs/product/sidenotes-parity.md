@@ -203,13 +203,13 @@ would be inventing a SideNotes feature, which this document forbids.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | C1 | Folders | Folder list is top level; entering shows notes | Same two-level navigation model | MUST | — | |
+| `[x]` | C1 | Folders | Folder list is top level; entering shows notes | Same two-level navigation model | MUST | — | **Done** — M2-1 (#57) + M2-2 (#60): replacing navigation, folder list ⇄ note list |
 | `[ ]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | — | |
 | `[ ]` | C3 | Nesting depth | Flat, one level (no sub-folders documented) | **Flat, one level** | MUST | — | ⚠ provisional — INFERRED from absence. Do not add nesting |
-| `[ ]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | |
-| `[ ]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | — | |
+| `[~]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | **Partial** — M2-2 (#60): `Ctrl+Down` and double-click. The single-click **setting** is deferred with #9 settings |
+| `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | — | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12 modes 2–4 need #9 |
 | `[ ]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | — | |
-| `[ ]` | C7 | Show all folders | Command to return to the folder list | Same, incl. from URI / CLI | MUST | — | |
+| `[~]` | C7 | Show all folders | Command to return to the folder list | Same, incl. from URI / CLI | MUST | — | **Partial** — the folder list is reachable via `Esc`/Back (M2-2). No explicit command, and no URI/CLI surface yet |
 | `[ ]` | C8 | Pin folders | Pinned folders stay at list top | Same | MUST | — | |
 | `[ ]` | C9 | Folder reordering | Drag & drop up / down | Same | MUST | — | |
 | `[ ]` | C10 | Folder sorting | Exists since 1.3; keys not enumerated | Sort by name / created / modified / manual | SHOULD | — | ⚠ provisional — UNKNOWN options |
