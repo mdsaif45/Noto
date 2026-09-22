@@ -149,7 +149,7 @@ never as the only path to anything (principle 7).
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | |
+| `[ ]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | M2-3 binds it in the note list; unbound in the editor — see the note below |
 | `[ ]` | B2 | Create note (global) | `⌃⌥⌘N`; panel opens with note active | Global hotkey, note focused and ready to type | MUST | — | |
 | `[ ]` | B3 | Note from clipboard | New note from clipboard; long-press **+** or global shortcut | Same, via global hotkey and **+** menu | MUST | — | |
 | `[ ]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | — | |
@@ -167,7 +167,7 @@ never as the only path to anything (principle 7).
 | `[ ]` | B16 | First line is the title | Title = line 1; survives folding; excluded by quick-copy; in note URL | Same rule, everywhere the title is used | MUST | — | No separate title field |
 | `[ ]` | B17 | Note bottom bar | Per-note action bar (format / share / move) | Per-note action affordance; Noto's own layout | SHOULD | — | Functional, not visual |
 | `[ ]` | B18 | List bottom bar | List-level **…** menu + note count | List-level menu + note count | SHOULD | — | |
-| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented) |
+| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **M2-3 saves on leave, not continuously** — see the note below |
 | `[ ]` | B20 | Switch between notes | `⌘⌥↓` / `⌘⌥↑` | Same action, Windows chord | MUST | — | |
 | `[ ]` | B21 | Print a note | `⌘P` | `Ctrl+P` | SHOULD | — | Top historic complaint; fixed in 1.6.3 |
 | `[ ]` | B22 | Duplicate note | Not documented (folder duplication is) | Duplicate note | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
@@ -188,6 +188,38 @@ Line 1 *is* the title: it is what remains when a note is folded, what
 `⌘⌥C` excludes from quick-copy, and what appears in the note URL. Noto must
 adopt the same rule rather than adding a title column, because adding one would
 change quick-copy, folding and URL semantics all at once.
+
+**B1's context, and where M2-3 stops.** The inventory is explicit and
+CONFIRMED: the same key creates a note in the current folder and a folder in
+the folder list. M2-1 already binds `Ctrl+N` in the folder list; M2-3 binds it
+in the note list, which completes the documented pair.
+
+Inside the **editor** it stays unbound. Nothing documents what `⌘N` does while
+a note is open, and the plausible answers — create and switch, create in the
+background, open a second editor — are all multi-document behaviour that no
+source describes and that the single-surface navigation model does not
+support. Leaving it unbound is the reading that invents nothing; B1 stays open
+until the remaining creation surfaces (B2 global, B3 clipboard, B4 drag-drop,
+B5 placement) land.
+
+**B19 and the M2-3 editor.** The note editor shipped in M2-3 edits an
+in-memory buffer and persists **on leave**: `Esc` or Back runs
+`UpdateNoteContent` when the buffer is dirty, stays in the editor if that
+fails, and never discards the edit. That is deliberately *not* the continuous
+persistence this row requires, so **B19 remains open**.
+
+The difference is when the write happens, not whether the capability exists —
+the engine has had `UpdateNoteContent` since M1 (contract row 2, which already
+cites B19). Closing B19 means changing the editor's save trigger, not the
+command underneath it, and it is M3 work: M3's exit is this specification being
+complete.
+
+Two things follow that M2-3 must not do. **No save command or Save button** is
+introduced, because B19 says there is none and adding one would have to be
+taken back. **No autosave infrastructure** — no debounce, no per-keystroke
+write, no background timer — is built speculatively, because the eventual
+continuous-persistence design is M3's to make and a half-built version of it
+would prejudge that.
 
 **B22 is a SHOULD on Noto's merits, not SideNotes'.** Folder duplication is
 CONFIRMED in SideNotes 1.6.3; note duplication is not documented anywhere.
