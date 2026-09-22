@@ -3,18 +3,21 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      M2-2 Note List  (MERGED); folder pane and note list usable
-Overall status:     Engine complete. The first two production UI surfaces exist;
-                    the workspace shell (docking, hotkey, tray) does not.
+Current slice:      M2-3 Note Editor  (MERGED); notes can be written, not just read
+Overall status:     Engine complete. Three production UI surfaces exist and the
+                    UI now writes notes; the workspace shell (docking, hotkey,
+                    tray) does not exist.
 Last updated:       2026-09-22
-Evidence baseline:  main @ 667f294 (PR #60 merged — M2-2 note list)
+Evidence baseline:  main @ 23ee2a5 (PR #63 merged — M2-3 note editor)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
-> tested domain and persistence layer, and two real surfaces on top of it — a
-> folder pane and a note list. It is still not the application a user would
-> recognise as Noto: there is no note editor, and no edge-docked window, global
-> hotkey or tray to reach it by.
+> tested domain and persistence layer, and three real surfaces on top of it — a
+> folder pane, a note list and a plain-source note editor. A user can now
+> create, edit and delete a note through the UI. It is still not the
+> application a user would recognise as Noto: there is no edge-docked window,
+> global hotkey or tray to reach it by, and the editor shows raw markdown
+> rather than rendering it.
 
 ---
 
@@ -25,7 +28,7 @@ M0  Foundation & Architecture     ██████░░░░  IN PROGRESS   
         ↓
 M1  Core Note Engine              ████████░░  IN PROGRESS   3 issues open
         ↓
-M2  SideNotes Workspace           ███░░░░░░░  IN PROGRESS   ◄ folder pane + note list
+M2  SideNotes Workspace           ████░░░░░░  IN PROGRESS   ◄ folder pane + note list + editor
         ↓
 M3  SideNotes Feature Parity      ░░░░░░░░░░  NOT STARTED   ◄ the first product
         ↓
@@ -57,9 +60,9 @@ nine M0 issues remain open, including several that later milestones depend on
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | — | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
-| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown, #15 export — both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 2 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states | — | The workspace shell — docking (#16), global hotkey, tray — and the note editor |
-| **M3** SideNotes Parity | **NOT STARTED** | — | — | 0 of 264 parity rows implemented |
+| **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 2 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave | — | The workspace shell — docking (#16), global hotkey, tray |
+| **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
 | **M6** Contextual Notes | **NOT STARTED** (3 open) | ADR-005, ADR-006 drafted as **Proposed**, deferred to M6 | — | — |
@@ -69,7 +72,46 @@ nine M0 issues remain open, including several that later milestones depend on
 
 ---
 
-## 3. Last Slice Completed — Slice 6, queries
+## 3. Last Slice Completed — M2-3, the note editor
+
+**M2-3 — Note Editor** merged as PR #63 → `23ee2a5`. The third production
+surface, and the first time the UI writes a note.
+
+```
+folder list  ⇄  note list  ⇄  note editor      exactly one visible at a time
+```
+
+| Delivered | Detail |
+| --------- | ------ |
+| Plain-source editor | A multiline `TextBox` over the note's raw markdown. No parsing, no rendering |
+| Open a note | `Enter` or double-click from the note list; the editor takes focus |
+| Leave | `Esc` or the Back control, which is labelled with the note's current title |
+| Create | `Ctrl+N` in the **note list**, opening the created note. Unbound in the editor |
+| Delete | `Alt+Ctrl+Backspace` — soft delete, no confirmation dialog (parity B7) |
+| Save | **On leave**, when the buffer differs from what was opened. A failed save keeps the user in the editor with the text intact |
+| States | Loading / Loaded / Error + Retry. **No Empty state** — an empty note is valid, and its row reads `Untitled note` |
+| Title | Recomputed through `NoteTitle.From`, never stored (parity B16) |
+
+**Dirtiness is an exact content comparison**, not a flag: the buffer is compared
+against what the note was opened with using `StringComparison.Ordinal`. Typing
+something and undoing it correctly reads as clean, so leaving performs no write.
+
+**Three defects were found by running the application and fixed inside the PR.**
+`Enter` did nothing because a `ListView` treats it as item activation and marks
+it handled before `KeyDown` bubbles — moved to `PreviewKeyDown` (`528d6bd`).
+The note list kept a stale title after a save, because the leave path restored
+selection against a collection built before the write (`ef25382`). Note failures
+reported folder wording (`d7442b0`). Only the last was found by static review.
+
+**What M2-3 deliberately did not do.** No save command or Save button, and no
+autosave infrastructure — no debounce, no per-keystroke write, no timer —
+because parity B19's continuous-persistence design is M3's to make and a
+half-built version would prejudge it. `Ctrl+N` stays unbound in the editor
+because nothing documents what it should do with a note open.
+
+---
+
+## 4. Engine's Last Slice — Slice 6, queries
 
 **Slice 6 — Queries** merged as PR #52 → `4e9e09e`. The four queries the §15
 slice plan never assigned, completing the engine's public surface.
@@ -111,7 +153,7 @@ invention, so the tests assert membership for ties and not a relative order.
 
 ---
 
-## 4. Completed Foundation
+## 5. Completed Foundation
 
 | Item | Status | Evidence |
 | ---- | ------ | -------- |
@@ -143,26 +185,40 @@ invention, so the tests assert membership for ties and not a relative order.
 
 ---
 
-## 5. SideNotes Parity Progress
+## 6. SideNotes Parity Progress
 
-**Authoritative source:** `docs/product/sidenotes-parity.md` — unmodified.
+**Authoritative source:** `docs/product/sidenotes-parity.md`. The counts below
+are read from it; this document never overrides it.
 
 ```
 264 parity rows total
-  0 marked implemented
+  1 marked done         [x]   C1 two-level navigation
+  5 marked in progress  [~]   B1 B16 C4 C5 C7
+258 not started         [ ]
 ```
+
+Counted from the specification, not asserted here. A `[~]` row states in its
+own Notes cell which part is missing, so a partial row cannot later be misread
+as a finished one.
+
+**A row is scored against its own requirement cell**, and a pair that states
+one decision is scored together. **B7 stays `[ ]` although the delete chord
+works**: it soft-deletes, but the recycle bin and restore that make a soft
+delete recoverable are B23's requirement and have no UI. The recoverability is
+the whole point of that BETTER row, so neither half is marked until both exist.
 
 | Area | Status | Evidence |
 | ---- | ------ | -------- |
-| Note CRUD, ordering, lifecycle (B1, B8, B10–B16, B19, B23) | **Engine only — no UI** | Slices 1–3; commands exist, nothing invokes them |
-| Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Engine only — no UI** | Slice 4; commands exist, nothing invokes them |
+| Note create / edit / delete | **UI reaches the engine** — no parity row is complete | M2-3 (PR #63): `CreateNote`, `UpdateNoteContent`, `DeleteNote` each have exactly one UI call site. B1 needs its remaining creation surfaces; B7 stays `[ ]` until B23's recycle bin exists; B19 is **not** satisfied — see below |
+| Note ordering, pin, colour, fold, move (B8, B10–B15) | **Engine only — no UI** | Slices 1–3; commands exist, nothing invokes them |
+| Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Engine only — no UI** | Slice 4; `CreateFolder` and `RenameFolder` are reached by M2-1 (PR #57); delete, pin and reorder are not |
 | Tags — create/rename/delete/assign/remove | **Not a parity requirement** | Slice 5; tags appear in **no** parity row and no feature-inventory row — a Noto addition (contract §7) |
 | Listing notes, folders and tags (Q2–Q5) | **Engine only — no UI** | Slice 6; queries exist, nothing invokes them |
 | Note colours (B15) | **Engine only** | `note1`–`note6`, ADR-011 |
 | Recycle bin (B23, C11) | **Engine only** | `ListDeletedNotes` / `ListDeletedFolders` |
-| Markdown editing, invisible markdown (ADR-004, D-rows) | **Not started** | #14 open |
+| Markdown editing, invisible markdown (ADR-004, D-rows) | **Plain source only** | M2-3 (PR #63) edits raw markdown in a `TextBox`. No parsing, no rendering to native controls, no invisible markdown. #14 open |
 | Export (H-rows) | **Not started** | #15 open |
-| Everything visual — workspace, sidebar, editor, themes, shortcuts | **Not started** | M2/M3 |
+| Everything visual — workspace, sidebar, themes, shortcuts | **Not started** | M2/M3 — the shell, not the three surfaces that exist |
 | Nested folders (C3), folder colours (C17), all-notes view (C18) | **DROP / not a requirement** | parity specification |
 
 **No parity row may be marked implemented until the feature is reachable by a
@@ -170,7 +226,7 @@ user.** A command handler with tests is engine work, not parity.
 
 ---
 
-## 6. UI / UX Status
+## 7. UI / UX Status
 
 This distinction matters more than any other line in this document.
 
@@ -188,20 +244,34 @@ This distinction matters more than any other line in this document.
 | | Status |
 | - | ------ |
 | Visual design language | **PARTIAL** — expressed as tokens and three components; no wider language yet |
-| Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by both surfaces |
+| Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by all three surfaces |
 | Workspace layout, sidebar, drawer | **NOT STARTED** — the shell (docking #16, hotkey, tray) is untouched |
-| Note editor | **NOT STARTED** — #14 |
+| Note editor | **PARTIAL** — M2-3 merged (PR #63): plain-source editing, create, delete, save-on-leave, Loading/Loaded/Error + Retry. Markdown **rendering** and the invisible-markdown editor are not built — #14 |
 | Folder UI | **DONE** — M2-1 merged (PR #57): list, create, rename, selection, Loading/Loaded/Empty/Error + Retry, keyboard, focus |
 | Note list UI | **DONE** — M2-2 merged (PR #60): enter a folder, note list, selection, Loading/Loaded/Empty/Error + Retry, Esc/Back |
 | Typography, components, motion, polish | **PARTIAL** — body/caption type, spacing, radius and three components (FolderRow, NoteRow, Button) exist; motion and the wider component library do not |
 
-The interface is two surfaces that replace each other — the folder list, and the
-notes of the folder that was entered. Both consume the design system; neither is
-reachable the way the product intends, because the shell does not exist.
+The interface is three surfaces that replace each other — the folder list, the
+notes of the folder that was entered, and the note that was opened. All three
+consume the design system; none is reachable the way the product intends,
+because the shell does not exist.
 
-Notably absent, and deliberately so: creating, editing or deleting a **note**.
-M2-2 reads notes; nothing in the UI writes one. The engine has supported every
-note command since M1 — capability is not the same as a usable product.
+**The UI now writes notes.** M2-3 wired `CreateNote`, `UpdateNoteContent` and
+`DeleteNote` to one call site each, so a user can create a note (`Ctrl+N` in
+the note list), edit its raw markdown, and delete it (`Alt+Ctrl+Backspace`).
+That closes the gap this section recorded for M2-2, when the engine had
+supported every note command since M1 and nothing invoked them.
+
+It does not make note handling complete. **Persistence is save-on-leave, not
+continuous** — parity B19 requires continuous persistence and stays open, a
+recorded exception deferred to M3. Pin, colour, fold, reorder and move-to-folder
+remain engine-only. And the editor shows raw markdown: parsing and rendering to
+native controls are #14's remaining scope.
+
+```
+engine command exists   ≠   a user can reach it
+a user can reach it     ≠   the parity row is met
+```
 
 ```
 WinUI 3 validated   ≠   Noto UI designed
@@ -209,10 +279,10 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ---
 
-## 7. Current Architecture
+## 8. Current Architecture
 
 ```
-  Noto.Windows            WinUI 3 app — placeholder shell only
+  Noto.Windows            WinUI 3 app — three surfaces, no workspace shell
         ↓
   Noto.UseCases           commands + handlers, one per operation
         ↓
@@ -239,7 +309,7 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ---
 
-## 8. Recently Completed
+## 9. Recently Completed
 
 ```
 2026-09-14  PR #38  Schema v2 / migration 002
@@ -253,21 +323,39 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-09-15  PR #46  ULID C′ — O(1) state, ordering semantics settled
 2026-09-15  PR #47  Test-infrastructure pool isolation
 2026-09-15  PR #48  Slice 4 — ordering engine generalised; the seven folder commands
+2026-09-15  PR #50  Slice 5 — the five tag commands; U12a/U12b amendments
+2026-09-15  PR #52  Slice 6 — the four remaining queries; engine surface complete
+2026-09-15  PR #54  M2-0 workspace integration spike
+2026-09-16  PR #56  #22 design system — Noto.UI, tokens, Light/Dark/HighContrast
+2026-09-21  PR #57  M2-1 folder pane — the first production surface
+2026-09-22  PR #60  M2-2 note list — enter a folder, list its notes
+2026-09-22  PR #61  M2 status and parity reconciliation
+2026-09-22  PR #62  M2-3 save model and Ctrl+N scope recorded
+2026-09-22  PR #63  M2-3 note editor — plain-source editing, note create and delete
 ```
 
 ---
 
-## 9. Current Work Queue
+## 10. Current Work Queue
 
 ### NOW
 
-- Nothing in progress. Slice 6 merged; no open implementation PRs.
+- Nothing in progress. M2-3 merged (PR #63); no open implementation PRs.
+- **PR #58 is open** — a dependency bump of Windows App SDK 1.6.250205002 → 2.5.1.
+  A major-version SDK change under ADR-008's unpackaged self-contained
+  configuration, so it needs its own validation before it is merged.
 
 ### NEXT
 
 ```
-No formally defined next implementation slice.
+No formally defined next M2 slice.
 ```
+
+**M2-1, M2-2 and M2-3 were each gated before implementation.** No document
+defines an M2-4, so what follows is a scoping decision rather than an
+inference. The known remaining M2 work is the workspace shell — the edge-docked
+window (#16), the global hotkey and the tray — which is what stands between
+three working surfaces and a build that can be used daily.
 
 **The Core Note Engine is complete.** Contract §15 records Slice 6 as *"the last
 slice of the Core Note Engine"*, all 23 commands and all 7 queries of §1 exist,
@@ -279,29 +367,31 @@ move between them"*, whose two halves are `ListFolders` (Slice 6) and
 `MoveNoteToFolder` (Slice 2a). **#13 remains OPEN on GitHub**; closing it is a
 repository decision, not something this document asserts.
 
-What comes next is a scoping decision, not an inference. The candidates already
-carry issues — #14 markdown, #15 export, #22 design tokens, M2's workspace —
-but none is formally established as the next slice.
+**#14 is partially addressed and must not be closed on M2-3.** The issue scopes
+three things: plain-source editing, rendering to native controls, and formatting
+shortcuts that insert markdown syntax. M2-3 delivered the first. The other two
+are unbuilt, and the invisible-markdown editor is a separate M3 parity
+requirement with its own budget (ADR-004).
 
 ### LATER
 
-- #14 markdown parsing / rendering / editing
+- #14 — markdown parsing and rendering to native controls; formatting shortcuts
 - #15 export and backup
 - Remaining M0 issues: #21 commands/events, #20 architecture tests, #7 logging,
   #9 settings, #10 error handling, #11 perf harness (#22 design tokens is
   merged as PR #56)
-- M2 — the first real UI
+- M2 — the workspace shell: docking (#16), global hotkey, tray
+- Human Light / High Contrast visual review of the three merged surfaces
 
 ### DEFERRED
 
-- `ListFolders` (Q3) and the other unimplemented queries — no slice assigns them
 - Purge / retention — Cases E and F, needs a policy decision
 - Contextual notes — ADR-005, ADR-006 Proposed, M6
 - Sync, cloud, AI, plugins
 
 ---
 
-## 10. Slice 4 Scope (as delivered)
+## 11. Slice 4 Scope (as delivered)
 
 Verified against the frozen contract §11 and §15. Everything in the IN column
 is merged; nothing in the OUT column was introduced.
@@ -319,7 +409,7 @@ ReorderFolder    atomic         Purge · Tags · UI · Sync · Migration 003
 
 ---
 
-## 11. Architectural Decisions Future Work Must Respect
+## 12. Architectural Decisions Future Work Must Respect
 
 | Decision | Source |
 | -------- | ------ |
@@ -336,11 +426,12 @@ ReorderFolder    atomic         Purge · Tags · UI · Sync · Migration 003
 | **ULID C′** — `NewId()` is monotonic per instant; `NewId(t)` draws fresh randomness and keeps no state | ADR-012 |
 | **Ordering engine is domain-neutral** — notes and folders share one implementation | this slice |
 | **Local-first SQLite** — no sync architecture until it is actually built | ADR-002 |
-| **UI implementation has started** — M2-1 folder pane and M2-2 note list are merged, both on #22's tokens; the shell is not | roadmap; `MainWindow.xaml` |
+| **UI implementation has started** — M2-1 folder pane, M2-2 note list and M2-3 note editor are merged, all on #22's tokens; the shell is not | roadmap; `MainWindow.xaml` |
+| **Save-on-leave is interim, not the target** — B19 requires continuous persistence and is deferred to M3. No save command, Save button or autosave infrastructure may be added in the meantime | parity B19; PR #62 |
 
 ---
 
-## 12. Deferred / Explicitly Not Started
+## 13. Deferred / Explicitly Not Started
 
 ```
 Nested folders            parity C3 — flat is a MUST
@@ -352,9 +443,13 @@ Contextual notes          ADR-005/006 Proposed, M6
 Sync / cloud              ADR-002 defers it; ULID keeps it cheap
 Search / FTS5             #17
 Export                    #15
-Markdown rendering        #14
+Markdown rendering        #14 — M2-3 edits raw source; parsing and rendering
+                            to native controls are not built
+Invisible markdown        ADR-004, M3 — its own issue and budget
+Continuous persistence    parity B19 — deferred to M3; M2-3 saves on leave
 Tags                      Slice 5
-Note editor, note CRUD    M2/M3 — the folder pane and note list now exist
+Note pin/colour/fold/     engine only — no UI reaches them
+  reorder/move
 AI, plugins, sharing      not on the roadmap
 
 SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
@@ -364,9 +459,9 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ---
 
-## 13. Quality Gates
+## 14. Quality Gates
 
-Verified on `main` @ `4e9e09e`:
+Verified on `main` @ `23ee2a5`:
 
 ```
 Build                0 warnings, 0 errors
@@ -380,6 +475,29 @@ CI                   Build & test · Analyze C# · CodeQL · Validate docs & gov
 CodeQL               clean on the merged branch
 Branch protection    required checks, linear history, conversation resolution
 ```
+
+**The test count is unchanged by M2-1, M2-2 and M2-3.** All three surfaces live
+in `Noto.Windows`, a `WinExe` with `UseWinUI` and no test project, so UI
+behaviour is validated by running the application rather than by automated
+tests. That is a known gap, not a passing result.
+
+### Outstanding validation — M2-3
+
+Three items were disclosed in PR #63 and remain open. None blocks the merge;
+none may be recorded as passed.
+
+| Item | Status |
+| ---- | ------ |
+| **Human Light / High Contrast visual review** | **OUTSTANDING.** Theme resources were verified structurally — 13 keys across Light/Dark/HighContrast, identical key sets, HighContrast entirely system-driven, no hardcoded values — but resource inspection is not the same as looking at the result. The PR's screenshots are **Dark only**. The UI quality gate is not closed |
+| **Delete-failure path (scenario 27)** | **NOT EXERCISED.** A `DeleteNote` failure requires the note to be already gone, which is the same setup as note-missing-on-open; it could not be constructed as a distinct delete failure |
+| **Editor Retry after a read failure (scenario 33)** | **NOT EXERCISED.** Needs a `StorageException` during `GetNote`, not inducible without corrupting the database mid-session. The control exists and is wired as the note list's is |
+
+**One performance observation, not a defect.** Opening a 100 KB note measured
+~2360 ms against ADR-004's **provisional** `< 200 ms` budget. The engine read is
+~23.8 ms; the remainder is WinUI laying out a single 102 KB `TextBox`. Typing
+stayed responsive (231 ms for 10 characters), save latency is flat (85–117 ms
+regardless of note size), and list virtualisation is intact (21 of 2000 rows
+realised). Deliberately not optimised in M2-3; it belongs with M4.
 
 **Known issues:** none open. Four defects found during M1 were all real and are
 fixed — a ULID monotonicity bug (PR #46), a process-global SQLite pool race
@@ -402,27 +520,32 @@ contract and mutating the implementation, not by reading the test results.
 
 ---
 
-## 14. Next Development Path
+## 15. Next Development Path
 
 ```
-Done: Slice 6 — queries merged (PR #52); Core Note Engine complete
+Done: Core Note Engine complete (PR #52) · design system (PR #56)
     ↓
-#14 markdown · #15 export — the remaining M1 issues
+Done: M2-1 folder pane (#57) → M2-2 note list (#60) → M2-3 note editor (#63)
+      three surfaces; the UI creates, edits and deletes notes
     ↓
-#22 design system — MERGED (PR #56)
+M2 remaining — the workspace shell: edge-docked window (#16), global
+      hotkey, tray. This is what stands between the surfaces and a build
+      that can be used daily
     ↓
-M2 — SideNotes Workspace: the first real UI and the first dogfoodable build
+#14 markdown rendering · #15 export — the remaining M1 issues
     ↓
-M3 — SideNotes parity: the first product
+M3 — SideNotes parity: the first product. B19 continuous persistence and
+      the invisible-markdown editor are resolved here, not before
 ```
 
 The roadmap does not hold UI until the backend is finished. M2 is described as
-*"the first build usable daily. Everything after it is informed by"* it — and it
-depends on #22's design tokens, which are now merged and available.
+*"the first build usable daily. Everything after it is informed by"* it — and the
+navigation half of that is now built. It is not yet usable daily: the surfaces
+exist, but nothing docks them to a screen edge or summons them with a hotkey.
 
 ---
 
-## 15. Maintaining This Document
+## 16. Maintaining This Document
 
 > Update this document whenever a milestone, slice, major architectural decision
 > or significant feature status changes. **Status must be derived from repository
