@@ -62,7 +62,7 @@ nine M0 issues remain open, including several that later milestones depend on
 | **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | — | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
 | **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 2 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave | — | The workspace shell — docking (#16), global hotkey, tray |
-| **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 6 partial — all as a by-product of M2, not M3 work |
+| **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
 | **M6** Contextual Notes | **NOT STARTED** (3 open) | ADR-005, ADR-006 drafted as **Proposed**, deferred to M6 | — | — |
@@ -193,17 +193,23 @@ are read from it; this document never overrides it.
 ```
 264 parity rows total
   1 marked done         [x]   C1 two-level navigation
-  6 marked in progress  [~]   B1 B7 B16 C4 C5 C7
-257 not started         [ ]
+  5 marked in progress  [~]   B1 B16 C4 C5 C7
+258 not started         [ ]
 ```
 
 Counted from the specification, not asserted here. A `[~]` row states in its
 own Notes cell which part is missing, so a partial row cannot later be misread
 as a finished one.
 
+**A row is scored against its own requirement cell**, and a pair that states
+one decision is scored together. **B7 stays `[ ]` although the delete chord
+works**: it soft-deletes, but the recycle bin and restore that make a soft
+delete recoverable are B23's requirement and have no UI. The recoverability is
+the whole point of that BETTER row, so neither half is marked until both exist.
+
 | Area | Status | Evidence |
 | ---- | ------ | -------- |
-| Note create / edit / delete | **UI reaches the engine** — no parity row is complete | M2-3 (PR #63): `CreateNote`, `UpdateNoteContent`, `DeleteNote` each have exactly one UI call site. B1 needs its remaining creation surfaces; B7 is soft delete; B19 is **not** satisfied — see below |
+| Note create / edit / delete | **UI reaches the engine** — no parity row is complete | M2-3 (PR #63): `CreateNote`, `UpdateNoteContent`, `DeleteNote` each have exactly one UI call site. B1 needs its remaining creation surfaces; B7 stays `[ ]` until B23's recycle bin exists; B19 is **not** satisfied — see below |
 | Note ordering, pin, colour, fold, move (B8, B10–B15) | **Engine only — no UI** | Slices 1–3; commands exist, nothing invokes them |
 | Folder create/rename/delete/pin/reorder (C2, C8, C9, C11, C13) | **Engine only — no UI** | Slice 4; `CreateFolder` and `RenameFolder` are reached by M2-1 (PR #57); delete, pin and reorder are not |
 | Tags — create/rename/delete/assign/remove | **Not a parity requirement** | Slice 5; tags appear in **no** parity row and no feature-inventory row — a Noto addition (contract §7) |

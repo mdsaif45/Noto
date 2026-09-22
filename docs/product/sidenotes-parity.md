@@ -52,6 +52,18 @@ most likely to be violated in practice:
 Cells are deliberately short. **Reasoning lives in the prose paragraph under
 each table**, not crammed into a cell.
 
+**A row is scored against its own `Noto requirement` cell, and nothing else.**
+`[~]` means some clause of that cell is delivered and some is not; `[x]` means
+every clause is. A row does not become `[~]` because a neighbouring row moved,
+and it does not stay `[ ]` because unrelated work is outstanding.
+
+**Where two rows are one decision, the pair is scored together.** B7 and B23
+are the case that exists today: B7's chord performs a soft delete, but the
+recycle bin and restore that make a soft delete recoverable are B23's
+requirement and have no UI. Scoring B7 alone would report the safety property
+as underway when the half that delivers the safety does not exist. Both stay
+`[ ]` until the pair is whole.
+
 **On IDs.** Categories A–F, H and I reuse the inventory's own IDs verbatim, so
 every row is traceable to a numbered source item — all 172 are present here,
 none invented. The inventory's **G (shortcuts)** and **J (preferences)**
@@ -155,7 +167,7 @@ never as the only path to anything (principle 7).
 | `[ ]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | — | |
 | `[ ]` | B5 | New note placement | top / bottom / over current / under current | The same four options | MUST | — | |
 | `[ ]` | B6 | Ask for folder on global create | Setting: prompt for destination folder | Same setting | SHOULD | — | |
-| `[~]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | **Partial** — M2-3 (#63): the chord soft-deletes the open note with no confirmation. The recycle bin it deletes into has no UI — see B23 / section 12 |
+| `[ ]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | M2-3 (#63) wires the chord to a soft delete with no confirmation. **Not `[~]`** — B7 and B23 are one decision, and the recycle bin and restore B23 requires have no UI — see B23 / section 12 |
 | `[ ]` | B8 | Move note up / down | `⇧⌥⌘↑` / `⇧⌥⌘↓` | Same action, Windows chord | MUST | — | |
 | `[ ]` | B9 | Move note to top / bottom | Exists; chord unpublished | Move to top / bottom, keyboard reachable | SHOULD | — | ⚠ provisional — UNKNOWN chord |
 | `[ ]` | B10 | Drag & drop reordering | Reorder notes and folders; note-onto-note disabled | Same, incl. the note-onto-note prohibition | MUST | — | |
@@ -182,6 +194,14 @@ recovery is via backups only. Noto inverts this: soft delete into a recycle
 bin, which removes the need for a modal confirmation on every delete. This is a
 BETTER row and is justified in section 12; it is also already M1 work, so it
 costs M3 nothing.
+
+**Which is why B7 is still `[ ]` after M2-3.** The chord is wired, the delete is
+soft, and there is no blocking confirmation — every clause of B7's own
+requirement cell. But the recycle bin it deletes into has no user surface, so a
+user who presses it cannot yet get the note back. The inversion this BETTER row
+claims over SideNotes is recoverability, and recoverability is the part that is
+missing. Marking B7 `[~]` would report the trade as partly honoured when the
+side Noto offers in exchange for dropping the confirmation dialog is absent.
 
 **B16 is load-bearing and easy to get wrong.** SideNotes has no title field.
 Line 1 *is* the title: it is what remains when a note is folded, what
