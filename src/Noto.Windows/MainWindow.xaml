@@ -247,6 +247,8 @@
                 ItemContainerStyle="{StaticResource NoteRowStyle}"
                 SelectionMode="Single"
                 SelectionChanged="OnNoteSelectionChanged"
+                KeyDown="OnNoteListKeyDown"
+                DoubleTapped="OnNoteListDoubleTapped"
                 AutomationProperties.Name="Notes">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:NoteListItem">
@@ -272,6 +274,79 @@
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+        </Grid>
+
+        <!--
+            The note editor. The third surface in the same replacing-navigation
+            model: entering a note swaps this in, Esc or Back swaps it back.
+
+            Plain source. ADR-004 stores markdown and #14 scopes M2 to editing
+            it raw — the invisible-markdown editor is M3 and rebuilding this
+            surface for it is expected, so nothing here anticipates it.
+        -->
+        <Grid x:Name="EditorRoot"
+              KeyDown="OnEditorRootKeyDown"
+              Background="{ThemeResource SurfaceSidebarBrush}"
+              Padding="{StaticResource PanePadding}"
+              RowSpacing="{StaticResource SpaceS}"
+              Visibility="Collapsed">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Button
+                x:Name="EditorBackButton"
+                Grid.Row="0"
+                HorizontalAlignment="Left"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                Click="OnEditorBackClick"
+                AutomationProperties.Name="Back to notes" />
+
+            <StackPanel Grid.Row="1" Spacing="{StaticResource SpaceXS}">
+
+                <TextBlock
+                    x:Name="EditorGuidanceText"
+                    Style="{StaticResource FolderPaneGuidanceStyle}"
+                    Visibility="Collapsed" />
+
+                <!--
+                    No AutomationProperties.Name: a static name on a TextBlock
+                    REPLACES its text for assistive technology.
+                -->
+                <TextBlock
+                    x:Name="EditorNoticeText"
+                    Style="{StaticResource FolderPaneNoticeStyle}"
+                    Visibility="Collapsed"
+                    AutomationProperties.LiveSetting="Assertive" />
+
+                <Button
+                    x:Name="EditorRetryButton"
+                    Style="{StaticResource FolderPaneButtonStyle}"
+                    HorizontalAlignment="Left"
+                    Content="Retry"
+                    Visibility="Collapsed"
+                    Click="OnEditorRetryClick"
+                    AutomationProperties.Name="Retry loading the note" />
+
+            </StackPanel>
+
+            <!--
+                AcceptsReturn and no AcceptsTab: Enter inserts a newline, which
+                a markdown note needs, while Tab stays a focus move so the
+                surface remains keyboard-escapable.
+            -->
+            <TextBox
+                x:Name="NoteEditor"
+                Grid.Row="2"
+                Style="{StaticResource NoteEditorStyle}"
+                AcceptsReturn="True"
+                TextWrapping="Wrap"
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                TextChanged="OnNoteEditorTextChanged"
+                AutomationProperties.Name="Note content" />
         </Grid>
     </Grid>
 

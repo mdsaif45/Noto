@@ -36,6 +36,35 @@
     </Style>
 
     <!--
+        The note editor's text surface.
+
+        A separate style from FolderNameInputStyle, but NOT a new set of design
+        values: every brush, radius, border and type token below is the one the
+        single-line input already uses. What differs is layout — it fills its
+        row and uses the body line height, because a multi-line surface needs
+        leading that a one-line box does not.
+
+        No new token was added. The editor needed a surface, a subtle border, a
+        small radius, input padding and body type, and all five already exist
+        (ADR-011 rule 4: add when a surface needs one, not because a surface
+        appeared).
+    -->
+    <Style x:Key="NoteEditorStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
+        <Setter Property="Padding" Value="{StaticResource InputPadding}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+    </Style>
+
+    <!--
         The button. ADR-011 lists Button in the component library, and a stock
         WinUI Button inside a tokenised surface carries a foreign visual
         identity — the one thing the design system exists to prevent.
