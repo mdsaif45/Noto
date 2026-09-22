@@ -149,13 +149,13 @@ never as the only path to anything (principle 7).
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | M2-3 binds it in the note list; unbound in the editor — see the note below |
+| `[~]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | **Partial** — M2-3 (#63) binds it in the note list; unbound in the editor. B2–B5 creation surfaces remain — see the note below |
 | `[ ]` | B2 | Create note (global) | `⌃⌥⌘N`; panel opens with note active | Global hotkey, note focused and ready to type | MUST | — | |
 | `[ ]` | B3 | Note from clipboard | New note from clipboard; long-press **+** or global shortcut | Same, via global hotkey and **+** menu | MUST | — | |
 | `[ ]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | — | |
 | `[ ]` | B5 | New note placement | top / bottom / over current / under current | The same four options | MUST | — | |
 | `[ ]` | B6 | Ask for folder on global create | Setting: prompt for destination folder | Same setting | SHOULD | — | |
-| `[ ]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | See B23 / section 12 |
+| `[~]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | **Partial** — M2-3 (#63): the chord soft-deletes the open note with no confirmation. The recycle bin it deletes into has no UI — see B23 / section 12 |
 | `[ ]` | B8 | Move note up / down | `⇧⌥⌘↑` / `⇧⌥⌘↓` | Same action, Windows chord | MUST | — | |
 | `[ ]` | B9 | Move note to top / bottom | Exists; chord unpublished | Move to top / bottom, keyboard reachable | SHOULD | — | ⚠ provisional — UNKNOWN chord |
 | `[ ]` | B10 | Drag & drop reordering | Reorder notes and folders; note-onto-note disabled | Same, incl. the note-onto-note prohibition | MUST | — | |
@@ -164,10 +164,10 @@ never as the only path to anything (principle 7).
 | `[ ]` | B13 | Fold all / unfold all | `⇧⌥⌘←` / `⇧⌥⌘→`; also the **…** menu | Same, keyboard and list menu | MUST | — | |
 | `[ ]` | B14 | Pin notes | Pinned notes stay at list top | Same | MUST | — | |
 | `[ ]` | B15 | Note colors | Six colors + empty; `⌘0`–`⌘6`; Background or Bar style | Six colors + none; `Ctrl+0`–`Ctrl+6`; both styles | MUST | — | Six, not "some" |
-| `[ ]` | B16 | First line is the title | Title = line 1; survives folding; excluded by quick-copy; in note URL | Same rule, everywhere the title is used | MUST | — | No separate title field |
+| `[~]` | B16 | First line is the title | Title = line 1; survives folding; excluded by quick-copy; in note URL | Same rule, everywhere the title is used | MUST | — | **Partial** — M2-2 (#60) and M2-3 (#63) derive every displayed title through `NoteTitle.From`; none is stored. Folding, quick-copy and note URLs do not exist yet |
 | `[ ]` | B17 | Note bottom bar | Per-note action bar (format / share / move) | Per-note action affordance; Noto's own layout | SHOULD | — | Functional, not visual |
 | `[ ]` | B18 | List bottom bar | List-level **…** menu + note count | List-level menu + note count | SHOULD | — | |
-| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **NOT satisfied by M2-3** — save-on-leave is an interim model; deferred to M3, see the note below |
+| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **NOT satisfied by M2-3 (#63, merged)** — save-on-leave is an interim model; deferred to M3, see the note below |
 | `[ ]` | B20 | Switch between notes | `⌘⌥↓` / `⌘⌥↑` | Same action, Windows chord | MUST | — | |
 | `[ ]` | B21 | Print a note | `⌘P` | `Ctrl+P` | SHOULD | — | Top historic complaint; fixed in 1.6.3 |
 | `[ ]` | B22 | Duplicate note | Not documented (folder duplication is) | Duplicate note | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
@@ -189,10 +189,10 @@ Line 1 *is* the title: it is what remains when a note is folded, what
 adopt the same rule rather than adding a title column, because adding one would
 change quick-copy, folding and URL semantics all at once.
 
-**B1's context, and where M2-3 stops.** The inventory is explicit and
+**B1's context, and where M2-3 stopped.** The inventory is explicit and
 CONFIRMED: the same key creates a note in the current folder and a folder in
-the folder list. M2-1 already binds `Ctrl+N` in the folder list; M2-3 binds it
-in the note list, which completes the documented pair.
+the folder list. M2-1 binds `Ctrl+N` in the folder list; M2-3 (#63, merged)
+binds it in the note list, which completes the documented pair.
 
 Inside the **editor** it stays unbound. Nothing documents what `⌘N` does while
 a note is open, and the plausible answers — create and switch, create in the
@@ -205,10 +205,10 @@ B5 placement) land.
 **B19 is deliberately NOT satisfied by M2-3. It is a deferred parity
 requirement, accepted as a recorded exception.**
 
-M2-3's editor edits an in-memory buffer and persists **on leave**: `Esc` or
-Back runs `UpdateNoteContent` when the buffer is dirty, stays in the editor if
-that fails, and never discards the edit. This row requires *continuous*
-persistence. Those are **materially different user-facing behaviours** — under
+M2-3's editor, merged as #63, edits an in-memory buffer and persists **on
+leave**: `Esc` or Back runs `UpdateNoteContent` when the buffer is dirty, stays
+in the editor if that fails, and never discards the edit. This row requires
+*continuous* persistence. Those are **materially different user-facing behaviours** — under
 save-on-leave a crash or a kill mid-edit loses the buffer, and under continuous
 persistence it does not — so **B19 remains open and M2-3 must not claim it.**
 
@@ -223,12 +223,13 @@ reading it wrong.
 and validated during parity completion, whose exit is this specification being
 complete. Until then B19 stays `[ ]` and this exception stands.
 
-Two things follow that M2-3 must not do, and neither widens its scope into
-autosave. **No save command or Save button** is introduced, because B19 says
+Two things followed that M2-3 did not do, and neither widens its scope into
+autosave. **No save command or Save button** was introduced, because B19 says
 there is none and adding one would have to be taken back. **No autosave
 infrastructure** — no debounce, no per-keystroke write, no background timer —
-is built speculatively, because the continuous-persistence design is M3's to
-make and a half-built version would prejudge it.
+was built speculatively, because the continuous-persistence design is M3's to
+make and a half-built version would prejudge it. Both constraints were verified
+against the merged implementation and continue to bind later work.
 
 **B22 is a SHOULD on Noto's merits, not SideNotes'.** Folder duplication is
 CONFIRMED in SideNotes 1.6.3; note duplication is not documented anywhere.
