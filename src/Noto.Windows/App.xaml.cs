@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Infrastructure.Storage;
 using Noto.UseCases.Folders;
+using Noto.UseCases.Notes;
 
 namespace Noto;
 
@@ -57,6 +58,7 @@ public partial class App : Application
         // shutdown — NotoDatabase deliberately holds no connection between
         // calls and is not IDisposable.
         var folders = new SqliteFolderRepository(database);
+        var notes = new SqliteNoteRepository(database);
 
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
@@ -65,7 +67,8 @@ public partial class App : Application
         _window = new MainWindow(
             new ListFoldersQuery(folders),
             new CreateFolderHandler(folders, clock),
-            new RenameFolderHandler(folders, clock));
+            new RenameFolderHandler(folders, clock),
+            new ListNotesInFolderQuery(notes));
 
         _window.Activate();
 

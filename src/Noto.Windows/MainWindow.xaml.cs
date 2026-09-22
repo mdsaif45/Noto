@@ -1,12 +1,16 @@
 using System.Collections.ObjectModel;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.Core.Notes;
 using Noto.Core.Storage;
 using Noto.UseCases.Folders;
+using Noto.UseCases.Notes;
 using Windows.System;
+using Windows.UI.Core;
 
 namespace Noto;
 
@@ -39,6 +43,7 @@ public sealed partial class MainWindow : Window
     private readonly ListFoldersQuery _listFolders;
     private readonly CreateFolderHandler _createFolder;
     private readonly RenameFolderHandler _renameFolder;
+    private readonly ListNotesInFolderQuery _listNotes;
 
     /// <summary>
     /// The selected folder, by id.
@@ -55,14 +60,31 @@ public sealed partial class MainWindow : Window
     /// <summary>The row being renamed, or <see langword="null"/>.</summary>
     private string? _renamingId;
 
+    /// <summary>
+    /// The folder whose notes are shown, or <see langword="null"/> when the
+    /// folder list is the active surface.
+    /// </summary>
+    /// <remarks>
+    /// Doubles as the "which surface is active" flag. A separate boolean could
+    /// disagree with it; one field cannot.
+    /// </remarks>
+    private FolderId? _openFolderId;
+
+    /// <summary>The selected note, by id. Never an index.</summary>
+    private string? _selectedNoteId;
+
+    private NoteState _noteState = NoteState.Loading;
+
     public MainWindow(
         ListFoldersQuery listFolders,
         CreateFolderHandler createFolder,
-        RenameFolderHandler renameFolder)
+        RenameFolderHandler renameFolder,
+        ListNotesInFolderQuery listNotes)
     {
         _listFolders = listFolders ?? throw new ArgumentNullException(nameof(listFolders));
         _createFolder = createFolder ?? throw new ArgumentNullException(nameof(createFolder));
         _renameFolder = renameFolder ?? throw new ArgumentNullException(nameof(renameFolder));
+        _listNotes = listNotes ?? throw new ArgumentNullException(nameof(listNotes));
 
         InitializeComponent();
 
@@ -114,7 +136,25 @@ public sealed partial class MainWindow : Window
         Mutating,
     }
 
+    /// <summary>
+    /// The note surface's state.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="PaneState"/> because the two surfaces are
+    /// never active at once and share no transitions. There is no Mutating
+    /// member: M2-2 reads notes and never writes them.
+    /// </remarks>
+    private enum NoteState
+    {
+        Loading,
+        Loaded,
+        Error,
+    }
+
     public ObservableCollection<FolderListItem> Folders { get; } = [];
+
+    /// <summary>The notes of the open folder, in O2 order.</summary>
+    public ObservableCollection<NoteListItem> Notes { get; } = [];
 
     /// <summary>Whether the list is showing the empty variant of Loaded.</summary>
     private bool IsEmpty => _state == PaneState.Loaded && Folders.Count == 0;
@@ -507,6 +547,235 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ----------------------------------------------------------- note list
+
+    /// <summary>
+    /// Enters a folder and shows its notes (parity C1, C4).
+    /// </summary>
+    /// <remarks>
+    /// Selection normally follows arrow-key focus, but a row can hold focus
+    /// without being selected, so the focused row is the fallback — the same
+    /// rule <see cref="BeginRename"/> uses, for the same reason.
+    /// </remarks>
+    private void EnterSelectedFolder()
+    {
+        if (_state != PaneState.Loaded)
+        {
+            return;
+        }
+
+        FolderListItem? item = FolderList.SelectedItem as FolderListItem
+            ?? (FocusManager.GetFocusedElement(Content.XamlRoot) as ListViewItem)?.Content as FolderListItem;
+
+        if (item is null)
+        {
+            return;
+        }
+
+        // The id is captured now: the list is rebuilt on return, and an index
+        // or a name would not survive that. Names are not unique (Case G).
+        _openFolderId = FolderId.From(item.Id);
+
+        // A folder is entered fresh. Nothing establishes remembering which
+        // note was selected last time, and inventing it would be a behaviour
+        // nobody asked for.
+        _selectedNoteId = null;
+
+        BackButton.Content = $"‹ {item.Name}";
+
+        PaneRoot.Visibility = Visibility.Collapsed;
+        NoteRoot.Visibility = Visibility.Visible;
+
+        EnterNoteLoading();
+
+        // Queued for the same reason as the folder list's first load: the
+        // Loading state is applied and handed back to the framework before
+        // the read begins.
+        _ = DispatcherQueue.TryEnqueue(RefreshNotes);
+    }
+
+    /// <summary>
+    /// Returns to the folder list (parity C5, A12 mode 1).
+    /// </summary>
+    /// <remarks>
+    /// Note selection is discarded rather than remembered: no requirement
+    /// establishes per-folder note selection, and restoring it silently would
+    /// be a product decision made in implementation.
+    /// </remarks>
+    private void LeaveFolder()
+    {
+        string? folderId = _openFolderId?.Value;
+
+        _openFolderId = null;
+        _selectedNoteId = null;
+        Notes.Clear();
+        HideNoteNotice();
+        HideNoteGuidance();
+
+        NoteRoot.Visibility = Visibility.Collapsed;
+        PaneRoot.Visibility = Visibility.Visible;
+
+        // The folder list was left intact, so its selection is still correct;
+        // focus has to be put back explicitly.
+        if (folderId is not null)
+        {
+            _selectedId = folderId;
+            RestoreSelection();
+            FocusRow(folderId);
+        }
+        else
+        {
+            MoveFocusToList();
+        }
+    }
+
+    private void EnterNoteLoading()
+    {
+        _noteState = NoteState.Loading;
+        ApplyNoteState();
+    }
+
+    /// <summary>
+    /// The note read path — executes Q2 for the open folder.
+    /// </summary>
+    /// <remarks>
+    /// Rebuilt wholesale rather than diffed, for the reason the folder list is:
+    /// the query already returns O2 order (pinned, SortOrder, Id), so replacing
+    /// the collection keeps the view agreeing with the database by
+    /// construction.
+    /// </remarks>
+    private void RefreshNotes()
+    {
+        if (_openFolderId is not { } folderId)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<Note> notes = _listNotes.Execute(folderId);
+
+            Notes.Clear();
+            foreach (Note note in notes)
+            {
+                Notes.Add(new NoteListItem(note.Id.Value, note.Title, note.IsPinned));
+            }
+
+            _noteState = NoteState.Loaded;
+
+            // A successful read answers whatever the last failure said.
+            HideNoteNotice();
+            RestoreNoteSelection();
+            ApplyNoteState();
+        }
+        catch (StorageException ex)
+        {
+            _noteState = NoteState.Error;
+            ApplyNoteState();
+            ShowNoteNotice($"Could not read the notes: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Re-applies the selected note id to the rebuilt list.
+    /// </summary>
+    private void RestoreNoteSelection()
+    {
+        if (_selectedNoteId is null)
+        {
+            NoteList.SelectedIndex = -1;
+            return;
+        }
+
+        NoteListItem? match = Notes.FirstOrDefault(n => n.Id == _selectedNoteId);
+
+        if (match is null)
+        {
+            // The note is gone. Drop the selection rather than sliding to a
+            // neighbour, which would be indistinguishable from a choice the
+            // user made.
+            _selectedNoteId = null;
+            NoteList.SelectedIndex = -1;
+            return;
+        }
+
+        NoteList.SelectedItem = match;
+    }
+
+    private void ApplyNoteState()
+    {
+        bool interactive = _noteState == NoteState.Loaded;
+
+        NoteList.IsEnabled = interactive;
+
+        NoteRetryButton.Visibility = _noteState == NoteState.Error
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        NoteRetryButton.IsEnabled = _noteState == NoteState.Error;
+
+        switch (_noteState)
+        {
+            case NoteState.Loading:
+                ShowNoteGuidance("Loading…");
+                break;
+
+            case NoteState.Error:
+                ShowNoteGuidance("The notes could not be loaded.");
+                break;
+
+            default:
+                if (Notes.Count == 0)
+                {
+                    ShowNoteGuidance("This folder has no notes yet.");
+                }
+                else
+                {
+                    HideNoteGuidance();
+                }
+
+                break;
+        }
+    }
+
+    private void OnBackClick(object sender, RoutedEventArgs e) => LeaveFolder();
+
+    /// <summary>
+    /// Recovery from a failed note read. Error disables the list, so without
+    /// this the surface would be a dead end.
+    /// </summary>
+    private void OnNoteRetryClick(object sender, RoutedEventArgs e)
+    {
+        EnterNoteLoading();
+        _ = DispatcherQueue.TryEnqueue(RefreshNotes);
+    }
+
+    private void OnNoteSelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        _selectedNoteId = (NoteList.SelectedItem as NoteListItem)?.Id;
+
+    private void ShowNoteNotice(string message)
+    {
+        NoteNoticeText.Text = message;
+        NoteNoticeText.Visibility = Visibility.Visible;
+    }
+
+    private void HideNoteNotice()
+    {
+        NoteNoticeText.Text = string.Empty;
+        NoteNoticeText.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowNoteGuidance(string message)
+    {
+        NoteGuidanceText.Text = message;
+        NoteGuidanceText.Visibility = Visibility.Visible;
+    }
+
+    private void HideNoteGuidance()
+    {
+        NoteGuidanceText.Text = string.Empty;
+        NoteGuidanceText.Visibility = Visibility.Collapsed;
+    }
+
     // ------------------------------------------------------- selection/keys
 
     private void OnFolderSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -535,6 +804,71 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             BeginRename();
+            return;
+        }
+
+        // Ctrl+Down is NOT handled here: a ListView consumes arrow keys for
+        // its own navigation before KeyDown bubbles to this handler, so the
+        // chord never arrives. It is a KeyboardAccelerator instead, which is
+        // evaluated ahead of control navigation — the mechanism Ctrl+N
+        // already uses. Verified: plain Down does not reach this handler.
+    }
+
+    /// <summary>
+    /// Ctrl+Down — enter the selected folder (parity C4).
+    /// </summary>
+    /// <remarks>
+    /// <b>PreviewKeyDown, and neither KeyDown nor a KeyboardAccelerator.</b>
+    /// A ListView claims the arrow keys for its own navigation and marks them
+    /// handled, which happens before KeyDown bubbles to a parent handler and
+    /// before accelerators are evaluated — both were tried and neither fired,
+    /// while Ctrl+N on the same accelerator collection fires normally, so the
+    /// key is what differs rather than the wiring. Preview runs on the way
+    /// down, ahead of the control.
+    /// </remarks>
+    private void OnFolderListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Down)
+        {
+            return;
+        }
+
+        CoreVirtualKeyStates control = InputKeyboardSource
+            .GetKeyStateForCurrentThread(VirtualKey.Control);
+
+        if (control.HasFlag(CoreVirtualKeyStates.Down))
+        {
+            e.Handled = true;
+            EnterSelectedFolder();
+        }
+    }
+
+    /// <summary>
+    /// Double-click enters a folder (parity C4).
+    /// </summary>
+    /// <remarks>
+    /// Double-click and not single-click: C4 documents single-click opening
+    /// as an optional setting, and no settings system exists (#9).
+    /// </remarks>
+    private void OnFolderListDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        EnterSelectedFolder();
+    }
+
+    /// <summary>
+    /// Esc leaves the note surface (parity C5, A12 mode 1).
+    /// </summary>
+    /// <remarks>
+    /// Handled on the note surface root so it works wherever focus sits
+    /// inside it — the list, Back, or Retry.
+    /// </remarks>
+    private void OnNoteRootKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            e.Handled = true;
+            LeaveFolder();
         }
     }
 

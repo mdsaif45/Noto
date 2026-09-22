@@ -26,6 +26,21 @@
     <x:Double x:Key="SpaceM">12</x:Double>
     <x:Double x:Key="SpaceL">16</x:Double>
 
+    <!--
+        The padding of a list row, named for the role rather than for one
+        component. A note row is a list row, so it takes this rather than
+        borrowing FolderRowPadding — the same reason the text inputs stopped
+        borrowing it.
+
+        It deliberately carries the same value as FolderRowPadding: the two
+        lists replace each other on screen, and a note list denser than the
+        folder list it replaced would read as a glitch. That agreement is a
+        convention held by these two values being equal, NOT a guarantee —
+        they are separate tokens, so changing one does not change the other.
+        Anyone retuning list density has to change both on purpose.
+    -->
+    <Thickness x:Key="ListRowPadding">12,8,12,8</Thickness>
+
     <Thickness x:Key="FolderRowPadding">12,8,12,8</Thickness>
     <Thickness x:Key="PanePadding">8</Thickness>
 
