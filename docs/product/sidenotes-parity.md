@@ -167,7 +167,7 @@ never as the only path to anything (principle 7).
 | `[ ]` | B16 | First line is the title | Title = line 1; survives folding; excluded by quick-copy; in note URL | Same rule, everywhere the title is used | MUST | — | No separate title field |
 | `[ ]` | B17 | Note bottom bar | Per-note action bar (format / share / move) | Per-note action affordance; Noto's own layout | SHOULD | — | Functional, not visual |
 | `[ ]` | B18 | List bottom bar | List-level **…** menu + note count | List-level menu + note count | SHOULD | — | |
-| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **M2-3 saves on leave, not continuously** — see the note below |
+| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **NOT satisfied by M2-3** — save-on-leave is an interim model; deferred to M3, see the note below |
 | `[ ]` | B20 | Switch between notes | `⌘⌥↓` / `⌘⌥↑` | Same action, Windows chord | MUST | — | |
 | `[ ]` | B21 | Print a note | `⌘P` | `Ctrl+P` | SHOULD | — | Top historic complaint; fixed in 1.6.3 |
 | `[ ]` | B22 | Duplicate note | Not documented (folder duplication is) | Duplicate note | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
@@ -202,24 +202,33 @@ support. Leaving it unbound is the reading that invents nothing; B1 stays open
 until the remaining creation surfaces (B2 global, B3 clipboard, B4 drag-drop,
 B5 placement) land.
 
-**B19 and the M2-3 editor.** The note editor shipped in M2-3 edits an
-in-memory buffer and persists **on leave**: `Esc` or Back runs
-`UpdateNoteContent` when the buffer is dirty, stays in the editor if that
-fails, and never discards the edit. That is deliberately *not* the continuous
-persistence this row requires, so **B19 remains open**.
+**B19 is deliberately NOT satisfied by M2-3. It is a deferred parity
+requirement, accepted as a recorded exception.**
 
-The difference is when the write happens, not whether the capability exists —
-the engine has had `UpdateNoteContent` since M1 (contract row 2, which already
-cites B19). Closing B19 means changing the editor's save trigger, not the
-command underneath it, and it is M3 work: M3's exit is this specification being
-complete.
+M2-3's editor edits an in-memory buffer and persists **on leave**: `Esc` or
+Back runs `UpdateNoteContent` when the buffer is dirty, stays in the editor if
+that fails, and never discards the edit. This row requires *continuous*
+persistence. Those are **materially different user-facing behaviours** — under
+save-on-leave a crash or a kill mid-edit loses the buffer, and under continuous
+persistence it does not — so **B19 remains open and M2-3 must not claim it.**
 
-Two things follow that M2-3 must not do. **No save command or Save button** is
-introduced, because B19 says there is none and adding one would have to be
-taken back. **No autosave infrastructure** — no debounce, no per-keystroke
-write, no background timer — is built speculatively, because the eventual
-continuous-persistence design is M3's to make and a half-built version of it
-would prejudge that.
+**The engine does not satisfy this row.** `UpdateNoteContent` has existed since
+M1 (contract row 2, which cites B19), and that is a capability, not the
+behaviour B19 specifies. B19 is about *when* Noto writes, and the write trigger
+is part of the product behaviour a user experiences — not an implementation
+detail behind it. Anyone reading "the command exists" as "B19 is met" is
+reading it wrong.
+
+**Resolution is M3 work.** Continuous persistence must be designed, implemented
+and validated during parity completion, whose exit is this specification being
+complete. Until then B19 stays `[ ]` and this exception stands.
+
+Two things follow that M2-3 must not do, and neither widens its scope into
+autosave. **No save command or Save button** is introduced, because B19 says
+there is none and adding one would have to be taken back. **No autosave
+infrastructure** — no debounce, no per-keystroke write, no background timer —
+is built speculatively, because the continuous-persistence design is M3's to
+make and a half-built version would prejudge it.
 
 **B22 is a SHOULD on Noto's merits, not SideNotes'.** Folder duplication is
 CONFIRMED in SideNotes 1.6.3; note duplication is not documented anywhere.
