@@ -1061,12 +1061,19 @@ public sealed partial class MainWindow : Window
         EditorRoot.Visibility = Visibility.Collapsed;
         NoteRoot.Visibility = Visibility.Visible;
 
-        // The note list was left intact; only selection and focus need putting
-        // back, and by id, because editing line 1 can move the row under O2.
         if (noteId is not null)
         {
+            // Selected before the re-query, because RefreshNotes restores the
+            // selection itself and would otherwise reapply the previous id.
             _selectedNoteId = noteId;
-            RestoreNoteSelection();
+
+            // Re-queried rather than reused. The row's title is the note's
+            // first line (B16), so editing line 1 changes it and can move the
+            // row under O2 — a collection built before the save shows the old
+            // title against the new content. Reached only on the success path:
+            // a failed save returns above, leaving the list untouched.
+            RefreshNotes();
+
             FocusNoteRow(noteId);
         }
     }
