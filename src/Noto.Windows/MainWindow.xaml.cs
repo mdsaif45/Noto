@@ -976,7 +976,7 @@ public sealed partial class MainWindow : Window
             {
                 LeaveEditor(discard: true);
                 RefreshNotes();
-                ShowNoteNotice(Describe(result.Failure!));
+                ShowNoteNotice(DescribeNote(result.Failure!));
                 return;
             }
 
@@ -1067,7 +1067,7 @@ public sealed partial class MainWindow : Window
 
             // NotFound or InvalidState: the note was removed or binned while
             // it was open, so saving cannot succeed however often it is tried.
-            ShowEditorNotice(Describe(result.Failure!));
+            ShowEditorNotice(DescribeNote(result.Failure!));
             return false;
         }
         catch (StorageException ex)
@@ -1137,7 +1137,7 @@ public sealed partial class MainWindow : Window
             {
                 // Navigation is untouched: the user stays in an editor whose
                 // note still exists.
-                ShowEditorNotice(Describe(result.Failure!));
+                ShowEditorNotice(DescribeNote(result.Failure!));
                 return;
             }
 
@@ -1406,6 +1406,38 @@ public sealed partial class MainWindow : Window
         CommandFailureReason.NotFound => "That folder no longer exists.",
         CommandFailureReason.InvalidState => "That folder is in the recycle bin.",
         _ => "The folder could not be saved.",
+    };
+
+    /// <summary>
+    /// Turns a note <see cref="CommandFailure"/> into something a user can read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A sibling of <see cref="Describe"/> rather than a parameterised or
+    /// generic version of it. The two differ only in a noun, but the surfaces
+    /// they serve fail for different reasons, and a shared mapper that takes an
+    /// entity name reads as infrastructure for a problem that is four strings
+    /// wide.
+    /// </para>
+    /// <para>
+    /// <b>Not used by note <i>creation</i>.</b> <c>CreateNote</c> fails when
+    /// the FOLDER is missing or binned — "no folder", "folder cannot receive a
+    /// note" — so that path keeps <see cref="Describe"/> and its folder
+    /// wording, which is what the failure is actually about.
+    /// </para>
+    /// <para>
+    /// <c>InvalidInput</c> is unreachable for the note commands M2-3 wires:
+    /// <c>UpdateNoteContent</c> rejects only a null content, which the editor
+    /// cannot produce, and empty content is legal. It is mapped anyway so the
+    /// switch stays total rather than falling to a message about saving.
+    /// </para>
+    /// </remarks>
+    private static string DescribeNote(CommandFailure failure) => failure.Reason switch
+    {
+        CommandFailureReason.InvalidInput => "That note could not be read.",
+        CommandFailureReason.NotFound => "That note no longer exists.",
+        CommandFailureReason.InvalidState => "That note is in the recycle bin.",
+        _ => "The note could not be saved.",
     };
 
     /// <summary>
