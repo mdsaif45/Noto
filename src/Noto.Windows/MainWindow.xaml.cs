@@ -44,6 +44,10 @@ public sealed partial class MainWindow : Window
     private readonly CreateFolderHandler _createFolder;
     private readonly RenameFolderHandler _renameFolder;
     private readonly ListNotesInFolderQuery _listNotes;
+    private readonly GetNoteQuery _getNote;
+    private readonly UpdateNoteContentHandler _updateNote;
+    private readonly CreateNoteHandler _createNote;
+    private readonly DeleteNoteHandler _deleteNote;
 
     /// <summary>
     /// The selected folder, by id.
@@ -75,16 +79,49 @@ public sealed partial class MainWindow : Window
 
     private NoteState _noteState = NoteState.Loading;
 
+    /// <summary>
+    /// The note open in the editor, or <see langword="null"/> when the editor
+    /// is not the active surface.
+    /// </summary>
+    /// <remarks>
+    /// Doubles as the "is the editor open" flag, the way
+    /// <see cref="_openFolderId"/> does for the note surface. Two fields that
+    /// can disagree is a state machine with a hole in it.
+    /// </remarks>
+    private string? _openNoteId;
+
+    /// <summary>
+    /// The content the editor was opened with.
+    /// </summary>
+    /// <remarks>
+    /// Dirtiness is this compared against the live text, rather than a flag a
+    /// TextChanged handler maintains: a flag has to be cleared in every exit
+    /// path and stays true if one is missed, which would make a clean buffer
+    /// take the save path. Typing something and undoing it correctly counts as
+    /// clean here.
+    /// </remarks>
+    private string _openNoteBaseline = string.Empty;
+
+    private EditorState _editorState = EditorState.Loading;
+
     public MainWindow(
         ListFoldersQuery listFolders,
         CreateFolderHandler createFolder,
         RenameFolderHandler renameFolder,
-        ListNotesInFolderQuery listNotes)
+        ListNotesInFolderQuery listNotes,
+        GetNoteQuery getNote,
+        UpdateNoteContentHandler updateNote,
+        CreateNoteHandler createNote,
+        DeleteNoteHandler deleteNote)
     {
         _listFolders = listFolders ?? throw new ArgumentNullException(nameof(listFolders));
         _createFolder = createFolder ?? throw new ArgumentNullException(nameof(createFolder));
         _renameFolder = renameFolder ?? throw new ArgumentNullException(nameof(renameFolder));
         _listNotes = listNotes ?? throw new ArgumentNullException(nameof(listNotes));
+        _getNote = getNote ?? throw new ArgumentNullException(nameof(getNote));
+        _updateNote = updateNote ?? throw new ArgumentNullException(nameof(updateNote));
+        _createNote = createNote ?? throw new ArgumentNullException(nameof(createNote));
+        _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
 
         InitializeComponent();
 
@@ -145,6 +182,21 @@ public sealed partial class MainWindow : Window
     /// member: M2-2 reads notes and never writes them.
     /// </remarks>
     private enum NoteState
+    {
+        Loading,
+        Loaded,
+        Error,
+    }
+
+    /// <summary>
+    /// The editor's state.
+    /// </summary>
+    /// <remarks>
+    /// No Saving member: a save happens on leave and either succeeds — in
+    /// which case the surface is already gone — or fails, which is a notice
+    /// over a still-editable buffer rather than a state of its own.
+    /// </remarks>
+    private enum EditorState
     {
         Loading,
         Loaded,
@@ -749,6 +801,84 @@ public sealed partial class MainWindow : Window
         _ = DispatcherQueue.TryEnqueue(RefreshNotes);
     }
 
+    /// <summary>
+    /// The note list's keyboard contract.
+    /// </summary>
+    /// <remarks>
+    /// Enter opens the selected note — the binding M2-2 deliberately left free
+    /// because opening a note needed an editor to open it into. Ctrl+N creates
+    /// one (parity B1, "context-dependent": the same chord makes a folder in
+    /// the folder list).
+    /// </remarks>
+    private void OnNoteListKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        // Enter is NOT handled here: a ListView treats it as item activation
+        // and marks it handled before KeyDown bubbles, so it never arrives.
+        // It is OnNoteListPreviewKeyDown instead — the same fix the folder
+        // list needed for Ctrl+Down.
+        //
+        // Ctrl+N stays on this handler because runtime validation shows it
+        // arrives: the list claims Enter, not every chord, and moving a
+        // binding that demonstrably works would be a change with no evidence
+        // behind it.
+        if (e.Key == VirtualKey.N && IsControlDown())
+        {
+            e.Handled = true;
+            CreateNoteInOpenFolder();
+        }
+    }
+
+    /// <summary>
+    /// Enter opens the selected note.
+    /// </summary>
+    /// <remarks>
+    /// PreviewKeyDown, because a ListView consumes Enter as item activation
+    /// before a KeyDown handler on the control can see it. Verified at
+    /// runtime: with a row selected and focused, Enter on KeyDown did nothing
+    /// while Ctrl+N on that same handler opened the editor — so the handler
+    /// fires and the key is what differs. Preview runs on the way down, ahead
+    /// of the control.
+    /// </remarks>
+    private void OnNoteListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            OpenSelectedNote();
+        }
+    }
+
+    private void OnNoteListDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        OpenSelectedNote();
+    }
+
+    /// <summary>
+    /// Opens the selected note, falling back to the focused row.
+    /// </summary>
+    /// <remarks>
+    /// The fallback matches <see cref="BeginRename"/> and
+    /// <see cref="EnterSelectedFolder"/>: a row can hold focus without being
+    /// selected under programmatic or assistive-technology focus, and doing
+    /// nothing in that case would look broken.
+    /// </remarks>
+    private void OpenSelectedNote()
+    {
+        if (_noteState != NoteState.Loaded)
+        {
+            return;
+        }
+
+        NoteListItem? item = NoteList.SelectedItem as NoteListItem
+            ?? (FocusManager.GetFocusedElement(Content.XamlRoot) as ListViewItem)?.Content as NoteListItem;
+
+        if (item is not null)
+        {
+            OpenNote(item.Id);
+        }
+    }
+
     private void OnNoteSelectionChanged(object sender, SelectionChangedEventArgs e) =>
         _selectedNoteId = (NoteList.SelectedItem as NoteListItem)?.Id;
 
@@ -774,6 +904,397 @@ public sealed partial class MainWindow : Window
     {
         NoteGuidanceText.Text = string.Empty;
         NoteGuidanceText.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Puts keyboard focus on a note row, so focus always has a destination.
+    /// </summary>
+    /// <remarks>
+    /// The same shape as <see cref="FocusRow"/>, and deferred for the same
+    /// reason: a virtualised ListView realises a container only for a row that
+    /// is in view, and an unrealised row cannot take focus.
+    /// </remarks>
+    private void FocusNoteRow(string id)
+    {
+        NoteListItem? item = Notes.FirstOrDefault(n => n.Id == id);
+
+        if (item is null)
+        {
+            _ = NoteList.Focus(FocusState.Programmatic);
+            return;
+        }
+
+        NoteList.SelectedItem = item;
+        NoteList.ScrollIntoView(item);
+
+        _ = NoteList.DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () =>
+            {
+                if (NoteList.ContainerFromItem(item) is ListViewItem container)
+                {
+                    _ = container.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    _ = NoteList.Focus(FocusState.Programmatic);
+                }
+            });
+    }
+
+    // -------------------------------------------------------- note editor
+
+    /// <summary>Whether the editor holds unsaved changes.</summary>
+    /// <remarks>
+    /// Computed by comparing the live text against the content the note was
+    /// opened with, rather than a flag a TextChanged handler maintains: a flag
+    /// must be cleared on every exit path and stays true if one is missed,
+    /// which would send a clean buffer down the save path. Typing something
+    /// and undoing it correctly reads as clean here.
+    /// </remarks>
+    private bool EditorIsDirty =>
+        _openNoteId is not null
+        && !string.Equals(NoteEditor.Text, _openNoteBaseline, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Opens a note in the editor.
+    /// </summary>
+    private void OpenNote(string noteId)
+    {
+        _openNoteId = noteId;
+
+        NoteRoot.Visibility = Visibility.Collapsed;
+        EditorRoot.Visibility = Visibility.Visible;
+
+        _editorState = EditorState.Loading;
+        ApplyEditorState();
+
+        // Queued for the same reason the other surfaces queue their first
+        // read: the state is applied and handed back before the read begins.
+        _ = DispatcherQueue.TryEnqueue(LoadOpenNote);
+    }
+
+    /// <summary>
+    /// Reads the open note and fills the buffer.
+    /// </summary>
+    /// <remarks>
+    /// <c>GetNoteQuery</c> applies I1, so a note in the recycle bin reports
+    /// NotFound exactly as a missing one does. Both mean the same thing to the
+    /// user — it is not there — so both return to the list rather than
+    /// stranding them in an editor with nothing to edit.
+    /// </remarks>
+    private void LoadOpenNote()
+    {
+        if (_openNoteId is not { } id)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult<Note> result = _getNote.Execute(NoteId.From(id));
+
+            if (!result.IsSuccess)
+            {
+                LeaveEditor(discard: true);
+                RefreshNotes();
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            NoteEditor.Text = result.Value.Content;
+            _openNoteBaseline = result.Value.Content;
+            UpdateEditorBackLabel();
+
+            _editorState = EditorState.Loaded;
+            HideEditorNotice();
+            ApplyEditorState();
+
+            // Focus after the state is applied: Loading disables the box, and
+            // a disabled TextBox cannot take focus.
+            _ = NoteEditor.Focus(FocusState.Programmatic);
+            NoteEditor.Select(0, 0);
+        }
+        catch (StorageException ex)
+        {
+            _editorState = EditorState.Error;
+            ApplyEditorState();
+            ShowEditorNotice($"Could not read the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Leaves the editor, saving first when the buffer is dirty.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Save-on-leave. A dirty buffer is written through
+    /// <c>UpdateNoteContent</c> before the surface is swapped; a failed write
+    /// keeps the user in the editor with their text intact, because losing
+    /// what someone typed is the one outcome this must never produce.
+    /// </para>
+    /// <para>
+    /// This is deliberately NOT parity row B19, which requires continuous
+    /// persistence. B19 stays open and is M3 work — see the note on that row.
+    /// </para>
+    /// </remarks>
+    /// <param name="discard">
+    /// Skip the save. Used when the note is already gone, where writing would
+    /// only produce a second failure for the same cause.
+    /// </param>
+    private void LeaveEditor(bool discard = false)
+    {
+        string? noteId = _openNoteId;
+
+        if (!discard && EditorIsDirty && noteId is not null && !TrySaveOpenNote(noteId))
+        {
+            // Stay put. The buffer is untouched and the notice explains why.
+            return;
+        }
+
+        _openNoteId = null;
+        _openNoteBaseline = string.Empty;
+        NoteEditor.Text = string.Empty;
+        HideEditorNotice();
+        HideEditorGuidance();
+
+        EditorRoot.Visibility = Visibility.Collapsed;
+        NoteRoot.Visibility = Visibility.Visible;
+
+        if (noteId is not null)
+        {
+            // Selected before the re-query, because RefreshNotes restores the
+            // selection itself and would otherwise reapply the previous id.
+            _selectedNoteId = noteId;
+
+            // Re-queried rather than reused. The row's title is the note's
+            // first line (B16), so editing line 1 changes it and can move the
+            // row under O2 — a collection built before the save shows the old
+            // title against the new content. Reached only on the success path:
+            // a failed save returns above, leaving the list untouched.
+            RefreshNotes();
+
+            FocusNoteRow(noteId);
+        }
+    }
+
+    /// <summary>
+    /// Persists the buffer. Returns whether the editor may now be left.
+    /// </summary>
+    private bool TrySaveOpenNote(string noteId)
+    {
+        try
+        {
+            CommandResult result =
+                _updateNote.Handle(new UpdateNoteContent(NoteId.From(noteId), NoteEditor.Text));
+
+            if (result.IsSuccess)
+            {
+                _openNoteBaseline = NoteEditor.Text;
+                return true;
+            }
+
+            // NotFound or InvalidState: the note was removed or binned while
+            // it was open, so saving cannot succeed however often it is tried.
+            ShowEditorNotice(DescribeNote(result.Failure!));
+            return false;
+        }
+        catch (StorageException ex)
+        {
+            ShowEditorNotice($"Could not save the note: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Creates a note in the open folder and opens it (parity B1).
+    /// </summary>
+    /// <remarks>
+    /// Created empty, and placed wherever O3 puts it. B5's placement options
+    /// are a setting that does not exist yet (#9), so nothing here chooses.
+    /// </remarks>
+    private void CreateNoteInOpenFolder()
+    {
+        if (_noteState != NoteState.Loaded || _openFolderId is not { } folderId)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult<NoteId> result =
+                _createNote.Handle(new CreateNote(folderId, string.Empty));
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(Describe(result.Failure!));
+                return;
+            }
+
+            string created = result.Value.Value;
+
+            _selectedNoteId = created;
+            RefreshNotes();
+            OpenNote(created);
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not create the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Soft-deletes the open note (parity B7) and returns to the list.
+    /// </summary>
+    /// <remarks>
+    /// No confirmation dialog. B7 marks Noto BETTER than SideNotes precisely
+    /// because the delete is recoverable — a soft delete into the recycle bin
+    /// — so a blocking prompt would cost the user time and buy nothing.
+    /// </remarks>
+    private void DeleteOpenNote()
+    {
+        if (_editorState != EditorState.Loaded || _openNoteId is not { } id)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = _deleteNote.Handle(new DeleteNote(NoteId.From(id)));
+
+            if (!result.IsSuccess)
+            {
+                // Navigation is untouched: the user stays in an editor whose
+                // note still exists.
+                ShowEditorNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            // The note is gone, so there is nothing to save and no row to
+            // restore. discard skips the save that would otherwise be
+            // attempted against a deleted note.
+            _selectedNoteId = null;
+            LeaveEditor(discard: true);
+            RefreshNotes();
+        }
+        catch (StorageException ex)
+        {
+            ShowEditorNotice($"Could not delete the note: {ex.Message}");
+        }
+    }
+
+    private void ApplyEditorState()
+    {
+        bool interactive = _editorState == EditorState.Loaded;
+
+        NoteEditor.IsEnabled = interactive;
+
+        EditorRetryButton.Visibility = _editorState == EditorState.Error
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        EditorRetryButton.IsEnabled = _editorState == EditorState.Error;
+
+        switch (_editorState)
+        {
+            case EditorState.Loading:
+                ShowEditorGuidance("Loading…");
+                break;
+
+            case EditorState.Error:
+                ShowEditorGuidance("The note could not be loaded.");
+                break;
+
+            default:
+                HideEditorGuidance();
+                break;
+        }
+    }
+
+    private void OnEditorBackClick(object sender, RoutedEventArgs e) => LeaveEditor();
+
+    private void OnEditorRetryClick(object sender, RoutedEventArgs e)
+    {
+        _editorState = EditorState.Loading;
+        ApplyEditorState();
+
+        _ = DispatcherQueue.TryEnqueue(LoadOpenNote);
+    }
+
+    /// <summary>
+    /// Keeps the Back label showing the note's current title.
+    /// </summary>
+    /// <remarks>
+    /// The title is the first non-empty line (parity B16), so it changes as
+    /// the user edits line 1. It is recomputed through the domain rather than
+    /// reimplemented here, so there stays one definition of what a title is.
+    /// </remarks>
+    private void OnNoteEditorTextChanged(object sender, TextChangedEventArgs e) =>
+        UpdateEditorBackLabel();
+
+    private void UpdateEditorBackLabel()
+    {
+        string title = NoteTitle.From(NoteEditor.Text);
+
+        EditorBackButton.Content = string.IsNullOrEmpty(title)
+            ? $"‹ {NoteListItem.UntitledLabel}"
+            : $"‹ {title}";
+    }
+
+    /// <summary>
+    /// The editor's keyboard contract.
+    /// </summary>
+    /// <remarks>
+    /// Escape leaves, saving when dirty; Alt+Ctrl+Backspace deletes (B7).
+    /// Ctrl+N is deliberately NOT handled here: nothing documents what it does
+    /// with a note open, and every plausible answer is multi-document
+    /// behaviour this surface does not have.
+    /// </remarks>
+    private void OnEditorRootKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            e.Handled = true;
+            LeaveEditor();
+            return;
+        }
+
+        if (e.Key == VirtualKey.Back && IsControlDown() && IsAltDown())
+        {
+            e.Handled = true;
+            DeleteOpenNote();
+        }
+    }
+
+    private static bool IsControlDown() =>
+        InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(CoreVirtualKeyStates.Down);
+
+    private static bool IsAltDown() =>
+        InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)
+            .HasFlag(CoreVirtualKeyStates.Down);
+
+    private void ShowEditorNotice(string message)
+    {
+        EditorNoticeText.Text = message;
+        EditorNoticeText.Visibility = Visibility.Visible;
+    }
+
+    private void HideEditorNotice()
+    {
+        EditorNoticeText.Text = string.Empty;
+        EditorNoticeText.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowEditorGuidance(string message)
+    {
+        EditorGuidanceText.Text = message;
+        EditorGuidanceText.Visibility = Visibility.Visible;
+    }
+
+    private void HideEditorGuidance()
+    {
+        EditorGuidanceText.Text = string.Empty;
+        EditorGuidanceText.Visibility = Visibility.Collapsed;
     }
 
     // ------------------------------------------------------- selection/keys
@@ -914,6 +1435,38 @@ public sealed partial class MainWindow : Window
         CommandFailureReason.NotFound => "That folder no longer exists.",
         CommandFailureReason.InvalidState => "That folder is in the recycle bin.",
         _ => "The folder could not be saved.",
+    };
+
+    /// <summary>
+    /// Turns a note <see cref="CommandFailure"/> into something a user can read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A sibling of <see cref="Describe"/> rather than a parameterised or
+    /// generic version of it. The two differ only in a noun, but the surfaces
+    /// they serve fail for different reasons, and a shared mapper that takes an
+    /// entity name reads as infrastructure for a problem that is four strings
+    /// wide.
+    /// </para>
+    /// <para>
+    /// <b>Not used by note <i>creation</i>.</b> <c>CreateNote</c> fails when
+    /// the FOLDER is missing or binned — "no folder", "folder cannot receive a
+    /// note" — so that path keeps <see cref="Describe"/> and its folder
+    /// wording, which is what the failure is actually about.
+    /// </para>
+    /// <para>
+    /// <c>InvalidInput</c> is unreachable for the note commands M2-3 wires:
+    /// <c>UpdateNoteContent</c> rejects only a null content, which the editor
+    /// cannot produce, and empty content is legal. It is mapped anyway so the
+    /// switch stays total rather than falling to a message about saving.
+    /// </para>
+    /// </remarks>
+    private static string DescribeNote(CommandFailure failure) => failure.Reason switch
+    {
+        CommandFailureReason.InvalidInput => "That note could not be read.",
+        CommandFailureReason.NotFound => "That note no longer exists.",
+        CommandFailureReason.InvalidState => "That note is in the recycle bin.",
+        _ => "The note could not be saved.",
     };
 
     /// <summary>

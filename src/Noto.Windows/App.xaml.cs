@@ -68,7 +68,11 @@ public partial class App : Application
             new ListFoldersQuery(folders),
             new CreateFolderHandler(folders, clock),
             new RenameFolderHandler(folders, clock),
-            new ListNotesInFolderQuery(notes));
+            new ListNotesInFolderQuery(notes),
+            new GetNoteQuery(notes),
+            new UpdateNoteContentHandler(notes, clock),
+            new CreateNoteHandler(notes, clock),
+            new DeleteNoteHandler(notes, clock));
 
         _window.Activate();
 
