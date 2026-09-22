@@ -248,6 +248,7 @@
                 SelectionMode="Single"
                 SelectionChanged="OnNoteSelectionChanged"
                 KeyDown="OnNoteListKeyDown"
+                PreviewKeyDown="OnNoteListPreviewKeyDown"
                 DoubleTapped="OnNoteListDoubleTapped"
                 AutomationProperties.Name="Notes">
                 <ListView.ItemTemplate>

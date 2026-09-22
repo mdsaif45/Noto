@@ -812,17 +812,39 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void OnNoteListKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter)
-        {
-            e.Handled = true;
-            OpenSelectedNote();
-            return;
-        }
-
+        // Enter is NOT handled here: a ListView treats it as item activation
+        // and marks it handled before KeyDown bubbles, so it never arrives.
+        // It is OnNoteListPreviewKeyDown instead — the same fix the folder
+        // list needed for Ctrl+Down.
+        //
+        // Ctrl+N stays on this handler because runtime validation shows it
+        // arrives: the list claims Enter, not every chord, and moving a
+        // binding that demonstrably works would be a change with no evidence
+        // behind it.
         if (e.Key == VirtualKey.N && IsControlDown())
         {
             e.Handled = true;
             CreateNoteInOpenFolder();
+        }
+    }
+
+    /// <summary>
+    /// Enter opens the selected note.
+    /// </summary>
+    /// <remarks>
+    /// PreviewKeyDown, because a ListView consumes Enter as item activation
+    /// before a KeyDown handler on the control can see it. Verified at
+    /// runtime: with a row selected and focused, Enter on KeyDown did nothing
+    /// while Ctrl+N on that same handler opened the editor — so the handler
+    /// fires and the key is what differs. Preview runs on the way down, ahead
+    /// of the control.
+    /// </remarks>
+    private void OnNoteListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            OpenSelectedNote();
         }
     }
 
