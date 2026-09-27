@@ -60,6 +60,18 @@ public interface IStorageLog
     /// also exactly what a user would report as "it forgot my settings".
     /// </remarks>
     void SettingsUnreadable(Exception exception);
+
+    /// <summary>
+    /// A settings subscriber threw while being told a value changed.
+    /// </summary>
+    /// <remarks>
+    /// The write is already committed by the time subscribers run, so the
+    /// exception cannot be rethrown to the writer without failing an
+    /// operation that in fact succeeded (ADR-010). It is recorded here
+    /// instead, because a subscriber failing silently is how a view stops
+    /// reacting to a setting and nobody finds out.
+    /// </remarks>
+    void SettingSubscriberFailed(string key, Exception exception);
 }
 
 /// <summary>
@@ -116,6 +128,10 @@ public sealed class NullStorageLog : IStorageLog
     }
 
     public void SettingsUnreadable(Exception exception)
+    {
+    }
+
+    public void SettingSubscriberFailed(string key, Exception exception)
     {
     }
 }

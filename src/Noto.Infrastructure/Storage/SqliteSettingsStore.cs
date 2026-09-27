@@ -238,12 +238,20 @@ public sealed class SqliteSettingsStore : ISettingsStore
             {
                 handler(this, args);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Swallowed on purpose. A subscriber's failure is not the
-                // writer's failure, and there is nothing left to roll back.
-                // #7 gives this somewhere to go; until then, dropping it is
-                // better than failing a committed write.
+                // Broad on purpose, and narrowing it would be wrong: a
+                // subscriber is arbitrary caller code, so there is no set of
+                // exception types it is known to throw. What matters is that
+                // the failure is not the writer's — the value is already
+                // committed, so rethrowing would report a successful write as
+                // a failed one (ADR-010).
+                //
+                // Recorded rather than discarded. A subscriber that quietly
+                // stops reacting to a setting is exactly the kind of fault
+                // that is invisible until someone reports the UI "not
+                // updating", and #7 gives this somewhere to go.
+                _log.SettingSubscriberFailed(key.Name, ex);
             }
         }
     }

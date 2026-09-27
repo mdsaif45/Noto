@@ -126,6 +126,8 @@ public sealed class RecordingStorageLog : IStorageLog
 
     public List<Exception> Unreadable { get; } = [];
 
+    public List<(string Key, Exception Exception)> SubscriberFailures { get; } = [];
+
     public void SafetyCopyCreated(int fromVersion, string path)
     {
     }
@@ -150,6 +152,9 @@ public sealed class RecordingStorageLog : IStorageLog
         Fallbacks.Add((key, reason, expectedType));
 
     public void SettingsUnreadable(Exception exception) => Unreadable.Add(exception);
+
+    public void SettingSubscriberFailed(string key, Exception exception) =>
+        SubscriberFailures.Add((key, exception));
 }
 
 /// <summary>Keys used only by the tests, to exercise types #9 registers none of.</summary>

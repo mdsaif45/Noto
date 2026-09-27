@@ -386,6 +386,23 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_throwing_subscriber_is_reported_rather_than_discarded()
+    {
+        // The exception cannot reach the writer without failing a committed
+        // write, so it has to be recorded instead. A subscriber that silently
+        // stops reacting is otherwise invisible.
+        var store = _context.LoadedStore();
+
+        store.SettingChanged += (_, _) => throw new InvalidOperationException("subscriber blew up");
+
+        Assert.True(store.Write(TestSettingKeys.Count, 42));
+
+        (string key, Exception ex) = Assert.Single(_context.Log.SubscriberFailures);
+        Assert.Equal("test.count", key);
+        Assert.IsType<InvalidOperationException>(ex);
+    }
+
+    [Fact]
     public void A_throwing_subscriber_does_not_stop_the_others()
     {
         var store = _context.LoadedStore();
