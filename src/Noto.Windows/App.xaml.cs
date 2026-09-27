@@ -60,6 +60,22 @@ public partial class App : Application
         var folders = new SqliteFolderRepository(database);
         var notes = new SqliteNoteRepository(database);
 
+        // Phase 1 (architecture-overview.md §startup): settings are read once,
+        // before any window, because the things that depend on them — hotkey
+        // registration, the tray — run before the first frame. Every later
+        // read is served from memory.
+        //
+        // Load never throws. A settings failure leaves this session on
+        // defaults rather than stopping startup (#9); the database itself
+        // failing is a different decision, already made above by Initialize.
+        //
+        // Held but not yet passed to MainWindow: nothing in the three merged
+        // surfaces reads a setting, and the two keys #9 registers are both
+        // for the hotkey that #16 builds. Wiring it into the window now would
+        // be adding a parameter with no caller.
+        var settings = new SqliteSettingsStore(database);
+        settings.Load();
+
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
         IClock clock = SystemClock.Instance;
