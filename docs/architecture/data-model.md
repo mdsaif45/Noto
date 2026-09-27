@@ -356,6 +356,34 @@ CREATE TABLE Settings (
 Schema version uses `PRAGMA user_version`, not a table — it is the SQLite-native
 mechanism and is available before any table is read.
 
+**There is no `Default` column, and there will not be one.** A setting's default
+lives on its `SettingKey<T>` in `Noto.Core`, and **absence of a row *is* the
+default** — a key nobody has changed simply has no row. A column would be a
+second source of truth for the same value, and the two would diverge the first
+time a default changed between versions. Resetting a setting is deleting its
+row; there is no sentinel value.
+
+Implemented by #9 (PR #65). Four states, kept distinct because they have
+different causes:
+
+```
+  missing   no row                     -> default, silent, normal
+  corrupt   text is not the key's type -> default, logged, ROW UNTOUCHED
+  invalid   parses, breaks the rule    -> default, logged, ROW UNTOUCHED
+  unknown   key no SettingKey declares -> ignored, PRESERVED, never deleted
+```
+
+**Unknown keys are never deleted.** A newer Noto's settings must survive an
+older one opening the same database — the same concern that gives
+`StorageFailure.SchemaTooNew` its existence. Values are stored in
+invariant-culture text, so a database written under one locale reads correctly
+under another.
+
+**The key is the extension point.** `Key TEXT PRIMARY KEY` accepts a composed
+name such as `workspace.width::<monitor>`, which is how #16 will store a
+per-monitor width without a schema change and without Core learning what a
+monitor is.
+
 ---
 
 ## Storage layout

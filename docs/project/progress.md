@@ -3,12 +3,12 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      M2-3 Note Editor  (MERGED); notes can be written, not just read
+Current slice:      #9 Settings Persistence  (MERGED); M2-3 Note Editor before it
 Overall status:     Engine complete. Three production UI surfaces exist and the
-                    UI now writes notes; the workspace shell (docking, hotkey,
-                    tray) does not exist.
-Last updated:       2026-09-22
-Evidence baseline:  main @ 23ee2a5 (PR #63 merged — M2-3 note editor)
+                    UI now writes notes; settings persist. The workspace shell
+                    (docking, hotkey, tray) does not exist.
+Last updated:       2026-09-28
+Evidence baseline:  main @ 53c3560 (PR #65 merged — settings persistence)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
@@ -59,7 +59,7 @@ nine M0 issues remain open, including several that later milestones depend on
 
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
-| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | — | #21 commands/events, #20 architecture tests, #7 logging, #9 settings, #10 error handling, #11 perf harness |
+| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
 | **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 2 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave | — | The workspace shell — docking (#16), global hotkey, tray |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
@@ -378,8 +378,8 @@ requirement with its own budget (ADR-004).
 - #14 — markdown parsing and rendering to native controls; formatting shortcuts
 - #15 export and backup
 - Remaining M0 issues: #21 commands/events, #20 architecture tests, #7 logging,
-  #9 settings, #10 error handling, #11 perf harness (#22 design tokens is
-  merged as PR #56)
+  #10 error handling, #11 perf harness (#22 design tokens is merged as PR #56;
+  #9 settings as PR #65)
 - M2 — the workspace shell: docking (#16), global hotkey, tray
 - Human Light / High Contrast visual review of the three merged surfaces
 
@@ -461,14 +461,14 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ## 14. Quality Gates
 
-Verified on `main` @ `23ee2a5`:
+Verified on `main` @ `53c3560`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                650 / 650 passing
+Tests                692 / 692 passing
                        Noto.Core.Tests            119
                        Noto.UseCases.Tests          1
-                       Noto.Infrastructure.Tests  530   (474 pre-Slice-6 + 56 query)
+                       Noto.Infrastructure.Tests  572   (530 + 42 settings)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
@@ -479,7 +479,13 @@ Branch protection    required checks, linear history, conversation resolution
 **The test count is unchanged by M2-1, M2-2 and M2-3.** All three surfaces live
 in `Noto.Windows`, a `WinExe` with `UseWinUI` and no test project, so UI
 behaviour is validated by running the application rather than by automated
-tests. That is a known gap, not a passing result.
+tests. That is a known gap, not a passing result. The 42 added by #9 are
+engine tests, in `Noto.Infrastructure.Tests`.
+
+**`Noto.Windows.Tests` does not exist**, although the table above specifies it.
+That is why PR #58's green CI cannot be read as runtime validation of a Windows
+App SDK major-version bump: CI builds and runs unit tests, and never launches
+the application.
 
 ### Outstanding validation — M2-3
 
