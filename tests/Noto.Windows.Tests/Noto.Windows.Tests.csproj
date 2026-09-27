@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Windows platform test project.
+
+    quality-gates.md names this project in the testing architecture — "window
+    positioning, DPI arithmetic, hotkey registration ... narrow, slow, few" —
+    and until now it did not exist. That absence is why PR #58's green CI
+    could not be read as runtime validation of a Windows App SDK
+    major-version bump: CI builds and runs unit tests, and never exercises
+    anything that needs Windows.
+
+    THE BOUNDARY IS THE POINT.
+
+    This project references Noto.Platform.Windows and nothing above it. It
+    must NEVER reference Noto.Windows, Noto.UI or Microsoft.UI.Xaml: those
+    are the XAML layer, and a test project that reaches into them would
+    breach the same boundary ADR-009 draws and #20 exists to enforce. A
+    guard test asserts this rather than leaving it to review.
+
+    Consequently this project cannot inspect Noto.Windows types, so #20's
+    remaining assertion — that no view receives a repository — is NOT
+    resolved here. Left open deliberately; see ArchitectureBoundaryTests.
+
+    net9.0-windows, not net9.0: it tests a net9.0-windows library. Not a
+    WinUI project, and deliberately so — the arithmetic under test is Win32
+    and value-type work that needs no XAML stack.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Noto.Platform.Windows only. Noto.Core arrives transitively because the
+      platform project references it, and is not named here: nothing in these
+      tests needs a domain type, and declaring a reference that no code uses
+      would be a claim this project does not make.
+    -->
+    <ProjectReference Include="..\..\src\Noto.Platform.Windows\Noto.Platform.Windows.csproj" />
+  </ItemGroup>
+
+</Project>
