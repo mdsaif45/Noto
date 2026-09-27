@@ -238,18 +238,20 @@ public sealed class SqliteSettingsStore : ISettingsStore
             {
                 handler(this, args);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
             {
-                // Broad on purpose, and narrowing it would be wrong: a
-                // subscriber is arbitrary caller code, so there is no set of
-                // exception types it is known to throw. What matters is that
-                // the failure is not the writer's — the value is already
-                // committed, so rethrowing would report a successful write as
-                // a failed one (ADR-010).
+                // Wide, because a subscriber is arbitrary caller code and
+                // there is no set of exception types it is known to throw —
+                // but not unconditional. A process running out of memory or
+                // stack is not a subscriber bug, and continuing to notify the
+                // remaining subscribers after one would be pretending the
+                // process is still healthy.
                 //
-                // Recorded rather than discarded. A subscriber that quietly
-                // stops reacting to a setting is exactly the kind of fault
-                // that is invisible until someone reports the UI "not
+                // It cannot be rethrown: the value is already committed by the
+                // time subscribers run, so failing the write would report a
+                // successful operation as a failed one (ADR-010). Recorded
+                // instead — a subscriber that quietly stops reacting to a
+                // setting is invisible until someone reports the UI "not
                 // updating", and #7 gives this somewhere to go.
                 _log.SettingSubscriberFailed(key.Name, ex);
             }
