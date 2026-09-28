@@ -103,6 +103,41 @@ The trade-off is accepted knowingly: maximised windows will slide underneath
 the sidebar rather than being pushed aside by the shell. That is a cosmetic
 difference. A permanently corrupted desktop work area is not.
 
+#### Workspace width — provisional limits
+
+> **Added 2026-09-29 after the #16 design gate.** The width limits had been
+> agreed but were recorded in no document. Adding them does not change the
+> docking decision above.
+
+**These values are judgement, not measurement.** SideNotes documents no size
+presets (inventory A14: free drag, no preset values), so the numbers below were
+chosen by the #16 design gate and are to be revisited after dogfooding. They
+are not parity requirements and must not be cited as SideNotes behaviour.
+
+```
+  default            360 DIP     first run, before the user has resized
+  minimum            240 DIP
+  nominal maximum    min(work-area width × 0.5, 900 DIP)
+  effective maximum  max(240, min(work-area width × 0.5, 900 DIP))
+
+  width = clamp(requested, 240, effective maximum)
+```
+
+Widths are authored in **DIPs** and converted to pixels against the DPI of the
+display the workspace is on, so a remembered width is the same apparent size on
+every display. They are constrained against the **current work area** of that
+display, never its full bounds.
+
+**Why the effective maximum exists.** Half the work area falls below the
+240 DIP minimum whenever the work area is narrower than 480 DIP — a 1080 px
+portrait display at 250% is 432 DIP — and the nominal limits then describe an
+empty interval (minimum 240, maximum 216). Taking the larger of the minimum and
+the nominal maximum keeps the interval valid, so on narrow work areas the
+minimum wins and the workspace is 240 DIP.
+
+This rule does not address a work area narrower than the 240 DIP minimum
+itself, where the effective maximum would exceed the work area.
+
 ### 5. Screen-capture exclusion
 
 ```c
