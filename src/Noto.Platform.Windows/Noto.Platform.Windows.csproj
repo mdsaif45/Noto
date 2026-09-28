@@ -28,10 +28,16 @@
 
   <ItemGroup>
     <!--
-      Lets the platform test project reach WindowFrame.MeasureInset, which is
-      internal until the #16 decision on how a window handle may cross into
-      this layer (see WindowFrame). Grants nothing to any production assembly.
+      WindowHandle.FromHwnd is internal so no public signature carries a raw
+      HWND (the platform boundary guard). These grants are the only way in:
+        Noto                 Noto.Windows' assembly: turns a WinUI window's
+                             HWND into a WindowHandle (#16 slice 2 onward)
+        Noto.Windows.Tests   builds handles for real Win32 test windows
+      C# cannot scope a grant to one member, so Noto.Windows can see every
+      internal here. Calling anything but WindowHandle.FromHwnd is a
+      convention, not a compiler rule. A guard test pins this exact list.
     -->
+    <InternalsVisibleTo Include="Noto" />
     <InternalsVisibleTo Include="Noto.Windows.Tests" />
   </ItemGroup>
 

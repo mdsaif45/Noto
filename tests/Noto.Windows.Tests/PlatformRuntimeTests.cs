@@ -166,7 +166,7 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
 
         using var window = TestWindow.Create(TestWindow.Overlapped);
 
-        FrameInset inset = WindowFrame.MeasureInset(window.Handle);
+        FrameInset inset = WindowFrame.MeasureInset(window.Native);
         output.WriteLine($"overlapped window inset: {inset}");
 
         // An overlapped window has an invisible resize border on at least the
@@ -190,9 +190,9 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         using var overlapped = TestWindow.Create(TestWindow.Overlapped);
         using var popup = TestWindow.Create(TestWindow.Popup);
 
-        FrameInset first = WindowFrame.MeasureInset(overlapped.Handle);
-        FrameInset second = WindowFrame.MeasureInset(popup.Handle);
-        FrameInset again = WindowFrame.MeasureInset(overlapped.Handle);
+        FrameInset first = WindowFrame.MeasureInset(overlapped.Native);
+        FrameInset second = WindowFrame.MeasureInset(popup.Native);
+        FrameInset again = WindowFrame.MeasureInset(overlapped.Native);
 
         output.WriteLine($"overlapped {first}, popup {second}, overlapped again {again}");
 
@@ -280,9 +280,16 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
 
         private const uint WS_VISIBLE = 0x10000000;
 
-        private TestWindow(nint handle) => Handle = handle;
+        private TestWindow(nint handle)
+        {
+            Handle = handle;
+            Native = WindowHandle.FromHwnd(handle);
+        }
 
         public nint Handle { get; }
+
+        /// <summary>The window as the platform layer receives it.</summary>
+        public WindowHandle Native { get; }
 
         public static TestWindow Create(uint style)
         {

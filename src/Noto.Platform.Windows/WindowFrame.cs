@@ -8,15 +8,9 @@ namespace Noto.Platform.Windows;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Internal, deliberately, until one boundary decision is made.</b> The
-/// measurement needs the window's <c>HWND</c>. A WinUI window's handle is
-/// obtained through <c>WinRT.Interop.WindowNative</c>, which lives in
-/// <c>Microsoft.WinUI</c> — an assembly this project must never reference —
-/// so the handle has to arrive from <c>Noto.Windows</c> as a parameter. The
-/// platform boundary test forbids any public signature carrying a raw handle.
-/// How a handle may legitimately cross that boundary is a contract question
-/// for the #16 owner, not something to settle by quietly relaxing the test.
-/// The measurement itself is implemented and runtime-verified meanwhile.
+/// Takes a <see cref="WindowHandle"/>, never a raw handle, so the platform
+/// boundary stays free of <c>IntPtr</c> in either direction. How the
+/// application obtains one is documented on <see cref="WindowHandle"/>.
 /// </para>
 /// <para>
 /// <b>Never cached.</b> Every call queries Windows afresh. The inset is in
@@ -30,14 +24,18 @@ namespace Noto.Platform.Windows;
 /// PerMonitorV2, so both are physical.
 /// </para>
 /// </remarks>
-internal static unsafe class WindowFrame
+public static unsafe class WindowFrame
 {
     /// <summary>The inset of the given window, measured now.</summary>
     /// <exception cref="Win32Exception">The window rectangle could not be read.</exception>
     /// <exception cref="COMException">DWM did not report the frame bounds.</exception>
-    internal static FrameInset MeasureInset(nint hwnd)
+    public static FrameInset MeasureInset(WindowHandle window)
     {
-        if (!NativeMethods.GetWindowRect(hwnd, out NativeMethods.RECT window))
+        ArgumentNullException.ThrowIfNull(window);
+
+        nint hwnd = window.Hwnd;
+
+        if (!NativeMethods.GetWindowRect(hwnd, out NativeMethods.RECT outer))
         {
             throw new Win32Exception(Marshal.GetLastPInvokeError());
         }
@@ -50,6 +48,6 @@ internal static unsafe class WindowFrame
 
         Marshal.ThrowExceptionForHR(hr);
 
-        return FrameInset.Between(window.ToPixelRect(), frame.ToPixelRect());
+        return FrameInset.Between(outer.ToPixelRect(), frame.ToPixelRect());
     }
 }
