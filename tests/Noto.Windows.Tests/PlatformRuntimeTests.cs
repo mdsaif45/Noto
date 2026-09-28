@@ -152,6 +152,29 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         }
     }
 
+    [Fact]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    public void A_display_that_can_no_longer_be_read_is_skipped()
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // A display disconnected between enumeration and description leaves a
+        // handle that no longer resolves. Stand-ins for that — zero and a
+        // never-valid value — sit either side of the primary display's real
+        // handle. Only the real one may come back, and nothing may come back
+        // null.
+        nint primary = Independent.PrimaryMonitorHandle();
+
+        IReadOnlyList<DisplayMonitor> described = DisplayMonitors.DescribeAll([0, primary, -1]);
+
+        DisplayMonitor only = Assert.Single(described);
+        Assert.True(only.IsPrimary);
+    }
+
     // ----------------------------------------------- frame inset (DWM)
 
     [Fact]
@@ -210,6 +233,16 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         private const uint SPI_GETWORKAREA = 0x0030;
         private const uint EDD_GET_DEVICE_INTERFACE_NAME = 0x00000001;
 
+        private const uint MONITOR_DEFAULTTOPRIMARY = 0x00000001;
+
+        public static nint PrimaryMonitorHandle()
+        {
+            // The primary display always contains the origin.
+            nint handle = MonitorFromPoint(new Point { X = 0, Y = 0 }, MONITOR_DEFAULTTOPRIMARY);
+
+            return handle != 0 ? handle : throw new InvalidOperationException("MonitorFromPoint returned no monitor.");
+        }
+
         public static PixelRect PrimaryWorkArea()
         {
             Rect r;
@@ -258,6 +291,16 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SystemParametersInfo(uint action, uint param, Rect* value, uint winIni);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Point
+        {
+            public int X;
+            public int Y;
+        }
+
+        [LibraryImport("user32.dll")]
+        private static partial nint MonitorFromPoint(Point pt, uint flags);
 
         [LibraryImport("user32.dll", EntryPoint = "EnumDisplayDevicesW", StringMarshalling = StringMarshalling.Utf16)]
         [return: MarshalAs(UnmanagedType.Bool)]

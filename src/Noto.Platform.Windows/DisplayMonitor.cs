@@ -60,6 +60,10 @@ public readonly record struct MonitorId
 /// </remarks>
 public sealed record DisplayMonitor
 {
+    /// <summary>
+    /// Describes one display from values already read from Windows.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="deviceName"/> is blank.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="dpi"/> is zero, or <paramref name="workArea"/> is empty.
     /// </exception>
@@ -143,14 +147,31 @@ public static unsafe class DisplayMonitors
             pin.Free();
         }
 
+        return DescribeAll(handles);
+    }
+
+    /// <summary>
+    /// Describes each monitor handle, skipping any that can no longer be read.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Enumerate"/> only so the skip can be tested:
+    /// enumeration yields handles to real displays, so the vanished-display
+    /// path is otherwise unreachable from a test.
+    /// </remarks>
+    internal static IReadOnlyList<DisplayMonitor> DescribeAll(IReadOnlyList<nint> handles)
+    {
         var monitors = new List<DisplayMonitor>(handles.Count);
 
         foreach (nint handle in handles)
         {
-            if (TryDescribe(handle, out DisplayMonitor? monitor))
+            // A display that vanished mid-enumeration cannot be described;
+            // it is skipped, not reported.
+            if (!TryDescribe(handle, out DisplayMonitor? monitor))
             {
-                monitors.Add(monitor);
+                continue;
             }
+
+            monitors.Add(monitor);
         }
 
         return monitors;
