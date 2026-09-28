@@ -4,7 +4,7 @@ using Xunit;
 namespace Noto.Windows.Tests;
 
 /// <summary>
-/// Docked-workspace geometry and width limits (#16 slice 1).
+/// Docked-workspace geometry and width limits (#16 slices 1 and 2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -339,6 +339,150 @@ public sealed class DockGeometryTests
         Assert.Equal(240, WorkspaceWidth.MinimumDip);
         Assert.Equal(900, WorkspaceWidth.CeilingDip);
         Assert.Equal(0.5, WorkspaceWidth.MaximumWorkAreaFraction);
+    }
+
+    // ------------------------------------------ outer bounds (slice 2)
+
+    // The inset the window-behaviour spike measured, and the one a real
+    // overlapped window reports on this machine at 96 DPI.
+    private static readonly FrameInset Measured = new(7, 0, 7, 7);
+
+    // Every edge different, so an inset applied to the wrong side, or with the
+    // wrong sign, cannot produce the right rectangle by coincidence.
+    private static readonly FrameInset Lopsided = new(3, 5, 11, 13);
+
+    [Fact]
+    public void Right_docked_outer_bounds_extend_past_the_work_area_by_exactly_the_inset()
+    {
+        // Visible (1560,0)-(1920,1032): flush with the right edge and the
+        // taskbar. The outer rectangle AppWindow.MoveAndResize takes is 7px
+        // wider on each side and 7px taller, all of it invisible border.
+        PixelRect outer = DockGeometry.OuterBounds(Primary, DockEdge.Right, 360, Measured);
+
+        Assert.Equal(new PixelRect(1553, 0, 1927, 1039), outer);
+    }
+
+    [Fact]
+    public void Left_docked_outer_bounds_start_at_a_negative_x_on_a_zero_origin_display()
+    {
+        // The invisible left border sits off-screen at x = -7. A position
+        // clamped to zero would leave a visible 7px gap at the edge.
+        PixelRect outer = DockGeometry.OuterBounds(Primary, DockEdge.Left, 360, Measured);
+
+        Assert.Equal(new PixelRect(-7, 0, 367, 1039), outer);
+    }
+
+    [Theory]
+    [InlineData(DockEdge.Left)]
+    [InlineData(DockEdge.Right)]
+    public void The_inset_is_added_on_each_side_it_was_measured_on(DockEdge edge)
+    {
+        PixelRect visible = DockGeometry.VisibleBounds(Primary, edge, 360).Bounds;
+
+        PixelRect outer = DockGeometry.OuterBounds(Primary, edge, 360, Lopsided);
+
+        Assert.Equal(visible.Left - 3, outer.Left);
+        Assert.Equal(visible.Top - 5, outer.Top);
+        Assert.Equal(visible.Right + 11, outer.Right);
+        Assert.Equal(visible.Bottom + 13, outer.Bottom);
+    }
+
+    [Theory]
+    [InlineData(DockEdge.Left)]
+    [InlineData(DockEdge.Right)]
+    public void Without_an_inset_the_outer_bounds_are_the_visible_bounds(DockEdge edge)
+    {
+        // A popup-style window has no invisible border; nothing may be added.
+        Assert.Equal(
+            DockGeometry.VisibleBounds(Primary, edge, 360).Bounds,
+            DockGeometry.OuterBounds(Primary, edge, 360, FrameInset.None));
+    }
+
+    [Fact]
+    public void Right_docked_outer_bounds_on_a_negative_origin_display()
+    {
+        // Visible [-360, 0) at the display's 78px offset. The right border
+        // overhangs onto the primary, where it is invisible.
+        PixelRect outer = DockGeometry.OuterBounds(LeftOfPrimary, DockEdge.Right, 360, Measured);
+
+        Assert.Equal(new PixelRect(-367, 78, 7, 1117), outer);
+    }
+
+    [Fact]
+    public void Left_docked_outer_bounds_on_a_negative_origin_display()
+    {
+        PixelRect outer = DockGeometry.OuterBounds(LeftOfPrimary, DockEdge.Left, 360, Measured);
+
+        Assert.Equal(new PixelRect(-1927, 78, -1553, 1117), outer);
+    }
+
+    [Fact]
+    public void Outer_bounds_follow_a_top_taskbar()
+    {
+        // The work area starts at y = 48; the top inset is subtracted from
+        // that, not from the display's top.
+        DisplayMonitor topTaskbar = Display(
+            "\\\\.\\DISPLAY1", new PixelRect(0, 0, 1920, 1080), new PixelRect(0, 48, 1920, 1080), 96);
+
+        PixelRect outer = DockGeometry.OuterBounds(topTaskbar, DockEdge.Right, 360, Lopsided);
+
+        Assert.Equal(new PixelRect(1557, 43, 1931, 1093), outer);
+    }
+
+    [Fact]
+    public void Outer_width_is_the_scaled_width_plus_both_side_insets()
+    {
+        // 150%: 360 DIP is 540 px of visible frame, plus the two side borders.
+        // An inset measured at that scale is passed in; it is never scaled here.
+        DisplayMonitor scaled = Display(
+            "\\\\.\\DISPLAY2", new PixelRect(0, 0, 2880, 1620), new PixelRect(0, 0, 2880, 1560), 144);
+        var insetAt150 = new FrameInset(10, 0, 10, 10);
+
+        PixelRect outer = DockGeometry.OuterBounds(scaled, DockEdge.Right, 360, insetAt150);
+
+        Assert.Equal(new PixelRect(2330, 0, 2890, 1570), outer);
+        Assert.Equal(540 + 10 + 10, outer.Width);
+    }
+
+    [Theory]
+    [InlineData(DockEdge.Left, 100)]
+    [InlineData(DockEdge.Left, 360)]
+    [InlineData(DockEdge.Left, 5000)]
+    [InlineData(DockEdge.Right, 100)]
+    [InlineData(DockEdge.Right, 360)]
+    [InlineData(DockEdge.Right, 5000)]
+    public void The_visible_frame_inside_the_outer_bounds_touches_the_edge_and_stays_in_the_work_area(
+        DockEdge edge, double requestedDip)
+    {
+        // What the user sees is the outer rectangle less the inset. For every
+        // display, edge and width — including widths the clamp must correct —
+        // that frame spans the work area's height, touches the chosen edge
+        // exactly, and never leaves the work area.
+        foreach (DisplayMonitor display in DevelopmentPair)
+        {
+            PixelRect outer = DockGeometry.OuterBounds(display, edge, requestedDip, Lopsided);
+            PixelRect seen = new(
+                outer.Left + Lopsided.Left,
+                outer.Top + Lopsided.Top,
+                outer.Right - Lopsided.Right,
+                outer.Bottom - Lopsided.Bottom);
+            PixelRect work = display.WorkArea;
+
+            Assert.Equal(work.Top, seen.Top);
+            Assert.Equal(work.Bottom, seen.Bottom);
+            Assert.True(seen.Left >= work.Left && seen.Right <= work.Right, $"{display.DeviceName} {edge}: {seen} leaves {work}");
+            Assert.Equal(edge == DockEdge.Left ? work.Left : work.Right, edge == DockEdge.Left ? seen.Left : seen.Right);
+            Assert.Equal(
+                (int)Math.Round(WorkspaceWidth.Clamp(requestedDip, work.Width)),
+                seen.Width);
+        }
+    }
+
+    [Fact]
+    public void Outer_bounds_reject_an_undefined_edge()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => DockGeometry.OuterBounds(Primary, (DockEdge)7, 360, Measured));
     }
 
     // --------------------------------------------------- helpers

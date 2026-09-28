@@ -38,6 +38,12 @@ internal static unsafe partial class NativeMethods
 
     internal const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
 
+    /// <summary>
+    /// Asks <c>MonitorFromWindow</c> for the nearest display when the window
+    /// intersects none, so a window placed off-screen still resolves to one.
+    /// </summary>
+    internal const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct RECT
     {
@@ -89,6 +95,9 @@ internal static unsafe partial class NativeMethods
         uint iDevNum,
         ref DISPLAY_DEVICEW lpDisplayDevice,
         uint dwFlags);
+
+    [LibraryImport("user32.dll")]
+    internal static partial nint MonitorFromWindow(nint hwnd, uint dwFlags);
 
     [LibraryImport("shcore.dll")]
     internal static partial int GetDpiForMonitor(nint hmonitor, int dpiType, out uint dpiX, out uint dpiY);

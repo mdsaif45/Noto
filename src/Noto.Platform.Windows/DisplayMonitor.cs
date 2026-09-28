@@ -132,6 +132,33 @@ public static unsafe class DisplayMonitors
     /// <exception cref="InvalidOperationException">Windows refused the enumeration.</exception>
     public static IReadOnlyList<DisplayMonitor> Enumerate() => DescribeAll(MonitorHandles());
 
+    /// <summary>The display a window is on, read now.</summary>
+    /// <remarks>
+    /// <para>
+    /// The display holding the largest share of the window, as Windows decides
+    /// it; a window on no display resolves to the nearest one. This is the
+    /// "current monitor" a workspace docks against (#16).
+    /// </para>
+    /// <para>
+    /// A fresh read, like <see cref="Enumerate"/>: the work area changes when
+    /// the taskbar moves or auto-hides, so a stored result would go stale.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// Windows returned no display, or the display could not be described.
+    /// </exception>
+    public static DisplayMonitor ForWindow(WindowHandle window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        nint handle = NativeMethods.MonitorFromWindow(window.Hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
+
+        // A zero handle needs no separate check: it cannot be described.
+        return TryDescribe(handle, out DisplayMonitor? monitor)
+            ? monitor
+            : throw new InvalidOperationException("Windows did not report a display for the window.");
+    }
+
     /// <summary>The handle of every attached display, as Windows enumerates them.</summary>
     /// <exception cref="InvalidOperationException">Windows refused the enumeration.</exception>
     internal static IReadOnlyList<nint> MonitorHandles()
