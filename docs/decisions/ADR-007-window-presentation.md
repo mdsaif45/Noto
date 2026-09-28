@@ -103,6 +103,64 @@ The trade-off is accepted knowingly: maximised windows will slide underneath
 the sidebar rather than being pushed aside by the shell. That is a cosmetic
 difference. A permanently corrupted desktop work area is not.
 
+#### Workspace width — provisional limits
+
+> **Added 2026-09-29 after the #16 design gate.** The width limits had been
+> agreed but were recorded in no document. Adding them does not change the
+> docking decision above.
+
+**These values are judgement, not measurement.** SideNotes documents no size
+presets (inventory A14: free drag, no preset values), so the numbers below were
+chosen by the #16 design gate and are to be revisited after dogfooding. They
+are not parity requirements and must not be cited as SideNotes behaviour.
+
+**Nominal values** — the product's intent:
+
+```
+  default            360 DIP     first run, before the user has resized
+  minimum            240 DIP
+  ceiling            900 DIP
+  nominal maximum    min(w × 0.5, 900)        w = current work-area width, DIP
+```
+
+**Effective bounds** — what a width is actually clamped to:
+
+```
+  effective minimum  min(240, w)
+  effective maximum  min(w, max(240, min(w × 0.5, 900)))
+
+  width = clamp(requested, effective minimum, effective maximum)
+```
+
+```
+  work area    effective min    effective max
+  1920 DIP     240              900        nominal limits apply
+   800 DIP     240              400        half the work area
+   480 DIP     240              240        half meets the minimum
+   432 DIP     240              240        half (216) is below it: minimum wins
+   200 DIP     200              200        below the minimum: work area wins
+```
+
+Widths are authored in **DIPs** and converted to pixels against the DPI of the
+display the workspace is on, so a remembered width is the same apparent size on
+every display. They are constrained against the **current work area** of that
+display, never its full bounds, and the workspace **never exceeds the work
+area**.
+
+**Narrow work areas.** Taken alone, the nominal limits describe an empty
+interval whenever the work area is narrower than 480 DIP — a 1080 px portrait
+display at 250% is 432 DIP, giving a minimum of 240 and a maximum of 216. The
+effective bounds resolve this in two steps, with no further breakpoint:
+
+- between 240 and 480 DIP, the **minimum takes precedence** over half the work
+  area, and the workspace is 240 DIP;
+- below 240 DIP, the **physical work area takes precedence** over the minimum,
+  and the workspace fills the work area. A width there is below the nominal
+  minimum; it does not satisfy it.
+
+The interval is never empty: the inner term is at least 240, so the effective
+maximum is at least `min(w, 240)`, which is the effective minimum.
+
 ### 5. Screen-capture exclusion
 
 ```c
