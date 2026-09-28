@@ -130,7 +130,11 @@ public static unsafe class DisplayMonitors
 {
     /// <summary>All attached displays, in the order Windows enumerates them.</summary>
     /// <exception cref="InvalidOperationException">Windows refused the enumeration.</exception>
-    public static IReadOnlyList<DisplayMonitor> Enumerate()
+    public static IReadOnlyList<DisplayMonitor> Enumerate() => DescribeAll(MonitorHandles());
+
+    /// <summary>The handle of every attached display, as Windows enumerates them.</summary>
+    /// <exception cref="InvalidOperationException">Windows refused the enumeration.</exception>
+    internal static IReadOnlyList<nint> MonitorHandles()
     {
         var handles = new List<nint>();
         GCHandle pin = GCHandle.Alloc(handles);
@@ -147,7 +151,7 @@ public static unsafe class DisplayMonitors
             pin.Free();
         }
 
-        return DescribeAll(handles);
+        return handles;
     }
 
     /// <summary>
