@@ -25,7 +25,7 @@ Evidence baseline:  main @ 4d100f2 (PR #68 merged — Windows App SDK 2.5.1)
 ## 1. Progress Line
 
 ```
-M0  Foundation & Architecture     ██████░░░░  IN PROGRESS   9 issues open
+M0  Foundation & Architecture     ██████░░░░  IN PROGRESS   7 issues open
         ↓
 M1  Core Note Engine              ████████░░  IN PROGRESS   3 issues open
         ↓
@@ -51,8 +51,8 @@ issue counts; nothing here is a derived percentage.
 
 **M0 is deliberately shown as in progress, not complete.** Foundational work has
 shipped — the solution structure, SQLite, migrations, architecture guards — but
-nine M0 issues remain open, including several that later milestones depend on
-(design tokens, structured logging, settings persistence, error handling).
+seven M0 issues remain open, including several that later milestones depend on
+(structured logging, error handling, the performance harness).
 
 ---
 
@@ -60,9 +60,9 @@ nine M0 issues remain open, including several that later milestones depend on
 
 | Milestone | Status | Completed work | Current work | Next |
 | --------- | ------ | -------------- | ------------ | ---- |
-| **M0** Foundation & Architecture | **IN PROGRESS** (4 closed / 9 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
+| **M0** Foundation & Architecture | **IN PROGRESS** (6 closed / 7 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 2 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave | — | The workspace shell — docking (#16), global hotkey, tray. **#16 has not started**; #67 (platform test foundation) and #68 (Windows App SDK 2.5.1) cleared its prerequisites |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave | — | The workspace shell — docking (#16), global hotkey, tray. **#16 has not started**; #67 (platform test foundation) and #68 (Windows App SDK 2.5.1) cleared its prerequisites |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -361,9 +361,20 @@ WinUI 3 validated   ≠   Noto UI designed
 **M2-1, M2-2 and M2-3 were each gated before implementation, and #16 is now
 gated too.** Its contract is closed for slices 1–6 (platform primitives → edge
 docking → resize and width persistence → hotkey → show/hide → animation), all
-of which are hardware-independent. **Slice 7 (multi-monitor and DPI) is blocked
-on #30**, which needs a second differently-scaled display that the development
-machine does not have; no mixed-DPI claim may be made without it. Slice 8
+of which are hardware-independent. Slice 7 splits in two, because the
+validation environment now has two displays but only one scale factor:
+
+- **7a — multi-monitor geometry.** Implementable, and runtime-verifiable in the
+  current environment: two displays, the second at negative X with a vertical
+  offset. Covers negative coordinates, monitor identity, per-display work
+  areas and moving between displays.
+- **7b — mixed-DPI.** Can be designed with the rest of the platform behaviour,
+  but **runtime validation remains blocked on #30**: both displays run at
+  96 DPI (100%), and #30 requires displays at *different* scale factors. Runtime
+  scale changes are blocked for the same reason. No mixed-DPI claim may be made.
+
+Two displays is the state of the development environment, not a product
+assumption — #16 is still designed for arbitrary monitor topology. Slice 8
 (accessibility and UX hardening) needs human visual review.
 
 Its prerequisites are cleared: #9 settings merged (PR #65), the platform test
@@ -541,7 +552,7 @@ coverage is not read as wider than it was:
 | ---- | ------ |
 | **High Contrast** | **NOT VALIDATED.** Applying a contrast theme needs the interactive Settings UI; the registry and `.theme` routes did not activate it, confirmed by `SystemInformation.HighContrast` reading `False`. Blocked identically on both SDK versions, so it is evidence neither for nor against a 2.5.1 regression |
 | **Note-list virtualization / scrolling** | **NOT EXERCISED.** The fixture's 7 rows occupy roughly 245 px in a ~625 px list, so the list never scrolls and no row is virtualized away. The *editor* was scrolled over an 11,898-character note on both versions; that is not the same thing |
-| **Mixed-DPI and multi-monitor** | **NOT VALIDATED.** Single 1920×1080 display at 96 DPI. #30 remains hardware-blocked |
+| **Mixed-DPI and multi-monitor** | **NOT VALIDATED.** The campaign ran the application on one 1920×1080 display at 96 DPI and exercised no multi-monitor or mixed-DPI behaviour. Current status is under #16 slices 7a/7b |
 
 **A pre-existing UI gap was found, and is not an SDK regression.** With a
 folder open that contains no notes, `Ctrl+N` cannot create the first note: the
