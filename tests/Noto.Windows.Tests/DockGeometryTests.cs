@@ -184,15 +184,17 @@ public sealed class DockGeometryTests
     }
 
     [Theory]
-    [InlineData(441, 168)]   // 175%, narrow: clamps to half of 252 DIP
+    [InlineData(441, 168)]   // 175%, 252 DIP: narrower than 480, the minimum takes precedence
+    [InlineData(300, 144)]   // 150%, 200 DIP: narrower than the minimum itself
     [InlineData(1920, 96)]
     [InlineData(2880, 144)]
     [InlineData(2400, 120)]
     [InlineData(3840, 192)]
-    public void The_workspace_never_exceeds_half_its_work_area(int workWidthPx, uint dpi)
+    public void The_workspace_never_exceeds_its_work_area_in_pixels(int workWidthPx, uint dpi)
     {
-        // The property that makes a separate "not past the work area" cap
-        // unnecessary. At most one pixel over half, for rounding.
+        // The property that makes a separate pixel cap unnecessary: the clamp
+        // keeps the width at or under the work area in DIPs, and converting
+        // back to pixels at this display's scale cannot exceed it either.
         DisplayMonitor display = Display(
             "\\\\.\\DISPLAY3", new PixelRect(0, 0, workWidthPx, 1000), new PixelRect(0, 0, workWidthPx, 1000), dpi);
 
@@ -200,8 +202,30 @@ public sealed class DockGeometryTests
         {
             int width = DockGeometry.VisibleBounds(display, DockEdge.Right, requested).Bounds.Width;
 
-            Assert.InRange(width, 1, (workWidthPx / 2) + 1);
+            Assert.InRange(width, 1, workWidthPx);
         }
+    }
+
+    [Fact]
+    public void On_a_narrow_display_the_minimum_takes_precedence_over_half_the_work_area()
+    {
+        // 441 px at 175% is 252 DIP. Half would be 126 DIP; the adopted rule
+        // raises the upper bound to the 240 DIP minimum instead: 420 px.
+        DisplayMonitor narrow = Display(
+            "\\\\.\\DISPLAY3", new PixelRect(0, 0, 441, 800), new PixelRect(0, 0, 441, 800), 168);
+
+        Assert.Equal(420, DockGeometry.VisibleBounds(narrow, DockEdge.Right, 360).Bounds.Width);
+    }
+
+    [Fact]
+    public void On_a_display_narrower_than_the_minimum_the_workspace_fills_the_work_area()
+    {
+        // 300 px at 150% is 200 DIP, below the 240 minimum: the physical work
+        // area takes precedence, so the workspace is exactly the work area.
+        DisplayMonitor tiny = Display(
+            "\\\\.\\DISPLAY3", new PixelRect(0, 0, 300, 800), new PixelRect(0, 0, 300, 800), 144);
+
+        Assert.Equal(new PixelRect(0, 0, 300, 800), DockGeometry.VisibleBounds(tiny, DockEdge.Left, 360).Bounds);
     }
 
     // ------------------------------------------------- width clamping
@@ -229,13 +253,62 @@ public sealed class DockGeometryTests
         Assert.Equal(expected, WorkspaceWidth.MaximumFor(workAreaDip));
     }
 
-    [Fact]
-    public void When_the_work_area_is_too_narrow_for_both_limits_half_the_work_area_wins()
+    [Theory]
+    [InlineData(1920, 240, 900)]  // normal: nominal limits apply
+    [InlineData(800, 240, 400)]   // half the work area is the maximum
+    [InlineData(480, 240, 240)]   // half meets the minimum exactly
+    [InlineData(432, 240, 240)]   // half (216) is below the minimum: the minimum wins
+    [InlineData(200, 200, 200)]   // below the minimum itself: the work area wins
+    public void Effective_bounds_follow_the_adopted_contract(double workAreaDip, double minimum, double maximum)
     {
-        // 400 DIP: half is 200, below the 240 minimum. The workspace keeps to
-        // one side of the display rather than covering 60% of it.
-        Assert.Equal(200, WorkspaceWidth.Clamp(360, 400));
-        Assert.Equal(200, WorkspaceWidth.Clamp(100, 400));
+        // ADR-007 §4: effective minimum min(240, w); effective maximum
+        // min(w, max(240, min(w / 2, 900))).
+        Assert.Equal(minimum, WorkspaceWidth.EffectiveMinimumFor(workAreaDip));
+        Assert.Equal(maximum, WorkspaceWidth.EffectiveMaximumFor(workAreaDip));
+    }
+
+    [Theory]
+    [InlineData(100, 1920, 240)]    // below the effective minimum
+    [InlineData(5000, 1920, 900)]   // above it: the 900 DIP cap
+    [InlineData(100, 800, 240)]
+    [InlineData(5000, 800, 400)]    // above it: half the work area
+    [InlineData(100, 480, 240)]
+    [InlineData(5000, 480, 240)]
+    [InlineData(100, 432, 240)]     // narrow: fixed at the minimum from both sides
+    [InlineData(5000, 432, 240)]
+    [InlineData(0, 200, 200)]       // below the minimum: fixed at the work area from both sides
+    [InlineData(5000, 200, 200)]
+    public void A_width_outside_the_effective_bounds_is_brought_inside_them(
+        double requested, double workAreaDip, double expected)
+    {
+        Assert.Equal(expected, WorkspaceWidth.Clamp(requested, workAreaDip));
+    }
+
+    [Fact]
+    public void The_effective_bounds_are_always_a_valid_interval_inside_the_work_area()
+    {
+        // The invariants the adopted rule exists to guarantee, across both
+        // breakpoints (240 and 480), the ceiling's (1800) and far beyond.
+        double[] workAreas = [1, 50, 199.5, 200, 239.9, 240, 240.1, 300, 432, 479.9, 480, 480.1, 800, 1799, 1800, 1801, 1920, 3840, 7680];
+        double[] requests = [-100, 0, 100, 239.9, 240, 360, 899, 900, 901, 5000];
+
+        foreach (double w in workAreas)
+        {
+            double minimum = WorkspaceWidth.EffectiveMinimumFor(w);
+            double maximum = WorkspaceWidth.EffectiveMaximumFor(w);
+
+            Assert.True(minimum <= maximum, $"work area {w}: minimum {minimum} > maximum {maximum}");
+            Assert.True(maximum <= w, $"work area {w}: maximum {maximum} exceeds it");
+
+            foreach (double requested in requests)
+            {
+                double width = WorkspaceWidth.Clamp(requested, w);
+
+                Assert.InRange(width, minimum, maximum);
+                Assert.True(width >= 0, $"work area {w}, requested {requested}: width {width} < 0");
+                Assert.True(width <= w, $"work area {w}, requested {requested}: width {width} exceeds it");
+            }
+        }
     }
 
     [Theory]
@@ -254,6 +327,8 @@ public sealed class DockGeometryTests
     public void A_work_area_width_that_is_not_positive_and_finite_is_rejected(double workAreaDip)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => WorkspaceWidth.MaximumFor(workAreaDip));
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorkspaceWidth.EffectiveMinimumFor(workAreaDip));
+        Assert.Throws<ArgumentOutOfRangeException>(() => WorkspaceWidth.EffectiveMaximumFor(workAreaDip));
     }
 
     [Fact]

@@ -29,19 +29,27 @@ public enum DockEdge
 /// </remarks>
 public static class WorkspaceWidth
 {
-    /// <summary>The narrowest the workspace may be.</summary>
+    /// <summary>The nominal product minimum.</summary>
     public const double MinimumDip = 240;
 
     /// <summary>The widest the workspace may be on any display.</summary>
     public const double CeilingDip = 900;
 
     /// <summary>
-    /// The largest share of a work area the workspace may take. Beyond half,
-    /// it stops occupying "one vertical side" (parity A1).
+    /// The share of a work area the nominal maximum allows. On a work area
+    /// narrower than 480 DIP the minimum takes precedence over it; see
+    /// <see cref="EffectiveMaximumFor"/>.
     /// </summary>
     public const double MaximumWorkAreaFraction = 0.5;
 
-    /// <summary>The upper bound for a work area of the given width.</summary>
+    /// <summary>
+    /// The nominal maximum: the lower of half the work area and the ceiling.
+    /// </summary>
+    /// <remarks>
+    /// Not the bound a width is clamped to. Below a 480 DIP work area it is
+    /// smaller than <see cref="MinimumDip"/>; <see cref="EffectiveMaximumFor"/>
+    /// is the bound actually applied.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The width is not a positive finite number.</exception>
     public static double MaximumFor(double workAreaWidthDip)
     {
@@ -51,21 +59,43 @@ public static class WorkspaceWidth
     }
 
     /// <summary>
+    /// The lower bound applied on a work area: the nominal minimum, or the
+    /// whole work area when that is narrower.
+    /// </summary>
+    /// <remarks>
+    /// On a work area under 240 DIP the physical work area takes precedence.
+    /// A width there is below the nominal minimum; it does not satisfy it.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The width is not a positive finite number.</exception>
+    public static double EffectiveMinimumFor(double workAreaWidthDip)
+    {
+        RequirePositiveFinite(workAreaWidthDip, nameof(workAreaWidthDip));
+
+        return Math.Min(MinimumDip, workAreaWidthDip);
+    }
+
+    /// <summary>
+    /// The upper bound applied on a work area: the nominal maximum, raised to
+    /// the minimum where the two cross, and never wider than the work area.
+    /// </summary>
+    /// <remarks>
+    /// Never below <see cref="EffectiveMinimumFor"/>: the inner term is at
+    /// least <see cref="MinimumDip"/>, so the result is at least
+    /// <c>min(workArea, 240)</c>. The interval is therefore never empty.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The width is not a positive finite number.</exception>
+    public static double EffectiveMaximumFor(double workAreaWidthDip) =>
+        Math.Min(workAreaWidthDip, Math.Max(MinimumDip, MaximumFor(workAreaWidthDip)));
+
+    /// <summary>
     /// The width the workspace takes on a work area, given the width asked for.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Clamped into <c>[MinimumDip, MaximumFor(workArea)]</c>. A width outside
-    /// that range is not an error — it is what a width remembered on a larger
-    /// display looks like on a smaller one — so it is corrected, not rejected.
-    /// </para>
-    /// <para>
-    /// <b>When the work area is too narrow for both limits</b> — under
-    /// 480 DIP, where half the work area is less than the minimum — the upper
-    /// bound wins. The contract does not define this case; keeping the
-    /// workspace to at most half the work area preserves the "one vertical
-    /// side" rule, where honouring the minimum would let it cover most of a
-    /// small display. Flagged for review with this slice.
+    /// Clamped into <c>[EffectiveMinimumFor(w), EffectiveMaximumFor(w)]</c>
+    /// (ADR-007 §4). A width outside that range is not an error — it is what
+    /// a width remembered on a larger display looks like on a smaller one — so
+    /// it is corrected, not rejected. The result never exceeds the work area.
     /// </para>
     /// <para>
     /// Deciding whether a stored width is <i>valid</i> is the settings layer's
@@ -84,11 +114,10 @@ public static class WorkspaceWidth
             throw new ArgumentOutOfRangeException(nameof(requestedDip), requestedDip, "A width must be a finite number.");
         }
 
-        double maximum = MaximumFor(workAreaWidthDip);
-
-        return maximum < MinimumDip
-            ? maximum
-            : Math.Clamp(requestedDip, MinimumDip, maximum);
+        return Math.Clamp(
+            requestedDip,
+            EffectiveMinimumFor(workAreaWidthDip),
+            EffectiveMaximumFor(workAreaWidthDip));
     }
 
     private static void RequirePositiveFinite(double value, string name)
@@ -142,8 +171,8 @@ public static class DockGeometry
         double widthDip = WorkspaceWidth.Clamp(requestedWidthDip, work.PixelsToDip(area.Width));
 
         // No separate cap against the work area is needed: the clamp keeps
-        // the width at or under half the work area, so even rounded up it
-        // cannot reach the far edge.
+        // the width at or under the work area in DIPs, and converting a width
+        // no larger than workPx / scale back to pixels cannot exceed workPx.
         int widthPx = work.DipToPixels(widthDip);
 
         PixelRect visible = edge switch
