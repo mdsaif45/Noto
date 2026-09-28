@@ -26,4 +26,13 @@
     <ProjectReference Include="..\Noto.Core\Noto.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Lets the platform test project reach WindowFrame.MeasureInset, which is
+      internal until the #16 decision on how a window handle may cross into
+      this layer (see WindowFrame). Grants nothing to any production assembly.
+    -->
+    <InternalsVisibleTo Include="Noto.Windows.Tests" />
+  </ItemGroup>
+
 </Project>

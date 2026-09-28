@@ -42,6 +42,41 @@ public readonly record struct FrameInset(int Left, int Top, int Right, int Botto
     public static FrameInset None => new(0, 0, 0, 0);
 
     /// <summary>
+    /// The inset between a window's outer rectangle and its visible frame,
+    /// per edge.
+    /// </summary>
+    /// <param name="window">
+    /// The outer rectangle, as <c>GetWindowRect</c> reports it — including the
+    /// invisible resize border.
+    /// </param>
+    /// <param name="visibleFrame">
+    /// The visible frame, as <c>DWMWA_EXTENDED_FRAME_BOUNDS</c> reports it.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// The exact inverse of <see cref="ToOuter"/>:
+    /// <c>Between(w, f).ToOuter(f) == w</c> for any pair.
+    /// </para>
+    /// <para>
+    /// <b>Returned as measured.</b> Each edge is computed independently —
+    /// the spike measured 7/0/7/7, not a uniform value — and no edge is
+    /// clamped. A negative edge would mean the visible frame extends past
+    /// the outer rectangle; that is not something Windows is documented to
+    /// report, and hiding it here would hide the evidence.
+    /// </para>
+    /// <para>
+    /// A pure function of two rectangles. It holds no state, so there is no
+    /// cached inset to go stale: every measurement is a fresh pair of
+    /// rectangles taken for the window and the DPI in effect at that moment.
+    /// </para>
+    /// </remarks>
+    public static FrameInset Between(PixelRect window, PixelRect visibleFrame) => new(
+        visibleFrame.Left - window.Left,
+        visibleFrame.Top - window.Top,
+        window.Right - visibleFrame.Right,
+        window.Bottom - visibleFrame.Bottom);
+
+    /// <summary>
     /// Expands a desired <em>visible</em> rectangle into the <em>outer</em>
     /// rectangle that must be passed to a positioning call.
     /// </summary>
@@ -69,4 +104,14 @@ public readonly record struct WindowPlacement(
 
     /// <summary>Converts a device-independent length to physical pixels.</summary>
     public int DipToPixels(double dip) => (int)Math.Round(dip * Scale);
+
+    /// <summary>Converts a physical-pixel length to device-independent pixels.</summary>
+    /// <remarks>
+    /// Not rounded: a DIP length is a measurement, and rounding it here would
+    /// make <c>DipToPixels(PixelsToDip(px))</c> drift at fractional scales.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The placement's DPI is zero.</exception>
+    public double PixelsToDip(int pixels) => Dpi == 0
+        ? throw new InvalidOperationException("A placement with zero DPI has no scale to convert by.")
+        : pixels / Scale;
 }
