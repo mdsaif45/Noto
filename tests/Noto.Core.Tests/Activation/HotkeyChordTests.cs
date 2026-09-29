@@ -188,6 +188,8 @@ public sealed class HotkeyChordTests
     [InlineData("Wın+Space")]    // dotless i: must not be folded to "WIN"
     [InlineData("Ctrl+Ａ")]      // full-width A
     [InlineData("Ctrl+١")]       // Arabic-Indic digit one
+    [InlineData("Ctrl+ſ")]  // long s: upper-cases to an ASCII "S" and must not become Ctrl+S
+    [InlineData("ſhift+Win+A")] // ... nor turn "ſhift" into Shift
     public void Non_ascii_text_is_invalid(string text)
     {
         Assert.False(HotkeyChord.TryParse(text, out _));
