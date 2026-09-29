@@ -415,6 +415,12 @@ Current keys: `activation.hotkey.enabled`, `activation.hotkey.binding` (#9),
 `workspace.edge`, `workspace.width` and the `workspace.width::<monitor>`
 family (#16 slice 3; contract in ADR-007 §4).
 
+**A validity rule can be a grammar.** `activation.hotkey.binding` is valid
+exactly when it parses as a `HotkeyChord` (#16 slice 4; grammar in ADR-007
+§4), so a stored `Ctrl+Hyper+Q` is *invalid* in the table above: it reads as
+the default `Ctrl+Alt+Win+Space`, is reported, and its row is left untouched.
+A write of a malformed binding is rejected and writes nothing.
+
 ---
 
 ## Storage layout

@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Core;
+using Noto.Core.Activation;
+using Noto.Core.Settings;
 using Noto.Infrastructure.Storage;
 using Noto.Platform.Windows;
 using Noto.UseCases.Folders;
@@ -47,6 +49,85 @@ public partial class App : Application
 {
     private const string DataRootSwitch = "--data-root=";
 
+    /// <summary>
+    /// Registers the global activation hotkey (#16 slice 4), if it is enabled.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Settings are read once, here; a change takes effect on the next
+    /// launch. The binding is valid by construction: its setting's validity
+    /// rule is the <see cref="HotkeyChord"/> grammar, so a malformed stored
+    /// value has already fallen back to the default.
+    /// </para>
+    /// <para>
+    /// <b>A refused chord never stops startup.</b> Taken by another process,
+    /// reserved by Windows, or refused for any other reason: Noto runs without
+    /// the hotkey, no other chord is tried, the stored setting is left alone,
+    /// and nothing is retried until the next launch. There is no user-visible
+    /// report yet — that needs a surface (tray or settings) that does not
+    /// exist — so the refusal is a diagnostic only.
+    /// </para>
+    /// </remarks>
+    private GlobalHotkey? StartHotkey(SqliteSettingsStore settings)
+    {
+        if (!settings.Read(SettingKeys.HotkeyEnabled))
+        {
+            return null;
+        }
+
+        HotkeyChord chord = HotkeyChord.Parse(settings.Read(SettingKeys.HotkeyBinding));
+        GlobalHotkey? hotkey = null;
+
+        try
+        {
+            hotkey = GlobalHotkey.Create();
+            HotkeyRegistration registration = hotkey.Register(chord);
+
+            if (!registration.IsRegistered)
+            {
+                Debug.WriteLine($"The global hotkey {chord} was not registered: {registration.Status} ({registration.ErrorCode})");
+                return null;
+            }
+
+            hotkey.Pressed += (_, _) => BringWorkspaceForward();
+
+            // Ownership passes to the caller; the finally below must not dispose it.
+            GlobalHotkey registered = hotkey;
+            hotkey = null;
+            return registered;
+        }
+        catch (Win32Exception ex)
+        {
+            Debug.WriteLine($"The global hotkey could not be set up: {ex.NativeErrorCode}");
+            return null;
+        }
+        finally
+        {
+            hotkey?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// What the hotkey does in slice 4: bring the workspace window to the
+    /// foreground with keyboard focus.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Runs synchronously inside the hotkey's <c>WM_HOTKEY</c> handling,
+    /// which is what entitles Noto to take the foreground from another
+    /// application. Already in front and focused, it stays so. It never
+    /// hides: there is no hidden state until slice 5, whose toggle is
+    /// recorded in ADR-007 §4.
+    /// </para>
+    /// </remarks>
+    private void BringWorkspaceForward()
+    {
+        if (_windowHandle is not null)
+        {
+            _ = WindowActivation.BringToForeground(_windowHandle);
+        }
+    }
+
     private Window? _window;
 
     /// <summary>
@@ -55,6 +136,16 @@ public partial class App : Application
     /// removed by Windows' own <c>WM_NCDESTROY</c>.
     /// </summary>
     private DockedWindow? _docked;
+
+    /// <summary>
+    /// The global activation hotkey, or <see langword="null"/> when it is
+    /// disabled or Windows refused it. Owned for the life of the process and
+    /// disposed when the workspace window closes.
+    /// </summary>
+    private GlobalHotkey? _hotkey;
+
+    /// <summary>The workspace window's handle, for the hotkey to bring it forward.</summary>
+    private WindowHandle? _windowHandle;
 
     public App() => InitializeComponent();
 
@@ -108,6 +199,11 @@ public partial class App : Application
         var settings = new SqliteSettingsStore(database);
         settings.Load();
 
+        // Phase 1 (architecture-overview.md §startup): the hotkey is
+        // registered before any window exists, on its own message-only
+        // window, so it does not depend on the workspace window's lifetime.
+        _hotkey = StartHotkey(settings);
+
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
         IClock clock = SystemClock.Instance;
@@ -121,6 +217,9 @@ public partial class App : Application
             new UpdateNoteContentHandler(notes, clock),
             new CreateNoteHandler(notes, clock),
             new DeleteNoteHandler(notes, clock));
+
+        _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
+        _window.Closed += (_, _) => _hotkey?.Dispose();
 
         _window.Activate();
 

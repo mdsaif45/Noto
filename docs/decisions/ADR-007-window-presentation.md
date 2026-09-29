@@ -239,6 +239,69 @@ types, so CodeQL reports `cs/call-to-unmanaged-code` there; it is required,
 because a subclass must pass on every message it does not consume, and there
 is no managed equivalent for this interception.
 
+#### Global activation hotkey
+
+> **Added 2026-09-29 by #16 slice 4.** Records the contract its design gate
+> and decision pass closed. Hide and show belong to slice 5 (below).
+
+**Settings.** `activation.hotkey.enabled` (default `true`) and
+`activation.hotkey.binding` (default `Ctrl+Alt+Win+Space`, parity G1). Both
+are read once, at launch; a change takes effect on the next start. Nothing in
+the application writes them yet.
+
+**The binding grammar** — `HotkeyChord` in `Noto.Core`, and nothing wider:
+
+```
+  separator    +      whitespace around a token ignored; inside a token, an
+                      empty token, or any non-ASCII character: invalid
+  modifiers    Ctrl  Alt  Shift  Win    case-insensitive, exact names, each once, any order
+  key          exactly one, last:  A-Z   0-9 (main row)   F1-F24   Space   (case-insensitive)
+  requirement  at least one of Ctrl, Alt, Win — no modifier, or Shift alone, is invalid
+  canonical    Ctrl+Alt+Shift+Win+KEY — for comparison and diagnostics only
+```
+
+A chord Windows reserves (`Win+L`) is valid syntax and refused when it is
+registered. `Ctrl+Alt+<letter>` is valid syntax: parity §12a forbids it only
+as a default.
+
+**Validity lives in the setting.** The binding's `SettingKey` validity rule is
+the grammar, so a malformed stored value falls back to the default through
+the ordinary settings path — reported, the row left exactly as it was — and
+the default chord is registered. The platform never receives text it cannot
+register. Turning a chord into `MOD_*` flags and a virtual-key code is the
+platform's; `MOD_NOREPEAT` is always set.
+
+**Receiver: a message-only window, not the workspace window.** The chord is
+registered to a message-only `STATIC` window (`HWND_MESSAGE` parent) that
+`Noto.Platform.Windows` creates and subclasses, after settings load and
+before any other window. So the hotkey exists before the workspace window
+does, and survives it being hidden or created lazily later. Only `WM_HOTKEY`
+carrying the registered id raises `Pressed`. Unregistered and destroyed when
+the workspace window closes; Windows frees it at process exit in any case.
+The subclass shares the dock's single `DefSubclassProc` call.
+
+**What pressing it does (slice 4).** The workspace window comes to the
+foreground with keyboard focus; already in front and focused, nothing
+changes. It never hides. The foreground switch uses `SetForegroundWindow`
+called **synchronously while `WM_HOTKEY` is being handled** — the moment
+Windows entitles the hotkey's process to take the foreground. Measured on
+Windows App SDK 2.5.1: WinUI's `Window.Activate()` and `AppWindow.Show(true)`
+do not take the foreground from another application; this does.
+
+**When the chord is refused** — held by another process, reserved by Windows
+(both `ERROR_HOTKEY_ALREADY_REGISTERED`, 1409), or refused for any other
+reason — Noto starts normally without the hotkey. No other chord is tried,
+the stored setting is left alone, and nothing is retried until the next
+launch. **The refusal is a diagnostic only:** #16 and the window-behaviour
+spike require a conflict to be *reported* to the user, and no surface exists
+to report it on (no tray, no settings UI, and #7's logging is not built).
+That requirement is **deferred** to the first user-visible surface, not met.
+
+**Slice 5 acceptance criteria**, recorded so slice 4 is not mistaken for the
+finished behaviour: hidden → show and focus; visible and unfocused → focus;
+visible and focused → **hide**; a second launch (A17) shows and focuses and
+never hides.
+
 ### 5. Screen-capture exclusion
 
 ```c
