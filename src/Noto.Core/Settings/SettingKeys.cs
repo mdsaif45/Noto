@@ -1,3 +1,5 @@
+using Edge = Noto.Core.Workspace.WorkspaceEdge;
+
 namespace Noto.Core.Settings;
 
 /// <summary>
@@ -11,14 +13,17 @@ namespace Noto.Core.Settings;
 /// a string. A key nobody declared cannot be read.
 /// </para>
 /// <para>
-/// <b>Two keys, and deliberately only two.</b> #16 will need the edge side,
-/// the panel width, the hover and tray toggles and the hover delay — none is
-/// here, because none has a consumer yet and one of them (width) has no
-/// documented default to give it. The two below are registered now because
-/// hotkey registration is Phase 1 startup work
-/// (architecture-overview.md §startup), which runs before any window exists,
-/// and because both of their defaults are already decided by the parity
-/// specification rather than by this slice.
+/// <b>Only keys with a consumer.</b> #9 registered the two hotkey keys because
+/// hotkey registration is Phase 1 startup work (architecture-overview.md
+/// §startup) and both defaults were decided by the parity specification.
+/// #16 slice 3 adds the edge and the width, which the docked window reads at
+/// launch. Hover and tray toggles and the hover delay are still absent: none
+/// has a consumer yet.
+/// </para>
+/// <para>
+/// <b>Per-display settings are a family</b>, not a key per display: see
+/// <see cref="SettingKeyFamily"/> and <see cref="Families"/>. <c>::</c> is
+/// reserved as the family separator, so no key name here may contain it.
 /// </para>
 /// </remarks>
 public static class SettingKeys
@@ -72,6 +77,53 @@ public static class SettingKeys
             static value => !string.IsNullOrWhiteSpace(value));
 
     /// <summary>
+    /// The vertical screen edge the workspace docks to.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="Edge.Right"/> — parity A2 and J3, "default Right".
+    /// Stored by member name and parsed case-sensitively, so <c>left</c> or
+    /// <c>0</c> is not a legal value and reads as the default. Read once, at
+    /// launch (#16 slice 3); nothing in the application writes it yet.
+    /// </remarks>
+    public static readonly SettingKey<Edge> WorkspaceEdge =
+        new("workspace.edge", Edge.Right);
+
+    /// <summary>
+    /// The workspace width last chosen on any display, in DIPs.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fallback for a display with no width of its own
+    /// (<see cref="WorkspaceWidthByScope"/>). Default 360 — the nominal
+    /// default of ADR-007 §4.
+    /// </para>
+    /// <para>
+    /// <b>Valid is not the same as fits.</b> Any finite positive width is
+    /// legal data. Whether it fits the display in use is decided by the
+    /// platform's clamp against that display's live work area, which corrects
+    /// the width it shows without ever rewriting the stored value: a width
+    /// remembered on a large display must survive a session on a small one.
+    /// </para>
+    /// </remarks>
+    public static readonly SettingKey<double> WorkspaceWidth =
+        new("workspace.width", 360, IsPositiveFinite);
+
+    /// <summary>
+    /// The workspace width for one scope, in DIPs: <c>workspace.width::&lt;scope&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// Named for its scope, not for what the scope is: ADR-009 keeps screen
+    /// concepts out of Core, and its guard test rejects them by name. The
+    /// application passes the platform's opaque display identity as the
+    /// scope, so each display has its own width; Core only sees text. Same default and validity
+    /// rule as <see cref="WorkspaceWidth"/>. A caller resolving a width uses
+    /// <see cref="ISettingsStore.TryRead{T}"/>, so "no width for this display"
+    /// is observable without a sentinel.
+    /// </remarks>
+    public static readonly SettingKeyFamily<double> WorkspaceWidthByScope =
+        new("workspace.width", 360, IsPositiveFinite);
+
+    /// <summary>
     /// Every declared key.
     /// </summary>
     /// <remarks>
@@ -84,5 +136,22 @@ public static class SettingKeys
     [
         HotkeyEnabled,
         HotkeyBinding,
+        WorkspaceEdge,
+        WorkspaceWidth,
     ];
+
+    /// <summary>
+    /// Every declared key family.
+    /// </summary>
+    /// <remarks>
+    /// What the store materialises alongside <see cref="All"/>. A row is a
+    /// family member only if its name is a prefix declared here, the
+    /// separator and a non-blank scope.
+    /// </remarks>
+    public static IReadOnlyList<SettingKeyFamily> Families { get; } =
+    [
+        WorkspaceWidthByScope,
+    ];
+
+    private static bool IsPositiveFinite(double value) => double.IsFinite(value) && value > 0;
 }

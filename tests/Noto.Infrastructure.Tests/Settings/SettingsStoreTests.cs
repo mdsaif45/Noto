@@ -531,12 +531,14 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void The_registry_lists_exactly_the_settings_issue_9_declares()
+    public void The_registry_lists_exactly_the_declared_settings()
     {
-        // Guards the scope boundary: workspace.width, the edge side, hover and
-        // tray belong to #16 and must not appear here by accident.
+        // Guards the scope boundary: #9's two hotkey keys and #16 slice 3's
+        // edge and global width. Hover and tray toggles belong to later #16
+        // slices and must not appear here by accident. The per-display width
+        // is a family (SettingKeys.Families), not a key.
         Assert.Equal(
-            ["activation.hotkey.enabled", "activation.hotkey.binding"],
+            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width"],
             SettingKeys.All.Select(k => k.Name));
     }
 }

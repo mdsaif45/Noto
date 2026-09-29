@@ -61,10 +61,11 @@ public interface ISettingsStore
     /// entity. This neither anticipates #21 nor competes with it.
     /// </para>
     /// <para>
-    /// <b>Raised only on success</b>, and only when the value actually changed.
-    /// A rejected or failed write raises nothing, so a subscriber can treat
-    /// the event as "this is now persisted" rather than "someone attempted
-    /// something".
+    /// <b>Raised once for every successful write</b>, including a write of
+    /// the value already stored — the event means "this is now persisted",
+    /// not "this is different". A rejected or failed write raises nothing, so
+    /// a subscriber never sees an attempt that did not happen. A subscriber
+    /// that only cares about differences compares for itself.
     /// </para>
     /// <para>
     /// <b>Lifetime is the subscriber's.</b> The store lives for the process, so
@@ -89,6 +90,28 @@ public interface ISettingsStore
     /// branch on storage state to read a preference.
     /// </remarks>
     T Read<T>(SettingKey<T> key);
+
+    /// <summary>
+    /// The stored value of a setting, if there is a usable one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see langword="true"/> only when a row for the key was loaded, parsed
+    /// as the key's type and passed its validity rule; <paramref name="value"/>
+    /// is then that value. For a missing, corrupt or invalid row it is
+    /// <see langword="false"/> and <paramref name="value"/> is
+    /// <see cref="SettingKey{T}.Default"/> — the same value
+    /// <see cref="Read{T}"/> returns, so the two never disagree.
+    /// </para>
+    /// <para>
+    /// Exists for fallback chains, which need to know that nothing usable is
+    /// stored rather than receive a default indistinguishable from a stored
+    /// value. It changes nothing else: corrupt and invalid rows are reported
+    /// and left untouched exactly as for <see cref="Read{T}"/>, and it never
+    /// throws.
+    /// </para>
+    /// </remarks>
+    bool TryRead<T>(SettingKey<T> key, out T value);
 
     /// <summary>
     /// Persists a setting.

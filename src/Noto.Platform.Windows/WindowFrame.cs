@@ -50,4 +50,19 @@ public static unsafe class WindowFrame
 
         return FrameInset.Between(outer.ToPixelRect(), frame.ToPixelRect());
     }
+
+    /// <summary>The visible frame, as DWM draws it, read now.</summary>
+    /// <exception cref="COMException">DWM did not report the frame bounds.</exception>
+    internal static PixelRect VisibleFrame(nint hwnd)
+    {
+        int hr = NativeMethods.DwmGetWindowAttribute(
+            hwnd,
+            NativeMethods.DWMWA_EXTENDED_FRAME_BOUNDS,
+            out NativeMethods.RECT frame,
+            sizeof(NativeMethods.RECT));
+
+        Marshal.ThrowExceptionForHR(hr);
+
+        return frame.ToPixelRect();
+    }
 }
