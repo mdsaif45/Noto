@@ -194,7 +194,9 @@ public sealed partial class GlobalHotkeyTests(ITestOutputHelper output)
             return;
         }
 
-        var hotkey = GlobalHotkey.Create();
+        // The explicit Dispose below is what is under test; the using only
+        // guarantees the chord is released if an assertion fails first.
+        using var hotkey = GlobalHotkey.Create();
         Assert.True(hotkey.Register(TestChord).IsRegistered);
 
         hotkey.Dispose();
