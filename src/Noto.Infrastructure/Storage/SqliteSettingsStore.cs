@@ -82,7 +82,13 @@ public sealed class SqliteSettingsStore : ISettingsStore
     /// which is what the application passes; a caller supplies its own only
     /// to exercise a key that is not a production setting.
     /// </param>
-    public void Load(IReadOnlyList<SettingKey>? keys = null)
+    /// <param name="families">
+    /// Which key families to materialise, by the same rule. Defaults to
+    /// <see cref="SettingKeys.Families"/>. A row is materialised as a family
+    /// member only when its name is one of these prefixes, the separator and
+    /// a non-blank scope; every other row stays unknown.
+    /// </param>
+    public void Load(IReadOnlyList<SettingKey>? keys = null, IReadOnlyList<SettingKeyFamily>? families = null)
     {
         Dictionary<string, string> rows;
 
@@ -116,18 +122,50 @@ public sealed class SqliteSettingsStore : ISettingsStore
             }
         }
 
-        // Rows whose key is in no SettingKey are simply never looked at. They
-        // stay in the table untouched, so settings a newer Noto wrote survive
-        // an older Noto opening the same database.
+        // Family members: only rows whose name a declared family claims. A
+        // row that no family claims — including "prefix::" with a blank
+        // scope — is an unknown key and is never looked at.
+        IReadOnlyList<SettingKeyFamily> declared = families ?? SettingKeys.Families;
+
+        foreach ((string name, string stored) in rows)
+        {
+            foreach (SettingKeyFamily family in declared)
+            {
+                if (family.MemberNamed(name) is not SettingKey member)
+                {
+                    continue;
+                }
+
+                if (TryMaterialise(member, stored, out object? value))
+                {
+                    _cache[member.Name] = value;
+                }
+
+                break;
+            }
+        }
+
+        // Rows whose key is in no SettingKey and no family are simply never
+        // looked at. They stay in the table untouched, so settings a newer
+        // Noto wrote survive an older Noto opening the same database.
     }
 
-    public T Read<T>(SettingKey<T> key)
+    public T Read<T>(SettingKey<T> key) => TryRead(key, out T value) ? value : key.Default;
+
+    public bool TryRead<T>(SettingKey<T> key, out T value)
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        return _cache.TryGetValue(key.Name, out object? cached) && cached is T typed
-            ? typed
-            : key.Default;
+        // The cache holds only values that parsed and passed validation, so a
+        // hit is exactly "a usable value is stored".
+        if (_cache.TryGetValue(key.Name, out object? cached) && cached is T typed)
+        {
+            value = typed;
+            return true;
+        }
+
+        value = key.Default;
+        return false;
     }
 
     public bool Write<T>(SettingKey<T> key, T value)

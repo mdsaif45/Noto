@@ -38,6 +38,28 @@ internal static unsafe partial class NativeMethods
 
     internal const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
 
+    // Messages the docked-window subclass handles (#16 slice 3).
+    internal const uint WM_WINDOWPOSCHANGING = 0x0046;
+    internal const uint WM_NCDESTROY = 0x0082;
+    internal const uint WM_NCHITTEST = 0x0084;
+    internal const uint WM_SIZING = 0x0214;
+    internal const uint WM_ENTERSIZEMOVE = 0x0231;
+    internal const uint WM_EXITSIZEMOVE = 0x0232;
+
+    // WM_NCHITTEST results.
+    internal const int HTCLIENT = 1;
+    internal const int HTLEFT = 10;
+    internal const int HTRIGHT = 11;
+    internal const int HTTOP = 12;
+    internal const int HTTOPLEFT = 13;
+    internal const int HTTOPRIGHT = 14;
+    internal const int HTBOTTOM = 15;
+    internal const int HTBOTTOMLEFT = 16;
+    internal const int HTBOTTOMRIGHT = 17;
+
+    internal const uint SWP_NOSIZE = 0x0001;
+    internal const uint SWP_NOMOVE = 0x0002;
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct RECT
     {
@@ -78,6 +100,18 @@ internal static unsafe partial class NativeMethods
         delegate* unmanaged<nint, nint, RECT*, nint, int> lpfnEnum,
         nint dwData);
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct WINDOWPOS
+    {
+        public nint hwnd;
+        public nint hwndInsertAfter;
+        public int x;
+        public int y;
+        public int cx;
+        public int cy;
+        public uint flags;
+    }
+
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool GetMonitorInfo(nint hMonitor, ref MONITORINFOEXW lpmi);
@@ -99,4 +133,37 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
+    // Window subclassing, comctl32. Measured under this application's
+    // manifest: comctl32 5.82 is loaded and exports all three, so no
+    // Common-Controls v6 dependency is needed.
+
+    [LibraryImport("comctl32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetWindowSubclass(
+        nint hWnd,
+        delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint> pfnSubclass,
+        nuint uIdSubclass,
+        nuint dwRefData);
+
+    [LibraryImport("comctl32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool RemoveWindowSubclass(
+        nint hWnd,
+        delegate* unmanaged<nint, uint, nint, nint, nuint, nuint, nint> pfnSubclass,
+        nuint uIdSubclass);
+
+    /// <summary>
+    /// The next window procedure in the subclass chain.
+    /// </summary>
+    /// <remarks>
+    /// <b>Called from exactly one place</b>, <c>DockedWindow.CallDefault</c>.
+    /// Its signature is all plain types, so the generator emits a direct
+    /// <c>extern</c> and CodeQL reports <c>cs/call-to-unmanaged-code</c> at
+    /// that call. It is required: a subclass must pass every message it does
+    /// not consume down the chain, and there is no managed equivalent for
+    /// hit-testing, sizing or position interception (#16 slice 3 D5 spike).
+    /// </remarks>
+    [LibraryImport("comctl32.dll")]
+    internal static partial nint DefSubclassProc(nint hWnd, uint uMsg, nint wParam, nint lParam);
 }

@@ -161,6 +161,84 @@ effective bounds resolve this in two steps, with no further breakpoint:
 The interval is never empty: the inner term is at least 240, so the effective
 maximum is at least `min(w, 240)`, which is the effective minimum.
 
+#### Edge, resize and remembered width
+
+> **Added 2026-09-29 by #16 slice 3.** Records the contract its design gate
+> closed. The docking decision and the width limits above are unchanged.
+
+**Edge.** The setting `workspace.edge` holds a Core value, `WorkspaceEdge`
+(`Left` / `Right`, stored by member name). Default `Right` (parity A2, J3). A
+value that is not exactly a member name — `left`, `2`, blank — reads as
+`Right`, is logged, and its row is left as it was. The edge is read at launch;
+changing it takes effect on the next start. The platform keeps its own
+`DockEdge` and maps the setting onto it.
+
+**Remembered width.** Two settings, both in DIPs:
+
+```
+  workspace.width::<display>   the width last chosen on that display
+  workspace.width              the width last chosen on any display
+
+  open with:  workspace.width::<display>  if stored and valid
+              -> workspace.width          if stored and valid
+              -> 360
+              then clamp(width, effective minimum, effective maximum) for that display
+```
+
+`<display>` is the platform's monitor identity (`MonitorId`), passed to Core as
+opaque text. **Valid is not the same as fits:** any finite width above zero is
+valid data. A stored 100 DIP or 5000 DIP is used and clamped against the live
+work area where it is shown; the row is **never** rewritten because it did not
+fit, so a width remembered on a large display survives a session on a small
+one. A missing, corrupt or invalid value moves on to the next step of the
+chain; it does not jump to the default.
+
+**When a width is saved.** Once, when a user resize ends — never per drag
+step, and never for a move Noto makes itself. The value saved is the
+**visible** width (`DWMWA_EXTENDED_FRAME_BOUNDS`) in DIPs, never the outer
+width: the outer width includes the invisible border, and restoring it would
+widen the window by that border on every launch. It is written to the
+display's own key first, then to `workspace.width`; each is attempted even if
+the other fails. A failed write is logged and changes nothing on screen.
+
+**Resize — a native subclass, not the presenter.** The docked window is
+resizable from its inner edge only: the left edge of a right-docked window,
+the right edge of a left-docked one. The docked edge stays on the work-area
+edge and the height stays the work area's. Implemented as a window subclass
+(`SetWindowSubclass`) in `Noto.Platform.Windows`:
+
+```
+  WM_NCHITTEST          only the inner edge is a resize edge; docked edge,
+                        top and bottom answer as client area
+  WM_SIZING             each drag step refitted: docked edge fixed, full
+                        work-area height, width clamped in DIPs
+  WM_WINDOWPOSCHANGING  any move or resize Noto did not make — a snap,
+                        Win+Arrow, another process — sent back to the dock
+  WM_EXITSIZEMOVE       the drag has ended: report the visible width once
+```
+
+Noto's own `AppWindow.MoveAndResize` runs inside an own-move guard, which is
+the only thing the position check lets through. The subclass is installed
+after `Activate` and before the first dock, and removed at `WM_NCDESTROY`.
+
+**Chrome.** `SetBorderAndTitleBar(false, false)`, not minimisable, not
+maximisable. A WinUI 3 caption drag does not pass through the window's
+`WM_NCHITTEST`, so a title bar would let the user drag the window off its
+edge and could not be refused. The invisible resize border — and so the
+7/0/7/7 inset — remains without a visible border.
+
+Why not the managed alternative, measured by the slice's spike on Windows App
+SDK 2.5.1: `OverlappedPresenter.PreferredMinimumWidth` / `PreferredMaximumWidth`
+bound the **outer** size, in units that cannot be distinguished at 100% scale;
+they cannot restrict which edges resize, cannot refuse a snap or a move, and
+nothing in the managed API marks the end of a drag. Re-docking from
+`AppWindow.Changed` instead fights the drag visibly.
+
+`DefSubclassProc` is called from exactly one place. Its signature is all plain
+types, so CodeQL reports `cs/call-to-unmanaged-code` there; it is required,
+because a subclass must pass on every message it does not consume, and there
+is no managed equivalent for this interception.
+
 ### 5. Screen-capture exclusion
 
 ```c

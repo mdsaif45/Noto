@@ -1,3 +1,5 @@
+using Noto.Core.Workspace;
+
 namespace Noto.Platform.Windows;
 
 /// <summary>The vertical screen edge the workspace docks to (parity A2).</summary>
@@ -5,6 +7,27 @@ public enum DockEdge
 {
     Left,
     Right,
+}
+
+/// <summary>
+/// Maps the product's edge setting onto the platform's dock edge.
+/// </summary>
+/// <remarks>
+/// Core owns <see cref="WorkspaceEdge"/>, the value the user chooses and the
+/// settings store holds; the platform keeps its own <see cref="DockEdge"/>,
+/// which is what its geometry takes. The mapping lives here because the
+/// platform may reference Core and Core may not reference the platform.
+/// </remarks>
+public static class DockEdges
+{
+    /// <summary>The dock edge a workspace edge setting means.</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="edge"/> is not a defined edge.</exception>
+    public static DockEdge From(WorkspaceEdge edge) => edge switch
+    {
+        WorkspaceEdge.Left => DockEdge.Left,
+        WorkspaceEdge.Right => DockEdge.Right,
+        _ => throw new ArgumentOutOfRangeException(nameof(edge), edge, "Not a workspace edge."),
+    };
 }
 
 /// <summary>
@@ -207,4 +230,36 @@ public static class DockGeometry
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="edge"/> is not a defined edge.</exception>
     public static PixelRect OuterBounds(DisplayMonitor monitor, DockEdge edge, double requestedWidthDip, FrameInset inset) =>
         inset.ToOuter(VisibleBounds(monitor, edge, requestedWidthDip).Bounds);
+
+    /// <summary>
+    /// Where a docked window settles while its inner edge is being dragged.
+    /// </summary>
+    /// <param name="monitor">The display the window is docked on.</param>
+    /// <param name="edge">The edge it is docked to.</param>
+    /// <param name="proposedOuter">
+    /// The outer rectangle the drag asks for. Only its width is used: the
+    /// visible width it implies is refitted, so every other coordinate is
+    /// recomputed from the work area.
+    /// </param>
+    /// <param name="inset">The window's frame inset, measured now.</param>
+    /// <returns>
+    /// Outer bounds on the same edge, over the full work-area height, with the
+    /// visible width clamped by <see cref="WorkspaceWidth.Clamp"/>. The docked
+    /// edge never moves, whichever edge the drag came from.
+    /// </returns>
+    /// <remarks>
+    /// Composes <see cref="OuterBounds"/>; there is no second clamp and no
+    /// second inset formula. The width is converted to DIPs before clamping
+    /// and back afterwards, so the limits are the same apparent size on every
+    /// display.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="edge"/> is not a defined edge.</exception>
+    public static PixelRect ResizedOuterBounds(DisplayMonitor monitor, DockEdge edge, PixelRect proposedOuter, FrameInset inset)
+    {
+        ArgumentNullException.ThrowIfNull(monitor);
+
+        int visiblePx = proposedOuter.Width - inset.Left - inset.Right;
+
+        return OuterBounds(monitor, edge, monitor.WorkAreaPlacement.PixelsToDip(visiblePx), inset);
+    }
 }
