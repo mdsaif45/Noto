@@ -8,7 +8,7 @@ using Xunit.Abstractions;
 namespace Noto.Windows.Tests;
 
 /// <summary>
-/// The platform primitives against the real Windows desktop (#16 slice 1).
+/// The platform primitives against the real Windows desktop (#16 slices 1 and 2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -224,6 +224,117 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         Assert.Equal(first, again);
     }
 
+    // ------------------------------------------------ docking (slice 2)
+
+    [Fact]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    public void A_window_resolves_to_the_display_it_is_on()
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // One window inside each display's work area. On a single-display
+        // machine this checks only the primary; it makes no claim about more.
+        foreach (DisplayMonitor d in DisplayMonitors.Enumerate())
+        {
+            var inside = new PixelRect(d.WorkArea.Left + 40, d.WorkArea.Top + 40, d.WorkArea.Left + 360, d.WorkArea.Top + 280);
+            using var window = TestWindow.Create(TestWindow.Overlapped, inside);
+
+            DisplayMonitor resolved = DisplayMonitors.ForWindow(window.Native);
+            output.WriteLine($"window at {inside} -> {resolved.DeviceName} work {resolved.WorkArea}");
+
+            Assert.Equal(d, resolved);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    public void A_window_on_no_display_resolves_to_the_nearest_one()
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // Far off the top-left of any plausible desktop. Docking must still
+        // find a display to dock against rather than fail.
+        using var window = TestWindow.Create(TestWindow.Overlapped, new PixelRect(-30000, -30000, -29680, -29760));
+
+        DisplayMonitor resolved = DisplayMonitors.ForWindow(window.Native);
+        output.WriteLine($"off-screen window -> {resolved.DeviceName} bounds {resolved.Bounds}");
+
+        Assert.Contains(resolved, DisplayMonitors.Enumerate());
+    }
+
+    [Theory]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    [InlineData(DockEdge.Left, TestWindow.Overlapped)]
+    [InlineData(DockEdge.Right, TestWindow.Overlapped)]
+    [InlineData(DockEdge.Left, TestWindow.Popup)]
+    [InlineData(DockEdge.Right, TestWindow.Popup)]
+    public void A_window_placed_at_the_docked_outer_bounds_shows_its_frame_flush_with_the_edge(DockEdge edge, uint style)
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // The outer bounds are computed for a real window, then a window of
+        // the same style is created at exactly those coordinates, and what DWM
+        // actually draws is read back independently. No positioning API is
+        // called: the application's move is AppWindow.MoveAndResize, which
+        // this project cannot reach (see the pull request for that evidence).
+        //
+        // Two styles: an overlapped window has an invisible border, a popup
+        // has none. Each must get its own inset, never an assumed 7/0/7/7.
+        //
+        // One probe inside each display's work area, and the expected frame
+        // taken from the display enumerated for it, so docking against the
+        // wrong display fails wherever more than one is connected.
+        foreach (DisplayMonitor display in DisplayMonitors.Enumerate())
+        {
+            PixelRect work = display.WorkArea;
+            (PixelRect outer, PixelRect actualOuter, PixelRect seen) = DockOnto(display, edge, style);
+            PixelRect expected = DockGeometry.VisibleBounds(display, edge, 360).Bounds;
+
+            output.WriteLine(
+                $"{display.DeviceName} {edge} 0x{style:X8}: work {work}  bounds {display.Bounds}  outer {actualOuter}  visible {seen}  expected {expected}");
+
+            Assert.Equal(outer, actualOuter);
+            Assert.Equal(expected, seen);
+            Assert.Equal(edge == DockEdge.Left ? work.Left : work.Right, edge == DockEdge.Left ? seen.Left : seen.Right);
+            Assert.Equal(work.Top, seen.Top);
+            Assert.Equal(work.Bottom, seen.Bottom);
+            Assert.True(seen.Left >= work.Left && seen.Right <= work.Right, $"{seen} leaves {work}");
+        }
+    }
+
+    /// <summary>
+    /// Computes docked outer bounds for a probe window on <paramref name="display"/>,
+    /// creates a second window of the same style at them, and reads back what
+    /// Windows actually gave it.
+    /// </summary>
+    private static (PixelRect Requested, PixelRect Outer, PixelRect Visible) DockOnto(
+        DisplayMonitor display, DockEdge edge, uint style)
+    {
+        PixelRect work = display.WorkArea;
+        PixelRect requested;
+
+        using (var probe = TestWindow.Create(style, new PixelRect(work.Left + 40, work.Top + 40, work.Left + 360, work.Top + 280)))
+        {
+            requested = WindowDocking.OuterBoundsFor(probe.Native, edge, 360);
+        }
+
+        using var placed = TestWindow.Create(style, requested);
+
+        return (requested, Independent.WindowRect(placed.Handle), Independent.VisibleFrame(placed.Handle));
+    }
+
     /// <summary>
     /// Win32 queries the tests use as oracles, independent of the platform
     /// layer's own calls.
@@ -232,6 +343,29 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
     {
         private const uint SPI_GETWORKAREA = 0x0030;
         private const uint EDD_GET_DEVICE_INTERFACE_NAME = 0x00000001;
+        private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+
+        public static PixelRect WindowRect(nint window)
+        {
+            if (!GetWindowRect(window, out Rect r))
+            {
+                throw new InvalidOperationException("GetWindowRect failed.");
+            }
+
+            return new PixelRect(r.Left, r.Top, r.Right, r.Bottom);
+        }
+
+        public static PixelRect VisibleFrame(nint window)
+        {
+            int hr = DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS, out Rect r, sizeof(Rect));
+
+            if (hr != 0)
+            {
+                throw new InvalidOperationException($"DWMWA_EXTENDED_FRAME_BOUNDS failed: 0x{hr:X8}.");
+            }
+
+            return new PixelRect(r.Left, r.Top, r.Right, r.Bottom);
+        }
 
         public static PixelRect PrimaryWorkArea()
         {
@@ -285,6 +419,13 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         [LibraryImport("user32.dll", EntryPoint = "EnumDisplayDevicesW", StringMarshalling = StringMarshalling.Utf16)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool EnumDisplayDevices(string device, uint index, ref DisplayDevice value, uint flags);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetWindowRect(nint window, out Rect value);
+
+        [LibraryImport("dwmapi.dll")]
+        private static partial int DwmGetWindowAttribute(nint window, int attribute, out Rect value, int size);
     }
 
     /// <summary>
@@ -293,8 +434,8 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
     /// <remarks>
     /// Uses the predefined <c>STATIC</c> class so no window class is
     /// registered. Shown, because DWM reports frame bounds for a visible
-    /// window; placed small in the primary display's corner and destroyed
-    /// immediately after measuring.
+    /// window; placed small in the primary display's corner unless outer
+    /// bounds are given, and destroyed immediately after measuring.
     /// </remarks>
     private sealed partial class TestWindow : IDisposable
     {
@@ -314,9 +455,14 @@ public sealed partial class PlatformRuntimeTests(ITestOutputHelper output)
         /// <summary>The window as the platform layer receives it.</summary>
         public WindowHandle Native { get; }
 
-        public static TestWindow Create(uint style)
+        public static TestWindow Create(uint style) => Create(style, new PixelRect(40, 40, 360, 280));
+
+        /// <summary>A window created at the given outer bounds.</summary>
+        public static TestWindow Create(uint style, PixelRect outer)
         {
-            nint handle = CreateWindowEx(0, "STATIC", "Noto platform test", style | WS_VISIBLE, 40, 40, 320, 240, 0, 0, 0, 0);
+            nint handle = CreateWindowEx(
+                0, "STATIC", "Noto platform test", style | WS_VISIBLE,
+                outer.Left, outer.Top, outer.Width, outer.Height, 0, 0, 0, 0);
 
             if (handle == 0)
             {

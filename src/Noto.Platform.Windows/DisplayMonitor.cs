@@ -132,6 +132,90 @@ public static unsafe class DisplayMonitors
     /// <exception cref="InvalidOperationException">Windows refused the enumeration.</exception>
     public static IReadOnlyList<DisplayMonitor> Enumerate() => DescribeAll(MonitorHandles());
 
+    /// <summary>The display a window is on, read now.</summary>
+    /// <remarks>
+    /// <para>
+    /// The display holding the largest share of the window's outer rectangle;
+    /// a window on no display resolves to the nearest one. This is the
+    /// "current monitor" a workspace docks against (#16).
+    /// </para>
+    /// <para>
+    /// Chosen in managed code from <see cref="Enumerate"/> and the window's
+    /// rectangle, rather than by a further native lookup, so every display
+    /// the platform docks against has been described the same way.
+    /// </para>
+    /// <para>
+    /// A fresh read, like <see cref="Enumerate"/>: the work area changes when
+    /// the taskbar moves or auto-hides, so a stored result would go stale.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="System.ComponentModel.Win32Exception">The window rectangle could not be read.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Windows refused the enumeration, or reported no display.
+    /// </exception>
+    public static DisplayMonitor ForWindow(WindowHandle window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        if (!NativeMethods.GetWindowRect(window.Hwnd, out NativeMethods.RECT outer))
+        {
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastPInvokeError());
+        }
+
+        return Nearest(outer.ToPixelRect(), Enumerate())
+            ?? throw new InvalidOperationException("Windows reported no display for the window.");
+    }
+
+    /// <summary>
+    /// The display with the largest overlap with <paramref name="window"/>,
+    /// or, when none overlaps it, the one closest to it.
+    /// </summary>
+    /// <remarks>
+    /// Overlap is measured against each display's bounds, not its work area,
+    /// so a window over the taskbar still belongs to that display. On a tie
+    /// the display enumerated first wins. <see langword="null"/> only when
+    /// there are no displays.
+    /// </remarks>
+    internal static DisplayMonitor? Nearest(PixelRect window, IReadOnlyList<DisplayMonitor> displays)
+    {
+        DisplayMonitor? best = null;
+        long bestOverlap = 0;
+        long bestDistance = long.MaxValue;
+
+        foreach (DisplayMonitor d in displays)
+        {
+            long overlapWidth = Math.Min(window.Right, d.Bounds.Right) - (long)Math.Max(window.Left, d.Bounds.Left);
+            long overlapHeight = Math.Min(window.Bottom, d.Bounds.Bottom) - (long)Math.Max(window.Top, d.Bounds.Top);
+            long overlap = overlapWidth > 0 && overlapHeight > 0 ? overlapWidth * overlapHeight : 0;
+
+            if (overlap > bestOverlap)
+            {
+                best = d;
+                bestOverlap = overlap;
+                continue;
+            }
+
+            if (bestOverlap > 0)
+            {
+                continue;
+            }
+
+            // No display overlaps yet: keep the closest, by the gap between
+            // the rectangles on each axis.
+            long gapX = Math.Max(0, Math.Max(d.Bounds.Left - (long)window.Right, window.Left - (long)d.Bounds.Right));
+            long gapY = Math.Max(0, Math.Max(d.Bounds.Top - (long)window.Bottom, window.Top - (long)d.Bounds.Bottom));
+            long distance = (gapX * gapX) + (gapY * gapY);
+
+            if (distance < bestDistance)
+            {
+                best = d;
+                bestDistance = distance;
+            }
+        }
+
+        return best;
+    }
+
     /// <summary>The handle of every attached display, as Windows enumerates them.</summary>
     /// <exception cref="InvalidOperationException">Windows refused the enumeration.</exception>
     internal static IReadOnlyList<nint> MonitorHandles()

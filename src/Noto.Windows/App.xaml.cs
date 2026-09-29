@@ -1,8 +1,14 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Infrastructure.Storage;
+using Noto.Platform.Windows;
 using Noto.UseCases.Folders;
 using Noto.UseCases.Notes;
+using Windows.Graphics;
+using WinRT.Interop;
 
 namespace Noto;
 
@@ -25,12 +31,24 @@ namespace Noto;
 /// </para>
 /// <para>
 /// <b>M2-0 integration spike.</b> The purpose is to prove one read and one
-/// write reach real SQLite and come back. It is deliberately not a workspace:
+/// write reach real SQLite and come back. It was deliberately not a workspace:
 /// no docking, no hotkey, no settings (#16, #9), and no design system (#22).
+/// </para>
+/// <para>
+/// <b>#16 slice 2</b> adds the first piece of the workspace: the window docks
+/// to one vertical edge of the display it opened on, once, at launch. Not yet
+/// always-on-top, hidden, resizable by the user or remembered.
 /// </para>
 /// </remarks>
 public partial class App : Application
 {
+    /// <summary>
+    /// The workspace width until #16 slice 3 stores one per display: the
+    /// nominal default of ADR-007 §4, fitted to each display by
+    /// <see cref="WorkspaceWidth.Clamp"/>.
+    /// </summary>
+    private const double DefaultWorkspaceWidthDip = 360;
+
     private Window? _window;
 
     public App() => InitializeComponent();
@@ -92,11 +110,56 @@ public partial class App : Application
 
         _window.Activate();
 
+        // After Activate: the inset is read from DWM's frame bounds, which
+        // describe what is drawn, so they are read once the window is shown.
+        // Reading them earlier gave the same result here, but is not relied
+        // on. The window may appear at its default position for a moment.
+        //
+        // Right is the default edge (parity A2/J3). --dock-left is not a
+        // product feature: it lets a scripted run verify the left edge until
+        // slice 3 makes the edge a setting.
+        DockToEdge(
+            _window,
+            Environment.GetCommandLineArgs().Contains("--dock-left") ? DockEdge.Left : DockEdge.Right);
+
         // Lets a scripted or CI run verify startup without a human closing the
         // window. Not a product feature.
         if (Environment.GetCommandLineArgs().Contains("--smoke-test"))
         {
             _ = _window.DispatcherQueue.TryEnqueue(Exit);
+        }
+    }
+
+    /// <summary>
+    /// Moves the window flush against one vertical edge of its display's work
+    /// area.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The geometry is the platform layer's (<see cref="WindowDocking"/>);
+    /// this only obtains the handle and makes the move. The move is
+    /// <c>AppWindow.MoveAndResize</c>, which takes outer coordinates (ADR-007
+    /// §4) — so the rectangle is passed through unchanged, never adjusted
+    /// here.
+    /// </para>
+    /// <para>
+    /// A failure leaves the window where Windows opened it. An undocked
+    /// window is still a usable one, and docking is not worth failing
+    /// startup over. Only the failures the platform documents are caught.
+    /// </para>
+    /// </remarks>
+    private static void DockToEdge(Window window, DockEdge edge)
+    {
+        try
+        {
+            var handle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(window));
+            PixelRect outer = WindowDocking.OuterBoundsFor(handle, edge, DefaultWorkspaceWidthDip);
+
+            window.AppWindow.MoveAndResize(new RectInt32(outer.Left, outer.Top, outer.Width, outer.Height));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or COMException)
+        {
+            Debug.WriteLine($"Docking to the {edge} edge failed: {ex.GetType().Name}: {ex.Message}");
         }
     }
 }

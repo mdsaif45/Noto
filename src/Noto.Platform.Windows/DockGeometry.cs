@@ -134,10 +134,13 @@ public static class WorkspaceWidth
 /// </summary>
 /// <remarks>
 /// <para>
-/// Computes the <b>visible</b> rectangle only. Turning it into the outer
-/// rectangle a positioning call needs is <see cref="FrameInset.ToOuter"/>,
-/// against an inset measured for the actual window — which is the consumer's
-/// step (#16 slice 2), because only it has the window.
+/// <b>Two rectangles, never confused.</b> <see cref="VisibleBounds"/> is what
+/// the user sees: the frame DWM draws, flush with the work-area edge.
+/// <see cref="OuterBounds"/> is what a positioning call takes: the same
+/// rectangle grown by the window's invisible resize border
+/// (<see cref="FrameInset.ToOuter"/>, ADR-007 §4). The outer rectangle
+/// therefore overhangs the work area by exactly that border, which is what
+/// keeps the <i>visible</i> edge from standing off the screen edge.
 /// </para>
 /// <para>
 /// Placed against the <b>work area</b>, never the monitor bounds, so the
@@ -184,4 +187,24 @@ public static class DockGeometry
 
         return new WindowPlacement(monitor.DeviceName, visible, monitor.Dpi);
     }
+
+    /// <summary>
+    /// The outer bounds to position a window at so its visible frame lands on
+    /// <see cref="VisibleBounds"/>.
+    /// </summary>
+    /// <param name="monitor">The display to dock on.</param>
+    /// <param name="edge">Which vertical edge.</param>
+    /// <param name="requestedWidthDip">The width asked for, in DIPs; clamped as for <see cref="VisibleBounds"/>.</param>
+    /// <param name="inset">
+    /// The window's frame inset, measured for that window at the DPI it will
+    /// be placed at (<see cref="WindowFrame.MeasureInset"/>). Never a constant.
+    /// </param>
+    /// <returns>
+    /// Outer coordinates, as <c>AppWindow.MoveAndResize</c> takes them. They
+    /// extend past the work area by <paramref name="inset"/>; the visible
+    /// frame does not.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="edge"/> is not a defined edge.</exception>
+    public static PixelRect OuterBounds(DisplayMonitor monitor, DockEdge edge, double requestedWidthDip, FrameInset inset) =>
+        inset.ToOuter(VisibleBounds(monitor, edge, requestedWidthDip).Bounds);
 }
