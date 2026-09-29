@@ -60,6 +60,18 @@ internal static unsafe partial class NativeMethods
     internal const uint SWP_NOSIZE = 0x0001;
     internal const uint SWP_NOMOVE = 0x0002;
 
+    // Global hotkey (#16 slice 4).
+    internal const uint WM_HOTKEY = 0x0312;
+    internal const uint MOD_ALT = 0x0001;
+    internal const uint MOD_CONTROL = 0x0002;
+    internal const uint MOD_SHIFT = 0x0004;
+    internal const uint MOD_WIN = 0x0008;
+    internal const uint MOD_NOREPEAT = 0x4000;
+    internal const int ERROR_HOTKEY_ALREADY_REGISTERED = 1409;
+
+    /// <summary>The parent that makes a window message-only: never shown, never enumerated.</summary>
+    internal const nint HWND_MESSAGE = -3;
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct RECT
     {
@@ -131,6 +143,37 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool GetWindowRect(nint hWnd, out RECT lpRect);
 
+    [LibraryImport("user32.dll", EntryPoint = "CreateWindowExW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint CreateWindowEx(
+        uint dwExStyle,
+        string lpClassName,
+        string lpWindowName,
+        uint dwStyle,
+        int x,
+        int y,
+        int nWidth,
+        int nHeight,
+        nint hWndParent,
+        nint hMenu,
+        nint hInstance,
+        nint lpParam);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool DestroyWindow(nint hWnd);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool RegisterHotKey(nint hWnd, int id, uint fsModifiers, uint vk);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool UnregisterHotKey(nint hWnd, int id);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetForegroundWindow(nint hWnd);
+
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 
@@ -157,7 +200,8 @@ internal static unsafe partial class NativeMethods
     /// The next window procedure in the subclass chain.
     /// </summary>
     /// <remarks>
-    /// <b>Called from exactly one place</b>, <c>DockedWindow.CallDefault</c>.
+    /// <b>Called from exactly one place</b>, <c>WindowSubclass.CallDefault</c>,
+    /// which every subclass in this assembly shares.
     /// Its signature is all plain types, so the generator emits a direct
     /// <c>extern</c> and CodeQL reports <c>cs/call-to-unmanaged-code</c> at
     /// that call. It is required: a subclass must pass every message it does

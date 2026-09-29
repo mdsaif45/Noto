@@ -1,3 +1,4 @@
+using Noto.Core.Activation;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 
 namespace Noto.Core.Settings;
@@ -54,12 +55,13 @@ public static class SettingKeys
     /// configurable and to work unfocused.
     /// </para>
     /// <para>
-    /// It is stored as text and <b>not parsed here</b>. Turning a chord into
-    /// virtual-key codes needs Win32 types that ADR-009 keeps out of the
-    /// domain; that belongs to <c>Noto.Platform.Windows</c> with #16, along
-    /// with registration and conflict reporting. The validity rule below is
-    /// therefore only "not blank" — asserting more would be asserting a
-    /// grammar this slice cannot enforce.
+    /// Stored as text. <b>Valid means it parses as a <see cref="HotkeyChord"/></b>
+    /// (#16 slice 4), so a malformed row — <c>Ctrl+Hyper+Q</c>, a bare
+    /// <c>Q</c> — falls back to this default through the ordinary #9 path:
+    /// reported, cached as the default, and the row left exactly as it was.
+    /// The platform never sees text it cannot register. Turning the chord
+    /// into virtual-key codes, and registering it, stay in
+    /// <c>Noto.Platform.Windows</c>.
     /// </para>
     /// <para>
     /// <b>Known and disclosed:</b> parity §12a records that this chord "may
@@ -74,7 +76,7 @@ public static class SettingKeys
         new(
             "activation.hotkey.binding",
             "Ctrl+Alt+Win+Space",
-            static value => !string.IsNullOrWhiteSpace(value));
+            static value => HotkeyChord.TryParse(value, out _));
 
     /// <summary>
     /// The vertical screen edge the workspace docks to.

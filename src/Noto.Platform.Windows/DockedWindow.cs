@@ -240,18 +240,6 @@ public sealed unsafe class DockedWindow
     }
 
     /// <summary>
-    /// The single call into the rest of the window-procedure chain.
-    /// </summary>
-    /// <remarks>
-    /// Every message the dock does not consume, and the hit test it needs the
-    /// default answer to, passes through here — deliberately the only call
-    /// site of <see cref="NativeMethods.DefSubclassProc"/>, so the native
-    /// boundary is one line wide.
-    /// </remarks>
-    private static nint CallDefault(nint hwnd, uint msg, nint wParam, nint lParam) =>
-        NativeMethods.DefSubclassProc(hwnd, msg, wParam, lParam);
-
-    /// <summary>
     /// The window procedure.
     /// </summary>
     /// <remarks>
@@ -266,7 +254,7 @@ public sealed unsafe class DockedWindow
     {
         if (GCHandle.FromIntPtr((nint)refData).Target is not DockedWindow self)
         {
-            return CallDefault(hwnd, msg, wParam, lParam);
+            return WindowSubclass.CallDefault(hwnd, msg, wParam, lParam);
         }
 
         try
@@ -274,7 +262,7 @@ public sealed unsafe class DockedWindow
             switch (msg)
             {
                 case NativeMethods.WM_NCHITTEST:
-                    return MapHitTest(self.Edge, (int)CallDefault(hwnd, msg, wParam, lParam));
+                    return MapHitTest(self.Edge, (int)WindowSubclass.CallDefault(hwnd, msg, wParam, lParam));
 
                 case NativeMethods.WM_ENTERSIZEMOVE:
                     self.OnEnterSizeMove();
@@ -327,6 +315,6 @@ public sealed unsafe class DockedWindow
             Debug.WriteLine($"Docked window: message 0x{msg:X4} failed: {ex.GetType().Name}: {ex.Message}");
         }
 
-        return CallDefault(hwnd, msg, wParam, lParam);
+        return WindowSubclass.CallDefault(hwnd, msg, wParam, lParam);
     }
 }
