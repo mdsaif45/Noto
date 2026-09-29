@@ -380,9 +380,40 @@ invariant-culture text, so a database written under one locale reads correctly
 under another.
 
 **The key is the extension point.** `Key TEXT PRIMARY KEY` accepts a composed
-name such as `workspace.width::<monitor>`, which is how #16 will store a
+name such as `workspace.width::<monitor>`, which is how #16 stores a
 per-monitor width without a schema change and without Core learning what a
 monitor is.
+
+**Key families** (#16 slice 3). A composed name is a member of a *declared*
+family — a `SettingKeyFamily<T>` registered in `SettingKeys.Families`, whose
+members are `prefix::scope` and share the family's type, default and validity
+rule. A setting is known only if it is a declared static key or a member of a
+declared family:
+
+```
+  row name                          treated as
+  workspace.edge                    static key                     -> materialised
+  workspace.width::<monitor id>     member of a declared family    -> materialised
+  workspace.width::                 no scope: not a member         -> unknown, preserved
+  anything.else::x                  no declared family             -> unknown, preserved
+```
+
+`::` is reserved as the separator: no static key name and no family prefix may
+contain it, so a static key can never be read as a family member. A corrupt or
+invalid member follows the rules above — default, logged, row untouched.
+
+**Presence.** `Read` returns the default for a missing, corrupt or invalid
+row alike. A caller that must know whether a usable value is stored — a
+fallback chain — uses `TryRead`, which is `true` only for a row that parsed and
+passed validation. The two always agree on the value; there is no sentinel.
+
+**Notification.** `SettingChanged` is raised once after every successful
+write, including a write of the value already stored — it means "persisted",
+not "different" — and never after a rejected or failed one.
+
+Current keys: `activation.hotkey.enabled`, `activation.hotkey.binding` (#9),
+`workspace.edge`, `workspace.width` and the `workspace.width::<monitor>`
+family (#16 slice 3; contract in ADR-007 §4).
 
 ---
 

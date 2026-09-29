@@ -147,6 +147,22 @@ public sealed class DockedResizeTests
         Assert.Equal(360, Visible(narrow, inset).Width);
     }
 
+    [Fact]
+    public void A_width_inside_the_limits_is_kept_exactly_on_a_scaled_display()
+    {
+        // 150%: 600 visible px is 400 DIP, inside [240, 900], so it is kept.
+        // At the limits pixels and DIPs clamp to the same place; only an
+        // in-range width shows which unit the clamp worked in — treating the
+        // 600 as DIPs would widen the window to 900 px.
+        DisplayMonitor scaled = Display(
+            "\\\\.\\DISPLAY2", new PixelRect(0, 0, 2880, 1620), new PixelRect(0, 0, 2880, 1560), 144);
+        var inset = new FrameInset(10, 0, 10, 10);
+
+        PixelRect outer = DockGeometry.ResizedOuterBounds(scaled, DockEdge.Right, new PixelRect(0, 0, 620, 1570), inset);
+
+        Assert.Equal(600, Visible(outer, inset).Width);
+    }
+
     [Theory]
     [InlineData(DockEdge.Left)]
     [InlineData(DockEdge.Right)]
