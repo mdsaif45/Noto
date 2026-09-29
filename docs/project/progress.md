@@ -3,21 +3,23 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      None in progress. #16 slice 2 (basic edge docking) was the
-                    last implementation slice; slice 3 awaits its design gate
+Current slice:      None in progress. #16 slice 3 (edge setting, resize, width
+                    persistence) was the last implementation slice; slice 4
+                    awaits its design gate
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
-                    a screen edge at launch (#16 slices 1–2). Hotkey, tray,
+                    its remembered edge at its remembered width and resizes
+                    from its inner edge (#16 slices 1–3). Hotkey, tray,
                     always-on-top and show/hide do not exist.
 Last updated:       2026-09-29
-Evidence baseline:  main @ 126f3f0 (PR #76 merged — #16 slice 2)
+Evidence baseline:  main @ b17a1ae (PR #78 merged — #16 slice 3)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
 > tested domain and persistence layer, and three real surfaces on top of it — a
 > folder pane, a note list and a plain-source note editor. A user can now
 > create, edit and delete a note through the UI, and the window opens docked to
-> a screen edge. It is still not the application a user would recognise as
+> a screen edge and can be resized from its inner edge. It is still not the application a user would recognise as
 > Noto: there is no global hotkey or tray to reach it by, it is not
 > always-on-top and cannot be shown or hidden, and the editor shows raw
 > markdown rather than rendering it.
@@ -64,7 +66,7 @@ seven M0 issues remain open, including several that later milestones depend on
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (6 closed / 7 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch | — | #16 slice 3 — resize and width persistence, after its design gate. #16 remains OPEN; hotkey, tray and show/hide are later slices |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence | — | #16 slice 4 — hotkey, after its design gate. #16 remains OPEN; show/hide, animation and multi-monitor are later slices |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -241,6 +243,7 @@ This distinction matters more than any other line in this document.
 | Window creation, edge positioning, topmost | SPIKED | `Noto.Platform.Windows/WindowPlacement.cs`; #2 spike |
 | Display enumeration, work areas, frame inset, dock geometry | DONE | #16 slice 1, PR #74 → `c2473d3` |
 | Edge docking of the real window, left and right | DONE — single display only | #16 slice 2, PR #76 → `126f3f0`; `AppWindow.MoveAndResize`, visible frame flush with the work area (ADR-007 §4) |
+| Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
@@ -250,7 +253,7 @@ This distinction matters more than any other line in this document.
 | - | ------ |
 | Visual design language | **PARTIAL** — expressed as tokens and three components; no wider language yet |
 | Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by all three surfaces |
-| Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to one vertical edge at launch (#16 slice 2, right by default); resize, width persistence, hotkey, tray, always-on-top and show/hide are not built |
+| Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to its remembered vertical edge (right by default) at its remembered width, and resizes from its inner edge only (#16 slices 2–3); hotkey, tray, always-on-top and show/hide are not built. There is no settings UI: the edge is changed only through the setting |
 | Note editor | **PARTIAL** — M2-3 merged (PR #63): plain-source editing, create, delete, save-on-leave, Loading/Loaded/Error + Retry. Markdown **rendering** and the invisible-markdown editor are not built — #14 |
 | Folder UI | **DONE** — M2-1 merged (PR #57): list, create, rename, selection, Loading/Loaded/Empty/Error + Retry, keyboard, focus |
 | Note list UI | **DONE** — M2-2 merged (PR #60): enter a folder, note list, selection, Loading/Loaded/Empty/Error + Retry, Esc/Back |
@@ -340,6 +343,8 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-09-28  PR #74  #16 slice 1 — window platform primitives
 2026-09-28  PR #75  ADR-007 — workspace width limits recorded
 2026-09-29  PR #76  #16 slice 2 — basic edge docking
+2026-09-29  PR #77  #16 slices 1–2 status reconciliation
+2026-09-29  PR #78  #16 slice 3 — edge setting, resize and width persistence
 ```
 
 ---
@@ -364,12 +369,18 @@ WinUI 3 validated   ≠   Noto UI designed
   real window docks flush against the right edge of its display's work area
   (left via the `--dock-left` validation switch), at the 360 DIP default width
   fitted by the ADR-007 §4 width contract. **#16 remains OPEN.**
+- **#16 slice 3 is merged** (PR #78 → `b17a1ae`). The edge comes from the
+  `workspace.edge` setting (`--dock-left` is removed); the width from
+  `workspace.width::<display>`, then `workspace.width`, then 360, clamped where
+  it is shown and never rewritten. The window resizes from its inner edge only,
+  through a native window subclass, and a finished resize saves the visible
+  width. Settings gained declared key families and `TryRead`.
 
 ### NEXT
 
 ```
-#16 Edge-Docked Sidebar — slices 1–2 merged; slice 3 (resize and width
-persistence) next, after its own design gate.
+#16 Edge-Docked Sidebar — slices 1–3 merged; slice 4 (hotkey) next,
+after its own design gate.
 ```
 
 **M2-1, M2-2 and M2-3 were each gated before implementation, and #16 is now
@@ -400,10 +411,10 @@ Its prerequisites are cleared: #9 settings merged (PR #65), the platform test
 foundation merged (#67), and the SDK upgrade merged and runtime-validated
 (#68), so #16 will be built once on the version that ships rather than twice.
 
-**Slices 1 and 2 are the only #16 implementation so far.** The rest of the
-workspace shell — resize, the global hotkey, the tray, always-on-top and
-show/hide — remains what stands between three working surfaces and a build
-that can be used daily.
+**Slices 1–3 are the only #16 implementation so far.** The rest of the
+workspace shell — the global hotkey, the tray, always-on-top and show/hide —
+remains what stands between three working surfaces and a build that can be
+used daily.
 
 **The Core Note Engine is complete.** Contract §15 records Slice 6 as *"the last
 slice of the Core Note Engine"*, all 23 commands and all 7 queries of §1 exist,
@@ -428,7 +439,7 @@ requirement with its own budget (ADR-004).
 - Remaining M0 issues: #21 commands/events, #20 architecture tests, #7 logging,
   #10 error handling, #11 perf harness (#22 design tokens is merged as PR #56;
   #9 settings as PR #65)
-- M2 — the rest of the workspace shell: #16 slices 3–8 (resize, hotkey,
+- M2 — the rest of the workspace shell: #16 slices 4–8 (hotkey,
   show/hide, animation, multi-monitor, hardening), tray
 - Human Light / High Contrast visual review of the three merged surfaces
 
@@ -475,7 +486,7 @@ ReorderFolder    atomic         Purge · Tags · UI · Sync · Migration 003
 | **ULID C′** — `NewId()` is monotonic per instant; `NewId(t)` draws fresh randomness and keeps no state | ADR-012 |
 | **Ordering engine is domain-neutral** — notes and folders share one implementation | this slice |
 | **Local-first SQLite** — no sync architecture until it is actually built | ADR-002 |
-| **UI implementation has started** — M2-1 folder pane, M2-2 note list and M2-3 note editor are merged, all on #22's tokens; the shell has only basic edge docking (#16 slices 1–2) | roadmap; `MainWindow.xaml`; `App.xaml.cs` |
+| **UI implementation has started** — M2-1 folder pane, M2-2 note list and M2-3 note editor are merged, all on #22's tokens; the shell has edge docking and inner-edge resize only (#16 slices 1–3) | roadmap; `MainWindow.xaml`; `App.xaml.cs` |
 | **Save-on-leave is interim, not the target** — B19 requires continuous persistence and is deferred to M3. No save command, Save button or autosave infrastructure may be added in the meantime | parity B19; PR #62 |
 
 ---
@@ -510,15 +521,15 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ## 14. Quality Gates
 
-Verified on `main` @ `126f3f0`:
+Verified on `main` @ `b17a1ae`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                859 / 859 passing
-                       Noto.Core.Tests            119
-                       Noto.UseCases.Tests          1
-                       Noto.Windows.Tests         167   (35 #67 · +100 #16 slice 1 · +32 slice 2)
-                       Noto.Infrastructure.Tests  572   (530 + 42 settings)
+Tests                1030 / 1030 passing
+                       Noto.Core.Tests            159   (119 + 40 #16 slice 3)
+                       Noto.UseCases.Tests         34   (1 + 33 #16 slice 3)
+                       Noto.Windows.Tests         221   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3)
+                       Noto.Infrastructure.Tests  616   (530 + 42 settings + 44 #16 slice 3)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
@@ -536,12 +547,30 @@ added by #9 are engine tests, in `Noto.Infrastructure.Tests`.
 **`Noto.Windows.Tests` now exists** (#67). Its 35 original tests cover the
 platform value types — frame-inset arithmetic, DIP↔pixel conversion, rectangle
 invariants — plus guard tests asserting that neither it nor
-`Noto.Platform.Windows` references the XAML layer. #16 slices 1 and 2 added
+`Noto.Platform.Windows` references the XAML layer. #16 slices 1–3 added
 deterministic geometry tests and **runtime tests** (`RequiresDesktop`) that
-call the real Win32 and DWM APIs on real windows; a headless agent filters
-them out rather than fail. CI still builds and runs unit tests and never
-launches the application, which is why #68 and #16 slice 2 required runtime
-campaigns against the real application rather than relying on CI.
+call the real Win32 and DWM APIs on real windows, including the slice 3 window
+subclass; a headless agent filters them out rather than fail. CI still builds
+and runs unit tests and never launches the application, which is why #68 and
+#16 slices 2 and 3 required runtime campaigns against the real application
+rather than relying on CI.
+
+### Outstanding validation — #16 slice 3
+
+The real-application campaign ran both edges on the real `Noto.exe` against
+isolated data folders, with real mouse drags, Win+Arrow keys and an external
+`SetWindowPos`: inner-edge resize, the 240 / 900 DIP clamps, the docked edge
+and full height held, snaps and foreign moves refused, the visible width saved
+to both keys at drag end, and edge and width restored after a restart. The
+real data folders were unchanged. What it did **not** establish:
+
+| Item | Status |
+| ---- | ------ |
+| **Second display at runtime** | **NOT VALIDATED.** One display only. The per-display width chain across two displays, the position guard across monitors, and the 7 px outer overhang onto a neighbouring display — which could be grabbable there — are covered by deterministic tests at most |
+| **Mixed DPI** | **NOT VALIDATED — blocked by #30.** One display at 96 DPI; resize limits at other scales are covered by deterministic tests only |
+| **Human visual review** | **OUTSTANDING.** The borderless appearance, resize-cursor feel, and closing without a caption button (Alt+F4 or the taskbar menu until the tray and hide slices) have not been looked at by a person |
+| **CodeQL `cs/call-to-unmanaged-code` #189** | **Open by design.** The single `DefSubclassProc` call the subclass requires; the review thread was resolved with the rationale in ADR-007 §4, and the alert was not dismissed or suppressed |
+
 
 ### Outstanding validation — #16 slice 2
 
@@ -624,9 +653,10 @@ Done: M2-1 folder pane (#57) → M2-2 note list (#60) → M2-3 note editor (#63)
       three surfaces; the UI creates, edits and deletes notes
     ↓
 Done: #16 slice 1 platform primitives (#74) → slice 2 basic edge docking (#76)
+      → slice 3 edge setting, resize, width persistence (#78)
     ↓
-M2 remaining — the rest of the workspace shell: #16 slices 3–8 (resize,
-      hotkey, show/hide, animation, multi-monitor, hardening), tray. This is
+M2 remaining — the rest of the workspace shell: #16 slices 4–8 (hotkey,
+      show/hide, animation, multi-monitor, hardening), tray. This is
       what stands between the surfaces and a build that can be used daily
     ↓
 #14 markdown rendering · #15 export — the remaining M1 issues
