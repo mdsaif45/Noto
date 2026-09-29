@@ -478,6 +478,96 @@ public sealed class DockGeometryTests
         }
     }
 
+    // ------------------------------------- display for a window (slice 2)
+
+    [Fact]
+    public void A_window_belongs_to_the_display_it_is_inside()
+    {
+        // Enumeration order puts the primary first, so a lookup that ignored
+        // the window would pass the first case and fail the second.
+        Assert.Equal(Primary, DisplayMonitors.Nearest(new PixelRect(100, 100, 500, 400), DevelopmentPair));
+        Assert.Equal(LeftOfPrimary, DisplayMonitors.Nearest(new PixelRect(-1800, 200, -1400, 500), DevelopmentPair));
+    }
+
+    [Fact]
+    public void A_window_straddling_two_displays_belongs_to_the_one_with_more_of_it()
+    {
+        // 300px on the left display, 100px on the primary.
+        Assert.Equal(LeftOfPrimary, DisplayMonitors.Nearest(new PixelRect(-300, 200, 100, 500), DevelopmentPair));
+
+        // 100px on the left display, 300px on the primary.
+        Assert.Equal(Primary, DisplayMonitors.Nearest(new PixelRect(-100, 200, 300, 500), DevelopmentPair));
+    }
+
+    [Fact]
+    public void A_left_docked_outer_rectangle_stays_on_its_own_display()
+    {
+        // The invisible border overhangs 7px onto the left display; the
+        // window is still the primary's.
+        PixelRect outer = DockGeometry.OuterBounds(Primary, DockEdge.Left, 360, Measured);
+
+        Assert.Equal(Primary, DisplayMonitors.Nearest(outer, DevelopmentPair));
+    }
+
+    [Fact]
+    public void Overlap_is_measured_against_display_bounds_not_work_areas()
+    {
+        // 300x35 over the primary's taskbar, below its work area; 100x35 on
+        // the left display, inside its work area. By bounds the primary holds
+        // more of the window; by work area only the left display would count.
+        Assert.Equal(Primary, DisplayMonitors.Nearest(new PixelRect(-100, 1040, 300, 1075), DevelopmentPair));
+    }
+
+    [Fact]
+    public void A_window_on_no_display_belongs_to_the_closest_one()
+    {
+        Assert.Equal(LeftOfPrimary, DisplayMonitors.Nearest(new PixelRect(-4000, 300, -3600, 600), DevelopmentPair));
+
+        // Right of everything: the primary, whichever order the displays come in.
+        var rightOfAll = new PixelRect(2500, 300, 2900, 600);
+        Assert.Equal(Primary, DisplayMonitors.Nearest(rightOfAll, DevelopmentPair));
+        Assert.Equal(Primary, DisplayMonitors.Nearest(rightOfAll, [LeftOfPrimary, Primary]));
+
+        // Below both, under the left display: its bottom edge (1158) is 42px
+        // away; the primary is further off on both axes.
+        Assert.Equal(LeftOfPrimary, DisplayMonitors.Nearest(new PixelRect(-300, 1200, -100, 1300), DevelopmentPair));
+    }
+
+    [Fact]
+    public void Distance_counts_both_axes()
+    {
+        // Above both. The left display is level horizontally but 478px down
+        // (its top is 78); the primary is 100px across and 400px down, which
+        // is closer overall though farther on X alone.
+        Assert.Equal(Primary, DisplayMonitors.Nearest(new PixelRect(-300, -500, -100, -400), DevelopmentPair));
+    }
+
+    [Fact]
+    public void Sharing_columns_with_a_display_is_not_overlapping_it()
+    {
+        // Under both displays' x-ranges but on neither: 12px below the left
+        // display, 90px below the primary. The wider shared column must not
+        // count as overlap.
+        Assert.Equal(LeftOfPrimary, DisplayMonitors.Nearest(new PixelRect(-50, 1170, 100, 1200), DevelopmentPair));
+    }
+
+    [Fact]
+    public void An_exact_tie_goes_to_the_display_enumerated_first()
+    {
+        DisplayMonitor right = Display(
+            "\\\\.\\DISPLAY2", new PixelRect(1920, 0, 3840, 1080), new PixelRect(1920, 0, 3840, 1032), 96);
+        var tied = new PixelRect(1720, 100, 2120, 400); // 200px on each
+
+        Assert.Equal(Primary, DisplayMonitors.Nearest(tied, [Primary, right]));
+        Assert.Equal(right, DisplayMonitors.Nearest(tied, [right, Primary]));
+    }
+
+    [Fact]
+    public void With_no_displays_there_is_no_nearest_one()
+    {
+        Assert.Null(DisplayMonitors.Nearest(new PixelRect(0, 0, 100, 100), []));
+    }
+
     [Fact]
     public void Outer_bounds_reject_an_undefined_edge()
     {
