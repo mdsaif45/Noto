@@ -3,26 +3,27 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      None in progress. #16 slice 3 (edge setting, resize, width
-                    persistence) was the last implementation slice; slice 4
+Current slice:      None in progress. #16 slice 4 (global activation hotkey)
+                    was the last implementation slice; slice 5 (show/hide)
                     awaits its design gate
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
-                    from its inner edge (#16 slices 1–3). Hotkey, tray,
+                    from its inner edge (#16 slices 1–3); a global hotkey
+                    brings it to the foreground (#16 slice 4). Tray,
                     always-on-top and show/hide do not exist.
 Last updated:       2026-09-29
-Evidence baseline:  main @ b17a1ae (PR #78 merged — #16 slice 3)
+Evidence baseline:  main @ 3d2d23f (PR #80 merged — #16 slice 4)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
 > tested domain and persistence layer, and three real surfaces on top of it — a
 > folder pane, a note list and a plain-source note editor. A user can now
 > create, edit and delete a note through the UI, and the window opens docked to
-> a screen edge and can be resized from its inner edge. It is still not the application a user would recognise as
-> Noto: there is no global hotkey or tray to reach it by, it is not
-> always-on-top and cannot be shown or hidden, and the editor shows raw
-> markdown rather than rendering it.
+> a screen edge and can be resized from its inner edge. A global hotkey brings
+> it to the foreground. It is still not the application a user would recognise as
+> Noto: there is no tray, it is not always-on-top and cannot be shown or
+> hidden, and the editor shows raw markdown rather than rendering it.
 
 ---
 
@@ -66,7 +67,7 @@ seven M0 issues remain open, including several that later milestones depend on
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (6 closed / 7 open) | Solution structure; ADRs 001–012; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence | — | #16 slice 4 — hotkey, after its design gate. #16 remains OPEN; show/hide, animation and multi-monitor are later slices |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey | — | #16 slice 5 — show/hide toggle, after its design gate. #16 remains OPEN; animation and multi-monitor are later slices |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -244,6 +245,7 @@ This distinction matters more than any other line in this document.
 | Display enumeration, work areas, frame inset, dock geometry | DONE | #16 slice 1, PR #74 → `c2473d3` |
 | Edge docking of the real window, left and right | DONE — single display only | #16 slice 2, PR #76 → `126f3f0`; `AppWindow.MoveAndResize`, visible frame flush with the work area (ADR-007 §4) |
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
+| Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
@@ -253,7 +255,7 @@ This distinction matters more than any other line in this document.
 | - | ------ |
 | Visual design language | **PARTIAL** — expressed as tokens and three components; no wider language yet |
 | Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by all three surfaces |
-| Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to its remembered vertical edge (right by default) at its remembered width, and resizes from its inner edge only (#16 slices 2–3); hotkey, tray, always-on-top and show/hide are not built. There is no settings UI: the edge is changed only through the setting |
+| Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to its remembered vertical edge (right by default) at its remembered width, and resizes from its inner edge only (#16 slices 2–3); a global hotkey brings it to the foreground (#16 slice 4); tray, always-on-top and show/hide are not built. There is no settings UI: the edge and the hotkey are changed only through their settings |
 | Note editor | **PARTIAL** — M2-3 merged (PR #63): plain-source editing, create, delete, save-on-leave, Loading/Loaded/Error + Retry. Markdown **rendering** and the invisible-markdown editor are not built — #14 |
 | Folder UI | **DONE** — M2-1 merged (PR #57): list, create, rename, selection, Loading/Loaded/Empty/Error + Retry, keyboard, focus |
 | Note list UI | **DONE** — M2-2 merged (PR #60): enter a folder, note list, selection, Loading/Loaded/Empty/Error + Retry, Esc/Back |
@@ -345,6 +347,8 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-09-29  PR #76  #16 slice 2 — basic edge docking
 2026-09-29  PR #77  #16 slices 1–2 status reconciliation
 2026-09-29  PR #78  #16 slice 3 — edge setting, resize and width persistence
+2026-09-29  PR #79  #16 slice 3 status reconciliation
+2026-09-29  PR #80  #16 slice 4 — global activation hotkey
 ```
 
 ---
@@ -375,12 +379,20 @@ WinUI 3 validated   ≠   Noto UI designed
   it is shown and never rewritten. The window resizes from its inner edge only,
   through a native window subclass, and a finished resize saves the visible
   width. Settings gained declared key families and `TryRead`.
+- **#16 slice 4 is merged** (PR #80 → `3d2d23f`). A global hotkey,
+  `Ctrl+Alt+Win+Space` by default, brings the docked window to the foreground
+  with keyboard focus; it never hides it (that is slice 5). It is registered
+  after settings load and before the window, on a message-only window, from
+  `activation.hotkey.enabled` and `activation.hotkey.binding`, read at startup
+  only. A malformed binding falls back to the default with its row untouched; a
+  refused chord registers nothing else and is reported through `Debug` only.
 
 ### NEXT
 
 ```
-#16 Edge-Docked Sidebar — slices 1–3 merged; slice 4 (hotkey) next,
-after its own design gate.
+#16 Edge-Docked Sidebar — slices 1–4 merged; slice 5 (show/hide toggle)
+next, after its own design gate. Its acceptance criteria are recorded in
+ADR-007 §4.
 ```
 
 **M2-1, M2-2 and M2-3 were each gated before implementation, and #16 is now
@@ -411,8 +423,8 @@ Its prerequisites are cleared: #9 settings merged (PR #65), the platform test
 foundation merged (#67), and the SDK upgrade merged and runtime-validated
 (#68), so #16 will be built once on the version that ships rather than twice.
 
-**Slices 1–3 are the only #16 implementation so far.** The rest of the
-workspace shell — the global hotkey, the tray, always-on-top and show/hide —
+**Slices 1–4 are the only #16 implementation so far.** The rest of the
+workspace shell — show/hide, the tray and always-on-top —
 remains what stands between three working surfaces and a build that can be
 used daily.
 
@@ -439,8 +451,8 @@ requirement with its own budget (ADR-004).
 - Remaining M0 issues: #21 commands/events, #20 architecture tests, #7 logging,
   #10 error handling, #11 perf harness (#22 design tokens is merged as PR #56;
   #9 settings as PR #65)
-- M2 — the rest of the workspace shell: #16 slices 4–8 (hotkey,
-  show/hide, animation, multi-monitor, hardening), tray
+- M2 — the rest of the workspace shell: #16 slices 5–8 (show/hide,
+  animation, multi-monitor, hardening), tray
 - Human Light / High Contrast visual review of the three merged surfaces
 
 ### DEFERRED
@@ -486,7 +498,7 @@ ReorderFolder    atomic         Purge · Tags · UI · Sync · Migration 003
 | **ULID C′** — `NewId()` is monotonic per instant; `NewId(t)` draws fresh randomness and keeps no state | ADR-012 |
 | **Ordering engine is domain-neutral** — notes and folders share one implementation | this slice |
 | **Local-first SQLite** — no sync architecture until it is actually built | ADR-002 |
-| **UI implementation has started** — M2-1 folder pane, M2-2 note list and M2-3 note editor are merged, all on #22's tokens; the shell has edge docking and inner-edge resize only (#16 slices 1–3) | roadmap; `MainWindow.xaml`; `App.xaml.cs` |
+| **UI implementation has started** — M2-1 folder pane, M2-2 note list and M2-3 note editor are merged, all on #22's tokens; the shell has edge docking, inner-edge resize and a foreground hotkey only (#16 slices 1–4) | roadmap; `MainWindow.xaml`; `App.xaml.cs` |
 | **Save-on-leave is interim, not the target** — B19 requires continuous persistence and is deferred to M3. No save command, Save button or autosave infrastructure may be added in the meantime | parity B19; PR #62 |
 
 ---
@@ -521,15 +533,15 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ## 14. Quality Gates
 
-Verified on `main` @ `b17a1ae`:
+Verified on `main` @ `3d2d23f`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                1030 / 1030 passing
-                       Noto.Core.Tests            159   (119 + 40 #16 slice 3)
+Tests                1149 / 1149 passing
+                       Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
                        Noto.UseCases.Tests         34   (1 + 33 #16 slice 3)
-                       Noto.Windows.Tests         221   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3)
-                       Noto.Infrastructure.Tests  616   (530 + 42 settings + 44 #16 slice 3)
+                       Noto.Windows.Tests         248   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4)
+                       Noto.Infrastructure.Tests  628   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
@@ -547,13 +559,34 @@ added by #9 are engine tests, in `Noto.Infrastructure.Tests`.
 **`Noto.Windows.Tests` now exists** (#67). Its 35 original tests cover the
 platform value types — frame-inset arithmetic, DIP↔pixel conversion, rectangle
 invariants — plus guard tests asserting that neither it nor
-`Noto.Platform.Windows` references the XAML layer. #16 slices 1–3 added
+`Noto.Platform.Windows` references the XAML layer. #16 slices 1–4 added
 deterministic geometry tests and **runtime tests** (`RequiresDesktop`) that
 call the real Win32 and DWM APIs on real windows, including the slice 3 window
-subclass; a headless agent filters them out rather than fail. CI still builds
-and runs unit tests and never launches the application, which is why #68 and
-#16 slices 2 and 3 required runtime campaigns against the real application
-rather than relying on CI.
+subclass and the slice 4 hotkey registration and delivery; a headless agent
+filters them out rather than fail. CI still builds and runs unit tests and never
+launches the application, which is why #68 and #16 slices 2–4 required runtime
+campaigns against the real application rather than relying on CI.
+
+### Outstanding validation — #16 slice 4
+
+The real-application campaign ran the real `Noto.exe` against isolated data
+folders, with the chord injected and the foreground window, its process and the
+keyboard-focus owner each measured independently: another app in front → Noto
+foreground and focused (3/3); already in front → stays, not hidden; focus moved
+away → restored; disabled → nothing registered and the chord does nothing;
+chord held by another process before launch → Noto starts and docks, binds
+nothing else, the holder keeps it; malformed binding `Ctrl+Hyper+Q` → the
+default registers and the row is unchanged. Six real-app mutants (wiring,
+foreground call, registration order ×2, wrong key, WinUI `Activate()`) were all
+killed; the slice 3 campaign re-ran on both edges without regression. The real
+data folders were unchanged. What it did **not** establish:
+
+| Item | Status |
+| ---- | ------ |
+| **Physical keyboard** | **NOT VALIDATED.** Every press was injected with `keybd_event`; no key was pressed on a physical keyboard |
+| **IME / AltGr layouts** | **NOT VALIDATED.** Only US keyboard layouts are installed on the validation machine |
+| **User-visible conflict reporting** | **NOT IMPLEMENTED — deferred.** #16 requires it; a refused chord is reported through `Debug` only, until a surface (tray or settings) exists to report it on |
+| **CodeQL** | **#193 open by design; #194 open, analysed.** #193 is the same `DefSubclassProc` call as #189, moved into the shared `WindowSubclass.CallDefault`; #189 is fixed on `main` as a result. #194 (`cs/missed-using-statement`, a note) is the ownership transfer in `StartHotkey`, which CA2000 requires and a `using` cannot express. Both review threads were resolved with that rationale; neither alert was dismissed or suppressed, and the CodeQL configuration is unchanged |
 
 ### Outstanding validation — #16 slice 3
 
@@ -569,7 +602,7 @@ real data folders were unchanged. What it did **not** establish:
 | **Second display at runtime** | **NOT VALIDATED.** One display only. The per-display width chain across two displays, the position guard across monitors, and the 7 px outer overhang onto a neighbouring display — which could be grabbable there — are covered by deterministic tests at most |
 | **Mixed DPI** | **NOT VALIDATED — blocked by #30.** One display at 96 DPI; resize limits at other scales are covered by deterministic tests only |
 | **Human visual review** | **OUTSTANDING.** The borderless appearance, resize-cursor feel, and closing without a caption button (Alt+F4 or the taskbar menu until the tray and hide slices) have not been looked at by a person |
-| **CodeQL `cs/call-to-unmanaged-code` #189** | **Open by design.** The single `DefSubclassProc` call the subclass requires; the review thread was resolved with the rationale in ADR-007 §4, and the alert was not dismissed or suppressed |
+| **CodeQL `cs/call-to-unmanaged-code` #189** | **Superseded by #193 (#16 slice 4).** The single `DefSubclassProc` call the subclass requires; the review thread was resolved with the rationale in ADR-007 §4, and the alert was not dismissed or suppressed. Slice 4 moved the call into `WindowSubclass.CallDefault`, so #189 is fixed on `main` and the same finding continues as #193 |
 
 
 ### Outstanding validation — #16 slice 2
@@ -654,9 +687,10 @@ Done: M2-1 folder pane (#57) → M2-2 note list (#60) → M2-3 note editor (#63)
     ↓
 Done: #16 slice 1 platform primitives (#74) → slice 2 basic edge docking (#76)
       → slice 3 edge setting, resize, width persistence (#78)
+      → slice 4 global activation hotkey (#80)
     ↓
-M2 remaining — the rest of the workspace shell: #16 slices 4–8 (hotkey,
-      show/hide, animation, multi-monitor, hardening), tray. This is
+M2 remaining — the rest of the workspace shell: #16 slices 5–8 (show/hide,
+      animation, multi-monitor, hardening), tray. This is
       what stands between the surfaces and a build that can be used daily
     ↓
 #14 markdown rendering · #15 export — the remaining M1 issues
