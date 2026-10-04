@@ -12,8 +12,8 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     from its inner edge (#16 slices 1–3); a global hotkey
                     brings it to the foreground (#16 slice 4). Tray,
                     always-on-top and show/hide do not exist.
-Last updated:       2026-09-29
-Evidence baseline:  main @ 3d2d23f (PR #80 merged — #16 slice 4)
+Last updated:       2026-10-05
+Evidence baseline:  main @ 8f6d762 (PR #83 merged — corrected runtime-validation harness)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
@@ -245,7 +245,7 @@ This distinction matters more than any other line in this document.
 | Display enumeration, work areas, frame inset, dock geometry | DONE | #16 slice 1, PR #74 → `c2473d3` |
 | Edge docking of the real window, left and right | DONE — single display only | #16 slice 2, PR #76 → `126f3f0`; `AppWindow.MoveAndResize`, visible frame flush with the work area (ADR-007 §4) |
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
-| Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4) |
+| Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide. A minimized window is not restored (fix in #82) | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
@@ -381,7 +381,9 @@ WinUI 3 validated   ≠   Noto UI designed
   width. Settings gained declared key families and `TryRead`.
 - **#16 slice 4 is merged** (PR #80 → `3d2d23f`). A global hotkey,
   `Ctrl+Alt+Win+Space` by default, brings the docked window to the foreground
-  with keyboard focus; it never hides it (that is slice 5). It is registered
+  with keyboard focus; it never hides it (that is slice 5). A minimized window
+  is the exception: it stays minimized (see *Outstanding validation — #16
+  slice 4*). It is registered
   after settings load and before the window, on a message-only window, from
   `activation.hotkey.enabled` and `activation.hotkey.binding`, read at startup
   only. A malformed binding falls back to the default with its row untouched; a
@@ -569,21 +571,46 @@ campaigns against the real application rather than relying on CI.
 
 ### Outstanding validation — #16 slice 4
 
-The real-application campaign ran the real `Noto.exe` against isolated data
-folders, with the chord injected and the foreground window, its process and the
-keyboard-focus owner each measured independently: another app in front → Noto
-foreground and focused (3/3); already in front → stays, not hidden; focus moved
-away → restored; disabled → nothing registered and the chord does nothing;
-chord held by another process before launch → Noto starts and docks, binds
-nothing else, the holder keeps it; malformed binding `Ctrl+Hyper+Q` → the
-default registers and the row is unchanged. Six real-app mutants (wiring,
-foreground call, registration order ×2, wrong key, WinUI `Activate()`) were all
-killed; the slice 3 campaign re-ran on both edges without regression. The real
-data folders were unchanged. What it did **not** establish:
+**Foreground evidence comes from the corrected harness**, `tools/validation/`
+(PR #83 → `8f6d762`). Its `README.md` sets out the method:
+- Noto and every helper are started by the running shell, not by the test.
+- The other app is brought to the foreground by a real click and typing, and
+  the typed text must arrive.
+- Before and after every press, an unrelated shell-started process asks for
+  the foreground and must be refused; any grant invalidates the run.
+- Each run uses an isolated data root and a temporary virtual desktop, and
+  cleans up every process it started.
+
+The `Invoke-Slice4Foreground.ps1` campaign, run on `main`'s product code from a
+clean checkout, gave **36/36**, with all 16 negative controls refused:
+- another app in front → Noto is the foreground window with keyboard focus (3/3)
+- already in front and focused → it stays, visible, with the same rectangle and
+  no hide
+- focus moved away → it is regained
+- disabled → nothing is registered, and the chord leaves the other app in front
+- chord held by another process before launch → Noto starts and docks, the
+  holder keeps the chord and receives the press
+- malformed binding `Ctrl+Hyper+Q` → the default registers and works, and the
+  row is unchanged
+- the chord is held while Noto runs and freed on exit
+- no settings row changes, and every launch has a fresh, shell-started pid
+
+Both views of the real data folders were unchanged. Visibility, minimized
+state, cloaking, the foreground window and keyboard focus are each recorded
+separately.
+
+The six real-app mutants were killed under the slice's original method: wiring,
+the foreground call, registration order ×2, the wrong key, and WinUI
+`Activate()`. That method could only make a mutant *survive*, through inherited
+foreground rights, so those kills still stand.
+
+What the campaign did **not** establish:
 
 | Item | Status |
 | ---- | ------ |
-| **Physical keyboard** | **NOT VALIDATED.** Every press was injected with `keybd_event`; no key was pressed on a physical keyboard |
+| **Minimized window** | **NOT MET on `main`.** Pressing the chord makes a minimized Noto the foreground window but leaves it minimized, with no keyboard focus. The corrected harness reproduced this in 4/4 trials. The fix, restoring and re-docking first, is #82. Validated there: 36/36 on both edges, and the slice 4 campaign 36/36 with no regression |
+| **Negative-control caveat** | Windows occasionally granted the control probe the foreground when the window it targeted had never been activated. The runs above probe only windows that have already been activated. See `tools/validation/README.md` |
+| **Physical keyboard** | **NOT VALIDATED.** Every press was injected with `SendInput`; no key was pressed on a physical keyboard |
 | **IME / AltGr layouts** | **NOT VALIDATED.** Only US keyboard layouts are installed on the validation machine |
 | **User-visible conflict reporting** | **NOT IMPLEMENTED — deferred.** #16 requires it; a refused chord is reported through `Debug` only, until a surface (tray or settings) exists to report it on |
 | **CodeQL** | **#193 open by design; #194 open, analysed.** #193 is the same `DefSubclassProc` call as #189, moved into the shared `WindowSubclass.CallDefault`; #189 is fixed on `main` as a result. #194 (`cs/missed-using-statement`, a note) is the ownership transfer in `StartHotkey`, which CA2000 requires and a `using` cannot express. Both review threads were resolved with that rationale; neither alert was dismissed or suppressed, and the CodeQL configuration is unchanged |

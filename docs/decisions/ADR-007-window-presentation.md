@@ -335,6 +335,19 @@ Windows entitles the hotkey's process to take the foreground. Measured on
 Windows App SDK 2.5.1: WinUI's `Window.Activate()` and `AppWindow.Show(true)`
 do not take the foreground from another application; this does.
 
+**Runtime evidence.** The foreground claims above are validated by the
+harness in `tools/validation/` (#83).
+- Noto is started by the shell, not by the test.
+- The other application is brought forward by real input.
+- Before and after every press, an unrelated process asking for the
+  foreground must be refused.
+
+Its slice 4 campaign passes 36/36. The earlier campaign launched Noto from the
+test's own process tree, where foreground rights can be inherited, so it is
+superseded. The negative results above (`Activate()` and `Show(true)` fail to
+take the foreground) are unaffected, because inherited rights can only make a
+call succeed.
+
 **When the chord is refused** — held by another process, reserved by Windows
 (both `ERROR_HOTKEY_ALREADY_REGISTERED`, 1409), or refused for any other
 reason — Noto starts normally without the hotkey. No other chord is tried,
