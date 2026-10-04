@@ -470,14 +470,11 @@ public sealed partial class PlatformRuntimeTests
 
     private static void Restore(TestWindow window, bool viaSysCommand)
     {
-        if (viaSysCommand)
-        {
-            _ = Native.SendMessage(window.Handle, Native.WM_SYSCOMMAND, Native.SC_RESTORE, 0);
-        }
-        else
-        {
-            _ = Native.ShowWindow(window.Handle, Native.SW_RESTORE);
-        }
+        // Neither result is checked; comparing SendMessage's to 0 only gives
+        // the two calls a common type.
+        _ = viaSysCommand
+            ? Native.SendMessage(window.Handle, Native.WM_SYSCOMMAND, Native.SC_RESTORE, 0) == 0
+            : Native.ShowWindow(window.Handle, Native.SW_RESTORE);
     }
 
     /// <summary>A real overlapped window at its docked position, with the dock installed.</summary>
