@@ -306,11 +306,32 @@ public static class WindowActivation
     /// A window that is already in the foreground stays there; this never
     /// hides anything.
     /// </para>
+    /// <para>
+    /// <b>A minimized window is restored first</b> (ADR-007 §4). Taking the
+    /// foreground alone leaves it minimized — measured — so it is restored to
+    /// its normal placement, which a <see cref="DockedWindow"/> re-docks at
+    /// its remembered width, and only then brought forward. Minimized is not
+    /// hidden: this never shows a hidden window.
+    /// </para>
     /// </remarks>
-    /// <returns>Whether Windows made the window the foreground window.</returns>
+    /// <returns>
+    /// Whether the window ended up restored <b>and</b> Windows made it the
+    /// foreground window. A restore that left it minimized returns
+    /// <see langword="false"/> without asking for the foreground.
+    /// </returns>
     public static bool BringToForeground(WindowHandle window)
     {
         ArgumentNullException.ThrowIfNull(window);
+
+        if (NativeMethods.IsIconic(window.Hwnd))
+        {
+            _ = NativeMethods.ShowWindow(window.Hwnd, NativeMethods.SW_RESTORE);
+
+            if (NativeMethods.IsIconic(window.Hwnd))
+            {
+                return false;
+            }
+        }
 
         return NativeMethods.SetForegroundWindow(window.Hwnd);
     }

@@ -292,6 +292,9 @@ public partial class App : Application
             double widthDip = preferences.WidthFor(DisplayMonitors.ForWindow(handle).Id.Value);
             PixelRect outer = WindowDocking.OuterBoundsFor(handle, edge, widthDip);
 
+            // The requested width, not the clamped one: what a restore re-docks at.
+            _docked.Remember(widthDip);
+
             _docked.MoveOwn(() => window.AppWindow.MoveAndResize(new RectInt32(outer.Left, outer.Top, outer.Width, outer.Height)));
         }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or COMException)

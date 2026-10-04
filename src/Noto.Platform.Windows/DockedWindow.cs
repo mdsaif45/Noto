@@ -66,6 +66,8 @@ public sealed unsafe class DockedWindow
     private bool _ownMove;
     private bool _inSizeLoop;
     private int _sizingSteps;
+    private double? _rememberedWidthDip;
+    private FrameInset? _placedInset;
 
     private DockedWindow(WindowHandle window, DockEdge edge)
     {
@@ -90,6 +92,35 @@ public sealed unsafe class DockedWindow
 
     /// <summary>Whether the subclass is still installed. Cleared on <c>WM_NCDESTROY</c>.</summary>
     internal bool IsAttached { get; private set; }
+
+    /// <summary>
+    /// The width, in DIPs, the window is docked at whenever it is put back on
+    /// the dock — <see langword="null"/> until it is known.
+    /// </summary>
+    /// <remarks>
+    /// The <b>requested</b> width, not the effective one: re-docking clamps it
+    /// to the work area of the display it lands on, and that clamp never
+    /// writes back here. Set only by <see cref="Remember"/>, by a finished
+    /// user resize, and — when neither has happened — once from the window's
+    /// own docked geometry after the first <see cref="MoveOwn"/>. Never from
+    /// a refused move, a minimized frame or anything off-screen.
+    /// </remarks>
+    internal double? RememberedWidthDip => _rememberedWidthDip;
+
+    /// <summary>
+    /// Records the width the window was asked to dock at, before it is
+    /// docked. The application passes the width it resolved from settings.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="requestedWidthDip"/> is not a positive, finite width.</exception>
+    public void Remember(double requestedWidthDip)
+    {
+        if (!double.IsFinite(requestedWidthDip) || requestedWidthDip <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(requestedWidthDip), requestedWidthDip, "Not a positive, finite width.");
+        }
+
+        _rememberedWidthDip = requestedWidthDip;
+    }
 
     /// <summary>
     /// Installs the dock on a window.
@@ -120,6 +151,7 @@ public sealed unsafe class DockedWindow
         }
 
         docked.IsAttached = true;
+        docked.CapturePlacedInset();
         return docked;
     }
 
@@ -144,6 +176,75 @@ public sealed unsafe class DockedWindow
         finally
         {
             _ownMove = false;
+        }
+
+        CapturePlacedInset();
+
+        if (_rememberedWidthDip is null)
+        {
+            RememberDockedGeometry();
+        }
+    }
+
+    /// <summary>
+    /// Records the frame inset while the window is placed on a display.
+    /// </summary>
+    /// <remarks>
+    /// A restore is docked while the window is still minimized, and a
+    /// minimized window's frame inset is not its docked inset — measured: a
+    /// plain overlapped window reports no bottom inset while minimized. So the
+    /// restore uses the inset last measured while the window was placed;
+    /// every other reposition measures it fresh (ADR-007: never a constant).
+    /// </remarks>
+    private void CapturePlacedInset()
+    {
+        if (NativeMethods.IsIconic(_hwnd) || !NativeMethods.GetWindowRect(_hwnd, out NativeMethods.RECT outer)
+            || !IsOnAnyDisplay(outer.ToPixelRect(), DisplayMonitors.Enumerate()))
+        {
+            return;
+        }
+
+        try
+        {
+            _placedInset = WindowFrame.MeasureInset(_window);
+        }
+        catch (Exception ex) when (ex is Win32Exception or COMException)
+        {
+            // Unmeasurable now: keep the last known inset.
+        }
+    }
+
+    /// <summary>
+    /// The first known-good width, taken from the window's own docked
+    /// geometry when nothing has told the dock what width to keep.
+    /// </summary>
+    /// <remarks>Skipped while the window is minimized, off every display, or unmeasurable.</remarks>
+    private void RememberDockedGeometry()
+    {
+        if (NativeMethods.IsIconic(_hwnd) || !NativeMethods.GetWindowRect(_hwnd, out NativeMethods.RECT outer))
+        {
+            return;
+        }
+
+        IReadOnlyList<DisplayMonitor> displays = DisplayMonitors.Enumerate();
+
+        if (!IsOnAnyDisplay(outer.ToPixelRect(), displays))
+        {
+            return;
+        }
+
+        try
+        {
+            PixelRect visible = WindowFrame.VisibleFrame(_hwnd);
+
+            if (visible.Width > 0 && DisplayMonitors.Nearest(outer.ToPixelRect(), displays) is DisplayMonitor display)
+            {
+                _rememberedWidthDip = display.WorkAreaPlacement.PixelsToDip(visible.Width);
+            }
+        }
+        catch (COMException)
+        {
+            // DWM did not report the frame: leave the width unknown rather than guess.
         }
     }
 
@@ -188,8 +289,13 @@ public sealed unsafe class DockedWindow
 
         DisplayMonitor display = DisplayMonitors.ForWindow(_window);
         PixelRect visible = WindowFrame.VisibleFrame(_hwnd);
+        double widthDip = display.WorkAreaPlacement.PixelsToDip(visible.Width);
 
-        Resized?.Invoke(this, new DockResizedEventArgs(display.Id, display.WorkAreaPlacement.PixelsToDip(visible.Width)));
+        // The user chose this width: it is what the dock now keeps.
+        _rememberedWidthDip = widthDip;
+        CapturePlacedInset();
+
+        Resized?.Invoke(this, new DockResizedEventArgs(display.Id, widthDip));
     }
 
     /// <summary>Begins a drag; also the testable half of <c>WM_ENTERSIZEMOVE</c>.</summary>
@@ -212,24 +318,170 @@ public sealed unsafe class DockedWindow
     /// Where a proposed reposition should land instead, or <see langword="null"/> to let it through.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Let through: Noto's own moves, the steps of a user resize (already
-    /// refitted by <c>WM_SIZING</c>), and changes that neither move nor size.
-    /// Everything else is sent back to the dock at the current visible width.
+    /// refitted by <c>WM_SIZING</c>), changes that neither move nor size, and
+    /// anything while the window is minimized — minimizing is Windows' to
+    /// place. Everything else is sent back to the dock (<see cref="GuardTarget"/>).
+    /// </para>
+    /// <para>
+    /// A restore from minimized is one of the "everything else": Windows
+    /// proposes the saved normal placement while the window still sits at its
+    /// off-screen minimized position, and it is re-docked like any other
+    /// reposition. No transition state is kept, so duplicate, interrupted or
+    /// failed restores leave nothing behind.
+    /// </para>
     /// </remarks>
-    internal PixelRect? OnPositionChanging(uint flags)
+    internal PixelRect? OnPositionChanging(uint flags, PixelRect proposedOuter)
     {
-        const uint neither = NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE;
-
-        if (_ownMove || _inSizeLoop || (flags & neither) == neither)
+        if (LetsThrough(_ownMove, _inSizeLoop, flags, NativeMethods.IsIconic(_hwnd)))
         {
             return null;
         }
 
-        DisplayMonitor display = DisplayMonitors.ForWindow(_window);
-        PixelRect visible = WindowFrame.VisibleFrame(_hwnd);
+        if (!NativeMethods.GetWindowRect(_hwnd, out NativeMethods.RECT outer))
+        {
+            return null;
+        }
 
-        return DockGeometry.OuterBounds(
-            display, Edge, display.WorkAreaPlacement.PixelsToDip(visible.Width), WindowFrame.MeasureInset(_window));
+        int visibleWidth = 0;
+
+        try
+        {
+            visibleWidth = WindowFrame.VisibleFrame(_hwnd).Width;
+        }
+        catch (COMException)
+        {
+            // No frame reported: only a remembered width can be used.
+        }
+
+        IReadOnlyList<DisplayMonitor> displays = DisplayMonitors.Enumerate();
+        FrameInset? inset;
+
+        if (IsOnAnyDisplay(outer.ToPixelRect(), displays))
+        {
+            inset = WindowFrame.MeasureInset(_window);
+            _placedInset = inset;
+        }
+        else
+        {
+            // Being restored from the parking position: its inset there is not the docked one.
+            inset = _placedInset;
+        }
+
+        return GuardTarget(displays, Edge, outer.ToPixelRect(), proposedOuter, visibleWidth, _rememberedWidthDip, inset);
+    }
+
+    /// <summary>Whether a proposed reposition passes the guard unchanged.</summary>
+    internal static bool LetsThrough(bool ownMove, bool inSizeLoop, uint flags, bool minimized)
+    {
+        const uint neither = NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE;
+
+        return ownMove || inSizeLoop || minimized || (flags & neither) == neither;
+    }
+
+    /// <summary>
+    /// The docked outer bounds a reposition is rewritten to, or
+    /// <see langword="null"/> when there is nothing trustworthy to dock by.
+    /// </summary>
+    /// <param name="displays">The connected displays.</param>
+    /// <param name="edge">The edge the window is docked to.</param>
+    /// <param name="currentOuter">Where the window is now.</param>
+    /// <param name="proposedOuter">Where the reposition would put it.</param>
+    /// <param name="currentVisibleWidthPx">The current visible width, or 0 when unknown.</param>
+    /// <param name="rememberedWidthDip">The width the dock keeps (<see cref="RememberedWidthDip"/>).</param>
+    /// <param name="inset">
+    /// The window's frame inset while placed — measured now, or for a restore
+    /// the last placed measurement; <see langword="null"/> when unknown.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>The display.</b> The one under the window when the window is on a
+    /// display — an ordinary move is judged by where the window is. When it
+    /// is on none, it is at its minimized parking position and being
+    /// restored, so the display is the one under the <b>proposed</b>
+    /// rectangle — the placement Windows saved before minimizing. Choosing by
+    /// the parking position instead picks whichever display is nearest to
+    /// it, which is how the docked window used to restore off-screen.
+    /// </para>
+    /// <para>
+    /// <b>The width.</b> The remembered width, clamped to that display's work
+    /// area by <see cref="DockGeometry.OuterBounds"/>. Failing that, the
+    /// current visible width — but only when the window is on a display, so
+    /// a minimized frame is never measured as a dock width. With neither, or
+    /// with no known inset, the reposition is let through.
+    /// </para>
+    /// </remarks>
+    internal static PixelRect? GuardTarget(
+        IReadOnlyList<DisplayMonitor> displays,
+        DockEdge edge,
+        PixelRect currentOuter,
+        PixelRect proposedOuter,
+        int currentVisibleWidthPx,
+        double? rememberedWidthDip,
+        FrameInset? inset)
+    {
+        ArgumentNullException.ThrowIfNull(displays);
+
+        if (inset is not FrameInset measuredInset)
+        {
+            return null;
+        }
+
+        bool currentIsPlaced = IsOnAnyDisplay(currentOuter, displays);
+        PixelRect basis;
+
+        if (currentIsPlaced)
+        {
+            basis = currentOuter;
+        }
+        else if (IsOnAnyDisplay(proposedOuter, displays))
+        {
+            basis = proposedOuter;
+        }
+        else
+        {
+            return null;
+        }
+
+        if (DisplayMonitors.Nearest(basis, displays) is not DisplayMonitor display)
+        {
+            return null;
+        }
+
+        double? widthDip = rememberedWidthDip
+            ?? (currentIsPlaced && currentVisibleWidthPx > 0 ? display.WorkAreaPlacement.PixelsToDip(currentVisibleWidthPx) : null);
+
+        return widthDip is double width ? DockGeometry.OuterBounds(display, edge, width, measuredInset) : null;
+    }
+
+    /// <summary>Whether a rectangle overlaps any display's bounds.</summary>
+    internal static bool IsOnAnyDisplay(PixelRect rect, IReadOnlyList<DisplayMonitor> displays)
+    {
+        foreach (DisplayMonitor d in displays)
+        {
+            if (Math.Min(rect.Right, d.Bounds.Right) > Math.Max(rect.Left, d.Bounds.Left)
+                && Math.Min(rect.Bottom, d.Bounds.Bottom) > Math.Max(rect.Top, d.Bounds.Top))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The rectangle a <c>WINDOWPOS</c> proposes, filling what it leaves unchanged from where the window is.</summary>
+    private static PixelRect Proposed(nint hwnd, NativeMethods.WINDOWPOS* pos)
+    {
+        _ = NativeMethods.GetWindowRect(hwnd, out NativeMethods.RECT current);
+        bool keepPosition = (pos->flags & NativeMethods.SWP_NOMOVE) != 0;
+        bool keepSize = (pos->flags & NativeMethods.SWP_NOSIZE) != 0;
+        int left = keepPosition ? current.Left : pos->x;
+        int top = keepPosition ? current.Top : pos->y;
+        int width = keepSize ? current.Right - current.Left : pos->cx;
+        int height = keepSize ? current.Bottom - current.Top : pos->cy;
+
+        return new PixelRect(left, top, left + width, top + height);
     }
 
     private void OnDestroy()
@@ -283,7 +535,7 @@ public sealed unsafe class DockedWindow
                     {
                         var pos = (NativeMethods.WINDOWPOS*)lParam;
 
-                        if (self.OnPositionChanging(pos->flags) is PixelRect docked)
+                        if (self.OnPositionChanging(pos->flags, Proposed(hwnd, pos)) is PixelRect docked)
                         {
                             pos->x = docked.Left;
                             pos->y = docked.Top;
