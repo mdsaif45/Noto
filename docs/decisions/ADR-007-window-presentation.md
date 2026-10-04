@@ -342,11 +342,14 @@ harness in `tools/validation/` (#83).
 - Before and after every press, an unrelated process asking for the
   foreground must be refused.
 
-Its slice 4 campaign passes 36/36. The earlier campaign launched Noto from the
-test's own process tree, where foreground rights can be inherited, so it is
-superseded. The negative results above (`Activate()` and `Show(true)` fail to
-take the foreground) are unaffected, because inherited rights can only make a
-call succeed.
+Its slice 4 campaign passes 36/36, both before and after the restore fix.
+Minimized activation (see *Minimized and restored*) passes 36/36 on both
+edges: restored, not cloaked, the foreground window, with keyboard focus, at
+exactly its docked rectangle. A build without the fix stays minimized (4/4).
+The earlier campaign launched Noto from the test's own process tree, where
+foreground rights can be inherited, so it is superseded. The negative results
+above (`Activate()` and `Show(true)` fail to take the foreground) are
+unaffected, because inherited rights can only make a call succeed.
 
 **When the chord is refused** — held by another process, reserved by Windows
 (both `ERROR_HOTKEY_ALREADY_REGISTERED`, 1409), or refused for any other

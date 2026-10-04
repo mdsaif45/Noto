@@ -10,10 +10,11 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
                     from its inner edge (#16 slices 1–3); a global hotkey
-                    brings it to the foreground (#16 slice 4). Tray,
+                    brings it to the foreground (#16 slice 4), restoring and
+                    re-docking it first when it is minimized (#82). Tray,
                     always-on-top and show/hide do not exist.
 Last updated:       2026-10-05
-Evidence baseline:  main @ 8f6d762 (PR #83 merged — corrected runtime-validation harness)
+Evidence baseline:  main @ 63014bf (PR #82 merged — minimized restore and re-dock fix)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
@@ -245,7 +246,8 @@ This distinction matters more than any other line in this document.
 | Display enumeration, work areas, frame inset, dock geometry | DONE | #16 slice 1, PR #74 → `c2473d3` |
 | Edge docking of the real window, left and right | DONE — single display only | #16 slice 2, PR #76 → `126f3f0`; `AppWindow.MoveAndResize`, visible frame flush with the work area (ADR-007 §4) |
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
-| Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide. A minimized window is not restored (fix in #82) | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
+| Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
+| Restore from minimized, and activation of a minimized window | DONE — single display only | PR #82 → `63014bf`. A restore re-docks at the remembered requested width, on the window's own edge and display. The hotkey restores a minimized window before taking the foreground. Minimized stays distinct from hidden (ADR-007 §4, *Minimized and restored*) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
@@ -349,6 +351,9 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-09-29  PR #78  #16 slice 3 — edge setting, resize and width persistence
 2026-09-29  PR #79  #16 slice 3 status reconciliation
 2026-09-29  PR #80  #16 slice 4 — global activation hotkey
+2026-09-29  PR #81  #16 slice 4 status reconciliation
+2026-10-04  PR #83  Corrected runtime-validation harness (tools/validation/)
+2026-10-04  PR #82  #16 restore re-docks at the remembered width; minimized activation restores
 ```
 
 ---
@@ -381,19 +386,30 @@ WinUI 3 validated   ≠   Noto UI designed
   width. Settings gained declared key families and `TryRead`.
 - **#16 slice 4 is merged** (PR #80 → `3d2d23f`). A global hotkey,
   `Ctrl+Alt+Win+Space` by default, brings the docked window to the foreground
-  with keyboard focus; it never hides it (that is slice 5). A minimized window
-  is the exception: it stays minimized (see *Outstanding validation — #16
-  slice 4*). It is registered
+  with keyboard focus; it never hides it (that is slice 5). As merged, it
+  left a minimized window minimized; #82 fixed that (below). It is registered
   after settings load and before the window, on a message-only window, from
   `activation.hotkey.enabled` and `activation.hotkey.binding`, read at startup
   only. A malformed binding falls back to the default with its row untouched; a
   refused chord registers nothing else and is reported through `Debug` only.
+- **The corrected runtime-validation harness is merged** (PR #83 → `8f6d762`):
+  `tools/validation/`. It drives the real `Noto.exe` with foreground rights
+  controlled. Noto is started by the shell, the foreground is set by real
+  input, and a negative control brackets every press. It replaces the slice 4
+  campaign, which was contaminated by inherited foreground rights.
+- **The minimized restore and activation defect is fixed** (PR #82 →
+  `63014bf`). Before it, a restore rebuilt the dock from minimized-state
+  geometry: a shrunken width, a display chosen by the parking position, and a
+  frame inset measured while minimized. The hotkey also left a minimized
+  window minimized. Now a restore re-docks at the remembered requested width,
+  on the window's own edge and display, and activation restores before taking
+  the foreground. See *Outstanding validation — minimized restore (#82)*.
 
 ### NEXT
 
 ```
-#16 Edge-Docked Sidebar — slices 1–4 merged; slice 5 (show/hide toggle)
-next, after its own design gate. Its acceptance criteria are recorded in
+#16 Edge-Docked Sidebar — slices 1–4 and the #82 restore fix merged; slice 5
+(show/hide toggle) next, after its own design gate. Its acceptance criteria are recorded in
 ADR-007 §4.
 ```
 
@@ -569,6 +585,35 @@ filters them out rather than fail. CI still builds and runs unit tests and never
 launches the application, which is why #68 and #16 slices 2–4 required runtime
 campaigns against the real application rather than relying on CI.
 
+### Outstanding validation — minimized restore (#82)
+
+**Validated.** The guard's decision is a pure function, covered by
+deterministic tests that construct the displays. These include a display left
+of the primary, which is the layout behind the off-screen restore. The
+runtime tests use real Win32 windows on both edges and cover:
+- `SW_RESTORE` and `SC_RESTORE` return to the exact docked rectangle
+- a 480 DIP resize survives minimize and restore
+- a clamped width never replaces the remembered one
+- minimized activation restores and re-docks
+
+Eight scripted mutants were all killed.
+
+The corrected harness (`Invoke-MinimizedActivation.ps1`) ran on both edges, 3
+trials each: minimized, then the hotkey with another app in front. Each trial
+checked that Noto was restored (`WS_VISIBLE`, not minimized, not cloaked), was
+the foreground window, held keyboard focus, and sat at exactly its docked
+rectangle. Result: **36/36**, with every negative control refused. That ran on
+a build whose product code is byte-identical to `63014bf`. A build without the
+fix reproduced the defect in 4/4 trials.
+
+| Item | Status |
+| ---- | ------ |
+| **Second display at runtime** | **NOT VALIDATED.** One display only. The off-screen restore with a display left of the primary is covered by deterministic tests, not by a real two-display run |
+| **Display disconnected while minimized** | **NOT VALIDATED.** The window lands on the display nearest the saved placement (ADR-007 §4) |
+| **Mixed DPI** | **NOT VALIDATED — blocked by #30** |
+| **Shell gestures** | The docked window has no minimize button, and taskbar click, `Win+M` and `Win+D` did not minimize it when measured. Minimizing was driven by `SC_MINIMIZE` |
+| **Hidden window** | **Out of scope.** Hide and show are slice 5; minimized and hidden stay distinct states |
+
 ### Outstanding validation — #16 slice 4
 
 **Foreground evidence comes from the corrected harness**, `tools/validation/`
@@ -581,8 +626,9 @@ campaigns against the real application rather than relying on CI.
 - Each run uses an isolated data root and a temporary virtual desktop, and
   cleans up every process it started.
 
-The `Invoke-Slice4Foreground.ps1` campaign, run on `main`'s product code from a
-clean checkout, gave **36/36**, with all 16 negative controls refused:
+The `Invoke-Slice4Foreground.ps1` campaign was run from a clean checkout. On
+the slice 4 product code (`main` before #82), it gave **36/36**, with all 16
+negative controls refused:
 - another app in front → Noto is the foreground window with keyboard focus (3/3)
 - already in front and focused → it stays, visible, with the same rectangle and
   no hide
@@ -595,20 +641,23 @@ clean checkout, gave **36/36**, with all 16 negative controls refused:
 - the chord is held while Noto runs and freed on exit
 - no settings row changes, and every launch has a fresh, shell-started pid
 
-Both views of the real data folders were unchanged. Visibility, minimized
-state, cloaking, the foreground window and keyboard focus are each recorded
-separately.
+On #82's product code, byte-identical to what `main` now has, it gave
+**36/36** again, with all 16 controls refused: no regression. Both views of
+the real data folders were unchanged. Visibility, minimized state, cloaking,
+the foreground window and keyboard focus are each recorded separately.
 
 The six real-app mutants were killed under the slice's original method: wiring,
 the foreground call, registration order ×2, the wrong key, and WinUI
 `Activate()`. That method could only make a mutant *survive*, through inherited
-foreground rights, so those kills still stand.
+foreground rights, so those kills still stand. The slice 3 campaign also re-ran
+on both edges under that method without regression. That is geometry evidence,
+which foreground rights do not affect.
 
 What the campaign did **not** establish:
 
 | Item | Status |
 | ---- | ------ |
-| **Minimized window** | **NOT MET on `main`.** Pressing the chord makes a minimized Noto the foreground window but leaves it minimized, with no keyboard focus. The corrected harness reproduced this in 4/4 trials. The fix, restoring and re-docking first, is #82. Validated there: 36/36 on both edges, and the slice 4 campaign 36/36 with no regression |
+| **Minimized window** | **NOT MET by slice 4; fixed by #82.** On the slice 4 code, pressing the chord made a minimized Noto the foreground window but left it minimized, with no keyboard focus; the corrected harness reproduced this in 4/4 trials. See *Outstanding validation — minimized restore (#82)* |
 | **Negative-control caveat** | Windows occasionally granted the control probe the foreground when the window it targeted had never been activated. The runs above probe only windows that have already been activated. See `tools/validation/README.md` |
 | **Physical keyboard** | **NOT VALIDATED.** Every press was injected with `SendInput`; no key was pressed on a physical keyboard |
 | **IME / AltGr layouts** | **NOT VALIDATED.** Only US keyboard layouts are installed on the validation machine |
