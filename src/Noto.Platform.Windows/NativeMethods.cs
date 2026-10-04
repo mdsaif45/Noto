@@ -60,6 +60,9 @@ internal static unsafe partial class NativeMethods
     internal const uint SWP_NOSIZE = 0x0001;
     internal const uint SWP_NOMOVE = 0x0002;
 
+    /// <summary><c>SW_RESTORE</c>: activates and restores a minimized window to its normal placement.</summary>
+    internal const int SW_RESTORE = 9;
+
     // Global hotkey (#16 slice 4).
     internal const uint WM_HOTKEY = 0x0312;
     internal const uint MOD_ALT = 0x0001;
@@ -173,6 +176,14 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetForegroundWindow(nint hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool IsIconic(nint hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ShowWindow(nint hWnd, int nCmdShow);
 
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);

@@ -239,6 +239,52 @@ types, so CodeQL reports `cs/call-to-unmanaged-code` there; it is required,
 because a subclass must pass on every message it does not consume, and there
 is no managed equivalent for this interception.
 
+#### Minimized and restored
+
+> **Added by the restore/re-dock fix.** Records the invariant the position
+> guard keeps across minimize and restore.
+
+**Minimized is not hidden.** The docked window has no minimize button and the
+shell's gestures (taskbar click, `Win+M`, `Win+D`) did not minimize it when
+measured, but `SC_MINIMIZE` or `ShowWindow` from any process does. A minimized
+window still reports `IsWindowVisible`, keeps its taskbar button and parks at
+an off-screen position; a hidden window (slice 5) has none of these. The two
+are distinct states and are never treated as one.
+
+**A restore re-docks at the remembered width, on the window's own edge.**
+Windows restores by proposing the placement saved before minimizing while the
+window still sits at its parking position. The guard docks that proposal like
+any other reposition, with three inputs chosen so minimized-state geometry
+never leaks in:
+
+```
+  display   the one under the window when it is on a display; otherwise the
+            one under the proposed (saved) placement — never the display
+            nearest the parking position
+  width     the remembered width: the width the application asked for at
+            launch, or the user's last resize — never the minimized frame's
+            width, never a refused move. Clamped to the landing display's
+            work area; the clamp does not change what is remembered
+  inset     measured fresh while the window is placed; for a restore, the
+            last inset measured while placed — a minimized window's inset is
+            not its docked inset
+```
+
+With no remembered width or no placed inset, the restore is let through to
+Windows' saved placement rather than guessed. Minimize itself passes the guard
+unchanged. No transition state is kept, so a duplicate, interrupted or failed
+restore leaves nothing behind. A restore does not report a resize and writes
+no width.
+
+**Activation restores first.** Bringing a minimized window forward restores
+it (re-docked as above) and only then asks for the foreground; taking the
+foreground alone leaves it minimized (measured). The result counts as success
+only if the window ended up restored and in the foreground.
+
+Not covered: restoring onto a display that was disconnected while the window
+was minimized lands on the display nearest the saved placement — unvalidated,
+since only one display was available when this was written.
+
 #### Global activation hotkey
 
 > **Added 2026-09-29 by #16 slice 4.** Records the contract its design gate
@@ -282,7 +328,8 @@ The subclass shares the dock's single `DefSubclassProc` call.
 
 **What pressing it does (slice 4).** The workspace window comes to the
 foreground with keyboard focus; already in front and focused, nothing
-changes. It never hides. The foreground switch uses `SetForegroundWindow`
+changes. It never hides. A minimized window is restored and re-docked first
+(see *Minimized and restored*). The foreground switch uses `SetForegroundWindow`
 called **synchronously while `WM_HOTKEY` is being handled** — the moment
 Windows entitles the hotkey's process to take the foreground. Measured on
 Windows App SDK 2.5.1: WinUI's `Window.Activate()` and `AppWindow.Show(true)`
