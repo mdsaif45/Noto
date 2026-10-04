@@ -28,6 +28,10 @@ exit (Invoke-IsolatedRun $run -Title 'Harness self-test' -Body {
     Add-Result $run 'shell launch: both target apps are children of the shell' (@($parents | Where-Object { $_ -ne $shell }).Count -eq 0) "pids $($first.Pid),$($second.Pid) parents $($parents -join ',') shell $shell"
     Add-Result $run 'fresh pids: the two starts are distinct processes' ($first.Pid -ne $second.Pid) ''
 
+    # Both windows are activated by real input once before any control. A window that has never been activated
+    # may still hold its start-up activation right (seen as an occasional grant on a cold start); every window
+    # the Noto runs probe has been activated already - Noto by its own launch, the target by a click.
+    $null = Set-ForegroundByKeyboard $second
     $token = Set-ForegroundByKeyboard $first
     $leak = (Get-Content $second.Status -Raw -ErrorAction SilentlyContinue) -match $token
     Add-Result $run 'keyboard: first app in front, typed token reached it and not the other' (([NotoVal.Win32]::GetForegroundWindow() -eq $first.Hwnd) -and -not $leak) "token $token"

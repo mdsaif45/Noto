@@ -84,11 +84,22 @@ every negative-control result. Nothing is written into the repository.
 
 ## Known limitations
 
-- **The negative control is not always refused.** In one harness self-test
-  out of three, a shell-started probe that had received no input was granted
-  `SetForegroundWindow`. Repeat runs and an 11-case matrix did not reproduce
-  it, and the cause is unknown. That is why every press is bracketed, and why
-  a single grant invalidates the whole run.
+- **The negative control is not always refused.** A shell-started probe that
+  had received no input was sometimes granted `SetForegroundWindow`.
+  - *Where:* each time, the probe targeted a window that had never been
+    activated, such as a freshly started window shown with `SW_SHOWNOACTIVATE`.
+    Each time, it was also the first probe of its run. This happened in 3
+    cases.
+  - *Where it didn't:* after one real activation, probes at those same windows
+    were refused. No probe aimed at an already-activated window has been
+    granted.
+  - *Likely cause:* a window that has never been activated may keep its
+    start-up activation right. This is not confirmed.
+  - *Why it doesn't affect the Noto runs:* every window they probe has already
+    been activated, Noto by its own launch and the target by a click. The
+    self-test activates both of its windows first, for the same reason.
+  - *Safeguards:* every press is still bracketed, and one grant invalidates
+    the whole run.
 - Only the displays attached during the run are tested. To test a
   multi-display layout, the displays must be connected.
 - Keyboard focus is read from `GetGUIThreadInfo`, which names the window that
