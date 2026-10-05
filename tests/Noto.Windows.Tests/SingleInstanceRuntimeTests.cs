@@ -525,11 +525,16 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
         int handled = 0;
         using ActivationPipeServer server = StartServer(key, request => { _ = Interlocked.Increment(ref handled); return ActivationReply.Accepted; });
 
-        HandoffStatus[] statuses = Enumerable.Range(0, 8)
-            .AsParallel()
-            .WithDegreeOfParallelism(8)
-            .Select(_ => ActivationPipeClient.Send(key, ActivationRequest.Activate, TimeSpan.FromSeconds(2)))
-            .ToArray();
+        // Each launch is its own process with the claim's whole budget to be
+        // answered in; dedicated threads stand in for them, so the burst does
+        // not also starve the thread pool the server runs on.
+        var statuses = new HandoffStatus[8];
+        var launches = Enumerable.Range(0, statuses.Length)
+            .Select(i => new Thread(() => statuses[i] = ActivationPipeClient.Send(key, ActivationRequest.Activate, ClaimTimings.Default.Unreachable)))
+            .ToList();
+
+        launches.ForEach(t => t.Start());
+        launches.ForEach(t => t.Join());
 
         Assert.All(statuses, s => Assert.Equal(HandoffStatus.Accepted, s));
         Assert.Equal(8, handled);
