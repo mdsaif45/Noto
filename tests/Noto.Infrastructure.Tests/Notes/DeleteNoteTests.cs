@@ -366,7 +366,7 @@ public sealed class DeleteNoteTests : IDisposable
         var id = Create("note");
         Delete(id);
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();
         var repository = new SqliteNoteRepository(reopened);

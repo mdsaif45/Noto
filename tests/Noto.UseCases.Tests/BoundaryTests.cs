@@ -32,4 +32,21 @@ public sealed class BoundaryTests
             $"Noto.UseCases must not reference: {string.Join(", ", violations)}. "
             + "Use cases are invoked by the UI, not the other way round (ADR-010).");
     }
+
+    [Fact]
+    public void Application_does_not_reference_infrastructure()
+    {
+        string[] forbidden = ["Noto.Infrastructure", "Microsoft.Data.Sqlite"];
+
+        var violations = ApplicationAssembly.GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(n => forbidden.Any(f => n.StartsWith(f, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            $"Noto.UseCases must not reference: {string.Join(", ", violations)}. "
+            + "Handlers depend on the repository interfaces in Noto.Core; the SQLite "
+            + "implementations are composed in Noto.Windows (ADR-009).");
+    }
 }

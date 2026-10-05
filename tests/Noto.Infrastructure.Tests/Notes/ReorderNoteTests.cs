@@ -579,7 +579,7 @@ public sealed class ReorderNoteTests : IDisposable
 
         Reorder(c, a);
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();
 

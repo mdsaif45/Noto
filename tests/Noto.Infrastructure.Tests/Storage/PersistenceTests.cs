@@ -38,7 +38,7 @@ public sealed class PersistenceTests : IDisposable
             insert.ExecuteNonQuery();
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
 
         // A completely new instance, as if the application had restarted.
         var reopened = new NotoDatabase(_temp.DatabasePath);

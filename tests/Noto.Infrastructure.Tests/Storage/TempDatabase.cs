@@ -66,22 +66,29 @@ public sealed class TempDatabase : IDisposable
     /// </para>
     /// <para>
     /// The pool is keyed by the <b>exact connection string</b>, so each file
-    /// has to be named with the same builder settings that opened it. Two
+    /// has to be named with the same builder settings that opened it. Three
     /// shapes exist here:
     /// </para>
     /// <list type="bullet">
     ///   <item>the note database, opened by <c>NotoDatabase</c>;</item>
     ///   <item>any <c>*-premigration-*.db</c> safety copy, opened by
-    ///   <c>MigrationSafetyCopy</c> with a narrower builder.</item>
+    ///   <c>MigrationSafetyCopy</c> with a narrower builder;</item>
+    ///   <item>a plain <c>Data Source=</c> connection a test opens itself,
+    ///   to write a pre-migration file or read a safety copy.</item>
     /// </list>
     /// <para>
-    /// Both live inside this fixture's own GUID-named directory, which is what
-    /// makes the ownership claim checkable rather than assumed: every database
-    /// in that directory was created by this fixture, and no database outside
-    /// it is touched.
+    /// Public so a test that must close its file mid-test — to reopen it, or
+    /// to migrate it — releases only its own pools, never every pool in the
+    /// process.
+    /// </para>
+    /// <para>
+    /// Every such file lives inside this fixture's own GUID-named directory,
+    /// which is what makes the ownership claim checkable rather than assumed:
+    /// every database in that directory was created by this fixture, and no
+    /// database outside it is touched.
     /// </para>
     /// </remarks>
-    private void ReleaseOwnPools()
+    public void ReleaseOwnPools()
     {
         if (!Directory.Exists(_directory))
         {
@@ -106,6 +113,12 @@ public sealed class TempDatabase : IDisposable
             {
                 DataSource = file,
                 Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadWriteCreate,
+            });
+
+            // A test's own plain connection: DataSource alone.
+            ClearPool(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+            {
+                DataSource = file,
             });
         }
     }

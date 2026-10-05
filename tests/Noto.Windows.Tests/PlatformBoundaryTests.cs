@@ -50,6 +50,23 @@ public sealed class PlatformBoundaryTests
     }
 
     [Fact]
+    public void The_platform_layer_does_not_reference_persistence_or_use_cases()
+    {
+        string[] forbidden = ["Noto.Infrastructure", "Noto.UseCases", "Microsoft.Data.Sqlite"];
+
+        var violations = PlatformAssembly.GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(n => forbidden.Any(f => n.StartsWith(f, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            $"Noto.Platform.Windows must not reference: {string.Join(", ", violations)}. "
+            + "Windows interop sits beside persistence, not on top of it; Noto.Windows "
+            + "composes the two (ADR-009).");
+    }
+
+    [Fact]
     public void This_test_project_does_not_reference_the_ui()
     {
         // The project's own contract, enforced. A future runtime test that

@@ -159,7 +159,7 @@ public sealed class PinNoteTests : IDisposable
         var id = Create("note");
         Pin(id);
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();
 
