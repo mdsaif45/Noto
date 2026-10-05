@@ -88,20 +88,19 @@ every negative-control result. Nothing is written into the repository.
 
 - **The negative control is not always refused.** A shell-started probe that
   had received no input was sometimes granted `SetForegroundWindow`.
-  - *Where:* each time, the probe targeted a window that had never been
-    activated, such as a freshly started window shown with `SW_SHOWNOACTIVATE`.
-    Each time, it was also the first probe of its run. This happened in 3
-    cases.
-  - *Where it didn't:* after one real activation, probes at those same windows
-    were refused. No probe aimed at an already-activated window has been
-    granted.
-  - *Likely cause:* a window that has never been activated may keep its
-    start-up activation right. This is not confirmed.
-  - *Why it doesn't affect the Noto runs:* every window they probe has already
-    been activated, Noto by its own launch and the target by a click. The
-    self-test activates both of its windows first, for the same reason.
-  - *Safeguards:* every press is still bracketed, and one grant invalidates
-    the whole run.
+  - *Seen first:* the probe targeted a window that had never been activated,
+    such as one shown with `SW_SHOWNOACTIVATE`, and it was the first probe of
+    its run. After one real activation, probes at those windows were refused.
+  - *Seen since (2026-10-05):* the self-test's probes were granted right after
+    a session unlock, although both of its windows had been activated. In two
+    of three Slice 4 runs on `6917692`, the first probe, aimed at the
+    just-launched Noto, was granted. Both kinds of run were valid when
+    repeated.
+  - *Cause:* not established. The earlier "never-activated window" explanation
+    does not cover the later cases.
+  - *What it means for results:* any grant makes the run INVALID, and an
+    INVALID run proves nothing. Only runs in which every control was refused
+    count, so a run that fails this way is repeated, never averaged in.
 - Only the displays attached during the run are tested. To test a
   multi-display layout, the displays must be connected.
 - Keyboard focus is read from `GetGUIThreadInfo`, which names the window that

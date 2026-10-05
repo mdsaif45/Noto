@@ -20,7 +20,7 @@ namespace Noto.Core.Notes;
 /// do produces a lowest-common-denominator interface nobody can read.
 /// </para>
 /// <para>
-/// <b>Slice 1 only.</b> Methods arrive with the commands that need them; an
+/// Methods arrived with the commands that need them, slice by slice; an
 /// interface written ahead of its callers is a guess.
 /// </para>
 /// </remarks>
@@ -43,7 +43,7 @@ public interface INoteRepository
     /// Invariant I1 — active by default — applies here, so the
     /// <c>DeletedAt IS NULL</c> filter lives in the query rather than in each
     /// caller. The recycle bin is reached only through
-    /// <c>ListDeletedNotes</c> (I2), which arrives in Slice 3.
+    /// <c>ListDeletedNotes</c> (I2), added in Slice 3.
     /// </para>
     /// <para>
     /// <see langword="null"/> means "no active row" and nothing else — this is

@@ -80,9 +80,10 @@ public sealed class NotoDatabase
     private static void ApplyPragmas(SqliteConnection connection)
     {
         // foreign_keys — OFF by default in SQLite, for backwards compatibility.
-        // Noto relies on cascade deletes (a note's attachments, a folder's
-        // notes), so without this the schema's declared relationships are
-        // documentation rather than constraints.
+        // Noto relies on the schema's declared relationships — a note's or a
+        // tag's NoteTags rows cascade, and a removed folder's notes have their
+        // FolderId set to NULL — so without this they are documentation rather
+        // than constraints.
         Execute(connection, "PRAGMA foreign_keys = ON;");
 
         // journal_mode = WAL — readers do not block the writer, which keeps the
@@ -103,10 +104,11 @@ public sealed class NotoDatabase
         // fsync on every keystroke-triggered autosave. It is the documented
         // recommendation for WAL mode.
         //
-        // This is a real trade: a power cut may cost the last few seconds of
-        // typing. Accepted because autosave is continuous, so the window is
-        // small, and because OFF (which risks the whole file) is the only
-        // faster option.
+        // This is a real trade: a power cut may lose the most recently
+        // committed writes. Accepted because that window is small, and because
+        // OFF (which risks the whole file) is the only faster option. Note
+        // that saving is not continuous yet: the editor saves on leave and on
+        // close, and continuous persistence (parity B19) is M3's.
         Execute(connection, "PRAGMA synchronous = NORMAL;");
 
         // busy_timeout — wait rather than failing instantly if another

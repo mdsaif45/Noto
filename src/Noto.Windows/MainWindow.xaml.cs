@@ -470,8 +470,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     /// <remarks>
     /// F2 rather than double-click: parity C4 reserves double-click for
-    /// entering a folder, which is not implemented yet, and binding it now
-    /// would have to be taken back.
+    /// entering a folder (<c>OnFolderListDoubleTapped</c>).
     /// </remarks>
     private void BeginRename()
     {
