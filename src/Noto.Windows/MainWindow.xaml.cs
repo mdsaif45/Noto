@@ -825,22 +825,20 @@ public sealed partial class MainWindow : Window
     /// one (parity B1, "context-dependent": the same chord makes a folder in
     /// the folder list).
     /// </remarks>
-    private void OnNoteListKeyDown(object sender, KeyRoutedEventArgs e)
+    /// <summary>
+    /// Ctrl+N — create a note in the open folder and open it (parity B1).
+    /// </summary>
+    /// <remarks>
+    /// An accelerator on the note surface's root, as the folder pane does for
+    /// C2, not a key handler on the list. The list handler only ran while a
+    /// row had focus, and an empty folder has no row: the first note could not
+    /// be created from the keyboard (#69). Enter is still the list's
+    /// <c>PreviewKeyDown</c>, because a ListView claims it as item activation.
+    /// </remarks>
+    private void OnCreateNoteAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        // Enter is NOT handled here: a ListView treats it as item activation
-        // and marks it handled before KeyDown bubbles, so it never arrives.
-        // It is OnNoteListPreviewKeyDown instead — the same fix the folder
-        // list needed for Ctrl+Down.
-        //
-        // Ctrl+N stays on this handler because runtime validation shows it
-        // arrives: the list claims Enter, not every chord, and moving a
-        // binding that demonstrably works would be a change with no evidence
-        // behind it.
-        if (e.Key == VirtualKey.N && IsControlDown())
-        {
-            e.Handled = true;
-            CreateNoteInOpenFolder();
-        }
+        args.Handled = true;
+        CreateNoteInOpenFolder();
     }
 
     /// <summary>
