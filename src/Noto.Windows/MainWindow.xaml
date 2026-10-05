@@ -192,6 +192,17 @@
               RowSpacing="{StaticResource SpaceS}"
               Visibility="Collapsed">
 
+            <!--
+                Ctrl+N creates a note in the open folder (parity B1), the same
+                mechanism the folder pane uses for C2. On this surface's root,
+                so it does not depend on where focus is: an empty folder has
+                no row to take focus, and a key handler on the list never ran
+                there (#69). Active only while this surface is shown.
+            -->
+            <Grid.KeyboardAccelerators>
+                <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnCreateNoteAccelerator" />
+            </Grid.KeyboardAccelerators>
+
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -247,7 +258,6 @@
                 ItemContainerStyle="{StaticResource NoteRowStyle}"
                 SelectionMode="Single"
                 SelectionChanged="OnNoteSelectionChanged"
-                KeyDown="OnNoteListKeyDown"
                 PreviewKeyDown="OnNoteListPreviewKeyDown"
                 DoubleTapped="OnNoteListDoubleTapped"
                 AutomationProperties.Name="Notes">
