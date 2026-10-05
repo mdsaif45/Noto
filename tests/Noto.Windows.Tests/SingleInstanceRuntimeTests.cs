@@ -87,10 +87,12 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
         using var finish = new ManualResetEventSlim();
         var owner = new Thread(() =>
         {
-            InstanceOwnership? owned = InstanceOwnership.TryAcquire(key);
-            acquired.Set();
-            letGo.Wait();
-            owned?.Dispose();
+            using (InstanceOwnership? owned = InstanceOwnership.TryAcquire(key))
+            {
+                acquired.Set();
+                letGo.Wait();
+            }
+
             released.Set();
             finish.Wait();
         });
@@ -338,7 +340,7 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
     {
         InstanceKey key = NewKey();
 
-        using (var holder = new Holder(key))
+        using (new Holder(key))
         using (ActivationPipeServer server = StartServer(key, request => ActivationReply.Accepted))
         {
             server.BeginShutdown();
@@ -644,18 +646,14 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
     /// <summary>Claims, lets the test look at the ownership, and always lets it go.</summary>
     private static InstanceClaim ClaimWhile(InstanceKey key, bool elevated, ClaimTimings timings, Action<InstanceOwnership?> whileHeld)
     {
-        InstanceOwnership? owned = null;
+        InstanceClaim claim = InstanceOwnership.Claim(key, elevated, timings, out InstanceOwnership? owned);
 
-        try
+        using (owned)
         {
-            InstanceClaim claim = InstanceOwnership.Claim(key, elevated, timings, out owned);
             whileHeld(owned);
-            return claim;
         }
-        finally
-        {
-            owned?.Dispose();
-        }
+
+        return claim;
     }
 
     private static T OnOtherThread<T>(Func<T> work)
@@ -691,13 +689,21 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
             _thread = new Thread(() =>
             {
                 InstanceOwnership? owned = InstanceOwnership.TryAcquire(key);
-                Owned = owned is not null;
-                _acquired.Set();
-                _release.Wait();
 
-                if (!abandon)
+                try
                 {
-                    owned?.Dispose();
+                    Owned = owned is not null;
+                    _acquired.Set();
+                    _release.Wait();
+                }
+                finally
+                {
+                    // Abandoning is the point of the crash case: the thread
+                    // ends holding the mutex, as a killed owner would.
+                    if (!abandon)
+                    {
+                        owned?.Dispose();
+                    }
                 }
             });
             _thread.Start();

@@ -76,6 +76,7 @@ public sealed class ActivationPipeServer : IDisposable
     /// <summary>How long a client may take to send its request, and to read the reply.</summary>
     internal static readonly TimeSpan IoTimeout = TimeSpan.FromSeconds(2);
 
+    private readonly SafePipeHandle _handle;
     private readonly NamedPipeServerStream _pipe;
     private readonly Func<ActivationRequest, ActivationReply> _onRequest;
     private readonly CancellationTokenSource _stop = new();
@@ -83,9 +84,11 @@ public sealed class ActivationPipeServer : IDisposable
     private int _shuttingDown;
     private int _disposed;
 
-    private ActivationPipeServer(NamedPipeServerStream pipe, Func<ActivationRequest, ActivationReply> onRequest)
+    /// <summary>Takes ownership of the raw pipe handle: the stream closes it.</summary>
+    private ActivationPipeServer(nint pipeHandle, Func<ActivationRequest, ActivationReply> onRequest)
     {
-        _pipe = pipe;
+        _handle = new SafePipeHandle(pipeHandle, ownsHandle: true);
+        _pipe = new NamedPipeServerStream(PipeDirection.InOut, isAsync: true, isConnected: false, _handle);
         _onRequest = onRequest;
         _loop = Task.Run(RunAsync);
     }
@@ -110,34 +113,18 @@ public sealed class ActivationPipeServer : IDisposable
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(onRequest);
 
-        server = null;
-        SafePipeHandle? handle = Create(key, out errorCode);
-        NamedPipeServerStream? pipe = null;
+        server = Create(key, onRequest, out errorCode);
 
-        try
+        if (server is not null)
         {
-            if (handle is null)
-            {
-                // ACCESS_DENIED is FIRST_PIPE_INSTANCE's answer when the name
-                // exists; PIPE_BUSY is the answer when it exists with its one
-                // instance already taken.
-                return errorCode is NativeMethods.ERROR_ACCESS_DENIED or NativeMethods.ERROR_PIPE_BUSY
-                    ? PipeStartStatus.NameTaken
-                    : PipeStartStatus.Failed;
-            }
-
-            pipe = new NamedPipeServerStream(PipeDirection.InOut, isAsync: true, isConnected: false, handle);
-            handle = null;
-            server = new ActivationPipeServer(pipe, onRequest);
-            pipe = null;
             return PipeStartStatus.Started;
         }
-        finally
-        {
-            // Only on failure: ownership passed to the server otherwise.
-            pipe?.Dispose();
-            handle?.Dispose();
-        }
+
+        // ACCESS_DENIED is FIRST_PIPE_INSTANCE's answer when the name exists;
+        // PIPE_BUSY is the answer when it exists with its one instance taken.
+        return errorCode is NativeMethods.ERROR_ACCESS_DENIED or NativeMethods.ERROR_PIPE_BUSY
+            ? PipeStartStatus.NameTaken
+            : PipeStartStatus.Failed;
     }
 
     /// <summary>
@@ -160,8 +147,10 @@ public sealed class ActivationPipeServer : IDisposable
         BeginShutdown();
         _stop.Cancel();
 
-        // Closing the handle cancels whatever is pending on it.
+        // Closing the handle cancels whatever is pending on it. The stream
+        // closes the handle it was given; disposing it again is harmless.
         _pipe.Dispose();
+        _handle.Dispose();
 
         try
         {
@@ -175,7 +164,7 @@ public sealed class ActivationPipeServer : IDisposable
         _stop.Dispose();
     }
 
-    private static unsafe SafePipeHandle? Create(InstanceKey key, out int errorCode)
+    private static unsafe ActivationPipeServer? Create(InstanceKey key, Func<ActivationRequest, ActivationReply> onRequest, out int errorCode)
     {
         // Protected DACL, one ACE: the current user, full access. No
         // inherited entries, so administrators and SYSTEM are not granted.
@@ -209,7 +198,7 @@ public sealed class ActivationPipeServer : IDisposable
             }
 
             errorCode = 0;
-            return new SafePipeHandle(raw, ownsHandle: true);
+            return new ActivationPipeServer(raw, onRequest);
         }
     }
 

@@ -264,12 +264,9 @@ public sealed partial class InstanceKeyTests(ITestOutputHelper output)
         public void Dispose()
         {
             // Junctions and links first, so the delete never follows one.
-            foreach (string entry in Directory.EnumerateDirectories(Path))
+            foreach (string link in Directory.EnumerateDirectories(Path).Where(e => new DirectoryInfo(e).LinkTarget is not null))
             {
-                if (new DirectoryInfo(entry).LinkTarget is not null)
-                {
-                    Directory.Delete(entry);
-                }
+                Directory.Delete(link);
             }
 
             Directory.Delete(Path, recursive: true);

@@ -81,16 +81,14 @@ public sealed class InstanceOwnership : IDisposable
 {
     private readonly Mutex _mutex;
     private readonly int _thread = Environment.CurrentManagedThreadId;
+    private bool _owned;
     private bool _disposed;
 
-    private InstanceOwnership(Mutex mutex, bool recovered)
-    {
-        _mutex = mutex;
-        Recovered = recovered;
-    }
+    /// <summary>Opens (or creates) the mutex; it is not owned until <see cref="Take"/> succeeds.</summary>
+    private InstanceOwnership(string mutexName) => _mutex = new Mutex(initiallyOwned: false, mutexName);
 
     /// <summary>The previous owner died holding the root; this one recovered it.</summary>
-    public bool Recovered { get; }
+    public bool Recovered { get; private set; }
 
     /// <summary>
     /// Takes ownership if no one holds it, without waiting.
@@ -106,36 +104,35 @@ public sealed class InstanceOwnership : IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var mutex = new Mutex(initiallyOwned: false, key.MutexName);
+        var candidate = new InstanceOwnership(key.MutexName);
 
         try
         {
-            bool owned;
-            bool recovered = false;
-
-            try
-            {
-                owned = mutex.WaitOne(timeout);
-            }
-            catch (AbandonedMutexException)
-            {
-                // Acquired: the previous owner died holding it.
-                owned = true;
-                recovered = true;
-            }
-
-            if (!owned)
-            {
-                mutex.Dispose();
-                return null;
-            }
-
-            return new InstanceOwnership(mutex, recovered);
+            candidate.Take(timeout);
         }
-        catch
+        finally
         {
-            mutex.Dispose();
-            throw;
+            // Not taken, or the wait failed: let the handle go.
+            if (!candidate._owned)
+            {
+                candidate.Dispose();
+            }
+        }
+
+        return candidate._owned ? candidate : null;
+    }
+
+    private void Take(TimeSpan timeout)
+    {
+        try
+        {
+            _owned = _mutex.WaitOne(timeout);
+        }
+        catch (AbandonedMutexException)
+        {
+            // Acquired: the previous owner died holding it.
+            _owned = true;
+            Recovered = true;
         }
     }
 
@@ -280,7 +277,7 @@ public sealed class InstanceOwnership : IDisposable
 
         _disposed = true;
 
-        if (Environment.CurrentManagedThreadId == _thread)
+        if (_owned && Environment.CurrentManagedThreadId == _thread)
         {
             _mutex.ReleaseMutex();
         }
