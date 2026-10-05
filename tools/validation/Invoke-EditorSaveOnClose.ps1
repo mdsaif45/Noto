@@ -11,8 +11,10 @@
     1  unsaved text, Alt+F4          -> saved, process exits, row holds the new text
     2  clean editor, close           -> exits, row untouched (UpdatedAt unchanged)
     3  save fails (note binned), Alt+F4 -> close cancelled, window stays, text kept, notice shown, row untouched
-       ... then close again          -> exits, the unsaved text is discarded, row untouched
-    4  save fails, text edited, close -> a new first attempt: cancelled again; the next close exits
+       ... note restored, close again  -> exits WITHOUT a second save attempt: the text is discarded although a
+                                         retry would now succeed, so a retrying implementation fails this case
+    4  save fails, text edited, note restored, close -> the edit is a new unsaved state and gets its normal single
+                                         save attempt: saved, exits
     5  close from the note list      -> exits
     6  close from the folder list    -> exits
 
@@ -108,6 +110,7 @@ function Close-AltF4($Noto) { Send-ToNoto $Noto @(0x12) 0x73 }
 function Close-SysCommand($Noto) { [void][NotoVal.Win32]::PostMessage($Noto.Hwnd, 0x0112, [IntPtr]0xF060, [IntPtr]::Zero); Start-Sleep -Milliseconds 700 }
 function Exited($Noto, [int] $Seconds = 10) { $p = Get-Process -Id $Noto.Pid -ErrorAction SilentlyContinue; (-not $p) -or $p.WaitForExit($Seconds * 1000) }
 function Still-Open($Noto) { Start-Sleep -Seconds 2; [bool](Get-Process -Id $Noto.Pid -ErrorAction SilentlyContinue) -and (Get-WindowEvidence $Noto).WsVisible }
+function Restore-Note($Data) { $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $Data -Sql "UPDATE Notes SET DeletedAt = NULL WHERE Id = `$n" -Parameters @{ '$n' = $NoteId } }
 function Bin-Note($Data) { $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $Data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId } }
 
 exit (Invoke-IsolatedRun $run -Title 'Editor: save before the window closes' -Body {
@@ -132,7 +135,7 @@ exit (Invoke-IsolatedRun $run -Title 'Editor: save before the window closes' -Bo
     Add-Result $run '2  clean editor + close -> process exits' (Exited $noto) ''
     Add-Result $run '2  row untouched (content and UpdatedAt)' (((Row $data 'Content') -eq $Original) -and ((Row $data 'UpdatedAt') -eq $before)) "UpdatedAt $before -> $(Row $data 'UpdatedAt')"
 
-    # 3 - save fails, then the second close discards
+    # 3 - save fails; the second close discards without another save attempt
     $data = New-SeededRoot 'case3'
     $noto = Open-At $data 'editor' $target
     $text = "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"
@@ -145,24 +148,26 @@ exit (Invoke-IsolatedRun $run -Title 'Editor: save before the window closes' -Bo
     $notice = Notice $noto
     Add-Result $run '3  the failure notice is shown and offers the second close' ($notice -match 'recycle bin' -and $notice -match 'Close the window again') "notice='$notice'"
     Add-Result $run '3  nothing was written' ((Row $data 'Content') -eq $Original) ''
+    # Restored underneath, so a second save attempt WOULD now succeed. The agreed rule makes none.
+    Restore-Note $data
     Bring-NotoForward $noto $target
     Close-AltF4 $noto
     Add-Result $run '3  second close with the same text -> process exits' (Exited $noto) ''
-    Add-Result $run '3  the unsaved text was discarded, the row untouched' ((Row $data 'Content') -eq $Original -and [bool](Row $data 'DeletedAt')) ''
+    Add-Result $run '3  no second save attempt: the text is discarded although a retry would have succeeded' ((Row $data 'Content') -eq $Original -and (Row $data 'DeletedAt') -is [DBNull]) "content='$(Row $data 'Content')'"
 
-    # 4 - an edit after the failure is a new first attempt
+    # 4 - an edit after the failure is a new unsaved state: its close gets the normal single save attempt
     $data = New-SeededRoot 'case4'
     $noto = Open-At $data 'editor' $target
     Set-Editor $noto 'first unsaved text'
     Bin-Note $data
     Close-SysCommand $noto
     Add-Result $run '4  first failed close is cancelled' (Still-Open $noto) ''
-    Set-Editor $noto 'edited after the failure'
+    $edited = "edited after the failure $([guid]::NewGuid().ToString('N').Substring(0, 6))"
+    Set-Editor $noto $edited
+    Restore-Note $data
     Close-SysCommand $noto
-    Add-Result $run '4  close after an edit is a new first attempt: cancelled again' (Still-Open $noto) ''
-    Close-SysCommand $noto
-    Add-Result $run '4  the next close with the same text exits' (Exited $noto) ''
-    Add-Result $run '4  row untouched' ((Row $data 'Content') -eq $Original) ''
+    Add-Result $run '4  close after an edit makes its save attempt and exits' (Exited $noto) ''
+    Add-Result $run '4  the edited text was saved, not discarded' ((Row $data 'Content') -eq $edited) "content='$(Row $data 'Content')'"
 
     # 5 - close from the note list
     $data = New-SeededRoot 'case5'

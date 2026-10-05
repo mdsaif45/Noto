@@ -1135,12 +1135,13 @@ public sealed partial class MainWindow : Window
     /// persistence stays M3's.
     /// </para>
     /// <para>
-    /// A failed save cancels the close and keeps the text, and the editor's
-    /// notice says so. Closing again with the same text tries the save once
-    /// more and, if it still fails, closes and discards: a save that can never
-    /// succeed — the note was removed — must not trap the user, and the second
-    /// close is the choice the notice offered. Text edited after the failure is
-    /// a new first attempt.
+    /// The first close with unsaved text gets exactly one save attempt. If it
+    /// fails, the close is cancelled, the text stays, and the editor's notice
+    /// says so. Closing again with the same text makes no further attempt: it
+    /// discards and closes, the choice the notice offered, so a save that can
+    /// never succeed — the note was removed — cannot trap the user. Text edited
+    /// after the failure is a new unsaved state, and its close gets the normal
+    /// single attempt.
     /// </para>
     /// <para>
     /// Not covered: the session ending, the process being killed, or a crash.
@@ -1158,7 +1159,8 @@ public sealed partial class MainWindow : Window
             && failed.NoteId == noteId
             && string.Equals(failed.Text, NoteEditor.Text, StringComparison.Ordinal);
 
-        if (TrySaveOpenNote(noteId, CloseAgainToDiscard) || closingAgain)
+        // The explicit discard: no second save attempt.
+        if (closingAgain || TrySaveOpenNote(noteId, CloseAgainToDiscard))
         {
             return;
         }
