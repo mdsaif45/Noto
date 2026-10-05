@@ -4,8 +4,8 @@
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
 Current slice:      #16 slice 5 (show/hide), PR #89 — implemented and
-                    runtime-validated; one open decision (the virtual-desktop
-                    rule for a hidden window, ADR-007 §4)
+                    runtime-validated, including virtual desktops and the real
+                    Alt+Tab switcher
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
@@ -249,7 +249,7 @@ This distinction matters more than any other line in this document.
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
 | Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
 | Restore from minimized, and activation of a minimized window | DONE — single display only | PR #82 → `63014bf`. A restore re-docks at the remembered requested width, on the window's own edge and display. The hotkey restores a minimized window before taking the foreground. Minimized stays distinct from hidden (ADR-007 §4, *Minimized and restored*) |
-| Show and hide through the global hotkey | DONE — single display; one open decision (virtual desktops) | #16 slice 5, PR #89. Hidden is `AppWindow.Hide()`; every show re-docks against the current display and ends normal, docked and focused; unsaved editor text is saved once before hiding (ADR-007 §4, *Show and hide*) |
+| Show and hide through the global hotkey | DONE — single display | #16 slice 5, PR #89. Hidden is `AppWindow.Hide()`; every show re-docks against the current display and ends normal, docked and focused; unsaved editor text is saved once before hiding (ADR-007 §4, *Show and hide*) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
@@ -433,8 +433,8 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ```
 #16 Edge-Docked Sidebar — slices 1–4, the #82 restore fix and slice 5
-(show/hide, PR #89) done. Next: decide the virtual-desktop rule for a hidden
-window; then single instance (A17), its own slice with a design gate.
+(show/hide, PR #89) done. Next: single instance (A17), its own slice with a
+design gate.
 ```
 
 **M2-1, M2-2 and M2-3 were each gated before implementation, and #16 is now
@@ -616,7 +616,7 @@ campaigns against the real application rather than relying on CI.
 
 `tools/validation/Invoke-ShowHide.ps1` ran on a Release build of PR #89: an
 isolated data root, Noto started by the shell, every foreground claim bracketed
-by a negative control (7/7 refused).
+by a negative control (7/7 refused). 35/35 checks.
 
 Passed:
 - launch visible and docked; hide; show at the exact docked rectangle with
@@ -628,6 +628,13 @@ Passed:
   during shutdown (dropped, exit code 0); chords during startup (coalesced,
   never hidden)
 - the taskbar button gone while hidden and back when shown
+- virtual desktops, as decided (ADR-007 §4): a hidden Noto summoned from
+  another desktop is shown on the current desktop with no switch; a shown
+  Noto summoned from another desktop makes Windows switch back to it
+- Alt+Tab through the real switcher, not a proxy: Noto shown is selectable;
+  Noto hidden is never selected across a full cycle. The walk runs last,
+  because an injected Alt press can unlock the foreground for the next
+  `SetForegroundWindow` and would contaminate any later negative control
 
 Closing ran under `Invoke-EditorSaveOnClose.ps1` (19/19). Regression:
 `Invoke-MinimizedActivation.ps1` 36/36, `Invoke-Slice4Foreground.ps1` 36/36 —
@@ -635,8 +642,7 @@ its case B now expects the hide.
 
 | Item | Status |
 | ---- | ------ |
-| **Virtual desktops** | **CONTRACT NOT MET for a hidden window.** Shown on its own desktop, Noto summoned from another desktop makes Windows switch back. Hidden, it is shown on the current desktop without switching. Keeping the agreed rule needs `IVirtualDesktopManager`, which ADR-007 §7 rules out — an open decision |
-| **Alt+Tab** | **NOT VALIDATED.** Only the eligibility proxy was checked (not eligible while hidden); the real switcher was not read |
+| **Windows 10** | **NOT VALIDATED** — virtual-desktop and Alt+Tab behaviour measured on Windows 11 only (#32) |
 | **Multi-display, mixed DPI, display disconnected while hidden** | **NOT VALIDATED.** One display at 96 DPI; mixed DPI blocked by #30 |
 | **Physical keyboard, IME** | **NOT VALIDATED** |
 | **Second launch (A17)** | **Out of scope** — single instance is its own slice |

@@ -420,19 +420,23 @@ once; the rest are older than that transition and dropped.
 **Startup** is unchanged: a manual launch opens shown, normal and docked, on
 the current topology. Hidden is never persisted. Launch at login is deferred.
 
-**Virtual desktops — measured, and not as agreed.** The agreed rule was that
-activation from another virtual desktop switches to Noto's desktop. Measured
-on Windows 11 (10.0.26300):
+**Virtual desktops.** The hotkey never moves the window between desktops; it
+does what Windows does. Measured on Windows 11 (10.0.26300):
 
 ```
   Noto shown on desktop A, hotkey on desktop B   ->  Windows switches to A; Noto in front
-  Noto HIDDEN on desktop A, hotkey on desktop B  ->  Noto is shown on B; no switch
+  Noto hidden, hotkey on desktop B               ->  Noto is shown on B; no switch
 ```
 
-A hidden window that is shown appears on the current desktop. Keeping the
-agreed rule for the hidden case would mean remembering the desktop at hide and
-moving the window back before showing it, through `IVirtualDesktopManager`,
-which §7 says Noto does not use. That is an open decision, not implemented.
+A shown window is activated where it is, and Windows switches to its desktop.
+A hidden window that is shown appears on the current desktop. Keeping a hidden
+window on its last desktop was considered and not adopted: it needs
+`IVirtualDesktopManager` (§7), its desktop id is unreliable for a window that is
+not shown, and Noto is one window with no per-desktop content to preserve.
+Windows 10 is not yet measured (#32).
+
+**Alt+Tab**, measured through the real switcher: a hidden window is never
+selectable, and a shown one is.
 
 ### 5. Screen-capture exclusion
 
@@ -467,7 +471,8 @@ code built against them breaks on update.
 
 Noto does not use them. "Is the bound window currently visible?" is derived
 from the documented `DWMWA_CLOAKED` attribute instead, which is stable and
-answers the question Noto actually has.
+answers the question Noto actually has. Show and hide (§4) rely on Windows' own
+desktop handling and use none of these methods.
 
 ### 8. Never run elevated
 

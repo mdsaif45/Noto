@@ -20,9 +20,10 @@
     15 chord during an inner-edge resize drag -> ignored, the resize completes
     16 chord during shutdown -> dropped; the process exits with code 0
     17 chords during startup -> coalesced; Noto ends shown, never hidden
-    18 hidden, chord from another virtual desktop -> Noto's desktop current, Noto shown and in front
+    18 hidden, chord from another virtual desktop -> shown on the CURRENT desktop, docked, in front; no switch
+    18b shown on desktop A, chord from desktop B -> Windows switches back to A; Noto in front
     19 taskbar button absent while hidden, present when shown
-    20 Alt+Tab: eligibility proxy only (the real switcher is not read)
+    20 Alt+Tab, the real switcher: hidden -> never selectable; shown -> selectable
 
   Cases 11-13 (closing) are Invoke-EditorSaveOnClose.ps1.
 
@@ -103,12 +104,34 @@ function Taskbar-Buttons {
     @($AE::FromHandle($tray).FindAll($Scope::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | Where-Object { $_.Current.Name -match '^Noto\b' -and $_.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button }).Count
 }
 
-# Alt+Tab eligibility as the shell applies it: shown, not cloaked, not a tool window, unowned or WS_EX_APPWINDOW.
-function AltTab-Eligible($Hwnd) {
-    $style = [NotoVal.Extra]::GetWindowLong($Hwnd, -16); $ex = [NotoVal.Extra]::GetWindowLong($Hwnd, -20)
-    $owner = [NotoVal.Extra]::GetWindow($Hwnd, 4)
-    $cloak = 0; [void][NotoVal.Win32]::DwmGetWindowAttribute($Hwnd, 14, [ref]$cloak, 4)
-    (($style -band 0x10000000) -ne 0) -and $cloak -eq 0 -and (($ex -band 0x80) -eq 0) -and ($owner -eq [IntPtr]::Zero -or ($ex -band 0x40000) -ne 0)
+# Alt+Tab through the real switcher. The MRU order is arranged first by real activation, so the k-th Tab is
+# predictable; Alt+Tab is sent only while the target is in front, and the shell consumes it.
+function Name-Of($Hwnd) {
+    if ($Hwnd -eq $noto.Hwnd) { 'noto' } elseif ($Hwnd -eq $target.Hwnd) { 'target' } elseif ($Hwnd -eq $bystander.Hwnd) { 'bystander' }
+    else {
+        $p = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($Hwnd, [ref]$p)
+        $name = (Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName
+        "other($name pid $p '$([NotoVal.Win32]::Text($Hwnd))')"
+    }
+}
+function AltTab-Select([int] $K) {
+    if ((Fg) -ne $target.Hwnd) { throw 'refusing Alt+Tab: the target is not in front' }
+    [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x12, $false))); Start-Sleep -Milliseconds 150
+    for ($i = 1; $i -le $K; $i++) { [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x09, $false), [NotoVal.Win32]::Vk(0x09, $true))); Start-Sleep -Milliseconds 200 }
+    Start-Sleep -Milliseconds 300
+    [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x12, $true))); Start-Sleep -Milliseconds 1000
+    Fg
+}
+# Most recent first: target, bystander, then Noto when it is shown.
+function Arrange-Mru([bool] $NotoShown) {
+    if ($NotoShown) { Bring-NotoForward $noto $target }
+    $null = Set-ForegroundByKeyboard $bystander
+    $null = Set-ForegroundByKeyboard $target
+}
+function AltTab-Walk([bool] $NotoShown, [int] $Steps) {
+    $seen = @()
+    for ($k = 1; $k -le $Steps; $k++) { Arrange-Mru $NotoShown; $seen += Name-Of (AltTab-Select $k) }
+    $seen
 }
 
 function Wait-Presence($Noto, [scriptblock] $Condition, [int] $Seconds = 5) {
@@ -154,7 +177,6 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     Add-Result $run '2  foreground moved to another window (Windows default)' ((Fg) -ne $noto.Hwnd) "fg pid $($h.ForegroundPid)"
     $buttonsHidden = Taskbar-Buttons
     Add-Result $run '19 taskbar: Noto button present when shown, absent when hidden' ($buttonsShown -ge 1 -and $buttonsHidden -eq 0) "shown=$buttonsShown hidden=$buttonsHidden"
-    Add-Result $run '20 Alt+Tab eligibility proxy: not eligible while hidden' (-not (AltTab-Eligible $noto.Hwnd)) 'proxy only; the real switcher is not read'
 
     # 3-6 - hidden -> show
     $null = Set-ForegroundByKeyboard $target
@@ -167,7 +189,6 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     Add-Result $run '5  shown at exactly the docked rectangle, flush to the Right edge' (Is-Shown-Docked $s $docked) "expected $($docked.Outer)"
     Add-Result $run '6  shown as the foreground window with keyboard focus' ($s.IsForeground -and $s.KeyboardFocus) ''
     Add-Result $run '19 taskbar button back after show' ((Taskbar-Buttons) -ge 1) ''
-    Add-Result $run '20 Alt+Tab eligibility proxy: eligible again when shown' (AltTab-Eligible $noto.Hwnd) 'proxy only'
 
     # 7 - visible + minimized -> restored
     $null = Invoke-Minimize $noto
@@ -266,13 +287,16 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
         [NotoVal.Win32]::Keys(@($one)); Start-Sleep -Seconds 2
         $d = Ev $noto
         $now18 = (Get-DesktopState).Current
-        Add-Result $run "18 chord from another virtual desktop -> Noto's desktop becomes current" ($now18 -eq $homeDesk) "home=$homeDesk other=$other now=$now18"
-        Add-Result $run '18 ... and Noto is shown, docked and in front' ((Is-Shown-Docked $d $docked) -and $d.IsForeground) (Show-State $d)
+        Add-Result $run '18 hidden + chord from another desktop -> no desktop switch' ($now18 -eq $other) "home=$homeDesk other=$other now=$now18"
+        Add-Result $run '18 ... Noto shown on the CURRENT desktop (not cloaked), docked and in front' ((Is-Shown-Docked $d $docked) -and $d.IsForeground) (Show-State $d)
+        # Closing the second desktop moves its windows, Noto now among them, to the run desktop.
         if ((Get-DesktopState).All -contains $other) { Step-ToDesktop $run $other; if ((Get-DesktopState).Current -eq $other) { Send-ShellChord $run @($VK.LWIN, $VK.CTRL) $VK.F4 } }
         Step-ToDesktop $run $homeDesk
         Add-Result $run '18 cleanup: the second temporary desktop is gone, back on the run desktop' (((Get-DesktopState).Current -eq $homeDesk) -and ((Get-DesktopState).All.Count -eq $countBefore)) ''
+        $back = Ev $noto
+        if (-not ($back.WsVisible -and $back.Cloaked -eq 0)) { Add-Invalid $run "18b precondition: Noto is not shown on the run desktop after cleanup: $(Show-State $back)" }
 
-        # 18b - evidence only: Noto SHOWN on the run desktop, chord from another desktop
+        # 18b - Noto SHOWN on the run desktop, chord from another desktop
         if ((Ev $noto).WsVisible -eq $false) { $null = Set-ForegroundByKeyboard $target; Chord @($target.Hwnd); $null = Wait-Presence $noto { param($e) $e.WsVisible } }
         $null = Set-ForegroundByKeyboard $target
         Send-ShellChord $run @($VK.LWIN, $VK.CTRL) $VK.D
@@ -280,7 +304,8 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
         $cloakedThere = (Ev $noto).Cloaked
         [NotoVal.Win32]::Keys(@($one)); Start-Sleep -Seconds 2
         $d2 = Ev $noto; $now18b = (Get-DesktopState).Current
-        Add-Result $run '18b evidence: shown on another desktop, chord -> current desktop and Noto state recorded' $true "cloaked-before=$cloakedThere switched-to-home=$($now18b -eq $homeDesk) $(Show-State $d2)"
+        Add-Result $run '18b shown on desktop A + chord from desktop B -> Windows switches back to A' ($cloakedThere -ne 0 -and $now18b -eq $homeDesk) "cloaked-on-B=$cloakedThere home=$homeDesk now=$now18b"
+        Add-Result $run '18b ... and Noto is in front, docked' ((Is-Shown-Docked $d2 $docked) -and $d2.IsForeground) (Show-State $d2)
         if ((Get-DesktopState).All -contains $other2) { Step-ToDesktop $run $other2; if ((Get-DesktopState).Current -eq $other2) { Send-ShellChord $run @($VK.LWIN, $VK.CTRL) $VK.F4 } }
         Step-ToDesktop $run $homeDesk
         if ((Ev $noto).WsVisible -and -not (Ev $noto).IsForeground) { $null = Set-ForegroundByKeyboard $target }
@@ -317,5 +342,19 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     Add-Result $run '17 chords during startup -> Noto ends shown and docked, not hidden' ($sent -gt 0 -and $e17.WsVisible -and -not $e17.Minimized -and (Test-DockedAt $e17 'Right')) "chords sent=$sent $(Show-State $e17)"
     Start-Sleep -Seconds 2
     Add-Result $run '17 ... and stays shown (no delayed toggle)' ((Ev $noto17).WsVisible) ''
+
+    # 20 - Alt+Tab through the real switcher. Last on purpose: an injected Alt press can unlock the foreground
+    # for the next SetForegroundWindow, so no negative-control-bracketed claim may follow it.
+    $noto = $noto17
+    $steps = 6                                                          # more than the eligible windows, so a full cycle is covered
+    $walkShown = AltTab-Walk $true $steps
+    Add-Result $run '20 Alt+Tab (real switcher), Noto shown: selectable' ($walkShown[0] -eq 'bystander' -and $walkShown -contains 'noto') "k=1..$steps selected: $($walkShown -join ', ')"
+    Bring-NotoForward $noto $target
+    Chord @($noto.Hwnd)
+    $null = Wait-Presence $noto { param($e) -not $e.WsVisible }
+    if ((Ev $noto).WsVisible) { Add-Invalid $run '20 precondition: Noto did not hide before the hidden walk' }
+    $walkHidden = AltTab-Walk $false $steps
+    Add-Result $run '20 Alt+Tab (real switcher), Noto hidden: never selectable' ($walkHidden[0] -eq 'bystander' -and $walkHidden -notcontains 'noto' -and -not (Ev $noto).WsVisible) "k=1..$steps selected: $($walkHidden -join ', ')"
+
     Add-Result $run 'teardown: Noto exited cleanly' (Stop-Noto $noto17) ''
 })
