@@ -87,7 +87,7 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
         using var finish = new ManualResetEventSlim();
         var owner = new Thread(() =>
         {
-            using (InstanceOwnership? owned = InstanceOwnership.TryAcquire(key))
+            using (InstanceOwnership.TryAcquire(key))
             {
                 acquired.Set();
                 letGo.Wait();
@@ -684,6 +684,13 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
     /// </summary>
     private sealed class Holder : IDisposable
     {
+        /// <summary>
+        /// Ownerships deliberately never let go: a crashed owner's. Kept here
+        /// so the collector cannot close their handles, which would destroy
+        /// the mutex instead of leaving it abandoned.
+        /// </summary>
+        private static readonly System.Collections.Concurrent.ConcurrentBag<InstanceOwnership> Crashed = [];
+
         private readonly ManualResetEventSlim _acquired = new();
         private readonly ManualResetEventSlim _release = new();
         private readonly Thread _thread;
@@ -691,26 +698,27 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
 
         public Holder(InstanceKey key, bool abandon = false)
         {
-            _thread = new Thread(() =>
-            {
-                InstanceOwnership? owned = InstanceOwnership.TryAcquire(key);
-
-                try
+            _thread = abandon
+                ? new Thread(() =>
                 {
+                    // The thread ends holding the mutex, as a killed owner would.
+                    if (InstanceOwnership.TryAcquire(key) is InstanceOwnership owned)
+                    {
+                        Crashed.Add(owned);
+                        Owned = true;
+                    }
+
+                    _acquired.Set();
+                    _release.Wait();
+                })
+                : new Thread(() =>
+                {
+                    using InstanceOwnership? owned = InstanceOwnership.TryAcquire(key);
+
                     Owned = owned is not null;
                     _acquired.Set();
                     _release.Wait();
-                }
-                finally
-                {
-                    // Abandoning is the point of the crash case: the thread
-                    // ends holding the mutex, as a killed owner would.
-                    if (!abandon)
-                    {
-                        owned?.Dispose();
-                    }
-                }
-            });
+                });
             _thread.Start();
             _acquired.Wait();
         }

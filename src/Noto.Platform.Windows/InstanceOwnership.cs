@@ -106,23 +106,14 @@ public sealed class InstanceOwnership : IDisposable
 
         var candidate = new InstanceOwnership(key.MutexName);
 
-        try
-        {
-            candidate.Take(timeout);
-        }
-        finally
-        {
-            // Not taken, or the wait failed: let the handle go.
-            if (!candidate._owned)
-            {
-                candidate.Dispose();
-            }
-        }
-
-        return candidate._owned ? candidate : null;
+        return candidate.TakeOrLetGo(timeout) ? candidate : null;
     }
 
-    private void Take(TimeSpan timeout)
+    /// <summary>
+    /// Waits for the mutex. Not taken — or the wait failed — the handle is
+    /// closed at once and this instance is spent.
+    /// </summary>
+    private bool TakeOrLetGo(TimeSpan timeout)
     {
         try
         {
@@ -134,6 +125,18 @@ public sealed class InstanceOwnership : IDisposable
             _owned = true;
             Recovered = true;
         }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+
+        if (!_owned)
+        {
+            Dispose();
+        }
+
+        return _owned;
     }
 
     /// <summary>
