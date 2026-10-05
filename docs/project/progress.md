@@ -627,7 +627,7 @@ campaigns against the real application rather than relying on CI.
 PR #91 branch: isolated data roots, Noto and every second launch started by
 the shell, each launch preceded by a real desktop click (the user's act), and
 every foreground claim bracketed by a negative control (6/6 refused).
-**61/61 checks** (run `single-instance-20261005-220325-5ce456`). A second
+**61/61 checks** (run `single-instance-20261005-222315-0c7806`). A second
 launch was caught the instant it appeared and watched to its exit; Noto's own `Noto.Instance` diagnostics were read from the
 debug-output channel.
 
