@@ -94,6 +94,13 @@ public sealed unsafe class DockedWindow
     internal bool IsAttached { get; private set; }
 
     /// <summary>
+    /// Whether the user is dragging the inner edge right now — between
+    /// <c>WM_ENTERSIZEMOVE</c> and <c>WM_EXITSIZEMOVE</c>. A hotkey press can be
+    /// handled inside that loop; the show/hide toggle ignores it (ADR-007 §4).
+    /// </summary>
+    public bool IsResizing => _inSizeLoop;
+
+    /// <summary>
     /// The width, in DIPs, the window is docked at whenever it is put back on
     /// the dock — <see langword="null"/> until it is known.
     /// </summary>

@@ -3,17 +3,17 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      None in progress. #16 slice 4 (global activation hotkey)
-                    was the last implementation slice; slice 5 (show/hide)
-                    awaits its design gate
+Current slice:      #16 slice 5 (show/hide), PR #89 — implemented and
+                    runtime-validated, including virtual desktops and the real
+                    Alt+Tab switcher
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
                     from its inner edge (#16 slices 1–3); a global hotkey
-                    brings it to the foreground (#16 slice 4), restoring and
-                    re-docking it first when it is minimized (#82). Unsaved
-                    editor text is saved before the window closes (#86).
-                    Tray, always-on-top and show/hide do not exist.
+                    shows and hides it (#16 slices 4–5), restoring and
+                    re-docking it when it is minimized (#82). Unsaved editor
+                    text is saved before the window closes (#86) or hides.
+                    Tray and always-on-top do not exist.
 Last updated:       2026-10-05
 Evidence baseline:  main @ 6917692 (PR #87 merged — end of the pre-Slice 5 small-work campaign)
 ```
@@ -22,10 +22,10 @@ Evidence baseline:  main @ 6917692 (PR #87 merged — end of the pre-Slice 5 sma
 > tested domain and persistence layer, and three real surfaces on top of it — a
 > folder pane, a note list and a plain-source note editor. A user can now
 > create, edit and delete a note through the UI, and the window opens docked to
-> a screen edge and can be resized from its inner edge. A global hotkey brings
-> it to the foreground. It is still not the application a user would recognise as
-> Noto: there is no tray, it is not always-on-top and cannot be shown or
-> hidden, and the editor shows raw markdown rather than rendering it.
+> a screen edge and can be resized from its inner edge. A global hotkey shows
+> and hides it. It is still not the application a user would recognise as
+> Noto: there is no tray, it is not always-on-top, and the editor shows raw
+> markdown rather than rendering it.
 
 ---
 
@@ -249,6 +249,7 @@ This distinction matters more than any other line in this document.
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
 | Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
 | Restore from minimized, and activation of a minimized window | DONE — single display only | PR #82 → `63014bf`. A restore re-docks at the remembered requested width, on the window's own edge and display. The hotkey restores a minimized window before taking the foreground. Minimized stays distinct from hidden (ADR-007 §4, *Minimized and restored*) |
+| Show and hide through the global hotkey | DONE — single display | #16 slice 5, PR #89. Hidden is `AppWindow.Hide()`; every show re-docks against the current display and ends normal, docked and focused; unsaved editor text is saved once before hiding (ADR-007 §4, *Show and hide*) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
 
@@ -258,7 +259,7 @@ This distinction matters more than any other line in this document.
 | - | ------ |
 | Visual design language | **PARTIAL** — expressed as tokens and three components; no wider language yet |
 | Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by all three surfaces |
-| Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to its remembered vertical edge (right by default) at its remembered width, and resizes from its inner edge only (#16 slices 2–3); a global hotkey brings it to the foreground (#16 slice 4); tray, always-on-top and show/hide are not built. There is no settings UI: the edge and the hotkey are changed only through their settings |
+| Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to its remembered vertical edge (right by default) at its remembered width, and resizes from its inner edge only (#16 slices 2–3); a global hotkey shows and hides it (#16 slices 4–5); tray and always-on-top are not built. There is no settings UI: the edge and the hotkey are changed only through their settings |
 | Note editor | **PARTIAL** — M2-3 merged (PR #63): plain-source editing, create, delete, save-on-leave, Loading/Loaded/Error + Retry; save before the window closes added by PR #86. Markdown **rendering** and the invisible-markdown editor are not built — #14 |
 | Folder UI | **DONE** — M2-1 merged (PR #57): list, create, rename, selection, Loading/Loaded/Empty/Error + Retry, keyboard, focus |
 | Note list UI | **DONE** — M2-2 merged (PR #60): enter a folder, note list, selection, Loading/Loaded/Empty/Error + Retry, Esc/Back |
@@ -411,6 +412,10 @@ WinUI 3 validated   ≠   Noto UI designed
   window minimized. Now a restore re-docks at the remembered requested width,
   on the window's own edge and display, and activation restores before taking
   the foreground. See *Outstanding validation — minimized restore (#82)*.
+- **#16 slice 5, show/hide, is PR #89.** The hotkey toggles the window:
+  hidden → show, minimized → restore, behind → bring forward, in front →
+  hide. Runtime-validated on one display (see *Outstanding validation — #16
+  slice 5*). Single instance (A17) is a separate slice.
 - **The pre-Slice 5 small-work campaign is merged** (PRs #72, #73, #84–#87).
   - Closing the window no longer loses unsaved editor text (PR #86). One
     explicit save runs at close; a failure cancels the close and keeps the
@@ -427,9 +432,9 @@ WinUI 3 validated   ≠   Noto UI designed
 ### NEXT
 
 ```
-#16 Edge-Docked Sidebar — slices 1–4 and the #82 restore fix merged; slice 5
-(show/hide toggle) next, after its own design gate. Its acceptance criteria are recorded in
-ADR-007 §4.
+#16 Edge-Docked Sidebar — slices 1–4, the #82 restore fix and slice 5
+(show/hide, PR #89) done. Next: single instance (A17), its own slice with a
+design gate.
 ```
 
 **M2-1, M2-2 and M2-3 were each gated before implementation, and #16 is now
@@ -460,8 +465,8 @@ Its prerequisites are cleared: #9 settings merged (PR #65), the platform test
 foundation merged (#67), and the SDK upgrade merged and runtime-validated
 (#68), so #16 will be built once on the version that ships rather than twice.
 
-**Slices 1–4 are the only #16 implementation so far.** The rest of the
-workspace shell — show/hide, the tray and always-on-top —
+**Slices 1–5 are the #16 implementation so far.** The rest of the
+workspace shell — single instance, the tray and always-on-top —
 remains what stands between three working surfaces and a build that can be
 used daily.
 
@@ -574,10 +579,10 @@ Verified on `main` @ `6917692`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                1188 / 1188 passing
+Tests                1213 / 1213 passing (on PR #89)
                        Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
                        Noto.UseCases.Tests         35   (1 + 33 #16 slice 3 + 1 #85)
-                       Noto.Windows.Tests         285   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85)
+                       Noto.Windows.Tests         310   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5)
                        Noto.Infrastructure.Tests  629   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4 + 1 #85)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
@@ -606,6 +611,42 @@ subclass and the slice 4 hotkey registration and delivery; a headless agent
 filters them out rather than fail. CI still builds and runs unit tests and never
 launches the application, which is why #68 and #16 slices 2–4 required runtime
 campaigns against the real application rather than relying on CI.
+
+### Outstanding validation — #16 slice 5
+
+`tools/validation/Invoke-ShowHide.ps1` ran on a Release build of PR #89: an
+isolated data root, Noto started by the shell, every foreground claim bracketed
+by a negative control (7/7 refused). 35/35 checks.
+
+Passed:
+- launch visible and docked; hide; show at the exact docked rectangle with
+  foreground and keyboard focus
+- restore from minimized; show from hidden-while-minimized
+- unsaved text saved once before hiding; a failed save keeps the window shown
+  with the text and the notice
+- a tight burst of chords; a chord during a resize drag (ignored); a chord
+  during shutdown (dropped, exit code 0); chords during startup (coalesced,
+  never hidden)
+- the taskbar button gone while hidden and back when shown
+- virtual desktops, as decided (ADR-007 §4): a hidden Noto summoned from
+  another desktop is shown on the current desktop with no switch; a shown
+  Noto summoned from another desktop makes Windows switch back to it
+- Alt+Tab through the real switcher, not a proxy: Noto shown is selectable;
+  Noto hidden is never selected across a full cycle. The walk runs last,
+  because an injected Alt press can unlock the foreground for the next
+  `SetForegroundWindow` and would contaminate any later negative control
+
+Closing ran under `Invoke-EditorSaveOnClose.ps1` (19/19). Regression:
+`Invoke-MinimizedActivation.ps1` 36/36, `Invoke-Slice4Foreground.ps1` 36/36 —
+its case B now expects the hide.
+
+| Item | Status |
+| ---- | ------ |
+| **Windows 10** | **NOT VALIDATED** — virtual-desktop and Alt+Tab behaviour measured on Windows 11 only (#32) |
+| **Multi-display, mixed DPI, display disconnected while hidden** | **NOT VALIDATED.** One display at 96 DPI; mixed DPI blocked by #30 |
+| **Physical keyboard, IME** | **NOT VALIDATED** |
+| **Second launch (A17)** | **Out of scope** — single instance is its own slice |
+| **Session end or a kill while editing** | Unsaved text is still lost (#10; B19 is M3's) |
 
 ### Outstanding validation — minimized restore (#82)
 
@@ -783,9 +824,10 @@ Done: M2-1 folder pane (#57) → M2-2 note list (#60) → M2-3 note editor (#63)
 Done: #16 slice 1 platform primitives (#74) → slice 2 basic edge docking (#76)
       → slice 3 edge setting, resize, width persistence (#78)
       → slice 4 global activation hotkey (#80) → restore/re-dock fix (#82)
+      → slice 5 show/hide (#89)
     ↓
-M2 remaining — the rest of the workspace shell: #16 slices 5–8 (show/hide,
-      animation, multi-monitor, hardening), tray. This is
+M2 remaining — the rest of the workspace shell: single instance (A17), #16
+      slices 6–8 (animation, multi-monitor, hardening), tray. This is
       what stands between the surfaces and a build that can be used daily
     ↓
 #14 markdown rendering · #15 export — the remaining M1 issues
@@ -797,8 +839,8 @@ M3 — SideNotes parity: the first product. B19 continuous persistence and
 The roadmap does not hold UI until the backend is finished. M2 is described as
 *"the first build usable daily. Everything after it is informed by"* it — and the
 navigation half of that is now built. It is not yet usable daily: the surfaces
-exist and open docked to a screen edge, and a global hotkey brings them
-forward, but nothing hides them or keeps them on top.
+exist and open docked to a screen edge, and a global hotkey shows and hides
+them, but there is no tray and nothing keeps them on top.
 
 ---
 

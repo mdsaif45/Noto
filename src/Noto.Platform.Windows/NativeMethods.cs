@@ -185,6 +185,29 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ShowWindow(nint hWnd, int nCmdShow);
 
+    // Workspace show/hide (#16 slice 5).
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool IsWindowVisible(nint hWnd);
+
+    /// <remarks>
+    /// <c>SetLastError</c> for the same reason as the test imports: a plain
+    /// signature makes the generator emit a direct <c>extern</c>, which CodeQL
+    /// reports as <c>cs/call-to-unmanaged-code</c>. Harmless here.
+    /// </remarks>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nint GetForegroundWindow();
+
+    /// <summary>
+    /// When the message being handled was posted, in milliseconds since
+    /// the system started — the clock <see cref="Environment.TickCount"/>
+    /// reads. Valid only while that message is being handled.
+    /// </summary>
+    /// <remarks><c>SetLastError</c> only to avoid a direct extern, as above.</remarks>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial int GetMessageTime();
+
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 

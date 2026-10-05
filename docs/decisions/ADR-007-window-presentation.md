@@ -328,7 +328,7 @@ The subclass shares the dock's single `DefSubclassProc` call.
 
 **What pressing it does (slice 4).** The workspace window comes to the
 foreground with keyboard focus; already in front and focused, nothing
-changes. It never hides. A minimized window is restored and re-docked first
+changes. It never hides — slice 5 changes that (see *Show and hide*). A minimized window is restored and re-docked first
 (see *Minimized and restored*). The foreground switch uses `SetForegroundWindow`
 called **synchronously while `WM_HOTKEY` is being handled** — the moment
 Windows entitles the hotkey's process to take the foreground. Measured on
@@ -360,10 +360,83 @@ spike require a conflict to be *reported* to the user, and no surface exists
 to report it on (no tray, no settings UI, and #7's logging is not built).
 That requirement is **deferred** to the first user-visible surface, not met.
 
-**Slice 5 acceptance criteria**, recorded so slice 4 is not mistaken for the
-finished behaviour: hidden → show and focus; visible and unfocused → focus;
-visible and focused → **hide**; a second launch (A17) shows and focuses and
-never hides.
+#### Show and hide
+
+> **Added 2026-10-05 by #16 slice 5.** Supersedes the slice 5 acceptance
+> criteria recorded with slice 4. A second launch (A17) is not part of it:
+> single instance is its own slice, because it involves package identity and
+> process ownership.
+
+**The toggle** (`WorkspaceToggle`, a pure function, and `WindowCoordinator`,
+which carries it out). Each press of the hotkey is judged against where the
+window is now, read from Windows each time:
+
+```
+  hidden                       ->  show: re-dock, then foreground with keyboard focus
+  shown, minimized             ->  restore: re-dock, then foreground with keyboard focus
+  shown, another window front  ->  bring forward
+  shown, in front              ->  hide
+```
+
+"In front" means the main window is the foreground window. A focused child
+control or an open popup leaves it in front, so it counts.
+
+**Hidden is `AppWindow.Hide()`** on the same window instance: never destroyed,
+never cloaked, no second window. Measured: a hidden window has no
+`WS_VISIBLE`, no taskbar button, and the foreground moves to another window
+(Windows' default). Hidden and minimized stay distinct; a window hidden while
+minimized shows normal.
+
+**Every show re-docks against the display as it is now.** The window is shown
+without activation, restored if it was minimized, docked using the display it
+is on, that display's work area and DPI, and the width remembered for that
+display (the settings chain in *Edge, resize and remembered width*), then
+brought to the foreground. Nothing is taken from before it was hidden. It
+always ends normal, docked and focused.
+
+**Unsaved editor text** is saved once before hiding, through the same explicit
+save as leaving the editor. It is not autosave (parity B19 stays M3's). If the
+save fails, the window is not hidden: the text stays and the editor's notice
+says why. Hiding is not leaving, so the editor stays open.
+
+**Close** is unchanged by this slice: until a tray exists, closing quits.
+Unsaved text gets one save; a failure cancels the close, and a second close
+with the same text discards it (#86).
+
+**Requests are serialized and never queued.** They arrive one at a time on the
+UI thread from the hotkey's message, and are carried out synchronously. Dropped:
+
+```
+  while the window is closing              (a close that goes ahead)
+  while the user is resizing               (WM_HOTKEY is delivered inside the size loop)
+  while a show or hide is already running
+  made before the last show or hide ended  (stale; the press's message time is known)
+  made during startup and the window is in front   (startup presses never hide)
+```
+
+A burst of presses made during startup therefore brings the window forward
+once; the rest are older than that transition and dropped.
+
+**Startup** is unchanged: a manual launch opens shown, normal and docked, on
+the current topology. Hidden is never persisted. Launch at login is deferred.
+
+**Virtual desktops.** The hotkey never moves the window between desktops; it
+does what Windows does. Measured on Windows 11 (10.0.26300):
+
+```
+  Noto shown on desktop A, hotkey on desktop B   ->  Windows switches to A; Noto in front
+  Noto hidden, hotkey on desktop B               ->  Noto is shown on B; no switch
+```
+
+A shown window is activated where it is, and Windows switches to its desktop.
+A hidden window that is shown appears on the current desktop. Keeping a hidden
+window on its last desktop was considered and not adopted: it needs
+`IVirtualDesktopManager` (§7), its desktop id is unreliable for a window that is
+not shown, and Noto is one window with no per-desktop content to preserve.
+Windows 10 is not yet measured (#32).
+
+**Alt+Tab**, measured through the real switcher: a hidden window is never
+selectable, and a shown one is.
 
 ### 5. Screen-capture exclusion
 
@@ -398,7 +471,8 @@ code built against them breaks on update.
 
 Noto does not use them. "Is the bound window currently visible?" is derived
 from the documented `DWMWA_CLOAKED` attribute instead, which is stable and
-answers the question Noto actually has.
+answers the question Noto actually has. Show and hide (§4) rely on Windows' own
+desktop handling and use none of these methods.
 
 ### 8. Never run elevated
 

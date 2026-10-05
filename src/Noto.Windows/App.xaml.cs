@@ -42,8 +42,9 @@ namespace Noto;
 /// <b>#16 slices 2 and 3</b> add the first piece of the workspace: the window
 /// docks to one vertical edge of the display it opened on — the edge and the
 /// width both remembered — and the user can resize it from its inner edge.
-/// <b>#16 slice 4</b> adds the global activation hotkey (below). The window
-/// is not yet always-on-top, and it cannot be hidden.
+/// <b>#16 slice 4</b> adds the global activation hotkey; <b>slice 5</b>
+/// makes it show and hide the window (<see cref="WindowCoordinator"/>). The
+/// window is not yet always-on-top.
 /// </para>
 /// </remarks>
 public partial class App : Application
@@ -90,7 +91,7 @@ public partial class App : Application
                 return null;
             }
 
-            hotkey.Pressed += (_, _) => BringWorkspaceForward();
+            hotkey.Pressed += (_, e) => OnHotkeyPressed(e.MessageTime);
 
             // Ownership passes to the caller; the finally below must not dispose it.
             GlobalHotkey registered = hotkey;
@@ -109,21 +110,27 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// What the hotkey does in slice 4: bring the workspace window to the
-    /// foreground with keyboard focus.
+    /// What the hotkey does (#16 slice 5): the show/hide toggle.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Runs synchronously inside the hotkey's <c>WM_HOTKEY</c> handling,
     /// which is what entitles Noto to take the foreground from another
-    /// application. Already in front and focused, it stays so. It never
-    /// hides: there is no hidden state until slice 5, whose toggle is
+    /// application. The rules are <see cref="WorkspaceToggle"/>'s and are
     /// recorded in ADR-007 §4.
     /// </para>
+    /// <para>
+    /// If docking failed at launch there is no coordinator, and the hotkey
+    /// falls back to slice 4's behaviour: bring the window forward, never hide.
+    /// </para>
     /// </remarks>
-    private void BringWorkspaceForward()
+    private void OnHotkeyPressed(int messageTime)
     {
-        if (_windowHandle is not null)
+        if (_coordinator is not null)
+        {
+            _ = _coordinator.OnActivationRequested(messageTime);
+        }
+        else if (_windowHandle is not null)
         {
             _ = WindowActivation.BringToForeground(_windowHandle);
         }
@@ -147,6 +154,9 @@ public partial class App : Application
 
     /// <summary>The workspace window's handle, for the hotkey to bring it forward.</summary>
     private WindowHandle? _windowHandle;
+
+    /// <summary>The show/hide lifecycle; <see langword="null"/> when docking failed.</summary>
+    private WindowCoordinator? _coordinator;
 
     public App() => InitializeComponent();
 
@@ -222,13 +232,29 @@ public partial class App : Application
         _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
         _window.Closed += (_, _) => _hotkey?.Dispose();
 
+        // After MainWindow's own Closing handler, which may cancel the close
+        // to keep unsaved text: only a close that goes ahead stops activation.
+        _window.AppWindow.Closing += (_, e) =>
+        {
+            if (!e.Cancel)
+            {
+                _coordinator?.BeginShutdown();
+            }
+        };
+
         _window.Activate();
 
         // After Activate: the inset is read from DWM's frame bounds, which
         // describe what is drawn, so they are read once the window is shown.
         // Reading them earlier gave the same result here, but is not relied
         // on. The window may appear at its default position for a moment.
-        DockAtLaunch(_window, new WorkspacePreferences(settings));
+        var preferences = new WorkspacePreferences(settings);
+        DockAtLaunch(_window, preferences);
+
+        if (_docked is not null && _window is MainWindow main)
+        {
+            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide);
+        }
 
         // Lets a scripted or CI run verify startup without a human closing the
         // window. Not a product feature.
@@ -236,6 +262,11 @@ public partial class App : Application
         {
             _ = _window.DispatcherQueue.TryEnqueue(Exit);
         }
+
+        // Last: hotkey presses made before this point were made while Noto was
+        // starting. They are delivered only after OnLaunched returns (measured)
+        // and must not hide the window that has just appeared.
+        _coordinator?.MarkReady();
     }
 
     /// <summary>
