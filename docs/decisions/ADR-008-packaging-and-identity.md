@@ -146,6 +146,14 @@ Before the first public release:
 
 ---
 
+### Single instance (A17)
+
+The single-instance mechanism (ADR-013) — a named mutex and a named pipe keyed
+by the user and the data root — depends on neither package identity nor
+`AppInstance`, so it works unchanged unpackaged and as a sparse package. When
+the sparse package lands, the A17 runtime harness is re-run on the packaged
+build.
+
 ## Future reconsideration criteria
 
 Revisit if:

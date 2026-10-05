@@ -1,7 +1,7 @@
 # Architecture Overview
 
 **Status:** Draft
-**Last updated:** 2026-10-05 (implementation status added)
+**Last updated:** 2026-10-05 (implementation status; single instance, ADR-013)
 **Decisions:** [ADR-001](../decisions/ADR-001-native-windows-stack.md),
 [ADR-003](../decisions/ADR-003-sqlite-data-access.md),
 [ADR-005](../decisions/ADR-005-context-engine.md)
@@ -10,25 +10,29 @@
 
 ## Implementation status
 
-> **Added 2026-10-05, measured on `main` @ `6917692`.** This document describes
+> **Added 2026-10-05, measured on `main` @ `6917692`; single-instance rows
+> updated by A17.** This document describes
 > the **target** architecture. Several components below are designed but not
 > built, and the code differs where noted. Nothing in this section changes the
 > design; it stops the design being read as the current state.
 
 | Described below | On `main` today |
 |---|---|
-| `WindowCoordinator` owns every window (*The four surfaces*) | **Not built.** `App.xaml.cs` creates, docks and activates the one workspace window; window behaviour lives in `Noto.Platform.Windows` |
+| `WindowCoordinator` owns every window (*The four surfaces*) | **Partly built.** A small `WindowCoordinator` carries out every activation request for the one workspace window — the hotkey's toggle and a second launch (#16 slice 5, A17). `App.xaml.cs` still creates and docks the window; window behaviour lives in `Noto.Platform.Windows` |
+| Single process (*Shape*) | **Built (A17, ADR-013).** One process per data root: a named mutex decides the owner before the database opens; a second launch hands its request over one local named pipe and exits |
 | Command dispatch and events, e.g. `NoteCreated` (*Commands and events*, *Data flow*) | **Partly built.** The 23 command handlers and 7 queries exist and are called directly by the UI. There is no dispatcher, registry or event aggregator (#21) |
 | `NoteService`; a repository using Dapper (*Data flow*) | **Not as described.** Handlers carry the rules; repositories use hand-written SQL on `Microsoft.Data.Sqlite`. Dapper was removed |
 | Database and file I/O on the thread pool (*Threading*) | **Not built.** All database work is synchronous on the UI thread |
-| Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** Settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. There is no tray |
+| Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. There is no tray |
 | Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Not built** (#10, #7). The failure model and `StorageException` exist; there is no unhandled-exception handler, no logging, and a database that fails to initialise is not caught |
 | FTS5, attachment files, logging in Infrastructure (*Projects*) | **Not built** (#17, attachments, #7) |
 
 ## Shape
 
 Noto is a **single-process desktop application**. No services, no background
-daemon, no IPC, no microservices. One process, several windows.
+daemon, no microservices. One process per data root, several windows. The only
+IPC is one local named pipe used for single-instance activation: a second
+launch hands its request to the running Noto and exits (ADR-013).
 
 ```
   +----------------------------------------------------------+

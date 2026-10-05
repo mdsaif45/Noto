@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Core;
@@ -45,6 +46,11 @@ namespace Noto;
 /// <b>#16 slice 4</b> adds the global activation hotkey; <b>slice 5</b>
 /// makes it show and hide the window (<see cref="WindowCoordinator"/>). The
 /// window is not yet always-on-top.
+/// </para>
+/// <para>
+/// <b>A17</b> makes Noto one process per data root (ADR-013): the first
+/// launch owns the root; a later one hands its request to the owner and
+/// exits before it opens the database or creates a window.
 /// </para>
 /// </remarks>
 public partial class App : Application
@@ -128,7 +134,7 @@ public partial class App : Application
     {
         if (_coordinator is not null)
         {
-            _ = _coordinator.OnActivationRequested(messageTime);
+            _ = _coordinator.OnActivationRequested(WorkspaceRequest.Toggle, messageTime);
         }
         else if (_windowHandle is not null)
         {
@@ -158,6 +164,25 @@ public partial class App : Application
     /// <summary>The show/hide lifecycle; <see langword="null"/> when docking failed.</summary>
     private WindowCoordinator? _coordinator;
 
+    /// <summary>Which data root this process owns (A17).</summary>
+    private InstanceKey? _instanceKey;
+
+    /// <summary>Ownership of the data root, held until the window closes.</summary>
+    private InstanceOwnership? _ownership;
+
+    /// <summary>
+    /// Where later launches hand their requests over; <see langword="null"/>
+    /// when Windows refused it (the name squatted), in which case they cannot
+    /// reach this process and say so.
+    /// </summary>
+    private ActivationPipeServer? _activationPipe;
+
+    /// <summary>At most one launch request waiting for the UI thread.</summary>
+    private readonly PendingLaunch _pendingLaunch = new();
+
+    /// <summary>A close that will go ahead has begun: no activation starts after it.</summary>
+    private volatile bool _closing;
+
     public App() => InitializeComponent();
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -182,6 +207,18 @@ public partial class App : Application
         // demand but never its parent DIRECTORY, so a first run on a clean
         // machine fails with "unable to open database file" without this.
         paths.EnsureCreated();
+
+        // A17 (ADR-013): decide who owns this data root before anything opens
+        // it. A second launch hands its request to the owner and exits here —
+        // no database, no window.
+        if (!ClaimDataRoot(paths))
+        {
+            return;
+        }
+
+        // Before the database and the window, so a launch arriving during
+        // startup is taken now and acted on once the window exists.
+        StartActivationPipe();
 
         var database = new NotoDatabase(paths.DatabaseFile);
 
@@ -230,15 +267,29 @@ public partial class App : Application
             new DeleteNoteHandler(notes, clock));
 
         _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
-        _window.Closed += (_, _) => _hotkey?.Dispose();
+        _window.Closed += (_, _) =>
+        {
+            _hotkey?.Dispose();
+
+            // The pipe first, then the mutex: a successor waiting on the
+            // mutex must find the pipe's name free when it gets it.
+            Trace.WriteLine($"Noto.Instance released key={_instanceKey?.PathHash}");
+            _activationPipe?.Dispose();
+            _ownership?.Dispose();
+        };
 
         // After MainWindow's own Closing handler, which may cancel the close
         // to keep unsaved text: only a close that goes ahead stops activation.
+        // From here a later launch is told Noto is shutting down, and waits to
+        // take over instead of handing its request to a closing window.
         _window.AppWindow.Closing += (_, e) =>
         {
             if (!e.Cancel)
             {
+                _closing = true;
+                _activationPipe?.BeginShutdown();
                 _coordinator?.BeginShutdown();
+                Trace.WriteLine($"Noto.Instance shutting-down key={_instanceKey?.PathHash}");
             }
         };
 
@@ -267,6 +318,121 @@ public partial class App : Application
         // starting. They are delivered only after OnLaunched returns (measured)
         // and must not hide the window that has just appeared.
         _coordinator?.MarkReady();
+    }
+
+    /// <summary>
+    /// Claims the data root (A17, ADR-013): owner, or a second launch that
+    /// hands off and exits.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when this process owns the root and starts
+    /// normally. Otherwise the process is exiting: 0 handed off, 2 the owner
+    /// could not be reached, 3 refused — the last two after a message box.
+    /// </returns>
+    /// <remarks>
+    /// <c>Trace</c>, not <c>Debug</c>: these lines reach
+    /// <c>OutputDebugString</c> in Release builds, which is where the runtime
+    /// harness reads them. They name outcomes only — never a path.
+    /// </remarks>
+    private bool ClaimDataRoot(NotoStoragePaths paths)
+    {
+        _instanceKey = InstanceKey.ForDataRoot(paths.Root);
+        InstanceClaim claim = InstanceOwnership.Claim(_instanceKey, ProcessIdentity.IsElevated(), out _ownership);
+
+        Trace.WriteLine(
+            $"Noto.Instance claim outcome={claim.Outcome} refusal={claim.Refusal} tookOver={claim.TookOver} "
+            + $"recovered={_ownership?.Recovered ?? false} key={_instanceKey.PathHash}");
+
+        if (claim.Outcome == ClaimOutcome.Owner)
+        {
+            return true;
+        }
+
+        if (RefusalMessage(claim) is string message)
+        {
+            StartupNotice.Show(message);
+        }
+
+        // Nothing is open: no database, no window. Exit now, with the code
+        // that says why.
+        Environment.Exit(claim.Outcome switch
+        {
+            ClaimOutcome.HandedOff => 0,
+            ClaimOutcome.Unreachable => 2,
+            _ => 3,
+        });
+
+        return false;
+    }
+
+    private static string? RefusalMessage(InstanceClaim claim) => (claim.Outcome, claim.Refusal) switch
+    {
+        (ClaimOutcome.HandedOff, _) => null,
+        (ClaimOutcome.Unreachable, _) => "Another Noto instance could not be reached. Please close it or restart Noto.",
+        (_, ClaimRefusal.Elevated) => "This Noto launch requires a normal-integrity process. Start Noto without \"Run as administrator\".",
+        (_, ClaimRefusal.OtherSession) => "Noto is already running in another Windows session.",
+        (_, ClaimRefusal.WrongUser) => "Noto could not verify the running instance, so it did not start a second one.",
+        (_, ClaimRefusal.Rejected) => "The running Noto is a different version. Close it, then start Noto again.",
+        _ => "Noto could not check for a running instance, so it did not start.",
+    };
+
+    /// <summary>
+    /// Starts listening for later launches. A refusal — the name already
+    /// taken — leaves this process the owner, unreachable by later launches;
+    /// it is recorded, not fatal.
+    /// </summary>
+    private void StartActivationPipe()
+    {
+        DispatcherQueue ui = DispatcherQueue.GetForCurrentThread();
+
+        PipeStartStatus status = ActivationPipeServer.Start(_instanceKey!, _ => OnLaunchRequested(ui), out _activationPipe, out int error);
+
+        Trace.WriteLine($"Noto.Instance pipe status={status} error={error} key={_instanceKey!.PathHash}");
+    }
+
+    /// <summary>
+    /// A later launch's request, on the pipe's thread. Never touches the
+    /// window: it is handed to the UI thread, folded into any request
+    /// already waiting there.
+    /// </summary>
+    private ActivationReply OnLaunchRequested(DispatcherQueue ui)
+    {
+        if (_pendingLaunch.Offer(Environment.TickCount) && !ui.TryEnqueue(RunPendingLaunch))
+        {
+            // The dispatcher is shutting down with the process.
+            return ActivationReply.ShuttingDown;
+        }
+
+        return ActivationReply.Accepted;
+    }
+
+    /// <summary>
+    /// The waiting launch, on the UI thread, through the one activation path:
+    /// the coordinator, as a launch — which shows, restores or brings Noto
+    /// forward and never hides it. Without a coordinator (docking failed) it
+    /// falls back to bringing the window forward, as the hotkey does.
+    /// </summary>
+    private void RunPendingLaunch()
+    {
+        int requestTime = _pendingLaunch.Take();
+
+        if (_closing)
+        {
+            return;
+        }
+
+        WorkspaceAction action = WorkspaceAction.Focus;
+
+        if (_coordinator is not null)
+        {
+            action = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, requestTime);
+        }
+        else if (_windowHandle is not null)
+        {
+            _ = WindowActivation.BringToForeground(_windowHandle);
+        }
+
+        Trace.WriteLine($"Noto.Instance launch action={action} key={_instanceKey?.PathHash}");
     }
 
     /// <summary>
