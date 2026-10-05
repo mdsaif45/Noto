@@ -6,7 +6,7 @@
 .DESCRIPTION
   Cases (one isolated data root, four fresh shell-started Noto processes):
     A  another app in front -> chord -> Noto foreground with keyboard focus (x Trials)
-    B  Noto already in front and focused -> chord -> stays, visible, same rectangle (no hide)
+    B  Noto already in front and focused -> chord -> hidden (slice 5's toggle; slice 4 kept it shown)
     C  Noto was in front, another app took the foreground -> chord -> Noto regains it
     D  hotkey disabled -> chord not registered; pressing it leaves the other app in front
     E  another process holds the chord -> Noto still starts and docks; the chord stays the holder's
@@ -71,9 +71,13 @@ exit (Invoke-IsolatedRun $run -Title 'Slice 4 global hotkey: foreground campaign
     if (-not ($b0.IsForeground -and $b0.KeyboardFocus)) { Add-Invalid $run 'B precondition: Noto is not in front and focused' }
     $null = Assert-ForegroundLocked $run $noto.Hwnd $target.Hwnd 'B before'
     Send-ActivationChord -AllowedForeground $noto.Hwnd
+    Start-Sleep -Milliseconds 500
     $b1 = Get-WindowEvidence $noto
-    $null = Assert-ForegroundLocked $run $noto.Hwnd $target.Hwnd 'B after'
-    Add-Result $run 'B  already in front and focused -> stays, visible, same rectangle' ($b1.IsForeground -and $b1.KeyboardFocus -and $b1.WsVisible -and -not $b1.Minimized -and $b1.Outer -eq $b0.Outer) "$($b0.Outer) -> $(Show $b1)"
+    Add-Result $run 'B  already in front and focused -> chord -> hidden (slice 5 toggle)' ((-not $b1.WsVisible) -and [bool](Get-Process -Id $noto.Pid -ErrorAction SilentlyContinue)) "$($b0.Outer) -> $(Show $b1)"
+
+    # Shown again for C, which starts from Noto shown behind another app. Not a claim, so not bracketed.
+    $null = Set-ForegroundByKeyboard $target
+    Send-ActivationChord -AllowedForeground $target.Hwnd
 
     $c = Press-FromTarget $noto 'C'
     Add-Result $run 'C  was in front, other app took the foreground -> Noto regains it with focus' ($c.IsForeground -and $c.KeyboardFocus) (Show $c)

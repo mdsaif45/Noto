@@ -81,7 +81,7 @@ public sealed unsafe class GlobalHotkey : IDisposable
     /// while <c>WM_HOTKEY</c> is being handled.
     /// </summary>
     /// <remarks>A handler that throws is contained: nothing unwinds into Windows.</remarks>
-    public event EventHandler? Pressed;
+    public event EventHandler<HotkeyPressedEventArgs>? Pressed;
 
     /// <summary>Whether a chord is currently registered.</summary>
     public bool IsRegistered { get; private set; }
@@ -174,11 +174,13 @@ public sealed unsafe class GlobalHotkey : IDisposable
     }
 
     /// <summary>A hotkey message: raises <see cref="Pressed"/> only for our registered id.</summary>
-    internal void OnHotkey(nint id)
+    /// <param name="id">The hotkey id the message carries.</param>
+    /// <param name="messageTime">When the message was posted (<c>GetMessageTime</c>).</param>
+    internal void OnHotkey(nint id, int messageTime)
     {
         if (IsRegistered && id == HotkeyId)
         {
-            Pressed?.Invoke(this, EventArgs.Empty);
+            Pressed?.Invoke(this, new HotkeyPressedEventArgs(messageTime));
         }
     }
 
@@ -202,7 +204,7 @@ public sealed unsafe class GlobalHotkey : IDisposable
             switch (msg)
             {
                 case NativeMethods.WM_HOTKEY:
-                    self.OnHotkey(wParam);
+                    self.OnHotkey(wParam, NativeMethods.GetMessageTime());
                     return 0;
 
                 case NativeMethods.WM_NCDESTROY:
@@ -288,6 +290,19 @@ internal static class HotkeyNative
 }
 
 /// <summary>Bringing a window to the foreground (#16 slice 4).</summary>
+/// <summary>A press of the registered chord.</summary>
+/// <param name="messageTime">When Windows posted it; see <see cref="MessageTime"/>.</param>
+public sealed class HotkeyPressedEventArgs(int messageTime) : EventArgs
+{
+    /// <summary>
+    /// When the press was posted, in milliseconds on the
+    /// <see cref="Environment.TickCount"/> clock. A press that waited in the
+    /// queue — behind startup, or behind a show or hide — carries the time it
+    /// was made, not the time it is handled.
+    /// </summary>
+    public int MessageTime { get; } = messageTime;
+}
+
 public static class WindowActivation
 {
     /// <summary>
@@ -323,16 +338,50 @@ public static class WindowActivation
     {
         ArgumentNullException.ThrowIfNull(window);
 
+        return Restore(window) && NativeMethods.SetForegroundWindow(window.Hwnd);
+    }
+
+    /// <summary>
+    /// Restores a minimized window to its normal placement, which a
+    /// <see cref="DockedWindow"/> re-docks. Does nothing to a window that is
+    /// not minimized, and never shows a hidden one.
+    /// </summary>
+    /// <returns>Whether the window is now not minimized.</returns>
+    public static bool Restore(WindowHandle window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
         if (NativeMethods.IsIconic(window.Hwnd))
         {
             _ = NativeMethods.ShowWindow(window.Hwnd, NativeMethods.SW_RESTORE);
-
-            if (NativeMethods.IsIconic(window.Hwnd))
-            {
-                return false;
-            }
         }
 
-        return NativeMethods.SetForegroundWindow(window.Hwnd);
+        return !NativeMethods.IsIconic(window.Hwnd);
+    }
+
+    /// <summary>Where the window is, as the show/hide toggle sees it (ADR-007 §4).</summary>
+    /// <remarks>
+    /// Read from Windows each time, never remembered: hidden is the
+    /// <c>WS_VISIBLE</c> style, minimized is <c>IsIconic</c>, and in front means
+    /// the window is the foreground window. A focused child control or an
+    /// open popup leaves the window itself in the foreground, so it counts.
+    /// </remarks>
+    public static WorkspacePresence PresenceOf(WindowHandle window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        if (!NativeMethods.IsWindowVisible(window.Hwnd))
+        {
+            return WorkspacePresence.Hidden;
+        }
+
+        if (NativeMethods.IsIconic(window.Hwnd))
+        {
+            return WorkspacePresence.Minimized;
+        }
+
+        return NativeMethods.GetForegroundWindow() == window.Hwnd
+            ? WorkspacePresence.Foreground
+            : WorkspacePresence.Background;
     }
 }

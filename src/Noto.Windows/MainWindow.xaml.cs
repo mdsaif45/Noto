@@ -1166,6 +1166,20 @@ public sealed partial class MainWindow : Window
         args.Cancel = true;
     }
 
+    /// <summary>
+    /// Saves unsaved editor text before the workspace is hidden (#16 slice 5).
+    /// </summary>
+    /// <remarks>
+    /// The same explicit save as leaving the editor, run once per hide. It is
+    /// not autosave (parity B19 stays M3's). A failure returns
+    /// <see langword="false"/> so the window stays shown, with the text kept
+    /// and the editor's notice saying why — nothing is hidden that has not
+    /// been kept. The editor stays open: hiding is not leaving.
+    /// </remarks>
+    /// <returns>Whether the window may be hidden.</returns>
+    internal bool SaveBeforeHide() =>
+        !EditorIsDirty || _openNoteId is not { } noteId || TrySaveOpenNote(noteId);
+
     private const string CloseAgainToDiscard = " Close the window again to discard the changes and exit.";
 
     /// <summary>
