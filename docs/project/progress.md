@@ -95,7 +95,7 @@ folder list  ⇄  note list  ⇄  note editor      exactly one visible at a time
 | Leave | `Esc` or the Back control, which is labelled with the note's current title |
 | Create | `Ctrl+N` in the **note list**, opening the created note. Unbound in the editor |
 | Delete | `Alt+Ctrl+Backspace` — soft delete, no confirmation dialog (parity B7) |
-| Save | **On leave**, when the buffer differs from what was opened. A failed save keeps the user in the editor with the text intact |
+| Save | **On leave**, when the buffer differs from what was opened. A failed save keeps the user in the editor with the text intact. **Also when the window closes**, added after M2-3: a failed save cancels the close, and a second close with the same text discards it |
 | States | Loading / Loaded / Error + Retry. **No Empty state** — an empty note is valid, and its row reads `Untitled note` |
 | Title | Recomputed through `NoteTitle.From`, never stored (parity B16) |
 
@@ -274,8 +274,8 @@ the note list), edit its raw markdown, and delete it (`Alt+Ctrl+Backspace`).
 That closes the gap this section recorded for M2-2, when the engine had
 supported every note command since M1 and nothing invoked them.
 
-It does not make note handling complete. **Persistence is save-on-leave, not
-continuous** — parity B19 requires continuous persistence and stays open, a
+It does not make note handling complete. **Persistence is save-on-leave (and
+on close), not continuous** — parity B19 requires continuous persistence and stays open, a
 recorded exception deferred to M3. Pin, colour, fold, reorder and move-to-folder
 remain engine-only. And the editor shows raw markdown: parsing and rendering to
 native controls are #14's remaining scope.
@@ -517,7 +517,7 @@ ReorderFolder    atomic         Purge · Tags · UI · Sync · Migration 003
 | **Ordering engine is domain-neutral** — notes and folders share one implementation | this slice |
 | **Local-first SQLite** — no sync architecture until it is actually built | ADR-002 |
 | **UI implementation has started** — M2-1 folder pane, M2-2 note list and M2-3 note editor are merged, all on #22's tokens; the shell has edge docking, inner-edge resize and a foreground hotkey only (#16 slices 1–4) | roadmap; `MainWindow.xaml`; `App.xaml.cs` |
-| **Save-on-leave is interim, not the target** — B19 requires continuous persistence and is deferred to M3. No save command, Save button or autosave infrastructure may be added in the meantime | parity B19; PR #62 |
+| **Save-on-leave is interim, not the target** — B19 requires continuous persistence and is deferred to M3. No save command, Save button or autosave infrastructure may be added in the meantime. Saving once when the window closes is the same explicit save at one more lifecycle point, not autosave | parity B19; PR #62 |
 
 ---
 

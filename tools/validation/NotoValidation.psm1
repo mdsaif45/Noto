@@ -294,6 +294,27 @@ function Get-NotoSettings {
     finally { $c.Close(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
 }
 
+function Invoke-NotoSql {
+    <# Runs one statement against this run's isolated database and returns the rows affected. Noto must not be mid-write. #>
+    param($Run, [Parameter(Mandatory)] [string] $Exe, [Parameter(Mandatory)] [string] $DataRoot, [Parameter(Mandatory)] [string] $Sql, [hashtable] $Parameters = @{})
+    $db = Join-Path $DataRoot 'noto.db'; Assert-UnderRun $Run $db
+    if (-not (Test-Path $db)) { throw "no database at ${db}: start and close Noto on this root first" }
+    Initialize-NotoSqlite $Exe
+    $c = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$db"); $c.Open()
+    try { $cmd = $c.CreateCommand(); $cmd.CommandText = $Sql; foreach ($k in $Parameters.Keys) { [void]$cmd.Parameters.AddWithValue($k, $Parameters[$k]) }; $cmd.ExecuteNonQuery() }
+    finally { $c.Close(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
+}
+
+function Get-NotoScalar {
+    <# Reads one value from this run's isolated database, read-only. #>
+    param($Run, [Parameter(Mandatory)] [string] $Exe, [Parameter(Mandatory)] [string] $DataRoot, [Parameter(Mandatory)] [string] $Sql, [hashtable] $Parameters = @{})
+    $db = Join-Path $DataRoot 'noto.db'; Assert-UnderRun $Run $db
+    Initialize-NotoSqlite $Exe
+    $c = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$db;Mode=ReadOnly"); $c.Open()
+    try { $cmd = $c.CreateCommand(); $cmd.CommandText = $Sql; foreach ($k in $Parameters.Keys) { [void]$cmd.Parameters.AddWithValue($k, $Parameters[$k]) }; $cmd.ExecuteScalar() }
+    finally { $c.Close(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
+}
+
 # ------------------------------------------------------------------ evidence
 
 function Get-WindowEvidence {

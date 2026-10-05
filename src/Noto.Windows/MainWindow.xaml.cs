@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Input;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -102,6 +103,18 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private string _openNoteBaseline = string.Empty;
 
+    /// <summary>
+    /// The note and the exact text whose save failed when the window was last
+    /// asked to close, or <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// The text itself rather than a flag, for the reason the baseline is: it
+    /// cannot be left stale. It applies only while that note is open with
+    /// exactly that text — an edit, another note or leaving the editor makes
+    /// it inert without anything having to clear it.
+    /// </remarks>
+    private (string NoteId, string Text)? _failedCloseSave;
+
     private EditorState _editorState = EditorState.Loading;
 
     public MainWindow(
@@ -124,6 +137,8 @@ public sealed partial class MainWindow : Window
         _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
 
         InitializeComponent();
+
+        AppWindow.Closing += OnAppWindowClosing;
 
         // Loading is a real state with a real transition, entered before any
         // query runs and left only when one finishes.
@@ -1081,7 +1096,9 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// Persists the buffer. Returns whether the editor may now be left.
     /// </summary>
-    private bool TrySaveOpenNote(string noteId)
+    /// <param name="noteId">The open note.</param>
+    /// <param name="noticeSuffix">Appended to the failure notice, if any.</param>
+    private bool TrySaveOpenNote(string noteId, string noticeSuffix = "")
     {
         try
         {
@@ -1096,15 +1113,61 @@ public sealed partial class MainWindow : Window
 
             // NotFound or InvalidState: the note was removed or binned while
             // it was open, so saving cannot succeed however often it is tried.
-            ShowEditorNotice(DescribeNote(result.Failure!));
+            ShowEditorNotice(DescribeNote(result.Failure!) + noticeSuffix);
             return false;
         }
         catch (StorageException ex)
         {
-            ShowEditorNotice($"Could not save the note: {ex.Message}");
+            ShowEditorNotice($"Could not save the note: {ex.Message}" + noticeSuffix);
             return false;
         }
     }
+
+    /// <summary>
+    /// Saves an unsaved note before the window closes — Alt+F4 or the
+    /// taskbar's Close, the only ways to close it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The explicit save that leaving the editor performs, at one more point:
+    /// the window closing. It is not autosave — nothing is written while the
+    /// user types and nothing runs on a timer; parity B19's continuous
+    /// persistence stays M3's.
+    /// </para>
+    /// <para>
+    /// A failed save cancels the close and keeps the text, and the editor's
+    /// notice says so. Closing again with the same text tries the save once
+    /// more and, if it still fails, closes and discards: a save that can never
+    /// succeed — the note was removed — must not trap the user, and the second
+    /// close is the choice the notice offered. Text edited after the failure is
+    /// a new first attempt.
+    /// </para>
+    /// <para>
+    /// Not covered: the session ending, the process being killed, or a crash.
+    /// None of those raises this event (#10).
+    /// </para>
+    /// </remarks>
+    private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (!EditorIsDirty || _openNoteId is not { } noteId)
+        {
+            return;
+        }
+
+        bool closingAgain = _failedCloseSave is { } failed
+            && failed.NoteId == noteId
+            && string.Equals(failed.Text, NoteEditor.Text, StringComparison.Ordinal);
+
+        if (TrySaveOpenNote(noteId, CloseAgainToDiscard) || closingAgain)
+        {
+            return;
+        }
+
+        _failedCloseSave = (noteId, NoteEditor.Text);
+        args.Cancel = true;
+    }
+
+    private const string CloseAgainToDiscard = " Close the window again to discard the changes and exit.";
 
     /// <summary>
     /// Creates a note in the open folder and opens it (parity B1).
