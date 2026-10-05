@@ -31,4 +31,21 @@ public sealed class BoundaryTests
             violations.Length == 0,
             $"Noto.Infrastructure must not reference: {string.Join(", ", violations)}.");
     }
+
+    [Fact]
+    public void Infrastructure_does_not_reference_use_cases_or_the_platform()
+    {
+        string[] forbidden = ["Noto.UseCases", "Noto.Platform.Windows"];
+
+        var violations = InfrastructureAssembly.GetReferencedAssemblies()
+            .Select(a => a.Name ?? string.Empty)
+            .Where(n => forbidden.Any(f => n.StartsWith(f, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            $"Noto.Infrastructure must not reference: {string.Join(", ", violations)}. "
+            + "It implements what Noto.Core defines and knows nothing of the layers "
+            + "beside or above it (ADR-009).");
+    }
 }

@@ -86,7 +86,7 @@ public sealed class FoldNoteTests : IDisposable
         var id = Create("note");
         Fold(id);
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();
 

@@ -20,8 +20,8 @@ namespace Noto.Core.Tests;
 /// <para>
 /// This is a first cut covering the boundary that exists today. Issue #20
 /// broadens it — notably to the ADR-010 rule that no repository write is
-/// reachable outside a command handler, which cannot be written until
-/// handlers exist.
+/// reachable outside a command handler. Handlers now exist; the rule still
+/// needs a definition a test can check, so it remains open under #20.
 /// </para>
 /// </remarks>
 public sealed class ArchitectureBoundaryTests

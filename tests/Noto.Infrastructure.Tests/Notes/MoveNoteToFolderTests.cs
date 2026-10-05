@@ -309,7 +309,7 @@ public sealed class MoveNoteToFolderTests : IDisposable
 
         Move(id, folder);
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();
 

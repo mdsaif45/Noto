@@ -168,7 +168,7 @@ public sealed class MigrationV2Tests : IDisposable
                 ("$id", folderId), ("$now", now));
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -187,7 +187,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Shopping List", "Milk\nEggs");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -203,7 +203,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Shopping List", "# Shopping List\nMilk\nEggs");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -219,7 +219,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Shopping List", "Shopping List\nMilk");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -255,7 +255,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, title, "Milk\nEggs");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -271,7 +271,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Just a title", string.Empty);
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -290,7 +290,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "50% *off* — [read] #1", "body");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -308,7 +308,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Wintermöhre's plan 日本語", "body");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -325,7 +325,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Reminder", "Reminder");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -359,7 +359,7 @@ public sealed class MigrationV2Tests : IDisposable
             Execute(v1, "INSERT INTO Settings (Key, Value) VALUES ('theme', 'dark');");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -421,7 +421,7 @@ public sealed class MigrationV2Tests : IDisposable
             }
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -481,7 +481,7 @@ public sealed class MigrationV2Tests : IDisposable
             InsertV1Note(v1, "t", "c");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -527,7 +527,7 @@ public sealed class MigrationV2Tests : IDisposable
             }
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -552,7 +552,7 @@ public sealed class MigrationV2Tests : IDisposable
             id = InsertV1Note(v1, "Shopping List", "Milk");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         using (var first = new NotoDatabase(_temp.DatabasePath).OpenConnection())
@@ -560,7 +560,7 @@ public sealed class MigrationV2Tests : IDisposable
             Assert.Equal("# Shopping List\n\nMilk", ContentOf(first, id));
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();   // second run
 
         using var second = new NotoDatabase(_temp.DatabasePath).OpenConnection();
@@ -578,7 +578,7 @@ public sealed class MigrationV2Tests : IDisposable
             InsertV1Note(v1, "Shopping List", "Milk");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         UpgradeToLatest();
 
         string directory = Path.GetDirectoryName(_temp.DatabasePath)!;
@@ -614,7 +614,7 @@ public sealed class MigrationV2Tests : IDisposable
             InsertV1Note(v1, "kept", "body");
         }
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
 

@@ -179,7 +179,7 @@ public sealed class CreateNoteTests : IDisposable
     {
         var id = Handler().Handle(new CreateNote(null, "durable")).Value;
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
 
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();

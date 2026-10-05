@@ -85,7 +85,7 @@ public sealed class SetNoteColorTests : IDisposable
         var id = Create("note");
         SetColor(id, "note4");
 
-        SqliteConnection.ClearAllPools();
+        _temp.ReleaseOwnPools();
         var reopened = new NotoDatabase(_temp.DatabasePath);
         reopened.Initialize();
 
