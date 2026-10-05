@@ -20,7 +20,7 @@ public sealed class WorkspaceToggleTests
     [InlineData(WorkspacePresence.Foreground, WorkspaceAction.Hide)]
     public void The_toggle_after_startup(WorkspacePresence presence, WorkspaceAction expected)
     {
-        Assert.Equal(expected, WorkspaceToggle.Decide(presence, After(Ready + 500)));
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, After(Ready + 500)));
     }
 
     [Theory]
@@ -32,9 +32,9 @@ public sealed class WorkspaceToggleTests
     {
         ActivationContext ok = After(Ready + 500);
 
-        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(presence, ok with { ShuttingDown = true }));
-        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(presence, ok with { Resizing = true }));
-        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(presence, ok with { Transitioning = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, ok with { ShuttingDown = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, ok with { Resizing = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, ok with { Transitioning = true }));
     }
 
     [Theory]
@@ -44,7 +44,7 @@ public sealed class WorkspaceToggleTests
     [InlineData(WorkspacePresence.Foreground, WorkspaceAction.None)]
     public void A_press_made_during_startup_shows_but_never_hides(WorkspacePresence presence, WorkspaceAction expected)
     {
-        Assert.Equal(expected, WorkspaceToggle.Decide(presence, After(Ready - 300)));
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, After(Ready - 300)));
     }
 
     [Fact]
@@ -52,13 +52,13 @@ public sealed class WorkspaceToggleTests
     {
         // Queued behind a hide that took 200 ms: replaying it would show the
         // window straight back.
-        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspacePresence.Hidden, After(Ready + 900, lastTransitionEnd: Ready + 1000)));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, WorkspacePresence.Hidden, After(Ready + 900, lastTransitionEnd: Ready + 1000)));
     }
 
     [Fact]
     public void A_press_made_after_the_last_transition_ended_is_handled()
     {
-        Assert.Equal(WorkspaceAction.Show, WorkspaceToggle.Decide(WorkspacePresence.Hidden, After(Ready + 1001, lastTransitionEnd: Ready + 1000)));
+        Assert.Equal(WorkspaceAction.Show, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, WorkspacePresence.Hidden, After(Ready + 1001, lastTransitionEnd: Ready + 1000)));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class WorkspaceToggleTests
 
         foreach (int press in burst)
         {
-            WorkspaceAction action = WorkspaceToggle.Decide(presence, After(press, lastEnd));
+            WorkspaceAction action = WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, After(press, lastEnd));
             actions.Add(action);
 
             if (action != WorkspaceAction.None)
@@ -85,6 +85,44 @@ public sealed class WorkspaceToggleTests
         }
 
         Assert.Equal([WorkspaceAction.Focus, WorkspaceAction.None, WorkspaceAction.None], actions);
+    }
+
+    // ------------------------------------------------ a second launch (A17)
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden, WorkspaceAction.Show)]
+    [InlineData(WorkspacePresence.Minimized, WorkspaceAction.Restore)]
+    [InlineData(WorkspacePresence.Background, WorkspaceAction.Focus)]
+    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.None)]
+    public void A_launch_shows_restores_or_brings_forward_and_never_hides(WorkspacePresence presence, WorkspaceAction expected)
+    {
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, After(Ready + 500)));
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, After(Ready - 300)));
+    }
+
+    [Fact]
+    public void Only_the_launch_differs_from_the_toggle_and_only_when_in_front()
+    {
+        foreach (WorkspacePresence presence in Enum.GetValues<WorkspacePresence>())
+        {
+            WorkspaceAction toggle = WorkspaceToggle.Decide(WorkspaceRequest.Toggle, presence, After(Ready + 500));
+            WorkspaceAction launch = WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, After(Ready + 500));
+
+            Assert.Equal(presence == WorkspacePresence.Foreground ? WorkspaceAction.None : toggle, launch);
+        }
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden)]
+    [InlineData(WorkspacePresence.Background)]
+    public void A_launch_is_dropped_by_the_same_rules_as_the_toggle(WorkspacePresence presence)
+    {
+        ActivationContext ok = After(Ready + 500);
+
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, ok with { ShuttingDown = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, ok with { Resizing = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, ok with { Transitioning = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, After(Ready + 900, lastTransitionEnd: Ready + 1000)));
     }
 
     [Theory]

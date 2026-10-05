@@ -35,6 +35,19 @@ public enum WorkspaceAction
     Hide,
 }
 
+/// <summary>Where an activation request came from, which decides whether it may hide.</summary>
+public enum WorkspaceRequest
+{
+    /// <summary>The global hotkey: the show/hide toggle.</summary>
+    Toggle,
+
+    /// <summary>
+    /// A second launch of Noto, handed over by the activation pipe (A17,
+    /// ADR-013): show, restore or bring forward — never hide.
+    /// </summary>
+    Launch,
+}
+
 /// <summary>The facts an activation request is judged against.</summary>
 /// <param name="ShuttingDown">The window is closing.</param>
 /// <param name="Resizing">The user is dragging the inner edge.</param>
@@ -61,6 +74,10 @@ public readonly record struct ActivationContext(
 /// ends visible ends normal, docked and focused.
 /// </para>
 /// <para>
+/// <b>A launch is not the toggle</b> (A17): the same, except that a window
+/// already shown in front is left as it is. A second launch never hides Noto.
+/// </para>
+/// <para>
 /// <b>Dropped:</b> any request while the window is closing, while the user is
 /// resizing, or while a show or hide is already running. A request made
 /// before the last show or hide finished is stale and dropped too, so presses
@@ -78,7 +95,7 @@ public readonly record struct ActivationContext(
 public static class WorkspaceToggle
 {
     /// <summary>Decides what a request does.</summary>
-    public static WorkspaceAction Decide(WorkspacePresence presence, ActivationContext context)
+    public static WorkspaceAction Decide(WorkspaceRequest request, WorkspacePresence presence, ActivationContext context)
     {
         if (context.ShuttingDown || context.Resizing || context.Transitioning)
         {
@@ -97,7 +114,7 @@ public static class WorkspaceToggle
             WorkspacePresence.Hidden => WorkspaceAction.Show,
             WorkspacePresence.Minimized => WorkspaceAction.Restore,
             WorkspacePresence.Background => WorkspaceAction.Focus,
-            WorkspacePresence.Foreground => duringStartup ? WorkspaceAction.None : WorkspaceAction.Hide,
+            WorkspacePresence.Foreground => request == WorkspaceRequest.Launch || duringStartup ? WorkspaceAction.None : WorkspaceAction.Hide,
             _ => WorkspaceAction.None,
         };
     }

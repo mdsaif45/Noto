@@ -55,6 +55,7 @@ internal sealed class WindowCoordinator(
     public WorkspaceAction OnActivationRequested(int requestTime)
     {
         WorkspaceAction action = WorkspaceToggle.Decide(
+            WorkspaceRequest.Toggle,
             WindowActivation.PresenceOf(handle),
             new ActivationContext(_shuttingDown, docked.IsResizing, _transitioning, requestTime, _readyTime, _lastTransitionEnd));
 
