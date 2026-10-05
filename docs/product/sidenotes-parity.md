@@ -227,7 +227,10 @@ requirement, accepted as a recorded exception.**
 
 M2-3's editor, merged as #63, edits an in-memory buffer and persists **on
 leave**: `Esc` or Back runs `UpdateNoteContent` when the buffer is dirty, stays
-in the editor if that fails, and never discards the edit. This row requires
+in the editor if that fails, and never discards the edit. Closing the window
+runs the same save once more, as one explicit save rather than autosave: a
+failed save cancels the close, and only a second close with the same text,
+which the failure notice offers, discards it. This row requires
 *continuous* persistence. Those are **materially different user-facing behaviours** — under
 save-on-leave a crash or a kill mid-edit loses the buffer, and under continuous
 persistence it does not — so **B19 remains open and M2-3 must not claim it.**
