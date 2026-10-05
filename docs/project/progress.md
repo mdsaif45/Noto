@@ -11,10 +11,11 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     its remembered edge at its remembered width and resizes
                     from its inner edge (#16 slices 1–3); a global hotkey
                     brings it to the foreground (#16 slice 4), restoring and
-                    re-docking it first when it is minimized (#82). Tray,
-                    always-on-top and show/hide do not exist.
+                    re-docking it first when it is minimized (#82). Unsaved
+                    editor text is saved before the window closes (#86).
+                    Tray, always-on-top and show/hide do not exist.
 Last updated:       2026-10-05
-Evidence baseline:  main @ 63014bf (PR #82 merged — minimized restore and re-dock fix)
+Evidence baseline:  main @ 6917692 (PR #87 merged — end of the pre-Slice 5 small-work campaign)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
@@ -79,7 +80,7 @@ seven M0 issues remain open, including several that later milestones depend on
 
 ---
 
-## 3. Last Slice Completed — M2-3, the note editor
+## 3. Last UI Surface Completed — M2-3, the note editor
 
 **M2-3 — Note Editor** merged as PR #63 → `23ee2a5`. The third production
 surface, and the first time the UI writes a note.
@@ -164,7 +165,7 @@ invention, so the tests assert membership for ties and not a relative order.
 
 | Item | Status | Evidence |
 | ---- | ------ | -------- |
-| Solution structure — Core / UseCases / Infrastructure / Platform / Windows | DONE | 8 projects; dependencies point inward |
+| Solution structure — Core / UseCases / Infrastructure / Platform / Windows | DONE | 10 projects in `Noto.sln` (6 source, 4 test); dependencies point inward |
 | ADRs 001–012 | ACCEPTED (005, 006 Proposed, deferred to M6) | `docs/decisions/` |
 | WinUI 3 + Windows App SDK validated | DONE | ADR-001 "validation gate passed" |
 | SQLite foundation, WAL, pragmas | DONE | `NotoDatabase`; ADR-003 |
@@ -179,7 +180,7 @@ invention, so the tests assert membership for ties and not a relative order.
 | Slice 2b — pin, fold, colour | DONE | PR #44 → `63efc6d` |
 | Slice 3 — delete, restore, recycle bin | DONE | PR #45 → `9d81c21` |
 | **ULID C′ contract + implementation** | DONE | PR #46 → `fa0996d` — O(1) state, 80-bit CSPRNG kept |
-| **Test-infrastructure pool isolation** | DONE | PR #47 → `4f49003` — replaced process-global `ClearAllPools` |
+| **Test-infrastructure pool isolation** | DONE | PR #47 → `4f49003` — replaced process-global `ClearAllPools` in fixture teardown; PR #85 → `bbde12e` replaced the 25 calls that remained in test bodies |
 | Generic ordering engine | DONE | PR #48 → `7b13269` — domain-neutral, shared by notes and folders |
 | Slice 4 — the seven folder commands | DONE | PR #48 → `7b13269` — Cases A, B, D, G; two atomic cascades |
 | Progress document | DONE | PR #49 → `a5c3b1f` |
@@ -258,7 +259,7 @@ This distinction matters more than any other line in this document.
 | Visual design language | **PARTIAL** — expressed as tokens and three components; no wider language yet |
 | Design tokens / design system | **DONE** — #22 merged (PR #56): `Noto.UI` with tokens and Light/Dark/HighContrast themes, applied by all three surfaces |
 | Workspace layout, sidebar, drawer | **PARTIAL** — the window docks to its remembered vertical edge (right by default) at its remembered width, and resizes from its inner edge only (#16 slices 2–3); a global hotkey brings it to the foreground (#16 slice 4); tray, always-on-top and show/hide are not built. There is no settings UI: the edge and the hotkey are changed only through their settings |
-| Note editor | **PARTIAL** — M2-3 merged (PR #63): plain-source editing, create, delete, save-on-leave, Loading/Loaded/Error + Retry. Markdown **rendering** and the invisible-markdown editor are not built — #14 |
+| Note editor | **PARTIAL** — M2-3 merged (PR #63): plain-source editing, create, delete, save-on-leave, Loading/Loaded/Error + Retry; save before the window closes added by PR #86. Markdown **rendering** and the invisible-markdown editor are not built — #14 |
 | Folder UI | **DONE** — M2-1 merged (PR #57): list, create, rename, selection, Loading/Loaded/Empty/Error + Retry, keyboard, focus |
 | Note list UI | **DONE** — M2-2 merged (PR #60): enter a folder, note list, selection, Loading/Loaded/Empty/Error + Retry, Esc/Back |
 | Typography, components, motion, polish | **PARTIAL** — body/caption type, spacing, radius and three components (FolderRow, NoteRow, Button) exist; motion and the wider component library do not |
@@ -315,7 +316,7 @@ WinUI 3 validated   ≠   Noto UI designed
   or WinUI reference is a build error, and architecture guard tests assert it.
 - Repository interfaces live in Core, implementations in Infrastructure.
 - Three repositories (`INoteRepository`, `IFolderRepository`, `ITagRepository`),
-  not a generic `IRepository<T>`. `ITagRepository` does not exist yet.
+  not a generic `IRepository<T>`. All three exist; `ITagRepository` arrived with Slice 5.
 - No ORM. Hand-written SQL; Dapper was removed.
 - Every mutation goes through a command (ADR-010); queries go direct.
 
@@ -354,6 +355,12 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-09-29  PR #81  #16 slice 4 status reconciliation
 2026-10-04  PR #83  Corrected runtime-validation harness (tools/validation/)
 2026-10-04  PR #82  #16 restore re-docks at the remembered width; minimized activation restores
+2026-10-05  PR #72  Windows SDK BuildTools 10.0.26100.1742 → 10.0.28000.2705
+2026-10-05  PR #73  coverlet.collector 10.0.1 → 10.1.0
+2026-10-05  PR #84  #16 slice 4 foreground evidence from the corrected harness
+2026-10-05  PR #85  Test SQLite pool isolation; remaining layer-direction guards
+2026-10-05  PR #86  Unsaved editor text is saved before the window closes
+2026-10-05  PR #87  Ctrl+N creates the first note in an empty folder
 ```
 
 ---
@@ -404,6 +411,18 @@ WinUI 3 validated   ≠   Noto UI designed
   window minimized. Now a restore re-docks at the remembered requested width,
   on the window's own edge and display, and activation restores before taking
   the foreground. See *Outstanding validation — minimized restore (#82)*.
+- **The pre-Slice 5 small-work campaign is merged** (PRs #72, #73, #84–#87).
+  - Closing the window no longer loses unsaved editor text (PR #86). One
+    explicit save runs at close; a failure cancels the close and keeps the
+    text; a second close with the same text discards it with no further
+    attempt. Not autosave: B19 stays M3's.
+  - `Ctrl+N` creates the first note in an empty folder (PR #87), as a
+    keyboard accelerator on the note surface. #69 is still open on GitHub;
+    closing it is the owner's decision.
+  - Test bodies no longer reset the process-wide SQLite pool, and the
+    remaining layer directions are guarded (PR #85).
+  - Dependency updates #72 and #73. The BuildTools update produced
+    byte-identical Release output.
 
 ### NEXT
 
@@ -537,7 +556,7 @@ Markdown rendering        #14 — M2-3 edits raw source; parsing and rendering
                             to native controls are not built
 Invisible markdown        ADR-004, M3 — its own issue and budget
 Continuous persistence    parity B19 — deferred to M3; M2-3 saves on leave
-Tags                      Slice 5
+Tags UI                   engine done (Slice 5); no UI, and not a parity requirement
 Note pin/colour/fold/     engine only — no UI reaches them
   reorder/move
 AI, plugins, sharing      not on the roadmap
@@ -551,19 +570,22 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ## 14. Quality Gates
 
-Verified on `main` @ `3d2d23f`:
+Verified on `main` @ `6917692`:
 
 ```
 Build                0 warnings, 0 errors
-Tests                1149 / 1149 passing
+Tests                1188 / 1188 passing
                        Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
-                       Noto.UseCases.Tests         34   (1 + 33 #16 slice 3)
-                       Noto.Windows.Tests         248   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4)
-                       Noto.Infrastructure.Tests  628   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4)
+                       Noto.UseCases.Tests         35   (1 + 33 #16 slice 3 + 1 #85)
+                       Noto.Windows.Tests         285   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85)
+                       Noto.Infrastructure.Tests  629   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4 + 1 #85)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
-CodeQL               clean on the merged branch
+CodeQL               no alert introduced by a merged PR. Open on main: 5 in
+                       source (#193, #194 by design; #107, #127, #159 in
+                       MainWindow, open since 2026-09-21/22) and 113 in
+                       generated obj/ files
 Branch protection    required checks, linear history, conversation resolution
 ```
 
@@ -658,7 +680,7 @@ What the campaign did **not** establish:
 | Item | Status |
 | ---- | ------ |
 | **Minimized window** | **NOT MET by slice 4; fixed by #82.** On the slice 4 code, pressing the chord made a minimized Noto the foreground window but left it minimized, with no keyboard focus; the corrected harness reproduced this in 4/4 trials. See *Outstanding validation — minimized restore (#82)* |
-| **Negative-control caveat** | Windows occasionally granted the control probe the foreground when the window it targeted had never been activated. The runs above probe only windows that have already been activated. See `tools/validation/README.md` |
+| **Negative-control caveat** | Windows occasionally grants the control probe the foreground. It was first seen on never-activated windows; on `6917692` it also happened right after a session unlock and on the first probe at a just-launched Noto. The cause is not established. Any grant makes the run INVALID, and only runs with every control refused count. See `tools/validation/README.md` |
 | **Physical keyboard** | **NOT VALIDATED.** Every press was injected with `SendInput`; no key was pressed on a physical keyboard |
 | **IME / AltGr layouts** | **NOT VALIDATED.** Only US keyboard layouts are installed on the validation machine |
 | **User-visible conflict reporting** | **NOT IMPLEMENTED — deferred.** #16 requires it; a refused chord is reported through `Debug` only, until a surface (tray or settings) exists to report it on |
@@ -730,7 +752,8 @@ folder open that contains no notes, `Ctrl+N` cannot create the first note: the
 handler is attached to the note `ListView`, and an empty `ListView` has no item
 to take focus. Reproduced identically on both SDK versions, so it predates the
 upgrade and belongs to M2-3. Tracked as **#69**; no fix was included in #68.
-#69 remains open and independent of #16; neither #16 slice touched it.
+**Fixed by PR #87** (runtime-validated, including a pre-fix control that
+reproduced it); #69 is still open on GitHub pending the owner's decision.
 
 **Known issues:** none open. Four defects found during M1 were all real and are
 fixed — a ULID monotonicity bug (PR #46), a process-global SQLite pool race
@@ -747,10 +770,6 @@ CodeQL while still violating contract §4, and PR #50 passed 110 tests with a
 redundant write that state could not observe. Both were caught by challenging
 the contract and mutating the implementation, not by reading test results.
 
-**Worth remembering:** PR #48 reached 428 passing tests, clean CI and clean
-CodeQL while still violating contract §4. Review caught it by challenging the
-contract and mutating the implementation, not by reading the test results.
-
 ---
 
 ## 15. Next Development Path
@@ -763,7 +782,7 @@ Done: M2-1 folder pane (#57) → M2-2 note list (#60) → M2-3 note editor (#63)
     ↓
 Done: #16 slice 1 platform primitives (#74) → slice 2 basic edge docking (#76)
       → slice 3 edge setting, resize, width persistence (#78)
-      → slice 4 global activation hotkey (#80)
+      → slice 4 global activation hotkey (#80) → restore/re-dock fix (#82)
     ↓
 M2 remaining — the rest of the workspace shell: #16 slices 5–8 (show/hide,
       animation, multi-monitor, hardening), tray. This is
@@ -778,8 +797,8 @@ M3 — SideNotes parity: the first product. B19 continuous persistence and
 The roadmap does not hold UI until the backend is finished. M2 is described as
 *"the first build usable daily. Everything after it is informed by"* it — and the
 navigation half of that is now built. It is not yet usable daily: the surfaces
-exist and open docked to a screen edge, but nothing summons them with a hotkey
-or keeps them on top.
+exist and open docked to a screen edge, and a global hotkey brings them
+forward, but nothing hides them or keeps them on top.
 
 ---
 

@@ -16,9 +16,12 @@ Native, local-first, keyboard-first, and quiet.
 
 > **Status: pre-alpha. There is nothing to install yet.**
 >
-> The production solution now builds and the application starts — but it is a
-> **foundation only**. No note, no editor, no sidebar, no storage. Those begin
-> at M1. Follow the [roadmap](docs/roadmap/roadmap.md).
+> The note engine and SQLite storage are built. The app opens docked to a
+> screen edge, with three plain surfaces (folders, notes, and a raw-markdown
+> editor), and a global hotkey brings it forward. It is **not usable daily
+> yet**: there is no tray, no show/hide, no search and no markdown rendering.
+> Current status is in [progress.md](docs/project/progress.md); the plan is in
+> the [roadmap](docs/roadmap/roadmap.md).
 >
 > **The first product is SideNotes parity on Windows** —
 > [SideNotes](https://www.apptorium.com/sidenotes/) is macOS-only, and nothing

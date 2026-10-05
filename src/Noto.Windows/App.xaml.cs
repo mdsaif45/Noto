@@ -42,7 +42,8 @@ namespace Noto;
 /// <b>#16 slices 2 and 3</b> add the first piece of the workspace: the window
 /// docks to one vertical edge of the display it opened on — the edge and the
 /// width both remembered — and the user can resize it from its inner edge.
-/// Not yet always-on-top, hidden or summoned by a hotkey.
+/// <b>#16 slice 4</b> adds the global activation hotkey (below). The window
+/// is not yet always-on-top, and it cannot be hidden.
 /// </para>
 /// </remarks>
 public partial class App : Application
