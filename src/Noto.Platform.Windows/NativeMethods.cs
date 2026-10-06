@@ -208,6 +208,115 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     internal static partial int GetMessageTime();
 
+    // Single instance (A17, ADR-013). Every import sets SetLastError, which
+    // also keeps the generator from emitting a direct extern (see above).
+
+    internal const nint INVALID_HANDLE_VALUE = -1;
+    internal const int ERROR_ACCESS_DENIED = 5;
+    internal const int ERROR_INSUFFICIENT_BUFFER = 122;
+    internal const int ERROR_PIPE_BUSY = 231;
+
+    internal const uint FILE_SHARE_READ = 0x00000001;
+    internal const uint FILE_SHARE_WRITE = 0x00000002;
+    internal const uint FILE_SHARE_DELETE = 0x00000004;
+    internal const uint OPEN_EXISTING = 3;
+    internal const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
+    internal const uint FILE_FLAG_OVERLAPPED = 0x40000000;
+    internal const uint FILE_FLAG_FIRST_PIPE_INSTANCE = 0x00080000;
+    internal const uint FILE_NAME_NORMALIZED = 0x0;
+    internal const uint VOLUME_NAME_DOS = 0x0;
+
+    internal const uint PIPE_ACCESS_DUPLEX = 0x00000003;
+    internal const uint PIPE_TYPE_MESSAGE = 0x00000004;
+    internal const uint PIPE_READMODE_MESSAGE = 0x00000002;
+    internal const uint PIPE_WAIT = 0x00000000;
+    internal const uint PIPE_REJECT_REMOTE_CLIENTS = 0x00000008;
+
+    internal const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    internal const uint TOKEN_QUERY = 0x0008;
+    internal const int TokenUser = 1;
+    internal const int TokenElevation = 20;
+
+    internal const uint MB_OK = 0x00000000;
+    internal const uint MB_ICONWARNING = 0x00000030;
+    internal const uint MB_SETFOREGROUND = 0x00010000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SECURITY_ATTRIBUTES
+    {
+        public uint nLength;
+        public nint lpSecurityDescriptor;
+        public int bInheritHandle;
+    }
+
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint CreateFile(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        nint lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        nint hTemplateFile);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", SetLastError = true)]
+    internal static partial uint GetFinalPathNameByHandle(SafeHandle hFile, char* lpszFilePath, uint cchFilePath, uint dwFlags);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateNamedPipeW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint CreateNamedPipe(
+        string lpName,
+        uint dwOpenMode,
+        uint dwPipeMode,
+        uint nMaxInstances,
+        uint nOutBufferSize,
+        uint nInBufferSize,
+        uint nDefaultTimeOut,
+        SECURITY_ATTRIBUTES* lpSecurityAttributes);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool CancelIoEx(SafeHandle hFile, nint lpOverlapped);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetNamedPipeServerProcessId(SafeHandle pipe, out uint serverProcessId);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetNamedPipeServerSessionId(SafeHandle pipe, out uint serverSessionId);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ProcessIdToSessionId(uint dwProcessId, out uint pSessionId);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    internal static partial nint OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool OpenProcessToken(SafeHandle processHandle, uint desiredAccess, out nint tokenHandle);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetTokenInformation(
+        SafeHandle tokenHandle,
+        int tokenInformationClass,
+        void* tokenInformation,
+        uint tokenInformationLength,
+        out uint returnLength);
+
+    /// <summary>
+    /// Lets another process take the foreground — passed by a second launch,
+    /// which the user just started and so holds the right, to the running
+    /// Noto it hands off to. Measured: without it the owner was refused 3/3.
+    /// </summary>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool AllowSetForegroundWindow(uint dwProcessId);
+
+    [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial int MessageBox(nint hWnd, string lpText, string lpCaption, uint uType);
+
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 
