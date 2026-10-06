@@ -56,10 +56,12 @@ public sealed partial class WorkspaceDrawerGuardTests
         string handler = Body(App, "OnAppActivationChanged");
 
         Assert.True(Index(handler, "_coordinator.OnAppActivated()") < Index(handler, "_coordinator.OnAppDeactivated()"),
-            "A return of activation is recorded, and goes no further.");
-        Assert.True(Index(handler, "_coordinator.OnAppDeactivated()") < Index(handler, "TryEnqueue("),
-            "The generation is taken inside the activation change, before anything is posted.");
-        Assert.True(Index(handler, "TryEnqueue(") < Index(handler, "_coordinator.OnDeactivationRequested(generation,"),
+            "A return of activation is handled on its own path, before any deactivation.");
+        int left = Index(handler, "_coordinator.OnAppDeactivated()");
+        int posted = handler.IndexOf("TryEnqueue(", left, StringComparison.Ordinal);
+
+        Assert.True(posted > left, "The generation is taken inside the activation change, before anything is posted.");
+        Assert.True(posted < Index(handler, "_coordinator.OnDeactivationRequested(generation,"),
             "The deactivation is decided on the dispatcher, carrying its generation.");
     }
 
@@ -67,10 +69,23 @@ public sealed partial class WorkspaceDrawerGuardTests
     public void A_deactivation_hides_only_while_its_generation_is_current()
     {
         Assert.Contains("Handle(WorkspaceRequest.Deactivated, requestTime, _activation.IsCurrent(generation),", Body(Coordinator, "OnDeactivationRequested"), StringComparison.Ordinal);
-        Assert.Contains("Handle(request, requestTime, deactivationCurrent: false,", Body(Coordinator, "OnActivationRequested"), StringComparison.Ordinal);
-        Assert.Contains("DeactivationCurrent: deactivationCurrent", Body(Coordinator, "Handle"), StringComparison.Ordinal);
+        Assert.Contains("Handle(request, requestTime, generationCurrent: false,", Body(Coordinator, "OnActivationRequested"), StringComparison.Ordinal);
+        Assert.Contains("GenerationCurrent: generationCurrent", Body(Coordinator, "Handle"), StringComparison.Ordinal);
         Assert.Contains("_activation.Deactivated()", Body(Coordinator, "OnAppDeactivated"), StringComparison.Ordinal);
         Assert.Contains("_activation.Activated()", Body(Coordinator, "OnAppActivated"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_activation_is_recorded_now_and_reconciled_after_the_fact_with_its_generation()
+    {
+        string handler = Body(App, "OnAppActivationChanged");
+        int returned = Index(handler, "_coordinator.OnAppActivated()");
+        int posted = handler.IndexOf("TryEnqueue(", returned, StringComparison.Ordinal);
+
+        Assert.True(posted > returned, "The generation is taken inside the activation change, before anything is posted.");
+        Assert.True(posted < Index(handler, "_coordinator.OnActivationReturned(returned,"),
+            "The reconciliation is decided on the dispatcher, carrying its generation.");
+        Assert.Contains("Handle(WorkspaceRequest.Activated, requestTime, _activation.IsCurrent(generation),", Body(Coordinator, "OnActivationReturned"), StringComparison.Ordinal);
     }
 
     [Fact]

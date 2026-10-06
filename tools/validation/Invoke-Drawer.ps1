@@ -36,7 +36,10 @@
     17 pin by keyboard (focus + Space); pin is never stored: a relaunch starts unpinned
     18 another application launched over a shown, unpinned Noto takes the foreground -> hidden, in each of 5 rounds
        (the shell-launch race PR #92 found: a deactivation judged before the foreground had changed was dropped)
-    19 Alt+Tab away from a shown, unpinned Noto -> hidden
+    19 Alt+Tab, 5 rounds from a shown Noto and 2 from a hidden one: whatever Windows does, Noto ends either
+       hidden and not active, or shown and in front. Hidden while foreground or holding keyboard focus is never
+       accepted (the defect PR #92 found: the switcher took activation, Noto hid, the switch completed to Noto)
+  Throughout: a hidden Noto that is the foreground window or holds keyboard focus is a FAIL wherever it is seen.
   Startup (a deactivation during launch never hides) is covered by unit tests: its timing cannot be forced here.
 
 .EXAMPLE
@@ -54,6 +57,29 @@ if (-not ('NotoVal.Drawer' -as [type])) {
 [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
 [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int index);
 [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, IntPtr extra);
+[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, System.Text.StringBuilder name, int max);
+'@
+}
+
+if (-not ('NotoVal.ForegroundChain' -as [type])) {
+    # Every foreground change, sampled on its own thread while the harness waits on a launch: a console host is in
+    # front for a few hundred milliseconds only. Read-only.
+    Add-Type -TypeDefinition @'
+using System; using System.Collections.Generic; using System.Runtime.InteropServices; using System.Text; using System.Threading;
+namespace NotoVal {
+public static class ForegroundChain {
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder b, int n);
+    static volatile bool stop; static Thread thread; static readonly List<KeyValuePair<uint, string>> seen = new List<KeyValuePair<uint, string>>();
+    public static void Start() {
+        stop = false; lock (seen) seen.Clear();
+        thread = new Thread(() => { IntPtr last = new IntPtr(-1); while (!stop) { IntPtr h = GetForegroundWindow(); if (h != last) { last = h; uint p; GetWindowThreadProcessId(h, out p); var c = new StringBuilder(128); GetClassName(h, c, 128); lock (seen) seen.Add(new KeyValuePair<uint, string>(p, c.ToString())); } Thread.Sleep(2); } });
+        thread.IsBackground = true; thread.Start();
+    }
+    public static KeyValuePair<uint, string>[] Stop() { stop = true; thread.Join(); lock (seen) return seen.ToArray(); }
+}
+}
 '@
 }
 
@@ -75,6 +101,20 @@ function Show-State($e) { "visible=$($e.WsVisible) minimized=$($e.Minimized) clo
 function Is-Shown-Docked($e) { $e.WsVisible -and -not $e.Minimized -and $e.Cloaked -eq 0 -and (Test-DockedAt $e 'Right') }
 function Root-At([int] $X, [int] $Y) { $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y; [NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) }
 function Above-At-Centre($Noto) { $e = Ev $Noto; (Root-At ([int](($e.FrameLeft + $e.FrameRight) / 2)) ([int](($e.FrameTop + $e.FrameBottom) / 2))) -eq $Noto.Hwnd }
+
+function Never-Hidden-Active([string] $Label) {
+    <# The invariant behind PR #92's second fix: a hidden Noto is never the foreground window nor holds keyboard focus. #>
+    $e = Ev $noto
+    $bad = (-not $e.WsVisible) -and ($e.IsForeground -or $e.KeyboardFocus)
+    Add-Result $run "$Label -> never hidden and active" (-not $bad) "$(Show-State $e)"
+}
+
+function Send-ToTarget([int[]] $Mods, [int] $Key) {
+    if ((Fg) -ne $target.Hwnd) { throw 'refusing to send keys: the target app is not the foreground window' }
+    $rev = [int[]]$Mods.Clone(); [array]::Reverse($rev)
+    [NotoVal.Win32]::Keys(@(@($Mods | ForEach-Object { [NotoVal.Win32]::Vk($_, $false) }) + @([NotoVal.Win32]::Vk($Key, $false), [NotoVal.Win32]::Vk($Key, $true)) + @($rev | ForEach-Object { [NotoVal.Win32]::Vk($_, $true) })))
+    Start-Sleep -Milliseconds 700
+}
 
 function Locked([string] $Label, [IntPtr] $Other) { $null = Assert-ForegroundLocked $run -A $noto.Hwnd -B $Other -Label $Label }
 
@@ -254,6 +294,7 @@ try {
         $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
         Add-Result $run '2  unpinned + a real click on another app -> hidden' ((-not $e.WsVisible) -and (Fg) -eq $target.Hwnd) "$(Show-State $e); trace: $(Trace-Since $m)"
         Add-Result $run '2  ... decided by the coordinator as a deactivation' ((Trace-Since $m) -match 'request=Deactivated action=Hide') ''
+        Never-Hidden-Active '2  after the click'
 
         # 13a - the hotkey after an automatic hide -> shown
         Locked '13a before' $bystander.Hwnd
@@ -420,6 +461,7 @@ try {
         Focus-Shell
         $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
         Add-Result $run '12 a click on the desktop (the shell) -> hidden' (-not $e.WsVisible) (Show-State $e)
+        Never-Hidden-Active '12 after the desktop click'
         $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
         $view.Application.ShellExecute($NotoExe, "--data-root=`"$data`"", $run.Root, 'open', 1)
         $second = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 1, 30000)
@@ -485,44 +527,67 @@ try {
         # round. The race PR #92 found: the deactivation used to be judged by reading the foreground a few
         # milliseconds later, while it still read Noto, and was dropped. Repeated because it was a race.
         Restart-Noto @{ 'workspace.escape' = 'LeaveFolderOrHide' }
+        # Settled first: a click on the target right after a launch can lose the foreground to Noto's own startup
+        # activation (measured: the click helper then refuses to type, and the run is INVALID).
+        Bring-NotoForward
         for ($r = 1; $r -le 5; $r++) {
             $null = Set-ForegroundByKeyboard $target
             # The controls bracket the whole round, aimed at visible background windows. The "after" one runs once
-            # the round is decided, not between the hotkey and the launch: a refused probe there was measured to
-            # leave the next shell launch without the foreground (all 5 rounds INVALID), which is the precondition
-            # this scenario needs.
+            # the round is decided, so no probe process sits between the hotkey and the launch under test.
             Locked-On "18.$r before" $bystander.Hwnd
             Chord @($target.Hwnd)
             $pre = Wait-Presence $noto { param($e) $e.WsVisible -and $e.IsForeground }
             $preOk = (Is-Shown-Docked $pre) -and $pre.IsForeground -and (Pin-State) -eq 'Off'
             if (-not $preOk) { Add-Invalid $run "18.$r precondition: Noto was not shown, in front and unpinned ($(Show-State $pre) pin=$(Pin-State))"; continue }
             $m = Trace-Mark
-            # Started with its console hidden from the start (SW_HIDE), so the window that takes the foreground is
-            # the application's own, not a console host flashing up first.
-            $appTitle = "Noto validation launched-$r $($run.Id)"
-            $null = Start-ViaShell $run -File 'pwsh.exe' -Arguments "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'helpers/target-app.ps1')`" -Title `"$appTitle`" -Status `"$(Join-Path $run.Root "launched-$r-status.txt")`"" -Marker $appTitle -Show 0
-            $appHwnd = [IntPtr]::Zero; $deadline = (Get-Date).AddSeconds(30)
-            while ((Get-Date) -lt $deadline -and $appHwnd -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100; $appHwnd = [NotoVal.Win32]::FindWindow([NullString]::Value, $appTitle) }
-            if ($appHwnd -eq [IntPtr]::Zero) { throw "the launched app $r showed no window" }
-            $appPid0 = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($appHwnd, [ref]$appPid0)
-            $app = [pscustomobject]@{ Hwnd = $appHwnd; Pid = [int]$appPid0 }
-            $deadline = (Get-Date).AddSeconds(5)
-            while ((Get-Date) -lt $deadline -and (Fg) -ne $app.Hwnd) { Start-Sleep -Milliseconds 100 }
-            if ((Fg) -ne $app.Hwnd) { Add-Invalid $run "18.$r precondition: the launched window did not take the foreground by itself (fg=$(Fg), Noto=$($noto.Hwnd))"; Stop-Process -Id $app.Pid -Force; continue }
+            # Launched by the shell as the user would: pwsh with its console. Measured: with the foreground lock
+            # enforced, the window that takes the foreground on launch is the new console's host window (Windows
+            # Terminal, another process), not the script's own form, which a launch with no console never brings
+            # in front at all. That is the route that produced the race: activation to another process's window.
+            [NotoVal.ForegroundChain]::Start()
+            $app = Start-TargetApp $run -Name "launched-$r"
+            Start-Sleep -Milliseconds 1500
+            $seen = [NotoVal.ForegroundChain]::Stop()
+            $chain = @($seen | ForEach-Object { "$((Get-Process -Id $_.Key -ErrorAction SilentlyContinue).Name)/$($_.Key)/$($_.Value)" })
+            # Precondition: after the launch began, a window of another process held the foreground.
+            $other = @($seen | Where-Object { $_.Key -ne 0 -and $_.Key -ne $noto.Pid }).Count -gt 0
+            if (-not $other) { Add-Invalid $run "18.$r precondition: the launch never moved the foreground to another process ($($chain -join ' > '))"; Stop-Process -Id $app.Pid -Force; continue }
             $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
-            $appPid = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId((Fg), [ref]$appPid)
-            Add-Result $run "18 round $r`: another app launched over a shown, unpinned Noto takes the foreground -> hidden" ((-not $e.WsVisible) -and $appPid -eq $app.Pid -and $appPid -ne $noto.Pid -and (Trace-Since $m) -match 'request=Deactivated action=Hide') "before: $(Show-State $pre); after: $(Show-State $e) fg pid=$appPid launched pid=$($app.Pid); trace: $(Trace-Since $m)"
-            Locked-On "18.$r after" $target.Hwnd
+            Add-Result $run "18 round $r`: another app launched over a shown, unpinned Noto takes the foreground -> hidden" ((-not $e.WsVisible) -and (Trace-Since $m) -match 'request=Deactivated action=Hide') "before: $(Show-State $pre); after: $(Show-State $e); foreground: $($chain -join ' > ') (launched pid $($app.Pid)); trace: $(Trace-Since $m)"
+            Never-Hidden-Active "18 round $r"
+            Locked-On "18.$r after" $bystander.Hwnd
             Stop-Process -Id $app.Pid -Force; Start-Sleep -Milliseconds 600
         }
 
-        # 19 - Alt+Tab away from a shown, unpinned Noto -> hidden. After every bracketed claim: an injected Alt can
-        # unlock the foreground (README, known limitations).
-        Bring-NotoForward
-        $m = Trace-Mark
-        Send-ToNoto @(0x12) 0x09
-        $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
-        Add-Result $run '19 Alt+Tab away from a shown, unpinned Noto -> hidden' ((-not $e.WsVisible) -and (Fg) -ne $noto.Hwnd -and (Trace-Since $m) -match 'request=Deactivated action=Hide') "$(Show-State $e); trace: $(Trace-Since $m)"
+        # 19 - Alt+Tab. After every bracketed claim: an injected Alt can unlock the foreground (README, known
+        # limitations). Windows decides where Alt+Tab lands; the product contract is the end state. Either Noto was
+        # switched away from and is hidden and not active, or Windows activated it and it is shown and in front.
+        # Hidden while foreground or holding focus fails, however it came about.
+        for ($r = 1; $r -le 5; $r++) {
+            Bring-NotoForward
+            if ((Pin-State) -ne 'Off') { throw "19.$r precondition: pinned" }
+            $m = Trace-Mark
+            Send-ToNoto @(0x12) 0x09
+            Start-Sleep -Milliseconds 800
+            $e = Ev $noto; $tr = Trace-Since $m
+            $away = (-not $e.WsVisible) -and -not $e.IsForeground -and -not $e.KeyboardFocus
+            $back = (Is-Shown-Docked $e) -and $e.IsForeground
+            $outcome = if ($away) { 'switched away: hidden, not active' } elseif ($back) { 'Windows activated Noto: shown, in front' } else { 'INVALID STATE' }
+            Add-Result $run "19 round $r`: Alt+Tab from a shown Noto -> $outcome" ($away -or $back) "$(Show-State $e); trace: $tr"
+            if ($tr -match 'request=Deactivated action=Hide.*activation=returned') {
+                Add-Result $run "19 round $r`: ... activation returned to the hidden Noto -> reconciled (Activated -> Show)" ($tr -match 'request=Activated action=Show' -and $back) "trace: $tr"
+            }
+        }
+        for ($r = 1; $r -le 2; $r++) {
+            Bring-NotoForward
+            Send-ToNoto @(0x11) 0x57      # Ctrl+W: hidden
+            $null = Set-ForegroundByKeyboard $target
+            $m = Trace-Mark
+            Send-ToTarget @(0x12) 0x09
+            Start-Sleep -Milliseconds 800
+            $e = Ev $noto
+            Add-Result $run "19 hidden round $r`: Alt+Tab from another app while Noto is hidden -> not hidden and active" (-not ((-not $e.WsVisible) -and ($e.IsForeground -or $e.KeyboardFocus))) "$(Show-State $e); trace: $(Trace-Since $m)"
+        }
 
         # 11 - virtual desktops. Last on purpose: switching desktops injects Win+Ctrl chords, and injected
         # modifiers can unlock the foreground for the next SetForegroundWindow (README, known limitations), so no
@@ -555,6 +620,7 @@ try {
         $other = (Get-DesktopState).Current
         $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
         Add-Result $run '11 unpinned + a desktop switch -> hidden (a deactivation)' ($other -ne $homeDesk -and -not $e.WsVisible) "$(Show-State $e); trace: $(Trace-Since $m)"
+        Never-Hidden-Active '11 after the desktop switch'
         [NotoVal.Win32]::Keys(@($one)); Start-Sleep -Seconds 2
         $e = Ev $noto; $now11 = (Get-DesktopState).Current
         Add-Result $run '11 ... the hotkey on the new desktop -> shown there (no switch), docked, in front' ($now11 -eq $other -and (Is-Shown-Docked $e) -and $e.IsForeground) "home=$homeDesk other=$other now=$now11 $(Show-State $e)"

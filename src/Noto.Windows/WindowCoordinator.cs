@@ -31,8 +31,13 @@ namespace Noto;
 /// <para>
 /// <b>The activation generation</b> (#16 slice 6, ADR-007 §4 "The drawer").
 /// <c>WM_ACTIVATEAPP</c> in either direction and every path that brings the
-/// window forward advance it, so a deactivation request decided later is
-/// carried out only while it still holds.
+/// window forward advance it, so a deactivation or activation request decided
+/// later is carried out only while it still holds.
+/// </para>
+/// <para>
+/// <b>Never hidden and active</b> (#16 slice 6). When Windows gives activation
+/// to a hidden workspace, it is shown with a launch's rules; when it activates
+/// a minimized one, restored. A shown workspace is left alone.
 /// </para>
 /// <para>
 /// Deliberately small: it owns this lifecycle for the one window that
@@ -106,13 +111,27 @@ internal sealed class WindowCoordinator(
 
     /// <summary>
     /// Activation came back to Noto's process (<c>WM_ACTIVATEAPP</c>, <c>TRUE</c>):
-    /// every deactivation request not yet decided is stale.
+    /// starts a new generation, so every deactivation request not yet decided
+    /// is stale; the activation request to post carries it.
     /// </summary>
-    public void OnAppActivated()
+    /// <returns>The generation for <see cref="OnActivationReturned"/>.</returns>
+    public int OnAppActivated()
     {
-        _activation.Activated();
-        Trace.WriteLine($"Noto.Workspace activation=returned generation={_activation.Current}");
+        int generation = _activation.Activated();
+        Trace.WriteLine($"Noto.Workspace activation=returned generation={generation}");
+        return generation;
     }
+
+    /// <summary>
+    /// Decides an activation posted by <see cref="OnAppActivated"/>: a hidden
+    /// workspace that Windows activated is shown, a minimized one restored —
+    /// only while its <paramref name="generation"/> is still current.
+    /// </summary>
+    /// <param name="generation">The generation <see cref="OnAppActivated"/> returned.</param>
+    /// <param name="requestTime">When activation returned, on the <see cref="Environment.TickCount"/> clock.</param>
+    /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when there was nothing to reconcile.</returns>
+    public WorkspaceAction OnActivationReturned(int generation, int requestTime) =>
+        Handle(WorkspaceRequest.Activated, requestTime, _activation.IsCurrent(generation), $" generation={generation} current={_activation.Current}");
 
     /// <summary>
     /// Decides a deactivation posted by <see cref="OnAppDeactivated"/>: it may
@@ -133,15 +152,16 @@ internal sealed class WindowCoordinator(
     /// </summary>
     /// <param name="request">
     /// The toggle; a launch, which never hides; a dismissal, which never shows.
-    /// A deactivation goes through <see cref="OnDeactivationRequested"/>: one
-    /// passed here carries no generation and is dropped.
+    /// A deactivation or an activation goes through <see cref="OnDeactivationRequested"/>
+    /// or <see cref="OnActivationReturned"/>: one passed here carries no
+    /// generation and is dropped.
     /// </param>
     /// <param name="requestTime">When the request was made, on the <see cref="Environment.TickCount"/> clock.</param>
     /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when the request was dropped.</returns>
     public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime) =>
-        Handle(request, requestTime, deactivationCurrent: false, string.Empty);
+        Handle(request, requestTime, generationCurrent: false, string.Empty);
 
-    private WorkspaceAction Handle(WorkspaceRequest request, int requestTime, bool deactivationCurrent, string detail)
+    private WorkspaceAction Handle(WorkspaceRequest request, int requestTime, bool generationCurrent, string detail)
     {
         WorkspaceAction action = WorkspaceToggle.Decide(
             request,
@@ -154,7 +174,7 @@ internal sealed class WindowCoordinator(
                 _readyTime,
                 _lastTransitionEnd,
                 HideOnDeactivation: hideOnDeactivation && !_pinned,
-                DeactivationCurrent: deactivationCurrent));
+                GenerationCurrent: generationCurrent));
 
         // The request and what it decided, never content: evidence for the
         // runtime harness, read through the debug-output channel.
@@ -167,9 +187,10 @@ internal sealed class WindowCoordinator(
 
         _transitioning = true;
 
-        // Noto bringing itself forward supersedes every deactivation not yet
+        // Noto bringing itself forward supersedes every request not yet
         // decided — even if Windows then refuses the foreground, a launch or
-        // toggle that showed the window must not be undone by an older one.
+        // toggle that showed the window must not be undone by an older
+        // deactivation.
         if (WorkspaceToggle.BringsForward(action))
         {
             _activation.BroughtForward();

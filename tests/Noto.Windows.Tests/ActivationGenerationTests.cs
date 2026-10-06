@@ -40,10 +40,12 @@ public sealed class ActivationGenerationTests
         /// <summary><c>WM_ACTIVATEAPP(FALSE)</c>: returns the generation the posted request carries.</summary>
         public int Leave() => _generation.Deactivated();
 
-        /// <summary><c>WM_ACTIVATEAPP(TRUE)</c>.</summary>
-        public void Return() => _generation.Activated();
+        /// <summary><c>WM_ACTIVATEAPP(TRUE)</c>: returns the generation the posted request carries.</summary>
+        public int Return() => _generation.Activated();
 
         public WorkspaceAction Deactivated(int generation) => Run(WorkspaceRequest.Deactivated, _generation.IsCurrent(generation));
+
+        public WorkspaceAction Activated(int generation) => Run(WorkspaceRequest.Activated, _generation.IsCurrent(generation));
 
         public WorkspaceAction Request(WorkspaceRequest request) => Run(request, deactivationCurrent: false);
 
@@ -53,7 +55,7 @@ public sealed class ActivationGenerationTests
                 request,
                 Presence,
                 new ActivationContext(ShuttingDown, Resizing, Transitioning: false, RequestTime, Ready, LastTransitionEnd: null,
-                    HideOnDeactivation: Setting && !Pinned, DeactivationCurrent: deactivationCurrent));
+                    HideOnDeactivation: Setting && !Pinned, GenerationCurrent: deactivationCurrent));
 
             if (WorkspaceToggle.BringsForward(action))
             {
@@ -90,7 +92,7 @@ public sealed class ActivationGenerationTests
     {
         var drawer = new Drawer(presence);
         int n = drawer.Leave();
-        drawer.Return();
+        _ = drawer.Return();
 
         Assert.Equal(WorkspaceAction.None, drawer.Deactivated(n));
         Assert.Equal(presence, drawer.Presence);
@@ -101,9 +103,9 @@ public sealed class ActivationGenerationTests
     {
         var drawer = new Drawer(WorkspacePresence.Foreground);
         int first = drawer.Leave();
-        drawer.Return();
+        _ = drawer.Return();
         int second = drawer.Leave();
-        drawer.Return();
+        _ = drawer.Return();
 
         Assert.Equal(WorkspaceAction.None, drawer.Deactivated(first));
         Assert.Equal(WorkspaceAction.None, drawer.Deactivated(second));
@@ -115,7 +117,7 @@ public sealed class ActivationGenerationTests
     {
         var drawer = new Drawer(WorkspacePresence.Foreground);
         int first = drawer.Leave();
-        drawer.Return();
+        _ = drawer.Return();
         int second = drawer.Leave();
 
         // The first request, decided during the second deactivation, must not act for it.
@@ -130,7 +132,7 @@ public sealed class ActivationGenerationTests
     {
         var generation = new ActivationGeneration();
         int a = generation.Deactivated();
-        generation.Activated();
+        _ = generation.Activated();
         int b = generation.Deactivated();
         generation.BroughtForward();
         int c = generation.Deactivated();
@@ -186,7 +188,7 @@ public sealed class ActivationGenerationTests
     {
         foreach (bool current in new[] { true, false })
         {
-            ActivationContext context = new(false, false, false, Ready + 500, Ready, null, HideOnDeactivation: true, DeactivationCurrent: current);
+            ActivationContext context = new(false, false, false, Ready + 500, Ready, null, HideOnDeactivation: true, GenerationCurrent: current);
 
             Assert.NotEqual(WorkspaceAction.Hide, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, context));
         }
@@ -273,5 +275,162 @@ public sealed class ActivationGenerationTests
 
         Assert.Equal(WorkspaceAction.None, drawer.Deactivated(n));
         Assert.Equal(presence, drawer.Presence);
+    }
+
+    // ------------------------------------------------- never hidden and active
+
+    /// <summary>Shown, hidden by a current deactivation, then activated by Windows (the Alt+Tab switcher completing to Noto).</summary>
+    private static (Drawer Drawer, int Left, int Returned) HiddenThenActivated()
+    {
+        var drawer = new Drawer(WorkspacePresence.Foreground);
+        int left = drawer.Leave();
+        Assert.Equal(WorkspaceAction.Hide, drawer.Deactivated(left));
+
+        return (drawer, left, drawer.Return());
+    }
+
+    [Fact]
+    public void Hidden_and_activated_is_shown()
+    {
+        (Drawer drawer, _, int returned) = HiddenThenActivated();
+
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void Repeated_activation_shows_once_and_never_hides()
+    {
+        (Drawer drawer, _, int returned) = HiddenThenActivated();
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+
+        // The show brought Noto forward, and Windows reported the activation it caused.
+        int fromOwnShow = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(fromOwnShow));
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void A_stale_deactivation_after_the_reconciling_show_does_not_hide()
+    {
+        (Drawer drawer, int left, int returned) = HiddenThenActivated();
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+
+        Assert.Equal(WorkspaceAction.None, drawer.Deactivated(left));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void A_fresh_deactivation_after_the_reconciling_show_hides_while_current()
+    {
+        (Drawer drawer, _, int returned) = HiddenThenActivated();
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+
+        int leftAgain = drawer.Leave();
+
+        Assert.Equal(WorkspaceAction.Hide, drawer.Deactivated(leftAgain));
+        Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
+    }
+
+    [Fact]
+    public void A_fresh_deactivation_after_the_reconciling_show_is_stale_once_activation_returned()
+    {
+        (Drawer drawer, _, int returned) = HiddenThenActivated();
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+
+        int leftAgain = drawer.Leave();
+        _ = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Deactivated(leftAgain));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void A_launch_after_the_reconciling_show_never_hides()
+    {
+        (Drawer drawer, _, int returned) = HiddenThenActivated();
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+
+        Assert.Equal(WorkspaceAction.None, drawer.Request(WorkspaceRequest.Launch));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Theory]
+    [InlineData(true, true)]   // pinned
+    [InlineData(false, false)] // hide-on-deactivation off
+    public void Hidden_and_activated_is_shown_even_when_pinned_or_switched_off(bool pinned, bool setting)
+    {
+        // Hidden by the hotkey: a deactivation would not hide it here.
+        var drawer = new Drawer(WorkspacePresence.Foreground) { Pinned = pinned, Setting = setting };
+        Assert.Equal(WorkspaceAction.Hide, drawer.Request(WorkspaceRequest.Toggle));
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Background)]
+    [InlineData(WorkspacePresence.Foreground)]
+    public void Visible_and_activated_is_left_alone(WorkspacePresence presence)
+    {
+        var drawer = new Drawer(presence);
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned));
+        Assert.Equal(presence, drawer.Presence);
+    }
+
+    [Fact]
+    public void Hidden_and_deactivated_is_left_alone()
+    {
+        var drawer = new Drawer(WorkspacePresence.Hidden);
+        int left = drawer.Leave();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Deactivated(left));
+        Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
+    }
+
+    [Fact]
+    public void Minimized_and_activated_is_restored()
+    {
+        var drawer = new Drawer(WorkspacePresence.Minimized);
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.Restore, drawer.Activated(returned));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void Activation_while_closing_does_not_resurrect_the_window()
+    {
+        var drawer = new Drawer(WorkspacePresence.Hidden) { ShuttingDown = true };
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned));
+        Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden, WorkspaceAction.Show)]
+    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.None)]
+    public void Activation_during_startup_keeps_the_startup_semantics(WorkspacePresence presence, WorkspaceAction expected)
+    {
+        var drawer = new Drawer(presence) { RequestTime = Ready - 300 };
+        int returned = drawer.Return();
+
+        Assert.Equal(expected, drawer.Activated(returned));
+    }
+
+    [Fact]
+    public void An_activation_that_activation_left_again_before_it_was_decided_is_stale()
+    {
+        (Drawer drawer, _, int returned) = HiddenThenActivated();
+        _ = drawer.Leave();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned));
+        Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
     }
 }

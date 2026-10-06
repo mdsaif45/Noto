@@ -486,10 +486,14 @@ public partial class App : Application
     /// </para>
     /// <para>
     /// <b>Recorded now, decided later</b> (ADR-007 §4, "The activation
-    /// generation"): the deactivation is posted, not carried out inside the
-    /// activation change, and carries the generation it was made in. A return
-    /// of activation, or Noto bringing itself forward, before it is decided
-    /// makes it stale.
+    /// generation"): each change is posted, not carried out inside the
+    /// activation change, and carries the generation it was made in. A later
+    /// change, or Noto bringing itself forward, before it is decided makes it
+    /// stale.
+    /// </para>
+    /// <para>
+    /// <b>Never hidden and active.</b> Activation returning to a hidden
+    /// workspace — however Windows chose it — shows it, as a launch would.
     /// </para>
     /// </remarks>
     private void OnAppActivationChanged(bool active)
@@ -499,14 +503,26 @@ public partial class App : Application
             return;
         }
 
+        int changedAt = Environment.TickCount;
+
         if (active)
         {
-            _coordinator.OnAppActivated();
+            int returned = _coordinator.OnAppActivated();
+
+            _ = _window.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_closing || _coordinator is null)
+                {
+                    return;
+                }
+
+                _ = _coordinator.OnActivationReturned(returned, changedAt);
+            });
+
             return;
         }
 
         int generation = _coordinator.OnAppDeactivated();
-        int deactivatedAt = Environment.TickCount;
 
         _ = _window.DispatcherQueue.TryEnqueue(() =>
         {
@@ -515,7 +531,7 @@ public partial class App : Application
                 return;
             }
 
-            _ = _coordinator.OnDeactivationRequested(generation, deactivatedAt);
+            _ = _coordinator.OnDeactivationRequested(generation, changedAt);
         });
     }
 

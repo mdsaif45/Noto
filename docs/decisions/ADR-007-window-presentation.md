@@ -503,11 +503,12 @@ still holds:
 
 ```
   WM_ACTIVATEAPP(FALSE)    generation++  ->  post Deactivated(generation)
-  WM_ACTIVATEAPP(TRUE)     generation++      (every earlier request is now stale)
+  WM_ACTIVATEAPP(TRUE)     generation++  ->  post Activated(generation)
   Show / Restore / Focus   generation++      (Noto brought itself forward)
 
-  Deactivated(n) is valid only if generation == n when it is decided.
-  Valid -> the table above, with every existing drop.
+  A request made in generation n is valid only if generation == n when it is decided.
+  Valid Deactivated -> the table above, with every existing drop.
+  Valid Activated   -> the reconciliation below.
 ```
 
 | Sequence | Result |
@@ -520,6 +521,21 @@ still holds:
 | FALSE → `Toggle` | `Toggle` as before. If it brought Noto forward, Deactivated(n) is stale |
 | pinned, or the setting off | never hides automatically; `Dismiss`, Escape and the hotkey still do |
 | during a resize, during startup, while closing | dropped, as every request is |
+| hidden → TRUE → Activated(n) | shown (generation++). A later Deactivated from before it is stale |
+| hidden → TRUE → Activated(n) → shown → TRUE (from that show) | the second Activated finds the window shown: nothing |
+| shown → TRUE → FALSE → Activated(n) | ignored: stale; a hidden window stays hidden |
+
+**Never hidden and active.** A hidden workspace must never be the active,
+focused window. Windows can give it activation however it was hidden: the
+Alt+Tab switcher takes activation, so Noto hides, and then completes the switch
+to Noto; or another process's foreground request activates it. A current
+`Activated` request reconciles it with a launch's rules: hidden → show,
+minimized → restore. A shown window is left alone, and it never hides. Pin and
+the setting do not apply, because they govern putting the workspace away, not
+whether an active window may stay invisible. Closing still drops it, so nothing
+is shown again during shutdown. Its staleness is only the generation's, not
+the time-based rule, because an invalid state must be repaired however the
+timing fell. No window class, shell switcher or timing is special-cased.
 
 Hide, `Dismiss` and the hotkey's hide do not advance the generation: a pending
 deactivation then finds the window hidden and does nothing. No timer, sleep or
