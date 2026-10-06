@@ -332,7 +332,7 @@ public partial class App : Application
         if (_docked is not null)
         {
             _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide, preferences.HideOnDeactivation);
-            _docked.AppActivationChanged += (_, active) => OnAppActivationChanged(active);
+            _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
         }
 
         // Lets a scripted or CI run verify startup without a human closing the
@@ -492,11 +492,14 @@ public partial class App : Application
     /// stale.
     /// </para>
     /// <para>
-    /// <b>Never hidden and active.</b> Activation returning to a hidden
-    /// workspace — however Windows chose it — shows it, as a launch would.
+    /// <b>Never hidden and in the foreground.</b> An activation that landed —
+    /// Noto already the foreground window at the message, as the event
+    /// observed it then — shows a hidden workspace, as a launch would. One that
+    /// did not land (another process's refused foreground request) changes
+    /// nothing.
     /// </para>
     /// </remarks>
-    private void OnAppActivationChanged(bool active)
+    private void OnAppActivationChanged(AppActivationEventArgs change)
     {
         if (_coordinator is null || _window is null)
         {
@@ -505,9 +508,10 @@ public partial class App : Application
 
         int changedAt = Environment.TickCount;
 
-        if (active)
+        if (change.Active)
         {
             int returned = _coordinator.OnAppActivated();
+            bool landed = change.Landed;
 
             _ = _window.DispatcherQueue.TryEnqueue(() =>
             {
@@ -516,7 +520,7 @@ public partial class App : Application
                     return;
                 }
 
-                _ = _coordinator.OnActivationReturned(returned, changedAt);
+                _ = _coordinator.OnActivationReturned(returned, landed, changedAt);
             });
 
             return;

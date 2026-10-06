@@ -36,6 +36,11 @@
     17 pin by keyboard (focus + Space); pin is never stored: a relaunch starts unpinned
     18 another application launched over a shown, unpinned Noto takes the foreground -> hidden, in each of 5 rounds
        (the shell-launch race PR #92 found: a deactivation judged before the foreground had changed was dropped)
+    20 a refused foreign foreground request at a hidden Noto, then at a minimized one, 3 rounds each -> Noto stays
+       hidden or minimized, not foreground, not focused (PR #92's third finding: Windows still delivers
+       WM_ACTIVATEAPP(TRUE), and Noto must not react to an activation that did not land)
+    21 a real click on a minimized Noto's taskbar button, 3 rounds -> a genuine activation that landed: Noto
+       reconciles it, restored, docked, in front (the landed path, deterministic where 19's depends on Windows)
     19 Alt+Tab, 5 rounds from a shown Noto and 2 from a hidden one: whatever Windows does, Noto ends either
        hidden and not active, or shown and in front. Hidden while foreground or holding keyboard focus is never
        accepted (the defect PR #92 found: the switcher took activation, Noto hid, the switch completed to Noto)
@@ -559,6 +564,38 @@ try {
             Stop-Process -Id $app.Pid -Force; Start-Sleep -Milliseconds 600
         }
 
+        # 20 - a refused foreign foreground request must never summon Noto. Another process (the probe) asks Windows to
+        # put Noto's window in front; Windows refuses, yet still delivers WM_ACTIVATEAPP(TRUE) to Noto - a
+        # background activation that did not land. Each round: a control at a visible background window proves the
+        # foreground lock is enforced; the probe must be refused; the trace must show that activation decided as not
+        # landed (otherwise the path was not exercised and the round proves nothing); and Noto must stay hidden or
+        # minimized, not in front and not holding focus.
+        foreach ($state in 'hidden', 'minimized') {
+            for ($r = 1; $r -le 3; $r++) {
+                Bring-NotoForward
+                if ($state -eq 'hidden') {
+                    Chord @($noto.Hwnd)
+                    $null = Wait-Presence $noto { param($e) -not $e.WsVisible }
+                }
+                else { $null = Invoke-Minimize $noto }
+                $null = Set-ForegroundByKeyboard $target
+                $pre = Ev $noto
+                $preOk = if ($state -eq 'hidden') { -not $pre.WsVisible } else { $pre.Minimized }
+                if (-not $preOk) { Add-Invalid $run "20 $state $r precondition: Noto was not $state ($(Show-State $pre))"; continue }
+                Locked-On "20 $state $r lock" $bystander.Hwnd
+                $m = Trace-Mark
+                $probe = Test-NegativeControl $run $noto.Hwnd
+                Start-Sleep -Milliseconds 1500
+                $e = Ev $noto; $tr = Trace-Since $m
+                if ($probe.Detail -notmatch 'sfw=False') { Add-Invalid $run "20 $state $r`: Windows granted the foreign request ($($probe.Detail)); the foreground lock was not enforced"; continue }
+                # Exercised = an activation decided as not landed, whatever it decided: the outcome is judged below, so a
+                # wrong reaction fails the round instead of hiding as "not exercised".
+                if ($tr -notmatch 'request=Activated action=\w+ [^|]*landed=False') { Add-Invalid $run "20 $state $r`: no background activation was delivered, so the not-landed path was not exercised; trace: $tr"; continue }
+                $stays = if ($state -eq 'hidden') { -not $e.WsVisible } else { $e.Minimized }
+                Add-Result $run "20 $state round $r`: a refused foreign foreground request -> Noto stays $state, not in front, not focused" ($stays -and -not $e.IsForeground -and -not $e.KeyboardFocus -and $tr -notmatch 'action=(Show|Restore)') "probe: $($probe.Detail); $(Show-State $e); trace: $tr"
+            }
+        }
+
         # 19 - Alt+Tab. After every bracketed claim: an injected Alt can unlock the foreground (README, known
         # limitations). Windows decides where Alt+Tab lands; the product contract is the end state. Either Noto was
         # switched away from and is hidden and not active, or Windows activated it and it is shown and in front.
@@ -587,6 +624,26 @@ try {
             Start-Sleep -Milliseconds 800
             $e = Ev $noto
             Add-Result $run "19 hidden round $r`: Alt+Tab from another app while Noto is hidden -> not hidden and active" (-not ((-not $e.WsVisible) -and ($e.IsForeground -or $e.KeyboardFocus))) "$(Show-State $e); trace: $(Trace-Since $m)"
+        }
+
+        # 21 - a real click on a minimized Noto's taskbar button: Windows gives Noto the foreground before it delivers
+        # WM_ACTIVATEAPP(TRUE) - an activation that landed - but leaves the window minimized (it is not minimizable
+        # by the user; measured). Noto's reconciliation restores it. After every bracketed claim: a click on the
+        # taskbar was measured to release the foreground lock.
+        for ($r = 1; $r -le 3; $r++) {
+            Bring-NotoForward
+            $null = Invoke-Minimize $noto
+            $null = Set-ForegroundByKeyboard $target
+            if (-not (Ev $noto).Minimized) { Add-Invalid $run "21 round $r precondition: Noto was not minimized"; continue }
+            $btn = Noto-TaskbarButton
+            if (-not $btn) { Add-Invalid $run "21 round $r precondition: no Noto taskbar button"; continue }
+            $br = $btn.Current.BoundingRectangle
+            $m = Trace-Mark
+            Click-At ([int]($br.X + $br.Width / 2)) ([int]($br.Y + $br.Height / 2)) $taskbarTray
+            $e = Wait-Presence $noto { param($e) (Is-Shown-Docked $e) -and $e.IsForeground } 6
+            $tr = Trace-Since $m
+            if ($tr -notmatch 'activation=returned') { Add-Invalid $run "21 round $r`: the click delivered no activation; trace: $tr"; continue }
+            Add-Result $run "21 round $r`: a click on a minimized Noto's taskbar button -> a landed activation, reconciled: restored, docked, in front" ((Is-Shown-Docked $e) -and $e.IsForeground -and $tr -match 'request=Activated action=Restore [^|]*landed=True') "$(Show-State $e); trace: $tr"
         }
 
         # 11 - virtual desktops. Last on purpose: switching desktops injects Win+Ctrl chords, and injected

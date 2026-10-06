@@ -21,6 +21,30 @@ public sealed class DockResizedEventArgs(MonitorId monitor, double visibleWidthD
 }
 
 /// <summary>
+/// Activation crossing Noto's process boundary (<c>WM_ACTIVATEAPP</c>), as
+/// observed when Windows delivered it (#16 slice 6).
+/// </summary>
+public sealed class AppActivationEventArgs(bool active, bool landed) : EventArgs
+{
+    /// <summary>
+    /// <see langword="true"/> when activation came to Noto,
+    /// <see langword="false"/> when it left for another application.
+    /// </summary>
+    public bool Active { get; } = active;
+
+    /// <summary>
+    /// For an arriving activation: this window was already the foreground
+    /// window when the message was delivered. Measured: Windows assigns the
+    /// foreground before it sends <c>WM_ACTIVATEAPP(TRUE)</c> for a genuine
+    /// activation (Alt+Tab, the taskbar, Noto's own show). It also sends it
+    /// after another process's foreground request it refused, without giving
+    /// Noto the foreground. Read once, at the message, never later.
+    /// Always <see langword="false"/> when activation left.
+    /// </summary>
+    public bool Landed { get; } = landed;
+}
+
+/// <summary>
 /// Keeps a docked window docked while the user resizes it (#16 slice 3).
 /// </summary>
 /// <remarks>
@@ -93,8 +117,8 @@ public sealed unsafe class DockedWindow
 
     /// <summary>
     /// Activation crossed Noto's process boundary (<c>WM_ACTIVATEAPP</c>):
-    /// <see langword="true"/> when it came to Noto, <see langword="false"/> when
-    /// it left for another application (#16 slice 6, parity A13).
+    /// whether it came to Noto or left, and for an arrival whether it landed —
+    /// this window already the foreground (#16 slice 6, parity A13).
     /// </summary>
     /// <remarks>
     /// Windows sends it only when the application changes, so activation moving
@@ -102,7 +126,7 @@ public sealed unsafe class DockedWindow
     /// procedure, during the activation change: a handler must post its work,
     /// not hide or show the window here. A handler that throws is contained.
     /// </remarks>
-    public event EventHandler<bool>? AppActivationChanged;
+    public event EventHandler<AppActivationEventArgs>? AppActivationChanged;
 
     /// <summary>The edge the window is kept docked to.</summary>
     public DockEdge Edge { get; }
@@ -322,8 +346,13 @@ public sealed unsafe class DockedWindow
         Resized?.Invoke(this, new DockResizedEventArgs(display.Id, widthDip));
     }
 
-    /// <summary>Reports <c>WM_ACTIVATEAPP</c>: <paramref name="active"/> is its <c>wParam</c>.</summary>
-    internal void OnActivateApp(bool active) => AppActivationChanged?.Invoke(this, active);
+    /// <summary>
+    /// Reports <c>WM_ACTIVATEAPP</c>: <paramref name="active"/> is its
+    /// <c>wParam</c>; <paramref name="landed"/> whether this window was the
+    /// foreground window when it was delivered.
+    /// </summary>
+    internal void OnActivateApp(bool active, bool landed) =>
+        AppActivationChanged?.Invoke(this, new AppActivationEventArgs(active, active && landed));
 
     /// <summary>Begins a drag; also the testable half of <c>WM_ENTERSIZEMOVE</c>.</summary>
     internal void OnEnterSizeMove()
@@ -579,7 +608,8 @@ public sealed unsafe class DockedWindow
                     break;
 
                 case NativeMethods.WM_ACTIVATEAPP:
-                    self.OnActivateApp(wParam != 0);
+                    // The foreground is read here, at the message, and nowhere later.
+                    self.OnActivateApp(wParam != 0, NativeMethods.GetForegroundWindow() == hwnd);
                     break;
 
                 case NativeMethods.WM_NCDESTROY:

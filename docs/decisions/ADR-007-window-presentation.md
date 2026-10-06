@@ -503,7 +503,8 @@ still holds:
 
 ```
   WM_ACTIVATEAPP(FALSE)    generation++  ->  post Deactivated(generation)
-  WM_ACTIVATEAPP(TRUE)     generation++  ->  post Activated(generation)
+  WM_ACTIVATEAPP(TRUE)     generation++  ->  post Activated(generation, landed)
+                           landed = Noto's window was the foreground at this message
   Show / Restore / Focus   generation++      (Noto brought itself forward)
 
   A request made in generation n is valid only if generation == n when it is decided.
@@ -521,21 +522,39 @@ still holds:
 | FALSE → `Toggle` | `Toggle` as before. If it brought Noto forward, Deactivated(n) is stale |
 | pinned, or the setting off | never hides automatically; `Dismiss`, Escape and the hotkey still do |
 | during a resize, during startup, while closing | dropped, as every request is |
-| hidden → TRUE → Activated(n) | shown (generation++). A later Deactivated from before it is stale |
-| hidden → TRUE → Activated(n) → shown → TRUE (from that show) | the second Activated finds the window shown: nothing |
+| hidden → TRUE, landed → Activated(n) | shown (generation++). A later Deactivated from before it is stale |
+| hidden → TRUE, landed → Activated(n) → shown → TRUE (from that show) | the second Activated finds the window shown: nothing |
+| hidden or minimized → TRUE, **not landed** → Activated(n) | nothing: it stays hidden or minimized. The generation still advances |
 | shown → TRUE → FALSE → Activated(n) | ignored: stale; a hidden window stays hidden |
 
-**Never hidden and active.** A hidden workspace must never be the active,
-focused window. Windows can give it activation however it was hidden: the
-Alt+Tab switcher takes activation, so Noto hides, and then completes the switch
-to Noto; or another process's foreground request activates it. A current
-`Activated` request reconciles it with a launch's rules: hidden → show,
-minimized → restore. A shown window is left alone, and it never hides. Pin and
-the setting do not apply, because they govern putting the workspace away, not
-whether an active window may stay invisible. Closing still drops it, so nothing
-is shown again during shutdown. Its staleness is only the generation's, not
-the time-based rule, because an invalid state must be repaired however the
-timing fell. No window class, shell switcher or timing is special-cased.
+**Never hidden and in the foreground.** A hidden Noto must never stay the
+foreground window. Windows delivers `WM_ACTIVATEAPP(TRUE)` in two situations,
+told apart by one observation made **at that message**: whether Noto's window
+is already the foreground window.
+
+- **Genuine activation: landed.** Windows has already given Noto the
+  foreground when the message arrives. Measured in 47 of 47 cases: Alt+Tab
+  completing to a hidden Noto (the switcher takes activation, Noto hides, then
+  the switch completes to Noto), a taskbar click on a minimized Noto, and
+  Noto's own show or restore. A current `Activated` request reconciles it
+  with a launch's rules: hidden → show, minimized → restore. A shown window is
+  left alone.
+- **Background activation: did not land.** Another process asked Windows to
+  put Noto in front, and Windows refused (the foreground lock). It still
+  delivers `WM_ACTIVATEAPP(TRUE)` (with no losing thread), but the foreground
+  stays where it was. Measured in 14 of 14 cases, hidden and minimized. Noto is
+  not the foreground thread, so no keystroke can reach it, and it **must not
+  react**: a refused foreign request must never make a hidden or minimized
+  Noto visible, restored, foreground or focused.
+
+The observation is taken once, in the window procedure, and carried with the
+request. The dispatcher never reads the foreground later: posted work can wait
+seconds while Noto is minimized (measured 540 ms and 2.15 s), and reading
+afterwards is what caused the A13 race. A reconciliation never hides. Pin and
+the setting do not apply to it, because they govern putting the workspace
+away. Closing still drops it, so nothing is shown again during shutdown. Its
+staleness is only the generation's, not the time-based rule. No window class,
+shell switcher or timer is special-cased.
 
 Hide, `Dismiss` and the hotkey's hide do not advance the generation: a pending
 deactivation then finds the window hidden and does nothing. No timer, sleep or

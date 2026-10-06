@@ -127,8 +127,8 @@ public sealed class WorkspaceToggleTests
 
     // ---------------------------------------- putting it away (slice 6)
 
-    private static ActivationContext Ready_(bool hideOnDeactivation, bool current = true) =>
-        After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation, GenerationCurrent = current };
+    private static ActivationContext Ready_(bool hideOnDeactivation, bool current = true, bool landed = true) =>
+        After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation, GenerationCurrent = current, ActivationLanded = landed };
 
     [Theory]
     [InlineData(WorkspacePresence.Hidden, WorkspaceAction.None)]
@@ -259,7 +259,7 @@ public sealed class WorkspaceToggleTests
     {
         // Made before the last transition ended, but still current: a hidden
         // active window is invalid however the timing fell.
-        ActivationContext older = After(Ready + 900, lastTransitionEnd: Ready + 1000) with { GenerationCurrent = true };
+        ActivationContext older = After(Ready + 900, lastTransitionEnd: Ready + 1000) with { GenerationCurrent = true, ActivationLanded = true };
 
         Assert.Equal(WorkspaceAction.Show, WorkspaceToggle.Decide(WorkspaceRequest.Activated, WorkspacePresence.Hidden, older));
     }
@@ -267,7 +267,7 @@ public sealed class WorkspaceToggleTests
     [Fact]
     public void Activation_during_startup_follows_the_launch_rules()
     {
-        ActivationContext starting = After(Ready - 300) with { GenerationCurrent = true };
+        ActivationContext starting = After(Ready - 300) with { GenerationCurrent = true, ActivationLanded = true };
 
         Assert.Equal(WorkspaceAction.Show, WorkspaceToggle.Decide(WorkspaceRequest.Activated, WorkspacePresence.Hidden, starting));
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Activated, WorkspacePresence.Foreground, starting));
@@ -280,9 +280,41 @@ public sealed class WorkspaceToggleTests
         {
             foreach (bool current in new[] { true, false })
             {
-                WorkspaceAction action = WorkspaceToggle.Decide(WorkspaceRequest.Activated, presence, Ready_(hideOnDeactivation: true, current));
+                foreach (bool landed in new[] { true, false })
+                {
+                    WorkspaceAction action = WorkspaceToggle.Decide(WorkspaceRequest.Activated, presence, Ready_(hideOnDeactivation: true, current, landed));
 
-                Assert.Contains(action, new[] { WorkspaceAction.None, WorkspaceAction.Show, WorkspaceAction.Restore });
+                    Assert.Contains(action, new[] { WorkspaceAction.None, WorkspaceAction.Show, WorkspaceAction.Restore });
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden)]
+    [InlineData(WorkspacePresence.Minimized)]
+    [InlineData(WorkspacePresence.Background)]
+    [InlineData(WorkspacePresence.Foreground)]
+    public void An_activation_that_did_not_land_changes_nothing(WorkspacePresence presence)
+    {
+        // A background activation after another process's refused foreground
+        // request: Noto was not the foreground window at the message.
+        foreach (bool allowed in new[] { true, false })
+        {
+            Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Activated, presence, Ready_(hideOnDeactivation: allowed, landed: false)));
+        }
+    }
+
+    [Fact]
+    public void Landing_matters_only_to_activation()
+    {
+        foreach (WorkspaceRequest request in new[] { WorkspaceRequest.Toggle, WorkspaceRequest.Launch, WorkspaceRequest.Dismiss, WorkspaceRequest.Deactivated })
+        {
+            foreach (WorkspacePresence presence in Enum.GetValues<WorkspacePresence>())
+            {
+                Assert.Equal(
+                    WorkspaceToggle.Decide(request, presence, Ready_(hideOnDeactivation: true, landed: true)),
+                    WorkspaceToggle.Decide(request, presence, Ready_(hideOnDeactivation: true, landed: false)));
             }
         }
     }

@@ -35,9 +35,11 @@ namespace Noto;
 /// later is carried out only while it still holds.
 /// </para>
 /// <para>
-/// <b>Never hidden and active</b> (#16 slice 6). When Windows gives activation
-/// to a hidden workspace, it is shown with a launch's rules; when it activates
-/// a minimized one, restored. A shown workspace is left alone.
+/// <b>Never hidden and in the foreground</b> (#16 slice 6). When an
+/// activation lands on a hidden workspace — it is the foreground window at the
+/// activation message — it is shown with a launch's rules, and a minimized one
+/// restored. A shown workspace is left alone, and so is one whose activation
+/// did not land (another process's refused foreground request).
 /// </para>
 /// <para>
 /// Deliberately small: it owns this lifecycle for the one window that
@@ -124,14 +126,18 @@ internal sealed class WindowCoordinator(
 
     /// <summary>
     /// Decides an activation posted by <see cref="OnAppActivated"/>: a hidden
-    /// workspace that Windows activated is shown, a minimized one restored —
+    /// workspace whose activation landed is shown, a minimized one restored —
     /// only while its <paramref name="generation"/> is still current.
     /// </summary>
     /// <param name="generation">The generation <see cref="OnAppActivated"/> returned.</param>
+    /// <param name="landed">
+    /// Noto was the foreground window when <c>WM_ACTIVATEAPP(TRUE)</c> was
+    /// delivered, as observed then (<see cref="AppActivationEventArgs.Landed"/>).
+    /// </param>
     /// <param name="requestTime">When activation returned, on the <see cref="Environment.TickCount"/> clock.</param>
     /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when there was nothing to reconcile.</returns>
-    public WorkspaceAction OnActivationReturned(int generation, int requestTime) =>
-        Handle(WorkspaceRequest.Activated, requestTime, _activation.IsCurrent(generation), $" generation={generation} current={_activation.Current}");
+    public WorkspaceAction OnActivationReturned(int generation, bool landed, int requestTime) =>
+        Handle(WorkspaceRequest.Activated, requestTime, _activation.IsCurrent(generation), $" generation={generation} current={_activation.Current} landed={landed}", landed);
 
     /// <summary>
     /// Decides a deactivation posted by <see cref="OnAppDeactivated"/>: it may
@@ -161,7 +167,7 @@ internal sealed class WindowCoordinator(
     public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime) =>
         Handle(request, requestTime, generationCurrent: false, string.Empty);
 
-    private WorkspaceAction Handle(WorkspaceRequest request, int requestTime, bool generationCurrent, string detail)
+    private WorkspaceAction Handle(WorkspaceRequest request, int requestTime, bool generationCurrent, string detail, bool activationLanded = false)
     {
         WorkspaceAction action = WorkspaceToggle.Decide(
             request,
@@ -174,7 +180,8 @@ internal sealed class WindowCoordinator(
                 _readyTime,
                 _lastTransitionEnd,
                 HideOnDeactivation: hideOnDeactivation && !_pinned,
-                GenerationCurrent: generationCurrent));
+                GenerationCurrent: generationCurrent,
+                ActivationLanded: activationLanded));
 
         // The request and what it decided, never content: evidence for the
         // runtime harness, read through the debug-output channel.

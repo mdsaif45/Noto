@@ -44,7 +44,7 @@ public sealed partial class WorkspaceDrawerGuardTests
     [Fact]
     public void A_deactivation_comes_from_WM_ACTIVATEAPP_not_from_reading_the_foreground()
     {
-        Assert.Contains("_docked.AppActivationChanged += (_, active) => OnAppActivationChanged(active);", App, StringComparison.Ordinal);
+        Assert.Contains("_docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);", App, StringComparison.Ordinal);
         Assert.DoesNotMatch(@"\.Activated \+=", Code(App));
         Assert.DoesNotContain("ForegroundIsThisProcess", Code(App), StringComparison.Ordinal);
         Assert.DoesNotContain("GetForegroundWindow", Code(App), StringComparison.Ordinal);
@@ -79,14 +79,18 @@ public sealed partial class WorkspaceDrawerGuardTests
     public void An_activation_is_recorded_now_and_reconciled_after_the_fact_with_its_generation()
     {
         string handler = Body(App, "OnAppActivationChanged");
-        Assert.Matches(@"if \(active\)\s*\{\s*int returned = _coordinator\.OnAppActivated\(\);", handler);
+        Assert.Matches(@"if \(change\.Active\)\s*\{\s*int returned = _coordinator\.OnAppActivated\(\);", handler);
         int returned = Index(handler, "_coordinator.OnAppActivated()");
         int posted = handler.IndexOf("TryEnqueue(", returned, StringComparison.Ordinal);
 
         Assert.True(posted > returned, "The generation is taken inside the activation change, before anything is posted.");
-        Assert.True(posted < Index(handler, "_coordinator.OnActivationReturned(returned,"),
-            "The reconciliation is decided on the dispatcher, carrying its generation.");
+        Assert.True(posted < Index(handler, "_coordinator.OnActivationReturned(returned, landed,"),
+            "The reconciliation is decided on the dispatcher, carrying its generation and what the message observed.");
+        Assert.True(Index(handler, "bool landed = change.Landed;") < posted,
+            "Whether the activation landed is taken from the message, before anything is posted.");
         Assert.Contains("Handle(WorkspaceRequest.Activated, requestTime, _activation.IsCurrent(generation),", Body(Coordinator, "OnActivationReturned"), StringComparison.Ordinal);
+        Assert.Contains("landed={landed}\", landed);", Body(Coordinator, "OnActivationReturned"), StringComparison.Ordinal);
+        Assert.Contains("ActivationLanded: activationLanded", Body(Coordinator, "Handle"), StringComparison.Ordinal);
     }
 
     [Fact]

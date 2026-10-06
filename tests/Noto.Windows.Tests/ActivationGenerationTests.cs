@@ -43,19 +43,20 @@ public sealed class ActivationGenerationTests
         /// <summary><c>WM_ACTIVATEAPP(TRUE)</c>: returns the generation the posted request carries.</summary>
         public int Return() => _generation.Activated();
 
-        public WorkspaceAction Deactivated(int generation) => Run(WorkspaceRequest.Deactivated, _generation.IsCurrent(generation));
+        public WorkspaceAction Deactivated(int generation) => Run(WorkspaceRequest.Deactivated, _generation.IsCurrent(generation), landed: false);
 
-        public WorkspaceAction Activated(int generation) => Run(WorkspaceRequest.Activated, _generation.IsCurrent(generation));
+        /// <summary>Decides an activation; <paramref name="landed"/> is what the message observed.</summary>
+        public WorkspaceAction Activated(int generation, bool landed = true) => Run(WorkspaceRequest.Activated, _generation.IsCurrent(generation), landed);
 
-        public WorkspaceAction Request(WorkspaceRequest request) => Run(request, deactivationCurrent: false);
+        public WorkspaceAction Request(WorkspaceRequest request) => Run(request, deactivationCurrent: false, landed: false);
 
-        private WorkspaceAction Run(WorkspaceRequest request, bool deactivationCurrent)
+        private WorkspaceAction Run(WorkspaceRequest request, bool deactivationCurrent, bool landed)
         {
             WorkspaceAction action = WorkspaceToggle.Decide(
                 request,
                 Presence,
                 new ActivationContext(ShuttingDown, Resizing, Transitioning: false, RequestTime, Ready, LastTransitionEnd: null,
-                    HideOnDeactivation: Setting && !Pinned, GenerationCurrent: deactivationCurrent));
+                    HideOnDeactivation: Setting && !Pinned, GenerationCurrent: deactivationCurrent, ActivationLanded: landed));
 
             if (WorkspaceToggle.BringsForward(action))
             {
@@ -432,5 +433,89 @@ public sealed class ActivationGenerationTests
 
         Assert.Equal(WorkspaceAction.None, drawer.Activated(returned));
         Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
+    }
+
+    // ------------------------------------------------- activation that did not land
+
+    [Fact]
+    public void Landed_and_hidden_is_shown()
+    {
+        var drawer = new Drawer(WorkspacePresence.Hidden);
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.Show, drawer.Activated(returned, landed: true));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void Landed_and_minimized_is_restored()
+    {
+        var drawer = new Drawer(WorkspacePresence.Minimized);
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.Restore, drawer.Activated(returned, landed: true));
+        Assert.Equal(WorkspacePresence.Foreground, drawer.Presence);
+    }
+
+    [Fact]
+    public void Not_landed_and_hidden_stays_hidden()
+    {
+        // Another process's foreground request, refused by Windows, still
+        // delivered WM_ACTIVATEAPP(TRUE): it must not summon Noto.
+        var drawer = new Drawer(WorkspacePresence.Hidden);
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned, landed: false));
+        Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
+    }
+
+    [Fact]
+    public void Not_landed_and_minimized_stays_minimized()
+    {
+        var drawer = new Drawer(WorkspacePresence.Minimized);
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned, landed: false));
+        Assert.Equal(WorkspacePresence.Minimized, drawer.Presence);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void Not_landed_stays_hidden_whatever_the_pin_and_setting(bool pinned, bool setting)
+    {
+        var drawer = new Drawer(WorkspacePresence.Hidden) { Pinned = pinned, Setting = setting };
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned, landed: false));
+        Assert.Equal(WorkspacePresence.Hidden, drawer.Presence);
+    }
+
+    [Fact]
+    public void A_landed_activation_is_still_dropped_when_stale_or_closing()
+    {
+        (Drawer stale, _, int returned) = HiddenThenActivated();
+        _ = stale.Leave();
+        Assert.Equal(WorkspaceAction.None, stale.Activated(returned, landed: true));
+        Assert.Equal(WorkspacePresence.Hidden, stale.Presence);
+
+        var closing = new Drawer(WorkspacePresence.Hidden) { ShuttingDown = true };
+        int r2 = closing.Return();
+        Assert.Equal(WorkspaceAction.None, closing.Activated(r2, landed: true));
+        Assert.Equal(WorkspacePresence.Hidden, closing.Presence);
+    }
+
+    [Fact]
+    public void An_activation_that_did_not_land_still_starts_a_generation()
+    {
+        // The generation contract is unchanged: any WM_ACTIVATEAPP(TRUE) makes
+        // a pending deactivation stale, landed or not.
+        var drawer = new Drawer(WorkspacePresence.Background);
+        int left = drawer.Leave();
+        int returned = drawer.Return();
+
+        Assert.Equal(WorkspaceAction.None, drawer.Activated(returned, landed: false));
+        Assert.Equal(WorkspaceAction.None, drawer.Deactivated(left));
+        Assert.Equal(WorkspacePresence.Background, drawer.Presence);
     }
 }

@@ -270,15 +270,20 @@ public sealed partial class PlatformRuntimeTests
         // Through the real window procedure: activation leaving Noto's process
         // (wParam FALSE, lParam the other thread) and coming back (#16 slice 6).
         using var window = DockedTestWindow(DockEdge.Right, out DockedWindow docked, out _);
-        var seen = new List<bool>();
-        docked.AppActivationChanged += (_, active) => seen.Add(active);
+        var seen = new List<AppActivationEventArgs>();
+        docked.AppActivationChanged += (_, e) => seen.Add(e);
 
         _ = Native.SendMessage(window.Handle, Native.WM_ACTIVATEAPP, 0, 4242);
+        bool foregroundAtTrue = Native.GetForegroundWindow() == window.Handle;
         _ = Native.SendMessage(window.Handle, Native.WM_ACTIVATEAPP, 1, 4242);
 
         Assert.Equal(2, seen.Count);
-        Assert.False(seen[0]);
-        Assert.True(seen[1]);
+        Assert.False(seen[0].Active);
+        Assert.False(seen[0].Landed);
+        Assert.True(seen[1].Active);
+
+        // Landed is the foreground observed at the message, whatever it was.
+        Assert.Equal(foregroundAtTrue, seen[1].Landed);
     }
 
     [Fact]
@@ -549,6 +554,9 @@ public sealed partial class PlatformRuntimeTests
         public static partial bool SetWindowPos(nint hwnd, nint insertAfter, int x, int y, int cx, int cy, uint flags);
 
         public const uint WM_ACTIVATEAPP = 0x001C;
+
+        [LibraryImport("user32.dll")]
+        public static partial nint GetForegroundWindow();
         public const uint WM_SYSCOMMAND = 0x0112;
         public const nint SC_MINIMIZE = 0xF020;
         public const nint SC_RESTORE = 0xF120;

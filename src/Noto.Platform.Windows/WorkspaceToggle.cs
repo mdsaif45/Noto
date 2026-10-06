@@ -69,13 +69,14 @@ public enum WorkspaceRequest
     /// Windows gave activation back to Noto's process (#16 slice 6).
     /// </summary>
     /// <remarks>
-    /// A hidden window must never stay active: whatever activated it (the
-    /// Alt+Tab switcher completing to Noto, another process's foreground
-    /// request), the workspace is reconciled with a launch's rules — a hidden
-    /// window is shown, a minimized one restored. A window already shown is
-    /// left alone. Never hides. Pin and the hide-on-deactivation setting do
-    /// not apply: they govern putting the workspace away, not whether an
-    /// active window may stay invisible.
+    /// A hidden Noto must never stay the foreground window. When the
+    /// activation landed — Noto was the foreground window at the activation
+    /// message, as when the Alt+Tab switcher completes to it — the workspace is
+    /// reconciled with a launch's rules: a hidden window is shown, a minimized
+    /// one restored. A window already shown is left alone. A background
+    /// activation that did not land — another process's foreground request that
+    /// Windows refused — changes nothing: a hidden or minimized Noto stays so.
+    /// Never hides. Pin and the hide-on-deactivation setting do not apply.
     /// </remarks>
     Activated,
 }
@@ -97,6 +98,11 @@ public enum WorkspaceRequest
 /// the workspace forward, since the change that made it
 /// (<see cref="ActivationGeneration.IsCurrent"/>).
 /// </param>
+/// <param name="ActivationLanded">
+/// A <see cref="WorkspaceRequest.Activated"/> request's activation landed:
+/// Noto was the foreground window when <c>WM_ACTIVATEAPP(TRUE)</c> was
+/// delivered — observed then, carried with the request, never read later.
+/// </param>
 public readonly record struct ActivationContext(
     bool ShuttingDown,
     bool Resizing,
@@ -105,7 +111,8 @@ public readonly record struct ActivationContext(
     int ReadyTime,
     int? LastTransitionEnd,
     bool HideOnDeactivation = false,
-    bool GenerationCurrent = false);
+    bool GenerationCurrent = false,
+    bool ActivationLanded = false);
 
 /// <summary>
 /// The workspace's activation generation (#16 slice 6, ADR-007 §4 "The
@@ -174,9 +181,10 @@ public sealed class ActivationGeneration
 /// foreground has visibly changed.
 /// </para>
 /// <para>
-/// <b>Reconciling activation</b> (#16 slice 6): a hidden workspace that
-/// Windows activated is shown and a minimized one restored, as a launch would;
-/// a shown one is left alone. Only while
+/// <b>Reconciling activation</b> (#16 slice 6): a hidden workspace whose
+/// activation landed (<see cref="ActivationContext.ActivationLanded"/>) is
+/// shown and a minimized one restored, as a launch would; a shown one is left
+/// alone, and so is any workspace whose activation did not land. Only while
 /// <see cref="ActivationContext.GenerationCurrent"/> holds; never hides. It
 /// is not subject to the time-based staleness below — the generation is what
 /// says whether it still holds.
@@ -224,7 +232,7 @@ public static class WorkspaceToggle
                 ? WorkspaceAction.Hide
                 : WorkspaceAction.None,
 
-            WorkspaceRequest.Activated => !context.GenerationCurrent ? WorkspaceAction.None : presence switch
+            WorkspaceRequest.Activated => !context.GenerationCurrent || !context.ActivationLanded ? WorkspaceAction.None : presence switch
             {
                 WorkspacePresence.Hidden => WorkspaceAction.Show,
                 WorkspacePresence.Minimized => WorkspaceAction.Restore,
