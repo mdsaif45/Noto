@@ -120,7 +120,7 @@ That labelling is preserved here.
 | `[ ]` | A14 | Width resize | Free drag on the window edge; no presets | Free drag resize, width persisted | MUST | — | M2 |
 | `[ ]` | A15 | Drag-to-reveal at edge | Dragging content to the edge reveals the panel; disableable | Same; two independent toggles as in SideNotes | MUST | — | Disableable per principle 7 |
 | `[ ]` | A16 | Launch on startup | Auto-launch at login | Run at login, off by default | MUST | — | M2 |
-| `[ ]` | A17 | Second launch focuses | Relaunch brings existing instance forward | Single-instance; second launch shows the panel | MUST | — | |
+| `[x]` | A17 | Second launch focuses | Relaunch brings existing instance forward | Single-instance; second launch shows the panel | MUST | — | **Done** — A17 (#90, #91; ADR-013): a second launch hands off and exits; the running Noto is shown, restored or brought forward, never hidden |
 | `[ ]` | A18 | Multi-display behavior | Undocumented | Deterministic monitor choice + follow-focus option | MUST | — | ⚠ provisional — UNKNOWN in every source |
 | `[ ]` | A19 | Virtual desktop behavior | Undocumented (Spaces) | Defined, documented Virtual Desktop behavior | MUST | — | ⚠ provisional — UNKNOWN |
 | `[ ]` | A20 | Slide animation | Panel slides out from the edge | Slide-in/out within the perf budget | SHOULD | — | ⚠ provisional — INFERRED from review |

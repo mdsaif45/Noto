@@ -3,9 +3,10 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      A17 single instance — PR #90 (platform mechanism) and
-                    PR #91 (integration, harness, ADR-013), open, not merged.
-                    Runtime-validated; the elevated launch is validated
+Current slice:      none in progress. A17 single instance is merged: PR #90
+                    (platform mechanism, `6e56213`) and PR #91 (integration,
+                    harness, ADR-013), runtime-validated including the
+                    elevated launch
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
@@ -13,11 +14,11 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     shows and hides it (#16 slices 4–5), restoring and
                     re-docking it when it is minimized (#82). Unsaved editor
                     text is saved before the window closes (#86) or hides.
-                    On the A17 branches only: one process per data root — a
-                    second launch brings the running Noto forward and exits.
+                    One process per data root: a second launch brings the
+                    running Noto forward and exits (A17).
                     Tray and always-on-top do not exist.
-Last updated:       2026-10-05
-Evidence baseline:  main @ 582ae91 (PR #89 merged — #16 slice 5, show/hide)
+Last updated:       2026-10-06
+Evidence baseline:  main @ 6e56213 (PR #90 merged) with PR #91 merged on top — A17
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
@@ -71,8 +72,8 @@ seven M0 issues remain open, including several that later milestones depend on
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (6 closed / 7 open) | Solution structure; ADRs 001–013; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey; **#82** minimized restore; **#86** save on close; **#87** Ctrl+N in an empty folder; **#16 slice 5 merged (PR #89)** — show/hide | **A17 single instance** — PR #90 and PR #91, open | The tray, always-on-top, #16 slices 6–8. #16 remains OPEN; animation and multi-monitor are later slices |
-| **M3** SideNotes Parity | **NOT STARTED** | — | — | 1 of 264 parity rows done, 5 partial — all as a by-product of M2, not M3 work |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey; **#82** minimized restore; **#86** save on close; **#87** Ctrl+N in an empty folder; **#16 slice 5 merged (PR #89)** — show/hide **A17 single instance merged (PRs #90, #91)** — one process per data root | The tray, always-on-top, #16 slices 6–8. #16 remains OPEN; animation and multi-monitor are later slices |
+| **M3** SideNotes Parity | **NOT STARTED** | — | — | 2 of 264 parity rows done (C1, A17), 5 partial — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
 | **M6** Contextual Notes | **NOT STARTED** (3 open) | ADR-005, ADR-006 drafted as **Proposed**, deferred to M6 | — | — |
@@ -202,9 +203,9 @@ are read from it; this document never overrides it.
 
 ```
 264 parity rows total
-  1 marked done         [x]   C1 two-level navigation
+  2 marked done         [x]   C1 two-level navigation · A17 second launch focuses
   5 marked in progress  [~]   B1 B16 C4 C5 C7
-258 not started         [ ]
+257 not started         [ ]
 ```
 
 Counted from the specification, not asserted here. A `[~]` row states in its
@@ -366,6 +367,8 @@ WinUI 3 validated   ≠   Noto UI designed
 2026-10-05  PR #87  Ctrl+N creates the first note in an empty folder
 2026-10-05  PR #88  Repository status truth before the Slice 5 gate
 2026-10-05  PR #89  #16 slice 5 — show and hide through the global hotkey
+2026-10-06  PR #90  A17 — single-instance mechanism: mutex ownership, activation pipe
+2026-10-06  PR #91  A17 — one Noto per data root: startup wiring, harness, ADR-013
 ```
 
 ---
@@ -374,8 +377,8 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ### NOW
 
-- **A17 single instance is in review: PR #90 (platform) and PR #91
-  (integration).** Not merged. A second launch hands its request to the
+- Nothing in progress. **A17 single instance is merged: PR #90 (platform,
+  `6e56213`) and PR #91 (integration).** A second launch hands its request to the
   running Noto over a named pipe and exits; ownership of a data root is a
   named mutex, decided before the database opens (ADR-013). See
   *Outstanding validation — A17*.
@@ -441,7 +444,7 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ```
 #16 Edge-Docked Sidebar — slices 1–4, the #82 restore fix and slice 5
-(show/hide, PR #89) merged. A17 single instance in review (PRs #90, #91).
+(show/hide, PR #89) merged. A17 single instance merged (PRs #90, #91).
 Next after it: the tray and always-on-top, then #16 slices 6–8.
 ```
 
@@ -473,7 +476,7 @@ Its prerequisites are cleared: #9 settings merged (PR #65), the platform test
 foundation merged (#67), and the SDK upgrade merged and runtime-validated
 (#68), so #16 will be built once on the version that ships rather than twice.
 
-**Slices 1–5 are the #16 implementation so far**, with A17 in review. The
+**Slices 1–5 are the #16 implementation so far**, with A17 merged. The
 rest of the workspace shell — the tray and always-on-top —
 remains what stands between three working surfaces and a build that can be
 used daily.
@@ -583,12 +586,12 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ## 14. Quality Gates
 
-Verified on `main` @ `582ae91`:
+Verified on `main` @ `6e56213` (PR #90) and PR #91 on top of it:
 
 ```
 Build                0 warnings, 0 errors
-Tests                1213 / 1213 passing on main; 1338 / 1338 on the A17
-                       branch of PR #91 (+118 PR #90, +7 PR #91: Noto.Windows.Tests 435)
+Tests                1338 / 1338 passing (1213 before A17; +118 PR #90,
+                       +7 PR #91: Noto.Windows.Tests 435)
                        Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
                        Noto.UseCases.Tests         35   (1 + 33 #16 slice 3 + 1 #85)
                        Noto.Windows.Tests         310   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5)
@@ -861,8 +864,6 @@ reproduced it); #69 is still open on GitHub pending the owner's decision.
 - unsaved editor text is lost if the session ends or the process is killed
   while editing (#10; B19 continuous persistence is M3's);
 - #69 is fixed (PR #87) but still open on GitHub, pending the owner's decision;
-- on `main` until PRs #90 and #91 merge, a second launch starts a second
-  process on the same database (A17);
 - the harness's negative control is occasionally granted for an unknown cause
   (see `tools/validation/README.md`); such runs are INVALID and repeated.
 
@@ -896,7 +897,7 @@ Done: #16 slice 1 platform primitives (#74) → slice 2 basic edge docking (#76)
       → slice 4 global activation hotkey (#80) → restore/re-dock fix (#82)
       → slice 5 show/hide (#89)
     ↓
-In review: A17 single instance (#90, #91)
+Done: A17 single instance (#90, #91)
     ↓
 M2 remaining — the rest of the workspace shell: #16
       slices 6–8 (animation, multi-monitor, hardening), tray. This is
