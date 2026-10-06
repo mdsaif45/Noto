@@ -470,9 +470,13 @@ Neither ever shows, restores or brings anything forward:
                         Toggle   Launch   Dismiss   Deactivated
   hidden                show     show     -         -
   shown, minimized      restore  restore  -         -
-  shown, behind         focus    focus    hide      hide, if allowed
-  shown, in front       hide     -        hide      -
+  shown, behind         focus    focus    hide      hide, if allowed and current
+  shown, in front       hide     -        hide      hide, if allowed and current
 ```
+
+A deactivation can still read "in front": Windows tells Noto that activation
+is leaving before the foreground has visibly changed. The generation (below)
+is what makes it safe to act on.
 
 - **Dismiss** is explicit: `Ctrl+W` from any surface (A10, G7), or Escape
   where its behaviour hides. Pin does not stop it.
@@ -481,15 +485,46 @@ Neither ever shows, restores or brings anything forward:
   activation moving to a window of another process, by a click, Alt+Tab, the
   Start menu, the desktop or a virtual-desktop switch. Activation moving to
   one of Noto's own windows (the editor's context menu, an IME window) does
-  not count. It is stamped when the window loses activation and judged on the
-  dispatcher afterwards, by which time Windows says where activation went.
-  "Allowed" means the `workspace.hide-on-deactivation` setting is on (the
-  default) and the workspace is not pinned.
+  not count. The signal is `WM_ACTIVATEAPP` on the docked window's subclass,
+  which Windows sends only when activation crosses the process boundary. So
+  Noto's own windows are excluded by Windows, not by inference. "Allowed"
+  means the `workspace.hide-on-deactivation` setting is on (the default) and
+  the workspace is not pinned. "Current" is the activation generation below.
 - The existing drops apply to both: closing, resizing, mid-transition, stale,
   and **nothing is put away during startup**.
 - **Every hide saves first** (`SaveBeforeHide`, the explicit save). A failed
   save keeps the workspace shown, with the editor's notice, and focus is not
   taken back. Each dismissal is one attempt.
+
+**The activation generation.** A deactivation is decided on the dispatcher,
+after the activation change has finished, never inside it. By then it may be
+out of date. One monotonic counter, owned by the coordinator, says whether it
+still holds:
+
+```
+  WM_ACTIVATEAPP(FALSE)    generation++  ->  post Deactivated(generation)
+  WM_ACTIVATEAPP(TRUE)     generation++      (every earlier request is now stale)
+  Show / Restore / Focus   generation++      (Noto brought itself forward)
+
+  Deactivated(n) is valid only if generation == n when it is decided.
+  Valid -> the table above, with every existing drop.
+```
+
+| Sequence | Result |
+|---|---|
+| FALSE → Deactivated(n) → still deactivated | hides: valid, allowed, shown |
+| FALSE → TRUE → Deactivated(n) | ignored: stale |
+| FALSE → TRUE → FALSE → Deactivated(n), Deactivated(n+2) | the first is ignored; the second hides |
+| FALSE → `Dismiss` | `Dismiss` as before. A later Deactivated finds the window hidden |
+| FALSE → `Launch` | the launch shows or focuses (generation++), so Deactivated(n) is stale. **A launch never hides** |
+| FALSE → `Toggle` | `Toggle` as before. If it brought Noto forward, Deactivated(n) is stale |
+| pinned, or the setting off | never hides automatically; `Dismiss`, Escape and the hotkey still do |
+| during a resize, during startup, while closing | dropped, as every request is |
+
+Hide, `Dismiss` and the hotkey's hide do not advance the generation: a pending
+deactivation then finds the window hidden and does nothing. No timer, sleep or
+retry is involved. Every rule is decided by the order of events on the UI
+thread, which owns the counter.
 
 **Escape** has SideNotes' four behaviours, stored in `workspace.escape`
 (default leave-folder-or-hide; no settings UI yet). An inline input (renaming
@@ -520,8 +555,8 @@ still uses no `IVirtualDesktopManager` method (§7).
 **Measured, not predicted: Noto's own taskbar button.** Pressing it while
 Noto is in front does not take activation from Noto, and Windows does not
 minimize a window that is not minimizable — so it does nothing. The design
-gate had predicted "hidden"; this is recorded as a deviation for the owner's
-decision rather than worked around.
+gate had predicted "hidden". The owner accepted the measured behaviour as a
+deviation; there is no workaround.
 
 ### 5. Screen-capture exclusion
 

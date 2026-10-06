@@ -287,7 +287,6 @@ public partial class App : Application
                 _coordinator.Pinned = pinned;
             }
         };
-        main.Activated += OnWorkspaceActivated;
         _window = main;
 
         _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
@@ -333,6 +332,7 @@ public partial class App : Application
         if (_docked is not null)
         {
             _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide, preferences.HideOnDeactivation);
+            _docked.AppActivationChanged += (_, active) => OnAppActivationChanged(active);
         }
 
         // Lets a scripted or CI run verify startup without a human closing the
@@ -473,31 +473,39 @@ public partial class App : Application
         _ = _coordinator?.OnActivationRequested(WorkspaceRequest.Dismiss, Environment.TickCount);
 
     /// <summary>
-    /// The workspace lost activation (#16 slice 6; parity A13, "close on
-    /// outside click").
+    /// Activation crossed Noto's process boundary (#16 slice 6; parity A13,
+    /// "close on outside click").
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Activation loss, not a click.</b> Parity's "outside click" is
-    /// implemented as deactivation: activation moving to a window of another
-    /// process — by a click, Alt+Tab, the Start menu or a virtual-desktop
-    /// switch.
+    /// implemented as <c>WM_ACTIVATEAPP</c>: activation moving to another
+    /// application — by a click, Alt+Tab, a newly launched window, the Start
+    /// menu or a virtual-desktop switch. Windows never sends it for a move to
+    /// one of Noto's own windows (a context menu, an IME window).
     /// </para>
     /// <para>
-    /// Stamped now, judged later: the request is posted to the dispatcher
-    /// rather than run inside the activation change, and by then Windows says
-    /// where activation went. A move to one of Noto's own windows (a context
-    /// menu, an IME window) is dropped here; a window that has been activated
-    /// again, hidden or minimized meanwhile is the coordinator's to drop.
+    /// <b>Recorded now, decided later</b> (ADR-007 §4, "The activation
+    /// generation"): the deactivation is posted, not carried out inside the
+    /// activation change, and carries the generation it was made in. A return
+    /// of activation, or Noto bringing itself forward, before it is decided
+    /// makes it stale.
     /// </para>
     /// </remarks>
-    private void OnWorkspaceActivated(object sender, WindowActivatedEventArgs args)
+    private void OnAppActivationChanged(bool active)
     {
-        if (args.WindowActivationState != WindowActivationState.Deactivated || _window is null)
+        if (_coordinator is null || _window is null)
         {
             return;
         }
 
+        if (active)
+        {
+            _coordinator.OnAppActivated();
+            return;
+        }
+
+        int generation = _coordinator.OnAppDeactivated();
         int deactivatedAt = Environment.TickCount;
 
         _ = _window.DispatcherQueue.TryEnqueue(() =>
@@ -507,13 +515,7 @@ public partial class App : Application
                 return;
             }
 
-            if (WindowActivation.ForegroundIsThisProcess())
-            {
-                Trace.WriteLine("Noto.Workspace request=Deactivated action=None reason=own-window");
-                return;
-            }
-
-            _ = _coordinator.OnActivationRequested(WorkspaceRequest.Deactivated, deactivatedAt);
+            _ = _coordinator.OnDeactivationRequested(generation, deactivatedAt);
         });
     }
 

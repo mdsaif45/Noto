@@ -127,8 +127,8 @@ public sealed class WorkspaceToggleTests
 
     // ---------------------------------------- putting it away (slice 6)
 
-    private static ActivationContext Ready_(bool hideOnDeactivation) =>
-        After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation };
+    private static ActivationContext Ready_(bool hideOnDeactivation, bool current = true) =>
+        After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation, DeactivationCurrent = current };
 
     [Theory]
     [InlineData(WorkspacePresence.Hidden, WorkspaceAction.None)]
@@ -145,11 +145,22 @@ public sealed class WorkspaceToggleTests
     [InlineData(WorkspacePresence.Hidden, WorkspaceAction.None)]
     [InlineData(WorkspacePresence.Minimized, WorkspaceAction.None)]
     [InlineData(WorkspacePresence.Background, WorkspaceAction.Hide)]
-    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.None)]
-    public void A_deactivation_hides_only_a_window_left_behind(WorkspacePresence presence, WorkspaceAction expected)
+    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.Hide)]
+    public void A_current_deactivation_hides_a_shown_window(WorkspacePresence presence, WorkspaceAction expected)
     {
-        // Foreground: activation came back before the request was judged.
+        // Foreground: Windows reports that activation is leaving before the
+        // foreground has visibly changed — the shell-launch race (PR #92).
         Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Deactivated, presence, Ready_(hideOnDeactivation: true)));
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden)]
+    [InlineData(WorkspacePresence.Minimized)]
+    [InlineData(WorkspacePresence.Background)]
+    [InlineData(WorkspacePresence.Foreground)]
+    public void A_stale_deactivation_does_nothing(WorkspacePresence presence)
+    {
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Deactivated, presence, Ready_(hideOnDeactivation: true, current: false)));
     }
 
     [Theory]
@@ -169,7 +180,7 @@ public sealed class WorkspaceToggleTests
     [InlineData(WorkspaceRequest.Deactivated, WorkspacePresence.Background)]
     public void Nothing_is_put_away_during_startup(WorkspaceRequest request, WorkspacePresence presence)
     {
-        ActivationContext starting = After(Ready - 300) with { HideOnDeactivation = true };
+        ActivationContext starting = After(Ready - 300) with { HideOnDeactivation = true, DeactivationCurrent = true };
 
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, starting));
     }
@@ -184,7 +195,7 @@ public sealed class WorkspaceToggleTests
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, ok with { ShuttingDown = true }));
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, ok with { Resizing = true }));
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, ok with { Transitioning = true }));
-        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, After(Ready + 900, lastTransitionEnd: Ready + 1000) with { HideOnDeactivation = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, After(Ready + 900, lastTransitionEnd: Ready + 1000) with { HideOnDeactivation = true, DeactivationCurrent = true }));
     }
 
     [Theory]
@@ -196,9 +207,12 @@ public sealed class WorkspaceToggleTests
         {
             foreach (bool allowed in new[] { true, false })
             {
-                WorkspaceAction action = WorkspaceToggle.Decide(request, presence, Ready_(allowed));
+                foreach (bool current in new[] { true, false })
+                {
+                    WorkspaceAction action = WorkspaceToggle.Decide(request, presence, Ready_(allowed, current));
 
-                Assert.Contains(action, new[] { WorkspaceAction.None, WorkspaceAction.Hide });
+                    Assert.Contains(action, new[] { WorkspaceAction.None, WorkspaceAction.Hide });
+                }
             }
         }
     }

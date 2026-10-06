@@ -257,6 +257,49 @@ public sealed partial class PlatformRuntimeTests
         Assert.Throws<ArgumentOutOfRangeException>(() => DockedWindow.Attach(window.Native, (DockEdge)7));
     }
 
+    [Fact]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    public void WM_ACTIVATEAPP_reaches_the_dock_s_listeners_in_both_directions()
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // Through the real window procedure: activation leaving Noto's process
+        // (wParam FALSE, lParam the other thread) and coming back (#16 slice 6).
+        using var window = DockedTestWindow(DockEdge.Right, out DockedWindow docked, out _);
+        var seen = new List<bool>();
+        docked.AppActivationChanged += (_, active) => seen.Add(active);
+
+        _ = Native.SendMessage(window.Handle, Native.WM_ACTIVATEAPP, 0, 4242);
+        _ = Native.SendMessage(window.Handle, Native.WM_ACTIVATEAPP, 1, 4242);
+
+        Assert.Equal(2, seen.Count);
+        Assert.False(seen[0]);
+        Assert.True(seen[1]);
+    }
+
+    [Fact]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    public void A_throwing_activation_listener_does_not_reach_Windows()
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        using var window = DockedTestWindow(DockEdge.Right, out DockedWindow docked, out _);
+        docked.AppActivationChanged += (_, _) => throw new InvalidOperationException("listener failed");
+
+        // Contained by the window procedure: the process is still here to assert.
+        _ = Native.SendMessage(window.Handle, Native.WM_ACTIVATEAPP, 0, 4242);
+
+        Assert.True(docked.IsAttached);
+    }
+
     // ------------------------------------------------- minimize / restore / activation
 
     [Theory]
@@ -505,6 +548,7 @@ public sealed partial class PlatformRuntimeTests
         [return: MarshalAs(UnmanagedType.Bool)]
         public static partial bool SetWindowPos(nint hwnd, nint insertAfter, int x, int y, int cx, int cy, uint flags);
 
+        public const uint WM_ACTIVATEAPP = 0x001C;
         public const uint WM_SYSCOMMAND = 0x0112;
         public const nint SC_MINIMIZE = 0xF020;
         public const nint SC_RESTORE = 0xF120;

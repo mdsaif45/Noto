@@ -46,6 +46,9 @@ internal static unsafe partial class NativeMethods
     internal const uint WM_ENTERSIZEMOVE = 0x0231;
     internal const uint WM_EXITSIZEMOVE = 0x0232;
 
+    // Activation crossing the process boundary (#16 slice 6, parity A13).
+    internal const uint WM_ACTIVATEAPP = 0x001C;
+
     // WM_NCHITTEST results.
     internal const int HTCLIENT = 1;
     internal const int HTLEFT = 10;
@@ -198,10 +201,6 @@ internal static unsafe partial class NativeMethods
     /// </remarks>
     [LibraryImport("user32.dll", SetLastError = true)]
     internal static partial nint GetForegroundWindow();
-
-    /// <remarks><c>SetLastError</c> only to avoid a direct extern, as above (#16 slice 6).</remarks>
-    [LibraryImport("user32.dll", SetLastError = true)]
-    internal static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
 
     /// <summary>
     /// When the message being handled was posted, in milliseconds since

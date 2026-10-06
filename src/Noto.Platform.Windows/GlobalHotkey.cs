@@ -384,26 +384,4 @@ public static class WindowActivation
             ? WorkspacePresence.Foreground
             : WorkspacePresence.Background;
     }
-
-    /// <summary>
-    /// Whether the foreground window belongs to this process (#16 slice 6).
-    /// </summary>
-    /// <remarks>
-    /// What separates a deactivation that hides the workspace from one that
-    /// does not: activation moving to one of Noto's own windows — a context
-    /// menu, an IME window — is not "outside". No foreground window at all
-    /// (the shell between activations) is not this process.
-    /// </remarks>
-    public static bool ForegroundIsThisProcess()
-    {
-        nint foreground = NativeMethods.GetForegroundWindow();
-
-        if (foreground == 0)
-        {
-            return false;
-        }
-
-        _ = NativeMethods.GetWindowThreadProcessId(foreground, out uint processId);
-        return processId == (uint)Environment.ProcessId;
-    }
 }

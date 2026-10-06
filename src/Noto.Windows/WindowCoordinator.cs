@@ -20,13 +20,19 @@ namespace Noto;
 /// window closing), then carried out synchronously. Requests arrive on the UI
 /// thread — from the hotkey's message, from a second launch handed over
 /// by the activation pipe (A17, ADR-013), from <c>Ctrl+W</c> or Escape, or
-/// from the window losing activation (#16 slice 6) — one at a time, so they
+/// from activation leaving Noto's process (#16 slice 6) — one at a time, so they
 /// are serialized by construction; nothing is queued here, and a request that
 /// cannot run now is dropped.
 /// </para>
 /// <para>
 /// <b>Topmost while shown</b> (#16 slice 6, parity A8). Every path that ends
 /// shown asserts it, so it holds whatever happened to the window before.
+/// </para>
+/// <para>
+/// <b>The activation generation</b> (#16 slice 6, ADR-007 §4 "The drawer").
+/// <c>WM_ACTIVATEAPP</c> in either direction and every path that brings the
+/// window forward advance it, so a deactivation request decided later is
+/// carried out only while it still holds.
 /// </para>
 /// <para>
 /// Deliberately small: it owns this lifecycle for the one window that
@@ -47,6 +53,7 @@ internal sealed class WindowCoordinator(
     private bool _transitioning;
     private bool _shuttingDown;
     private bool _pinned;
+    private readonly ActivationGeneration _activation = new();
 
     /// <summary>
     /// Pinned open for this session (parity A9): losing activation no longer
@@ -86,6 +93,38 @@ internal sealed class WindowCoordinator(
     public void BeginShutdown() => _shuttingDown = true;
 
     /// <summary>
+    /// Activation left Noto's process (<c>WM_ACTIVATEAPP</c>, <c>FALSE</c>):
+    /// starts a new generation, which the deactivation request to post carries.
+    /// </summary>
+    /// <returns>The generation for <see cref="OnDeactivationRequested"/>.</returns>
+    public int OnAppDeactivated()
+    {
+        int generation = _activation.Deactivated();
+        Trace.WriteLine($"Noto.Workspace activation=left generation={generation}");
+        return generation;
+    }
+
+    /// <summary>
+    /// Activation came back to Noto's process (<c>WM_ACTIVATEAPP</c>, <c>TRUE</c>):
+    /// every deactivation request not yet decided is stale.
+    /// </summary>
+    public void OnAppActivated()
+    {
+        _activation.Activated();
+        Trace.WriteLine($"Noto.Workspace activation=returned generation={_activation.Current}");
+    }
+
+    /// <summary>
+    /// Decides a deactivation posted by <see cref="OnAppDeactivated"/>: it may
+    /// hide only while its <paramref name="generation"/> is still current.
+    /// </summary>
+    /// <param name="generation">The generation <see cref="OnAppDeactivated"/> returned.</param>
+    /// <param name="requestTime">When activation left, on the <see cref="Environment.TickCount"/> clock.</param>
+    /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when the request was dropped.</returns>
+    public WorkspaceAction OnDeactivationRequested(int generation, int requestTime) =>
+        Handle(WorkspaceRequest.Deactivated, requestTime, _activation.IsCurrent(generation), $" generation={generation} current={_activation.Current}");
+
+    /// <summary>
     /// Handles one activation request: a press of the global hotkey, handled
     /// synchronously inside its <c>WM_HOTKEY</c> so Noto is entitled to take
     /// the foreground; a second launch, whose process passed Noto that right
@@ -93,12 +132,16 @@ internal sealed class WindowCoordinator(
     /// losing activation.
     /// </summary>
     /// <param name="request">
-    /// The toggle; a launch, which never hides; a dismissal or a deactivation,
-    /// which never show.
+    /// The toggle; a launch, which never hides; a dismissal, which never shows.
+    /// A deactivation goes through <see cref="OnDeactivationRequested"/>: one
+    /// passed here carries no generation and is dropped.
     /// </param>
     /// <param name="requestTime">When the request was made, on the <see cref="Environment.TickCount"/> clock.</param>
     /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when the request was dropped.</returns>
-    public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime)
+    public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime) =>
+        Handle(request, requestTime, deactivationCurrent: false, string.Empty);
+
+    private WorkspaceAction Handle(WorkspaceRequest request, int requestTime, bool deactivationCurrent, string detail)
     {
         WorkspaceAction action = WorkspaceToggle.Decide(
             request,
@@ -110,11 +153,12 @@ internal sealed class WindowCoordinator(
                 requestTime,
                 _readyTime,
                 _lastTransitionEnd,
-                HideOnDeactivation: hideOnDeactivation && !_pinned));
+                HideOnDeactivation: hideOnDeactivation && !_pinned,
+                DeactivationCurrent: deactivationCurrent));
 
         // The request and what it decided, never content: evidence for the
         // runtime harness, read through the debug-output channel.
-        Trace.WriteLine($"Noto.Workspace request={request} action={action}");
+        Trace.WriteLine($"Noto.Workspace request={request} action={action}{detail}");
 
         if (action == WorkspaceAction.None)
         {
@@ -122,6 +166,14 @@ internal sealed class WindowCoordinator(
         }
 
         _transitioning = true;
+
+        // Noto bringing itself forward supersedes every deactivation not yet
+        // decided — even if Windows then refuses the foreground, a launch or
+        // toggle that showed the window must not be undone by an older one.
+        if (WorkspaceToggle.BringsForward(action))
+        {
+            _activation.BroughtForward();
+        }
 
         try
         {

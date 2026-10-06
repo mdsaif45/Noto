@@ -11,12 +11,14 @@
   (each request and its action) are read from the debug-output channel.
 
   "Outside click" is parity's term (A13); the mechanism under test is workspace deactivation — activation moving
-  to another process's window, by a click, a desktop switch, the shell or the taskbar.
+  to another process's window (WM_ACTIVATEAPP), by a click, a newly launched window, Alt+Tab, a desktop switch or
+  the shell.
 
     1  launch -> docked, shown, topmost (WS_EX_TOPMOST)
     2  unpinned + a real click on another app -> hidden (request=Deactivated action=Hide)
     3  pinned + a click on a MAXIMIZED other app -> Noto stays shown, above it (WindowFromPoint), the other app in front
-    4  borderless full-screen window (normal, then itself topmost) -> the hotkey shows Noto above it, in front
+    4  a borderless full-screen window (normal, then itself topmost) started by the shell over a shown Noto ->
+       external application activation hides Noto; the hotkey then shows Noto above it, in front
     5  hide-on-deactivation OFF in the store -> a click elsewhere leaves Noto shown, above the other app
     6  Escape, each of the 4 behaviours, on the editor, the note list and the folder list -> the A12 table;
        Escape in an inline input cancels the input and never hides
@@ -30,8 +32,11 @@
     13 the hotkey after an automatic hide -> shown; the hotkey on a pinned, focused Noto -> hidden (pin stops only deactivation)
     15 minimize -> not hidden (Deactivated -> None); the hotkey restores it, topmost
     16 a press on Noto's own taskbar button -> MEASURED: no deactivation, Noto stays shown (a deviation from the
-       design gate's prediction of "hidden", reported for the owner's decision)
+       design gate's prediction of "hidden", accepted by the owner as measured)
     17 pin by keyboard (focus + Space); pin is never stored: a relaunch starts unpinned
+    18 another application launched over a shown, unpinned Noto takes the foreground -> hidden, in each of 5 rounds
+       (the shell-launch race PR #92 found: a deactivation judged before the foreground had changed was dropped)
+    19 Alt+Tab away from a shown, unpinned Noto -> hidden
   Startup (a deactivation during launch never hides) is covered by unit tests: its timing cannot be forced here.
 
 .EXAMPLE
@@ -278,18 +283,26 @@ try {
         [void][NotoVal.Drawer]::ShowWindow($target.Hwnd, 9); Start-Sleep -Milliseconds 600    # SW_RESTORE
         Set-Pin 'Off'
 
-        # 4 - borderless full-screen windows: the hotkey shows Noto above them
+        # 4 - borderless full-screen windows started over a shown Noto: their activation hides Noto (A13), then
+        # the hotkey shows Noto above them. The hide is asserted: before PR #92's fix it was a race that left Noto
+        # shown behind the new window while this scenario stayed green.
         foreach ($top in $false, $true) {
             $name = if ($top) { 'fullscreen-topmost' } else { 'fullscreen' }
             $title = "Noto validation $name $($run.Id)"
+            $pre = Ev $noto
+            if (-not ($pre.WsVisible -and $pre.IsForeground)) { throw "4 $name precondition: Noto was not shown and in front before the launch ($(Show-State $pre))" }
+            $m4 = Trace-Mark
             $arguments = "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'helpers/fullscreen-app.ps1')`" -Title `"$title`"" + $(if ($top) { ' -TopMost' } else { '' })
             $fsProc = Start-ViaShell $run -File 'pwsh.exe' -Arguments $arguments -Marker $title
             $fs = [IntPtr]::Zero; $deadline = (Get-Date).AddSeconds(30)
             while ((Get-Date) -lt $deadline -and $fs -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 250; $fs = [NotoVal.Win32]::FindWindow([NullString]::Value, $title) }
             if ($fs -eq [IntPtr]::Zero) { throw "the $name window never appeared" }
             Start-Sleep -Milliseconds 800
-            if ((Fg) -ne $fs) { Click-At 200 200 $fs }
+            $how = 'took the foreground itself'
+            if ((Fg) -ne $fs) { $how = 'put in front by a click'; Click-At 200 200 $fs }
             if ((Fg) -ne $fs) { throw "the $name window could not be put in front" }
+            $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
+            Add-Result $run "4  external application activation hides Noto: the $name window ($how) over a shown, unpinned Noto -> hidden" ((-not $e.WsVisible) -and (Trace-Since $m4) -match 'request=Deactivated action=Hide') "before: $(Show-State $pre); after: $(Show-State $e); trace: $(Trace-Since $m4)"
             # Aimed at the target app: Noto was hidden by the click on the full-screen window a moment ago, and a
             # window that has only just lost activation is not what this control is about.
             Locked-On "4 $name before" $target.Hwnd
@@ -467,6 +480,49 @@ try {
         $e = Ev $noto
         $left = if ($e.WsVisible) { (Find-ById 'FolderNameInput').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '(Noto hidden)' }
         Add-Result $run '6  Escape in the new-folder box -> the input is cancelled (cleared), Noto stays shown' ($e.WsVisible -and $left -eq '') "input='$left' $(Show-State $e)"
+
+        # 18 - another application launched over a shown, unpinned Noto takes the foreground -> hidden, every
+        # round. The race PR #92 found: the deactivation used to be judged by reading the foreground a few
+        # milliseconds later, while it still read Noto, and was dropped. Repeated because it was a race.
+        Restart-Noto @{ 'workspace.escape' = 'LeaveFolderOrHide' }
+        for ($r = 1; $r -le 5; $r++) {
+            $null = Set-ForegroundByKeyboard $target
+            # The controls bracket the whole round, aimed at visible background windows. The "after" one runs once
+            # the round is decided, not between the hotkey and the launch: a refused probe there was measured to
+            # leave the next shell launch without the foreground (all 5 rounds INVALID), which is the precondition
+            # this scenario needs.
+            Locked-On "18.$r before" $bystander.Hwnd
+            Chord @($target.Hwnd)
+            $pre = Wait-Presence $noto { param($e) $e.WsVisible -and $e.IsForeground }
+            $preOk = (Is-Shown-Docked $pre) -and $pre.IsForeground -and (Pin-State) -eq 'Off'
+            if (-not $preOk) { Add-Invalid $run "18.$r precondition: Noto was not shown, in front and unpinned ($(Show-State $pre) pin=$(Pin-State))"; continue }
+            $m = Trace-Mark
+            # Started with its console hidden from the start (SW_HIDE), so the window that takes the foreground is
+            # the application's own, not a console host flashing up first.
+            $appTitle = "Noto validation launched-$r $($run.Id)"
+            $null = Start-ViaShell $run -File 'pwsh.exe' -Arguments "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'helpers/target-app.ps1')`" -Title `"$appTitle`" -Status `"$(Join-Path $run.Root "launched-$r-status.txt")`"" -Marker $appTitle -Show 0
+            $appHwnd = [IntPtr]::Zero; $deadline = (Get-Date).AddSeconds(30)
+            while ((Get-Date) -lt $deadline -and $appHwnd -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 100; $appHwnd = [NotoVal.Win32]::FindWindow([NullString]::Value, $appTitle) }
+            if ($appHwnd -eq [IntPtr]::Zero) { throw "the launched app $r showed no window" }
+            $appPid0 = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($appHwnd, [ref]$appPid0)
+            $app = [pscustomobject]@{ Hwnd = $appHwnd; Pid = [int]$appPid0 }
+            $deadline = (Get-Date).AddSeconds(5)
+            while ((Get-Date) -lt $deadline -and (Fg) -ne $app.Hwnd) { Start-Sleep -Milliseconds 100 }
+            if ((Fg) -ne $app.Hwnd) { Add-Invalid $run "18.$r precondition: the launched window did not take the foreground by itself (fg=$(Fg), Noto=$($noto.Hwnd))"; Stop-Process -Id $app.Pid -Force; continue }
+            $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
+            $appPid = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId((Fg), [ref]$appPid)
+            Add-Result $run "18 round $r`: another app launched over a shown, unpinned Noto takes the foreground -> hidden" ((-not $e.WsVisible) -and $appPid -eq $app.Pid -and $appPid -ne $noto.Pid -and (Trace-Since $m) -match 'request=Deactivated action=Hide') "before: $(Show-State $pre); after: $(Show-State $e) fg pid=$appPid launched pid=$($app.Pid); trace: $(Trace-Since $m)"
+            Locked-On "18.$r after" $target.Hwnd
+            Stop-Process -Id $app.Pid -Force; Start-Sleep -Milliseconds 600
+        }
+
+        # 19 - Alt+Tab away from a shown, unpinned Noto -> hidden. After every bracketed claim: an injected Alt can
+        # unlock the foreground (README, known limitations).
+        Bring-NotoForward
+        $m = Trace-Mark
+        Send-ToNoto @(0x12) 0x09
+        $e = Wait-Presence $noto { param($e) -not $e.WsVisible }
+        Add-Result $run '19 Alt+Tab away from a shown, unpinned Noto -> hidden' ((-not $e.WsVisible) -and (Fg) -ne $noto.Hwnd -and (Trace-Since $m) -match 'request=Deactivated action=Hide') "$(Show-State $e); trace: $(Trace-Since $m)"
 
         # 11 - virtual desktops. Last on purpose: switching desktops injects Win+Ctrl chords, and injected
         # modifiers can unlock the foreground for the next SetForegroundWindow (README, known limitations), so no
