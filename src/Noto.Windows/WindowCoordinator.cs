@@ -17,9 +17,10 @@ namespace Noto;
 /// <see cref="WorkspaceToggle.Decide"/> against where the window is now and
 /// what the coordinator knows (startup finished, a transition running, the
 /// window closing), then carried out synchronously. Requests arrive on the UI
-/// thread from the hotkey's message, one at a time, so they are serialized
-/// by construction; nothing is queued, and a request that cannot run now is
-/// dropped.
+/// thread — from the hotkey's message, or from a second launch handed over
+/// by the activation pipe (A17, ADR-013) — one at a time, so they are
+/// serialized by construction; nothing is queued here, and a request that
+/// cannot run now is dropped.
 /// </para>
 /// <para>
 /// Deliberately small: it owns this lifecycle for the one window that
@@ -46,16 +47,18 @@ internal sealed class WindowCoordinator(
     public void BeginShutdown() => _shuttingDown = true;
 
     /// <summary>
-    /// Handles one activation request — today, a press of the global hotkey,
-    /// handled synchronously inside its <c>WM_HOTKEY</c> so Noto is entitled
-    /// to take the foreground.
+    /// Handles one activation request: a press of the global hotkey, handled
+    /// synchronously inside its <c>WM_HOTKEY</c> so Noto is entitled to take
+    /// the foreground; or a second launch, whose process passed Noto that
+    /// right before handing the request over.
     /// </summary>
+    /// <param name="request">The toggle, or a launch — which never hides.</param>
     /// <param name="requestTime">When the request was made, on the <see cref="Environment.TickCount"/> clock.</param>
     /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when the request was dropped.</returns>
-    public WorkspaceAction OnActivationRequested(int requestTime)
+    public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime)
     {
         WorkspaceAction action = WorkspaceToggle.Decide(
-            WorkspaceRequest.Toggle,
+            request,
             WindowActivation.PresenceOf(handle),
             new ActivationContext(_shuttingDown, docked.IsResizing, _transitioning, requestTime, _readyTime, _lastTransitionEnd));
 

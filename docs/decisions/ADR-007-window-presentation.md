@@ -363,9 +363,8 @@ That requirement is **deferred** to the first user-visible surface, not met.
 #### Show and hide
 
 > **Added 2026-10-05 by #16 slice 5.** Supersedes the slice 5 acceptance
-> criteria recorded with slice 4. A second launch (A17) is not part of it:
-> single instance is its own slice, because it involves package identity and
-> process ownership.
+> criteria recorded with slice 4. A second launch (A17) was not part of it;
+> it is now — see *A second launch* below and ADR-013.
 
 **The toggle** (`WorkspaceToggle`, a pure function, and `WindowCoordinator`,
 which carries it out). Each press of the hotkey is judged against where the
@@ -437,6 +436,18 @@ Windows 10 is not yet measured (#32).
 
 **Alt+Tab**, measured through the real switcher: a hidden window is never
 selectable, and a shown one is.
+
+**A second launch** (A17, ADR-013) arrives through the same coordinator as a
+`Launch` request, not a toggle. It follows every rule above — the drops,
+startup, stale requests, re-docking, the virtual-desktop contract — with one
+difference: **a launch never hides**.
+
+```
+  hidden                       ->  show on the current desktop
+  shown, minimized             ->  restore
+  shown, another window front  ->  bring forward (on another desktop: Windows switches to it)
+  shown, in front              ->  nothing
+```
 
 ### 5. Screen-capture exclusion
 
