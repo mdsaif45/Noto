@@ -20,6 +20,7 @@ public sealed partial class WorkspaceDrawerGuardTests
     private static readonly string App = File.ReadAllText(SourcePath("App.xaml.cs"));
     private static readonly string Main = File.ReadAllText(SourcePath("MainWindow.xaml.cs"));
     private static readonly string Coordinator = File.ReadAllText(SourcePath("WindowCoordinator.cs"));
+    private static readonly string MainXaml = File.ReadAllText(SourcePath("MainWindow.xaml"));
 
     [Fact]
     public void The_window_never_hides_itself()
@@ -151,6 +152,17 @@ public sealed partial class WorkspaceDrawerGuardTests
     {
         Assert.DoesNotContain(".Write(", Body(Main, "OnPinToggled"), StringComparison.Ordinal);
         Assert.DoesNotMatch(@"Write\(|Settings", Regex.Match(App, @"main\.PinChanged \+=[\s\S]*?\};").Value);
+    }
+
+    [Fact]
+    public void Every_launch_starts_unpinned()
+    {
+        // ADR-007 §4, A9: the pin is session-only. Nothing restores it, so the
+        // toggle must not declare a checked state, nor be checked from code.
+        string toggle = Regex.Match(MainXaml, @"<ToggleButton\s[^>]*x:Name=""PinToggle""[^>]*>").Value;
+        Assert.False(string.IsNullOrEmpty(toggle), "The pin toggle was not found.");
+        Assert.DoesNotContain("IsChecked", toggle, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"PinToggle\.IsChecked\s*=(?!=)", Code(Main));
     }
 
     /// <summary>The source without line comments, so a comment cannot satisfy or fail a guard.</summary>
