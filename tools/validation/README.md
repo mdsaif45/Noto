@@ -48,6 +48,7 @@ the foreground window.
 | `Invoke-MinimizedActivation.ps1 -NotoExe <exe> [-Edge Right,Left] [-Trials 3] [-Control]` | Docked on each edge, then minimized, then the hotkey. Noto must be restored, uncloaked, the foreground window, hold keyboard focus, and sit at exactly its docked rectangle. `-Control` runs a build that is expected *not* to restore, which shows the checks can fail. |
 | `Invoke-Slice4Foreground.ps1 -NotoExe <exe> [-Trials 3]` | The #16 slice 4 cases: another app in front, already in front (since slice 5: the chord hides it), focus taken away, hotkey disabled, chord held by another process, malformed stored binding. It also checks that the chord is held while Noto runs and freed when it exits, and that no settings row changes. |
 | `Invoke-ShowHide.ps1 -NotoExe <exe>` | #16 slice 5, the show/hide toggle: hide and show, the docked rectangle, foreground and keyboard focus after show, restore from minimized and from hidden-while-minimized, saving unsaved text before hiding (and staying shown when that fails), a tight burst of chords, a chord during a resize drag, during shutdown and during startup, a chord from another virtual desktop (hidden: shown on the current desktop; shown: Windows switches back), the taskbar button, and Alt+Tab through the real switcher (run last, because an injected Alt press can unlock the foreground). Closing is `Invoke-EditorSaveOnClose.ps1`. |
+| `Invoke-Drawer.ps1 -NotoExe <exe>` | #16 slice 6, the drawer (ADR-007 §4, *The drawer*). Topmost while shown, checked by the window's style and by `WindowFromPoint` over a maximized window and over borderless full-screen windows. Putting it away: `Ctrl+W` on each surface; Escape in each of its four behaviours on each surface, and in an inline input; losing activation to another application (a click, the desktop, a virtual-desktop switch), with the setting on, off, and pinned. Every hide saves first; a failed save keeps Noto shown. Noto's own context menu is not a deactivation, and neither is an inner-edge drag or a minimize. The pin works by keyboard and is never stored. Noto's `Noto.Workspace` diagnostics are read from the debug-output channel. Virtual desktops run last, because the injected Win+Ctrl chords can unlock the foreground. |
 | `Invoke-SingleInstance.ps1 -NotoExe <exe>` | A17, single instance (ADR-013). A second launch is caught the instant it appears and watched to the end: exit code, every window it showed, any message box. Noto's own `Noto.Instance` diagnostics are read from the debug-output channel. The key, mutex and pipe are probed by name, from the harness's own computation of the key. Covers: one owner; a handoff that brings the owner forward (hidden, minimized, behind another app, on another desktop) and never hides it; no database access by the second launch; malformed, oversized, wrong-version and unknown-kind requests rejected; clients the pipe's ACL must refuse; a launch during startup; five launches at once; a launch during shutdown, which waits then takes over (the owner's UI thread is frozen the instant shutdown begins); a killed owner; an unreachable owner, which gives up after about 5 s; pipe squatting; and a foreign pipe server refused by Noto's own client. Launches model the user: a real click on the desktop first, so the shell is in front. |
 | `Invoke-SingleInstanceElevated.ps1 -NotoExe <exe>` | A17 scenario 23, the elevated launch. **Needs one UAC approval** from the person at the machine. Only `helpers/elevated-launch.ps1` runs elevated. With no owner, the elevated Noto must be refused (message box, exit 3, never owns). With a normal owner, it must hand off (exit 0). A declined prompt makes the run INVALID. |
 | `Invoke-EditorSaveOnClose.ps1 -NotoExe <exe>` | Unsaved editor text when the window closes: saved and exits; a clean editor exits untouched; a failed save cancels the close and keeps the text and notice; a second close with the same text discards and exits; text edited after a failure is a new first attempt; closing from the note or folder list is unaffected. The editor text is set through UI Automation, so nothing is typed into the editor. |
@@ -87,6 +88,17 @@ Exit codes:
 Each run writes `results.json` to its run root under `%TEMP%`. It includes
 every negative-control result. Nothing is written into the repository.
 
+## Hiding on deactivation (#16 slice 6)
+
+Noto now hides when activation moves to another application, by default. The
+harnesses that validate other contracts need a Noto left shown behind another
+window — the toggle's background case, the Alt+Tab walk, a launch that brings a
+background owner forward, the two closes of #86 — so `Invoke-ShowHide.ps1`,
+`Invoke-SingleInstance.ps1` and `Invoke-EditorSaveOnClose.ps1` turn
+`workspace.hide-on-deactivation` off in their isolated roots. The default, on,
+is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
+`Invoke-Slice4Foreground.ps1` run with it on.
+
 ## Known limitations
 
 - **The negative control is not always refused.** A shell-started probe that
@@ -117,6 +129,7 @@ every negative-control result. Nothing is written into the repository.
 - `helpers/target-app.ps1`: the other app, a window with a text box that reports what is typed into it.
 - `helpers/foreground-probe.ps1`: the negative control.
 - `helpers/hotkey-holder.ps1`: another process holding Ctrl+Alt+Win+Space.
+- `helpers/fullscreen-app.ps1`: a borderless full-screen window, optionally itself topmost (Invoke-Drawer.ps1).
 - `helpers/single-instance.cs`: the single-instance probes, shared by both A17 scripts (key, mutex, pipe, raw requests, restricted clients, debug-output reader, squatter).
 - `helpers/elevated-launch.ps1`: the only script that runs elevated, through UAC, for scenario 23.
 - `helpers/realdata-probe.ps1`: fingerprints the real data folder from a shell-started process (names, sizes and hashes only).

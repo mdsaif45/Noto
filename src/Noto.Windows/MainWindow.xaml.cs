@@ -8,6 +8,8 @@ using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Core.Storage;
+using Noto.Core.Workspace;
+using Noto.Platform.Windows;
 using Noto.UseCases.Folders;
 using Noto.UseCases.Notes;
 using Windows.System;
@@ -1183,6 +1185,74 @@ public sealed partial class MainWindow : Window
     private const string CloseAgainToDiscard = " Close the window again to discard the changes and exit.";
 
     /// <summary>
+    /// What Escape does (#16 slice 6; parity A12). Set once by the
+    /// composition root from the stored setting; the default is SideNotes'.
+    /// </summary>
+    public EscapeBehavior Escape { get; set; } = EscapeBehavior.LeaveFolderOrHide;
+
+    /// <summary>
+    /// The user asked to put the workspace away — <c>Ctrl+W</c>, or Escape
+    /// where its behaviour hides. The window never hides itself: the
+    /// composition root hands this to the coordinator, which saves first.
+    /// </summary>
+    public event EventHandler? DismissRequested;
+
+    /// <summary>The header's pin toggle changed (parity A9). Session-only: nothing is stored.</summary>
+    public event EventHandler<bool>? PinChanged;
+
+    /// <summary>
+    /// <c>Ctrl+W</c> hides the workspace from any surface (parity A10, G7).
+    /// </summary>
+    private void OnDismissAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        DismissRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// One press of Escape on <paramref name="surface"/>, as the stored
+    /// behaviour resolves it. An inline input has already cancelled itself
+    /// and handled the key before this runs; "nothing" leaves it unhandled.
+    /// </summary>
+    private void OnEscape(WorkspaceSurface surface, KeyRoutedEventArgs e)
+    {
+        switch (WorkspaceEscape.Resolve(Escape, surface))
+        {
+            case EscapeAction.LeaveEditor:
+                e.Handled = true;
+                LeaveEditor();
+                break;
+
+            case EscapeAction.LeaveFolder:
+                e.Handled = true;
+                LeaveFolder();
+                break;
+
+            case EscapeAction.Hide:
+                e.Handled = true;
+                DismissRequested?.Invoke(this, EventArgs.Empty);
+                break;
+        }
+    }
+
+    /// <summary>Escape on the folder list — the top level.</summary>
+    private void OnPaneRootKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            OnEscape(WorkspaceSurface.FolderList, e);
+        }
+    }
+
+    /// <summary>
+    /// Pin keeps the workspace open while another application has the
+    /// keyboard (parity A9) — losing activation no longer hides it. For this
+    /// session only; every launch starts unpinned.
+    /// </summary>
+    private void OnPinToggled(object sender, RoutedEventArgs e) =>
+        PinChanged?.Invoke(this, PinToggle.IsChecked == true);
+
+    /// <summary>
     /// Creates a note in the open folder and opens it (parity B1).
     /// </summary>
     /// <remarks>
@@ -1320,7 +1390,8 @@ public sealed partial class MainWindow : Window
     /// The editor's keyboard contract.
     /// </summary>
     /// <remarks>
-    /// Escape leaves, saving when dirty; Alt+Ctrl+Backspace deletes (B7).
+    /// Escape follows the stored behaviour (#16 slice 6) — by default it leaves,
+    /// saving when dirty; Alt+Ctrl+Backspace deletes (B7).
     /// Ctrl+N is deliberately NOT handled here: nothing documents what it does
     /// with a note open, and every plausible answer is multi-document
     /// behaviour this surface does not have.
@@ -1329,8 +1400,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.Key == VirtualKey.Escape)
         {
-            e.Handled = true;
-            LeaveEditor();
+            OnEscape(WorkspaceSurface.Editor, e);
             return;
         }
 
@@ -1454,7 +1524,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Esc leaves the note surface (parity C5, A12 mode 1).
+    /// Esc on the note surface (parity C5, A12): by default it leaves the folder.
     /// </summary>
     /// <remarks>
     /// Handled on the note surface root so it works wherever focus sits
@@ -1464,8 +1534,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.Key == VirtualKey.Escape)
         {
-            e.Handled = true;
-            LeaveFolder();
+            OnEscape(WorkspaceSurface.NoteList, e);
         }
     }
 

@@ -199,6 +199,10 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     internal static partial nint GetForegroundWindow();
 
+    /// <remarks><c>SetLastError</c> only to avoid a direct extern, as above (#16 slice 6).</remarks>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
     /// <summary>
     /// When the message being handled was posted, in milliseconds since
     /// the system started — the clock <see cref="Environment.TickCount"/>

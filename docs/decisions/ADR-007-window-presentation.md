@@ -449,6 +449,80 @@ difference: **a launch never hides**.
   shown, in front              ->  nothing
 ```
 
+#### The drawer
+
+> **Added 2026-10-06 by #16 slice 6**, after its design gate. Parity A8, A9,
+> A10, A12, A13, G7, G8, G51.
+
+**Topmost while shown.** `OverlappedPresenter.IsAlwaysOnTop` (§1) is set at
+launch whether or not docking succeeded, and asserted again on every path that
+ends shown. Measured: a shown Noto is above a maximized window and above a
+borderless full-screen window, including one that is itself topmost (the most
+recently activated topmost window wins). An **exclusive** full-screen
+application (DXGI exclusive mode) is out of reach: summoning Noto makes it
+leave exclusive mode, as Alt+Tab does. Not validated. A hidden Noto has no
+place in the z-order; a minimized one stays minimized until restored.
+
+**Putting it away.** Two more request kinds reach the same coordinator.
+Neither ever shows, restores or brings anything forward:
+
+```
+                        Toggle   Launch   Dismiss   Deactivated
+  hidden                show     show     -         -
+  shown, minimized      restore  restore  -         -
+  shown, behind         focus    focus    hide      hide, if allowed
+  shown, in front       hide     -        hide      -
+```
+
+- **Dismiss** is explicit: `Ctrl+W` from any surface (A10, G7), or Escape
+  where its behaviour hides. Pin does not stop it.
+- **Deactivated** is parity A13's "close on outside click". The user's term
+  and the mechanism differ: Noto implements it as **workspace deactivation** —
+  activation moving to a window of another process, by a click, Alt+Tab, the
+  Start menu, the desktop or a virtual-desktop switch. Activation moving to
+  one of Noto's own windows (the editor's context menu, an IME window) does
+  not count. It is stamped when the window loses activation and judged on the
+  dispatcher afterwards, by which time Windows says where activation went.
+  "Allowed" means the `workspace.hide-on-deactivation` setting is on (the
+  default) and the workspace is not pinned.
+- The existing drops apply to both: closing, resizing, mid-transition, stale,
+  and **nothing is put away during startup**.
+- **Every hide saves first** (`SaveBeforeHide`, the explicit save). A failed
+  save keeps the workspace shown, with the editor's notice, and focus is not
+  taken back. Each dismissal is one attempt.
+
+**Escape** has SideNotes' four behaviours, stored in `workspace.escape`
+(default leave-folder-or-hide; no settings UI yet). An inline input (renaming
+or naming a folder) cancels itself first, in every mode. Noto's editor is one
+level deeper than SideNotes': leaving it is the same kind of step as leaving a
+folder.
+
+```
+                       editor        note list     folder list
+  LeaveFolderOrHide    leave editor  leave folder  hide         (default)
+  LeaveFolder          leave editor  leave folder  nothing
+  Hide                 hide          hide          hide
+  None                 nothing       nothing       nothing
+```
+
+**Pin** (A9) is a toggle in the workspace header, reachable by Tab and Space;
+there is no global chord (G6 is unbound by default). While pinned, losing
+activation does not hide the workspace; `Ctrl+W`, Escape and the hotkey still
+do. Session-only: never stored, so every launch starts unpinned.
+
+**Virtual desktops.** A desktop switch is a deactivation. Unpinned, switching
+desktops hides Noto, and the hotkey shows it on the new desktop (the hidden
+case above). Pinned — or with the setting off — Noto stays shown on its own
+desktop, and the hotkey from another desktop makes Windows switch back (the
+shown case above). Both measured. The §4 contract itself is unchanged; Noto
+still uses no `IVirtualDesktopManager` method (§7).
+
+**Measured, not predicted: Noto's own taskbar button.** Pressing it while
+Noto is in front does not take activation from Noto, and Windows does not
+minimize a window that is not minimizable — so it does nothing. The design
+gate had predicted "hidden"; this is recorded as a deviation for the owner's
+decision rather than worked around.
+
 ### 5. Screen-capture exclusion
 
 ```c

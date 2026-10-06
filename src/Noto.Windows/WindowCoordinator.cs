@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Platform.Windows;
 using Noto.UseCases.Workspace;
@@ -17,10 +18,15 @@ namespace Noto;
 /// <see cref="WorkspaceToggle.Decide"/> against where the window is now and
 /// what the coordinator knows (startup finished, a transition running, the
 /// window closing), then carried out synchronously. Requests arrive on the UI
-/// thread — from the hotkey's message, or from a second launch handed over
-/// by the activation pipe (A17, ADR-013) — one at a time, so they are
-/// serialized by construction; nothing is queued here, and a request that
+/// thread — from the hotkey's message, from a second launch handed over
+/// by the activation pipe (A17, ADR-013), from <c>Ctrl+W</c> or Escape, or
+/// from the window losing activation (#16 slice 6) — one at a time, so they
+/// are serialized by construction; nothing is queued here, and a request that
 /// cannot run now is dropped.
+/// </para>
+/// <para>
+/// <b>Topmost while shown</b> (#16 slice 6, parity A8). Every path that ends
+/// shown asserts it, so it holds whatever happened to the window before.
 /// </para>
 /// <para>
 /// Deliberately small: it owns this lifecycle for the one window that
@@ -33,12 +39,45 @@ internal sealed class WindowCoordinator(
     WindowHandle handle,
     DockedWindow docked,
     WorkspacePreferences preferences,
-    Func<bool> saveBeforeHide)
+    Func<bool> saveBeforeHide,
+    bool hideOnDeactivation)
 {
     private int _readyTime = Environment.TickCount;
     private int? _lastTransitionEnd;
     private bool _transitioning;
     private bool _shuttingDown;
+    private bool _pinned;
+
+    /// <summary>
+    /// Pinned open for this session (parity A9): losing activation no longer
+    /// hides the workspace. Explicit dismissal and the hotkey still do. Never
+    /// stored — every launch starts unpinned.
+    /// </summary>
+    public bool Pinned
+    {
+        get => _pinned;
+        set
+        {
+            _pinned = value;
+            Trace.WriteLine($"Noto.Workspace pinned={value}");
+        }
+    }
+
+    /// <summary>
+    /// Makes the window topmost if it is not. The shown-state invariant
+    /// (parity A8): called at launch, whether or not docking succeeded, and on
+    /// every path that ends shown. ADR-007 §1: the managed presenter property,
+    /// never <c>SetWindowPos(HWND_TOPMOST)</c>.
+    /// </summary>
+    public static void EnsureTopmost(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        if (window.AppWindow.Presenter is OverlappedPresenter presenter && !presenter.IsAlwaysOnTop)
+        {
+            presenter.IsAlwaysOnTop = true;
+        }
+    }
 
     /// <summary>Startup has finished; requests made before now were made while Noto was launching.</summary>
     public void MarkReady() => _readyTime = Environment.TickCount;
@@ -49,10 +88,14 @@ internal sealed class WindowCoordinator(
     /// <summary>
     /// Handles one activation request: a press of the global hotkey, handled
     /// synchronously inside its <c>WM_HOTKEY</c> so Noto is entitled to take
-    /// the foreground; or a second launch, whose process passed Noto that
-    /// right before handing the request over.
+    /// the foreground; a second launch, whose process passed Noto that right
+    /// before handing the request over; an explicit dismissal; or the window
+    /// losing activation.
     /// </summary>
-    /// <param name="request">The toggle, or a launch — which never hides.</param>
+    /// <param name="request">
+    /// The toggle; a launch, which never hides; a dismissal or a deactivation,
+    /// which never show.
+    /// </param>
     /// <param name="requestTime">When the request was made, on the <see cref="Environment.TickCount"/> clock.</param>
     /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when the request was dropped.</returns>
     public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime)
@@ -60,7 +103,18 @@ internal sealed class WindowCoordinator(
         WorkspaceAction action = WorkspaceToggle.Decide(
             request,
             WindowActivation.PresenceOf(handle),
-            new ActivationContext(_shuttingDown, docked.IsResizing, _transitioning, requestTime, _readyTime, _lastTransitionEnd));
+            new ActivationContext(
+                _shuttingDown,
+                docked.IsResizing,
+                _transitioning,
+                requestTime,
+                _readyTime,
+                _lastTransitionEnd,
+                HideOnDeactivation: hideOnDeactivation && !_pinned));
+
+        // The request and what it decided, never content: evidence for the
+        // runtime harness, read through the debug-output channel.
+        Trace.WriteLine($"Noto.Workspace request={request} action={action}");
 
         if (action == WorkspaceAction.None)
         {
@@ -131,6 +185,7 @@ internal sealed class WindowCoordinator(
             Redock();
         }
 
+        EnsureTopmost(window);
         _ = WindowActivation.BringToForeground(handle);
     }
 

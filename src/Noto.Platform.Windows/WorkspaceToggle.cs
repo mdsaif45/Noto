@@ -46,6 +46,23 @@ public enum WorkspaceRequest
     /// ADR-013): show, restore or bring forward — never hide.
     /// </summary>
     Launch,
+
+    /// <summary>
+    /// An explicit request to put the workspace away — <c>Ctrl+W</c>, or
+    /// Escape where its behaviour hides (#16 slice 6; parity A10, A12): hide,
+    /// never show. Pin does not stop it.
+    /// </summary>
+    Dismiss,
+
+    /// <summary>
+    /// The workspace lost activation to another application (#16 slice 6).
+    /// </summary>
+    /// <remarks>
+    /// The mechanism behind parity A13's "close on outside click": hide a
+    /// workspace left behind another window, never show — and only when
+    /// <see cref="ActivationContext.HideOnDeactivation"/> allows it.
+    /// </remarks>
+    Deactivated,
 }
 
 /// <summary>The facts an activation request is judged against.</summary>
@@ -55,13 +72,18 @@ public enum WorkspaceRequest
 /// <param name="RequestTime">When the request was made, on the <see cref="Environment.TickCount"/> clock.</param>
 /// <param name="ReadyTime">When startup finished: a request older than this was made while Noto was starting.</param>
 /// <param name="LastTransitionEnd">When the last show or hide finished, if there has been one.</param>
+/// <param name="HideOnDeactivation">
+/// A <see cref="WorkspaceRequest.Deactivated"/> request may hide: the setting
+/// is on and the workspace is not pinned (#16 slice 6).
+/// </param>
 public readonly record struct ActivationContext(
     bool ShuttingDown,
     bool Resizing,
     bool Transitioning,
     int RequestTime,
     int ReadyTime,
-    int? LastTransitionEnd);
+    int? LastTransitionEnd,
+    bool HideOnDeactivation = false);
 
 /// <summary>
 /// The show/hide toggle's rules (#16 slice 5, ADR-007 §4), as a pure
@@ -76,6 +98,12 @@ public readonly record struct ActivationContext(
 /// <para>
 /// <b>A launch is not the toggle</b> (A17): the same, except that a window
 /// already shown in front is left as it is. A second launch never hides Noto.
+/// </para>
+/// <para>
+/// <b>Putting it away</b> (#16 slice 6): a dismissal hides a shown window and
+/// does nothing else; a deactivation hides a window left in the background,
+/// only when <see cref="ActivationContext.HideOnDeactivation"/> allows it, and
+/// does nothing else. Neither ever shows, restores or brings anything forward.
 /// </para>
 /// <para>
 /// <b>Dropped:</b> any request while the window is closing, while the user is
@@ -109,13 +137,24 @@ public static class WorkspaceToggle
 
         bool duringStartup = IsBefore(context.RequestTime, context.ReadyTime);
 
-        return presence switch
+        return request switch
         {
-            WorkspacePresence.Hidden => WorkspaceAction.Show,
-            WorkspacePresence.Minimized => WorkspaceAction.Restore,
-            WorkspacePresence.Background => WorkspaceAction.Focus,
-            WorkspacePresence.Foreground => request == WorkspaceRequest.Launch || duringStartup ? WorkspaceAction.None : WorkspaceAction.Hide,
-            _ => WorkspaceAction.None,
+            WorkspaceRequest.Dismiss => presence is WorkspacePresence.Background or WorkspacePresence.Foreground && !duringStartup
+                ? WorkspaceAction.Hide
+                : WorkspaceAction.None,
+
+            WorkspaceRequest.Deactivated => presence == WorkspacePresence.Background && context.HideOnDeactivation && !duringStartup
+                ? WorkspaceAction.Hide
+                : WorkspaceAction.None,
+
+            _ => presence switch
+            {
+                WorkspacePresence.Hidden => WorkspaceAction.Show,
+                WorkspacePresence.Minimized => WorkspaceAction.Restore,
+                WorkspacePresence.Background => WorkspaceAction.Focus,
+                WorkspacePresence.Foreground => request == WorkspaceRequest.Launch || duringStartup ? WorkspaceAction.None : WorkspaceAction.Hide,
+                _ => WorkspaceAction.None,
+            },
         };
     }
 

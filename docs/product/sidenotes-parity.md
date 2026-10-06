@@ -104,20 +104,20 @@ That labelling is preserved here.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | A1 | Screen edge window | Occupies one vertical screen edge as an overlay panel | Edge-docked topmost panel (ADR-007) | MUST | — | M2 |
+| `[x]` | A1 | Screen edge window | Occupies one vertical screen edge as an overlay panel | Edge-docked topmost panel (ADR-007) | MUST | — | **Done** — #16 slices 2–3 (#76, #78): docked to either edge; slice 6: topmost while shown |
 | `[ ]` | A2 | Side changing | Left / right edge; default right | Left / right, switchable; default right | MUST | — | M2 |
 | `[ ]` | A3 | Open Bar | Semi-transparent edge strip; click to reveal. Hide: never / mouse inactive / always | Edge handle with the same three hide modes | MUST | — | `always` must not require another surface |
 | `[ ]` | A4 | Hot Side mode | Hover the screen edge to reveal | Hover activation, independently disableable | MUST | — | Principle 7 |
 | `[ ]` | A5 | Menubar Icon mode | Menu-bar icon toggles visibility | **System tray** icon toggles visibility | ADAPT | — | macOS menu bar → Windows tray |
 | `[ ]` | A6 | Icon context menu | Right-click menu-bar icon → actions | Tray icon right-click context menu | ADAPT | — | |
 | `[ ]` | A7 | Global show/hide shortcut | `⌃⌥⌘␣`, configurable | Global hotkey, configurable, works when unfocused | MUST | — | See G |
-| `[ ]` | A8 | Always on top | Over other apps incl. full-screen; Stage Manager compatible | Topmost over normal and full-screen windows | MUST | — | Stage Manager has no analogue; drop that half |
-| `[ ]` | A9 | Pin window open | Configurable shortcut pins the panel visible | Pin panel open, keyboard + tray reachable | MUST | — | |
-| `[ ]` | A10 | Close window | `⌘W` hides the panel | `Ctrl+W` hides the panel | MUST | — | |
+| `[~]` | A8 | Always on top | Over other apps incl. full-screen; Stage Manager compatible | Topmost over normal and full-screen windows | MUST | — | Stage Manager has no analogue; that half is dropped. **Partial** — #16 slice 6: topmost over normal and borderless full-screen windows (runtime-validated). Exclusive full-screen is out of reach (summoning Noto ends exclusive mode) and not validated |
+| `[~]` | A9 | Pin window open | Configurable shortcut pins the panel visible | Pin panel open, keyboard + tray reachable | MUST | — | **Partial** — #16 slice 6: a header pin toggle, reachable by Tab and Space, session-only. The tray path does not exist yet |
+| `[x]` | A10 | Close window | `⌘W` hides the panel | `Ctrl+W` hides the panel | MUST | — | **Done** — #16 slice 6: `Ctrl+W` hides the workspace from any surface, saving unsaved text first |
 | `[ ]` | A11 | Hide with modifier+Enter | Optional `⌘↩` binding to hide | Optional `Ctrl+Enter` binding to hide | SHOULD | — | Optional, off by default |
-| `[ ]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | |
-| `[ ]` | A13 | Close on click outside | Panel hides on outside click | Same, as a setting | MUST | — | |
-| `[ ]` | A14 | Width resize | Free drag on the window edge; no presets | Free drag resize, width persisted | MUST | — | M2 |
+| `[x]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | **Done** — #16 slice 6: the four behaviours, default leave-folder-or-hide, stored in `workspace.escape`. Choosing one in a settings UI is G51/J26 |
+| `[~]` | A13 | Close on click outside | Panel hides on outside click | Same, as a setting | MUST | — | **Partial** — #16 slice 6: hides when activation moves to another application (the mechanism behind "outside click"), on by default, suppressed by pin; stored in `workspace.hide-on-deactivation`. No settings UI yet (J5) |
+| `[x]` | A14 | Width resize | Free drag on the window edge; no presets | Free drag resize, width persisted | MUST | — | **Done** — #16 slice 3 (#78): free inner-edge drag, width remembered per display |
 | `[ ]` | A15 | Drag-to-reveal at edge | Dragging content to the edge reveals the panel; disableable | Same; two independent toggles as in SideNotes | MUST | — | Disableable per principle 7 |
 | `[ ]` | A16 | Launch on startup | Auto-launch at login | Run at login, off by default | MUST | — | M2 |
 | `[x]` | A17 | Second launch focuses | Relaunch brings existing instance forward | Single-instance; second launch shows the panel | MUST | — | **Done** — A17 (#90, #91; ADR-013): a second launch hands off and exits; the running Noto is shown, restored or brought forward, never hidden |
@@ -272,7 +272,7 @@ would be inventing a SideNotes feature, which this document forbids.
 | `[ ]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | — | |
 | `[ ]` | C3 | Nesting depth | Flat, one level (no sub-folders documented) | **Flat, one level** | MUST | — | ⚠ provisional — INFERRED from absence. Do not add nesting |
 | `[~]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | **Partial** — M2-2 (#60): `Ctrl+Down` and double-click. The single-click **setting** is deferred with #9 settings |
-| `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | — | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12 modes 2–4 need #9 |
+| `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | — | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12's four behaviours landed with #16 slice 6 |
 | `[ ]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | — | |
 | `[~]` | C7 | Show all folders | Command to return to the folder list | Same, incl. from URI / CLI | MUST | — | **Partial** — the folder list is reachable via `Esc`/Back (M2-2). No explicit command, and no URI/CLI surface yet |
 | `[ ]` | C8 | Pin folders | Pinned folders stay at list top | Same | MUST | — | |
@@ -565,8 +565,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
-| `[ ]` | G7 | Close panel | `⌘W` | `Ctrl+W` | MUST | — | |
-| `[ ]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | See A12 |
+| `[x]` | G7 | Close panel | `⌘W` | `Ctrl+W` | MUST | — | **Done** — = A10 |
+| `[x]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | **Done** — = A12 |
 | `[ ]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | |
 | `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | — | |
 | `[ ]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | |
@@ -629,7 +629,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[ ]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | — | |
-| `[ ]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | = A12 |
+| `[~]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | **Partial** — the four options exist and are stored (A12); no settings UI to choose one yet |
 | `[ ]` | G52 | Rebind in-app shortcuts | Undocumented whether possible | Rebindable, with conflict detection | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
 
 ### Collisions with standard Windows shortcuts

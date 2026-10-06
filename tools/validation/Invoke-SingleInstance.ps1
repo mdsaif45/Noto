@@ -166,6 +166,13 @@ try {
         Write-Host "  key: $pipe"
         if ([NotoVal.Instance]::MutexExists($pipe) -or [NotoVal.Instance]::PipeExists($pipe)) { throw 'the fresh root already has a mutex or pipe' }
 
+        # The launch contract (A17) is validated with hiding on deactivation OFF (#16 slice 6): scenarios 5 and 6
+        # need an owner left shown behind another window or on another desktop, which with it on exists only
+        # while pinned. Invoke-Drawer.ps1 validates the default, on, including a launch after an automatic hide.
+        $seed = Start-Noto $run -Exe $NotoExe -DataRoot $data
+        if (-not (Stop-Noto $seed)) { throw 'the seeding start did not exit cleanly' }
+        Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'workspace.hide-on-deactivation' -Value 'False'
+
         # 1 - first launch
         $noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
         $id = Owner-Identity $noto $pipe

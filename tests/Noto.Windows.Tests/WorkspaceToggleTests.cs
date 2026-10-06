@@ -125,6 +125,95 @@ public sealed class WorkspaceToggleTests
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, After(Ready + 900, lastTransitionEnd: Ready + 1000)));
     }
 
+    // ---------------------------------------- putting it away (slice 6)
+
+    private static ActivationContext Ready_(bool hideOnDeactivation) =>
+        After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation };
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden, WorkspaceAction.None)]
+    [InlineData(WorkspacePresence.Minimized, WorkspaceAction.None)]
+    [InlineData(WorkspacePresence.Background, WorkspaceAction.Hide)]
+    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.Hide)]
+    public void A_dismissal_hides_a_shown_window_and_never_shows_one(WorkspacePresence presence, WorkspaceAction expected)
+    {
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Dismiss, presence, Ready_(hideOnDeactivation: false)));
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Dismiss, presence, Ready_(hideOnDeactivation: true)));
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden, WorkspaceAction.None)]
+    [InlineData(WorkspacePresence.Minimized, WorkspaceAction.None)]
+    [InlineData(WorkspacePresence.Background, WorkspaceAction.Hide)]
+    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.None)]
+    public void A_deactivation_hides_only_a_window_left_behind(WorkspacePresence presence, WorkspaceAction expected)
+    {
+        // Foreground: activation came back before the request was judged.
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Deactivated, presence, Ready_(hideOnDeactivation: true)));
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden)]
+    [InlineData(WorkspacePresence.Minimized)]
+    [InlineData(WorkspacePresence.Background)]
+    [InlineData(WorkspacePresence.Foreground)]
+    public void A_deactivation_does_nothing_when_pinned_or_switched_off(WorkspacePresence presence)
+    {
+        // HideOnDeactivation is false when the setting is off or the
+        // workspace is pinned: the coordinator passes setting && !pinned.
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Deactivated, presence, Ready_(hideOnDeactivation: false)));
+    }
+
+    [Theory]
+    [InlineData(WorkspaceRequest.Dismiss, WorkspacePresence.Foreground)]
+    [InlineData(WorkspaceRequest.Deactivated, WorkspacePresence.Background)]
+    public void Nothing_is_put_away_during_startup(WorkspaceRequest request, WorkspacePresence presence)
+    {
+        ActivationContext starting = After(Ready - 300) with { HideOnDeactivation = true };
+
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, starting));
+    }
+
+    [Theory]
+    [InlineData(WorkspaceRequest.Dismiss, WorkspacePresence.Foreground)]
+    [InlineData(WorkspaceRequest.Deactivated, WorkspacePresence.Background)]
+    public void Putting_it_away_follows_the_same_drop_rules(WorkspaceRequest request, WorkspacePresence presence)
+    {
+        ActivationContext ok = Ready_(hideOnDeactivation: true);
+
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, ok with { ShuttingDown = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, ok with { Resizing = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, ok with { Transitioning = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, presence, After(Ready + 900, lastTransitionEnd: Ready + 1000) with { HideOnDeactivation = true }));
+    }
+
+    [Theory]
+    [InlineData(WorkspaceRequest.Dismiss)]
+    [InlineData(WorkspaceRequest.Deactivated)]
+    public void Putting_it_away_never_shows_restores_or_focuses(WorkspaceRequest request)
+    {
+        foreach (WorkspacePresence presence in Enum.GetValues<WorkspacePresence>())
+        {
+            foreach (bool allowed in new[] { true, false })
+            {
+                WorkspaceAction action = WorkspaceToggle.Decide(request, presence, Ready_(allowed));
+
+                Assert.Contains(action, new[] { WorkspaceAction.None, WorkspaceAction.Hide });
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(WorkspacePresence.Hidden, WorkspaceAction.Show)]
+    [InlineData(WorkspacePresence.Minimized, WorkspaceAction.Restore)]
+    [InlineData(WorkspacePresence.Background, WorkspaceAction.Focus)]
+    [InlineData(WorkspacePresence.Foreground, WorkspaceAction.None)]
+    public void The_hide_on_deactivation_switch_changes_nothing_for_a_launch(WorkspacePresence presence, WorkspaceAction expected)
+    {
+        // A17's launch contract is untouched by slice 6.
+        Assert.Equal(expected, WorkspaceToggle.Decide(WorkspaceRequest.Launch, presence, Ready_(hideOnDeactivation: true)));
+    }
+
     [Theory]
     [InlineData(5, 6, true)]
     [InlineData(6, 5, false)]

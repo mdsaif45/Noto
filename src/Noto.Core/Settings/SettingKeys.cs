@@ -1,5 +1,6 @@
 using Noto.Core.Activation;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
+using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
 
 namespace Noto.Core.Settings;
 
@@ -18,8 +19,9 @@ namespace Noto.Core.Settings;
 /// hotkey registration is Phase 1 startup work (architecture-overview.md
 /// §startup) and both defaults were decided by the parity specification.
 /// #16 slice 3 adds the edge and the width, which the docked window reads at
-/// launch. Hover and tray toggles and the hover delay are still absent: none
-/// has a consumer yet.
+/// launch; slice 6 adds the Escape behaviour and hiding on deactivation.
+/// Hover and tray toggles and the hover delay are still absent: none has a
+/// consumer yet.
 /// </para>
 /// <para>
 /// <b>Per-display settings are a family</b>, not a key per display: see
@@ -126,6 +128,40 @@ public static class SettingKeys
         new("workspace.width", 360, IsPositiveFinite);
 
     /// <summary>
+    /// What Escape does in the workspace (parity A12, G51).
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="EscapeBehavior.LeaveFolderOrHide"/>, SideNotes' own
+    /// default (feature inventory A12, CONFIRMED). Stored by member name and
+    /// parsed case-sensitively. Read once, at launch (#16 slice 6); there is no
+    /// settings UI to change it yet.
+    /// </remarks>
+    public static readonly SettingKey<EscapeBehavior> WorkspaceEscape =
+        new("workspace.escape", EscapeBehavior.LeaveFolderOrHide);
+
+    /// <summary>
+    /// Whether the shown workspace hides when activation moves to another
+    /// application — parity A13 and J5, "close on outside click".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The user's term and the mechanism differ.</b> Parity calls it a click
+    /// outside; Noto implements it as <i>workspace deactivation</i>: activation
+    /// moving to a window of another process, whether by a click, Alt+Tab, the
+    /// Start menu or a virtual-desktop switch. Activation moving to one of
+    /// Noto's own windows (a context menu, an IME window) does not count.
+    /// </para>
+    /// <para>
+    /// Default <see langword="true"/> (the slice 6 design gate): the workspace
+    /// is topmost while shown, so a drawer that stays over the user's work
+    /// after they have moved on would cover it. Pin suppresses it for a
+    /// session. Read once, at launch; no settings UI yet.
+    /// </para>
+    /// </remarks>
+    public static readonly SettingKey<bool> WorkspaceHideOnDeactivation =
+        new("workspace.hide-on-deactivation", true);
+
+    /// <summary>
     /// Every declared key.
     /// </summary>
     /// <remarks>
@@ -140,6 +176,8 @@ public static class SettingKeys
         HotkeyBinding,
         WorkspaceEdge,
         WorkspaceWidth,
+        WorkspaceEscape,
+        WorkspaceHideOnDeactivation,
     ];
 
     /// <summary>
