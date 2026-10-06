@@ -4,9 +4,9 @@
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
 Current slice:      #16 slice 6 — the drawer (topmost, putting it away, pin),
-                    PR #92, in review. Runtime-validated; one measured
-                    deviation from its design gate awaits the owner's decision
-                    (Noto's own taskbar button does nothing)
+                    PR #92, ready for review. Runtime-validated on a frozen
+                    build; three activation defects found by validation are
+                    fixed; the taskbar-button deviation is accepted
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
@@ -379,12 +379,16 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ### NOW
 
-- **#16 slice 6, the drawer, is PR #92** (in review). Topmost while shown;
-  put away by `Ctrl+W`, by Escape (four behaviours, A12) or by losing
+- **#16 slice 6, the drawer, is PR #92** (ready for review). Topmost while
+  shown; put away by `Ctrl+W`, by Escape (four behaviours, A12) or by losing
   activation to another application (A13, on by default); a session-only pin.
-  Every hide saves first. See *Outstanding validation — #16 slice 6*. One
-  deviation from its design gate is measured and awaits the owner's decision:
-  pressing Noto's own taskbar button does nothing.
+  Every hide saves first. Runtime validation found three activation defects,
+  all fixed in the PR: the A13 shell-launch race (now `WM_ACTIVATEAPP` plus an
+  activation generation), a hidden Noto left active, and a refused foreign
+  foreground request summoning Noto (now only an activation that landed is
+  reconciled). Pressing Noto's own taskbar button does nothing, a deviation
+  from the design gate that the owner accepted. See *Outstanding validation —
+  #16 slice 6*.
 - **A17 single instance is merged: PR #90 (platform,
   `6e56213`) and PR #91 (integration).** A second launch hands its request to the
   running Noto over a named pipe and exits; ownership of a data root is a
@@ -598,10 +602,10 @@ Verified on `main` @ `61cd0c7`, and on the #16 slice 6 branch (PR #92):
 
 ```
 Build                0 warnings, 0 errors
-Tests                1338 / 1338 on main; 1391 / 1391 on PR #92
+Tests                1338 / 1338 on main; 1475 / 1475 on PR #92
                        Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
                        Noto.UseCases.Tests         43   (1 + 33 #16 slice 3 + 1 #85 + 8 slice 6)
-                       Noto.Windows.Tests         480   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5 · +125 A17 · +45 slice 6)
+                       Noto.Windows.Tests         564   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5 · +125 A17 · +129 slice 6)
                        Noto.Infrastructure.Tests  629   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4 + 1 #85)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
@@ -633,20 +637,26 @@ campaigns against the real application rather than relying on CI.
 
 ### Outstanding validation — #16 slice 6
 
-`tools/validation/Invoke-Drawer.ps1` ran on a Release build of PR #92: an
-isolated data root, Noto and every other window started by the shell, keys
-sent to Noto only while it was in front, and every foreground claim bracketed
-by a negative control. **54/54 checks (run `drawer-20261006-113225-2c47c1`), 0 invalid, negative controls refused 8/8.** Noto's `Noto.Workspace` trace shows each
-request and what the coordinator decided.
+All runtime evidence comes from one frozen Release build (`ac5ccd2`, `Noto.exe` sha256 `3a9afa79…`), on an
+idle desktop. `tools/validation/Invoke-Drawer.ps1` uses an isolated data root,
+starts Noto and every other window from the shell, sends keys to Noto only
+while it is in front, and brackets every foreground claim with a negative
+control. **85/85 checks (run `drawer-20261007-022230-0a8825`), 0 invalid, negative controls refused 24/24.** Noto's `Noto.Workspace` trace shows each activation
+change and what the coordinator decided.
 
 Passed:
 - topmost while shown: the window style, and `WindowFromPoint` over a
   maximized window and over borderless full-screen windows (one itself topmost)
-- losing activation hides it — a click on another app, a click on the desktop,
-  a virtual-desktop switch — and saves unsaved text first; a failed save keeps
-  it shown, with the notice, and focus is not taken back
+- losing activation hides it: a click on another app, a newly launched
+  application (5 rounds), Alt+Tab, a click on the desktop, a virtual-desktop
+  switch. Unsaved text is saved first; a failed save keeps it shown, with the
+  notice, and focus is not taken back
 - pinned, or with the setting off, losing activation leaves it shown, above
   the other window; the hotkey still hides a pinned, focused Noto
+- never hidden in the foreground: when an activation lands on a hidden or
+  minimized Noto (Alt+Tab completing to it, a taskbar click), it is shown or
+  restored. A refused foreign foreground request (6 rounds, hidden and
+  minimized) leaves it hidden or minimized, not in front and not focused
 - `Ctrl+W` on each surface hides it, saving first; a failed save keeps it shown
 - Escape: all four behaviours on the editor, note list and folder list (12
   checks); Escape in the new-folder box cancels the input and never hides
@@ -657,18 +667,24 @@ Passed:
 - virtual desktops: unpinned, a switch hides it and the hotkey shows it on the
   new desktop; pinned, it stays on its own desktop and the hotkey switches back
 
-Regression on the same build: `Invoke-ShowHide.ps1` 35/35,
-`Invoke-SingleInstance.ps1` 61/61, `Invoke-MinimizedActivation.ps1` 36/36,
-`Invoke-Slice4Foreground.ps1` 36/36, `Invoke-EditorSaveOnClose.ps1` 19/19. The
-first three and the last turn hiding on deactivation off in their roots, so
+Regression on the same frozen build: `Invoke-ShowHide.ps1` 35/35, `Invoke-SingleInstance.ps1` 61/61, `Invoke-MinimizedActivation.ps1` 36/36, `Invoke-Slice4Foreground.ps1` 36/36, `Invoke-EditorSaveOnClose.ps1` 19/19, each with 0 invalid and every negative control refused. The ShowHide, SingleInstance and
+EditorSaveOnClose harnesses turn hiding on deactivation off in their roots, so
 they keep validating the toggle, launch and close contracts unchanged; the
 default is `Invoke-Drawer.ps1`'s.
 
+Mutation: every mutant of the final source has a disposition, recorded in PR
+#92.
+- **Equivalent, with proof:** one (App's own closing check, which the
+  coordinator's shutdown drop duplicates exactly).
+- **Retired:** two, whose code the A13 fix deleted.
+- **Killed:** every other mutant, by tests, source guards or runtime.
+
 | Item | Status |
 | ---- | ------ |
-| **Noto's own taskbar button** | **DEVIATION from the design gate, awaiting the owner's decision.** The gate predicted "hidden". Measured: the press does not take activation from Noto, and Windows does not minimize a window that is not minimizable — nothing happens |
+| **Noto's own taskbar button** | **Deviation from the design gate, accepted by the owner.** The gate predicted "hidden". Measured: the press does not take activation from Noto, and Windows does not minimize a window that is not minimizable, so nothing happens. No workaround |
 | **Exclusive full-screen** | Out of reach (summoning Noto ends exclusive mode); **not validated** |
-| **Startup** | A deactivation during launch never hides — unit-tested; its timing cannot be forced by the harness |
+| **Startup** | A deactivation during launch never hides; unit-tested only, because the harness cannot force its timing |
+| **The "landed" rule** | Measured on Windows 11 only: 47 of 47 genuine activations found Noto already in the foreground, 14 of 14 refused requests did not. **Windows 10 not validated** (#32) |
 | **Windows 10, multi-display** | **NOT VALIDATED** (#32; one display connected) |
 
 ### Outstanding validation — A17 single instance
