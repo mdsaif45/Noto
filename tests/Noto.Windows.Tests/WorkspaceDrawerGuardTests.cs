@@ -79,6 +79,7 @@ public sealed partial class WorkspaceDrawerGuardTests
     public void An_activation_is_recorded_now_and_reconciled_after_the_fact_with_its_generation()
     {
         string handler = Body(App, "OnAppActivationChanged");
+        Assert.Matches(@"if \(active\)\s*\{\s*int returned = _coordinator\.OnAppActivated\(\);", handler);
         int returned = Index(handler, "_coordinator.OnAppActivated()");
         int posted = handler.IndexOf("TryEnqueue(", returned, StringComparison.Ordinal);
 
