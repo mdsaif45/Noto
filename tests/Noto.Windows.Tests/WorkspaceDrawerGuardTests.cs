@@ -90,6 +90,16 @@ public sealed partial class WorkspaceDrawerGuardTests
     }
 
     [Fact]
+    public void Every_request_is_judged_with_the_resize_state_unconditionally()
+    {
+        // The resize drop is Decide's (unit-tested); this pins that the
+        // coordinator hands it the real state for every request kind,
+        // deactivations included. Mutant R17 made it conditional and no runtime
+        // route could time a foreign activation inside a drag to catch it.
+        Assert.Matches(@"\n\s+docked\.IsResizing,\r?\n", Body(Coordinator, "Handle"));
+    }
+
+    [Fact]
     public void Bringing_the_window_forward_makes_every_pending_deactivation_stale()
     {
         string handle = Body(Coordinator, "Handle");
