@@ -25,6 +25,7 @@ param([Parameter(Mandatory)] [string] $NotoExe)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+if (-not ('NotoVal.Instance' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'helpers/single-instance.cs') }
 $NotoExe = (Resolve-Path $NotoExe).Path
 
 $run = New-ValidationRun 'save-on-close'
@@ -80,6 +81,10 @@ function New-SeededRoot([string] $Name) {
     $now = [DateTimeOffset]::UtcNow.ToString('O')
     $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Validation', 1, `$t, `$t)" -Parameters @{ '$f' = $FolderId; '$t' = $now }
     $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt) VALUES (`$n, `$f, `$c, 1, `$t, `$t)" -Parameters @{ '$n' = $NoteId; '$f' = $FolderId; '$c' = $Original; '$t' = $now }
+    # Closing (#86) is validated with hiding on deactivation OFF (#16 slice 6): bringing Noto forward clicks the
+    # target first, and with it on that click is itself a dismissal that saves — a different rule, validated by
+    # Invoke-Drawer.ps1 (scenario 8) — which would stand between the two closes case 3 is about.
+    Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'workspace.hide-on-deactivation' -Value 'False'
     $data
 }
 
@@ -113,7 +118,10 @@ function Still-Open($Noto) { Start-Sleep -Seconds 2; [bool](Get-Process -Id $Not
 function Restore-Note($Data) { $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $Data -Sql "UPDATE Notes SET DeletedAt = NULL WHERE Id = `$n" -Parameters @{ '$n' = $NoteId } }
 function Bin-Note($Data) { $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $Data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId } }
 
-exit (Invoke-IsolatedRun $run -Title 'Editor: save before the window closes' -Body {
+# Noto's own Noto.* diagnostics are kept as evidence (trace.txt under the run root): since #16 slice 6 a hide
+# can also come from a deactivation or a dismissal, and the trace says which request ran when.
+$log = [NotoVal.DebugLog]::new()
+try { $code = Invoke-IsolatedRun $run -Title 'Editor: save before the window closes' -Body {
     Assert-ChordFree $run
     $target = Start-TargetApp $run
 
@@ -180,4 +188,9 @@ exit (Invoke-IsolatedRun $run -Title 'Editor: save before the window closes' -Bo
     $noto = Open-At $data 'folders' $target
     Close-AltF4 $noto
     Add-Result $run '6  close from the folder list -> exits' (Exited $noto) ''
-})
+} }
+finally {
+    $log.Dispose()
+    Set-Content (Join-Path $run.Root 'trace.txt') ($log.All())
+}
+exit $code

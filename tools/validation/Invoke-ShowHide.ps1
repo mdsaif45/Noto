@@ -161,6 +161,10 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     $now = [DateTimeOffset]::UtcNow.ToString('O')
     $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Validation', 1, `$t, `$t)" -Parameters @{ '$f' = $FolderId; '$t' = $now }
     $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt) VALUES (`$n, `$f, `$c, 1, `$t, `$t)" -Parameters @{ '$n' = $NoteId; '$f' = $FolderId; '$c' = $Original; '$t' = $now }
+    # The toggle contract (ADR-007 §4) is validated with hiding on deactivation OFF (#16 slice 6): 18b and the
+    # Alt+Tab walk need a Noto left shown behind another window, which with it on exists only while pinned.
+    # Invoke-Drawer.ps1 validates the default, on.
+    Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'workspace.hide-on-deactivation' -Value 'False'
 
     # 1 - launch
     $noto = Start-Noto $run -Exe $NotoExe -DataRoot $data

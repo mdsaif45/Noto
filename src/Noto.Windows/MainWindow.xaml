@@ -6,14 +6,14 @@
     Title="Noto">
 
     <!--
-        M2-1 — the Folder Pane. The first production surface, and the first to
-        consume the design system (ADR-011): every colour, spacing, radius and
-        type value below comes from a semantic token, and there is no literal
-        visual value in this file.
+        The workspace: the folder pane (M2-1), the note list (M2-2) and the
+        editor (M2-3), under one header. Every colour, spacing, radius and
+        type value below comes from a semantic token of the design system
+        (ADR-011); there is no literal visual value in this file.
 
-        Still NOT the workspace: no docking (#16), no global hotkey, no note
-        list and no editor. Entering a folder is parity C4 and deliberately
-        unimplemented, which is why Enter is left unbound on a row.
+        The window around it is the #16 drawer, owned by App.xaml.cs and
+        WindowCoordinator: docked to an edge, topmost while shown, toggled by
+        the global hotkey, put away by Ctrl+W, Escape or losing activation.
     -->
 
     <!--
@@ -22,7 +22,45 @@
         folder that was entered.
     -->
     <Grid x:Name="WorkspaceRoot">
+
+        <!--
+            Ctrl+W hides the workspace from any surface (parity A10, G7). On
+            the root, so it works wherever focus sits.
+        -->
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="W" Modifiers="Control" Invoked="OnDismissAccelerator" />
+        </Grid.KeyboardAccelerators>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--
+            The workspace header, shared by every surface. Pin (parity A9)
+            keeps the workspace open while another application has the
+            keyboard. A toggle reachable by Tab, with no global chord: G6, the
+            global pin shortcut, is unbound by default. Session-only.
+        -->
+        <Grid
+            x:Name="WorkspaceHeader"
+            Grid.Row="0"
+            Background="{ThemeResource SurfaceSidebarBrush}"
+            Padding="{StaticResource PanePadding}">
+            <ToggleButton
+                x:Name="PinToggle"
+                HorizontalAlignment="Right"
+                Checked="OnPinToggled"
+                Unchecked="OnPinToggled"
+                ToolTipService.ToolTip="Keep Noto open"
+                AutomationProperties.Name="Keep Noto open">
+                <FontIcon Glyph="&#xE718;" FontSize="{StaticResource FontSizeBody}" />
+            </ToggleButton>
+        </Grid>
+
         <Grid x:Name="PaneRoot"
+              Grid.Row="1"
+              KeyDown="OnPaneRootKeyDown"
               Background="{ThemeResource SurfaceSidebarBrush}"
               Padding="{StaticResource PanePadding}"
               RowSpacing="{StaticResource SpaceS}">
@@ -186,6 +224,7 @@
             was replaced.
         -->
         <Grid x:Name="NoteRoot"
+              Grid.Row="1"
               KeyDown="OnNoteRootKeyDown"
               Background="{ThemeResource SurfaceSidebarBrush}"
               Padding="{StaticResource PanePadding}"
@@ -296,6 +335,7 @@
             surface for it is expected, so nothing here anticipates it.
         -->
         <Grid x:Name="EditorRoot"
+              Grid.Row="1"
               KeyDown="OnEditorRootKeyDown"
               Background="{ThemeResource SurfaceSidebarBrush}"
               Padding="{StaticResource PanePadding}"

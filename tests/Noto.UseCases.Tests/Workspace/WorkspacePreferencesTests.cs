@@ -46,6 +46,46 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(WorkspaceEdge.Right, new WorkspacePreferences(new FakeSettings()).Edge);
     }
 
+    // ------------------------------------- Escape and deactivation (slice 6)
+
+    [Theory]
+    [InlineData(EscapeBehavior.LeaveFolderOrHide)]
+    [InlineData(EscapeBehavior.LeaveFolder)]
+    [InlineData(EscapeBehavior.Hide)]
+    [InlineData(EscapeBehavior.None)]
+    public void The_escape_behaviour_is_the_stored_one(EscapeBehavior behaviour)
+    {
+        var store = new FakeSettings();
+        store.Seed(SettingKeys.WorkspaceEscape.Name, behaviour);
+
+        Assert.Equal(behaviour, new WorkspacePreferences(store).Escape);
+    }
+
+    [Fact]
+    public void With_no_stored_escape_behaviour_it_is_leave_folder_or_hide()
+    {
+        // SideNotes' own default (feature inventory A12, CONFIRMED).
+        Assert.Equal(EscapeBehavior.LeaveFolderOrHide, new WorkspacePreferences(new FakeSettings()).Escape);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Hiding_on_deactivation_is_the_stored_choice(bool hide)
+    {
+        var store = new FakeSettings();
+        store.Seed(SettingKeys.WorkspaceHideOnDeactivation.Name, hide);
+
+        Assert.Equal(hide, new WorkspacePreferences(store).HideOnDeactivation);
+    }
+
+    [Fact]
+    public void With_nothing_stored_the_workspace_hides_on_deactivation()
+    {
+        // The slice 6 design gate: on by default.
+        Assert.True(new WorkspacePreferences(new FakeSettings()).HideOnDeactivation);
+    }
+
     // ------------------------------------------------ width resolution
 
     public static TheoryData<Stored, Stored, double> Chain()

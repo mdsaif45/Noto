@@ -33,6 +33,16 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The edge to dock to. Read at launch; restart-only in this slice.</summary>
     public WorkspaceEdge Edge => _settings.Read(SettingKeys.WorkspaceEdge);
 
+    /// <summary>What Escape does (parity A12). Read at launch; restart-only.</summary>
+    public EscapeBehavior Escape => _settings.Read(SettingKeys.WorkspaceEscape);
+
+    /// <summary>
+    /// Whether the shown workspace hides when activation moves to another
+    /// application (parity A13, "close on outside click"). Read at launch;
+    /// restart-only.
+    /// </summary>
+    public bool HideOnDeactivation => _settings.Read(SettingKeys.WorkspaceHideOnDeactivation);
+
     /// <summary>
     /// The width to open with on one display, before it is fitted to that
     /// display.

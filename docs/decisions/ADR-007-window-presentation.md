@@ -449,6 +449,150 @@ difference: **a launch never hides**.
   shown, in front              ->  nothing
 ```
 
+#### The drawer
+
+> **Added 2026-10-06 by #16 slice 6**, after its design gate. Parity A8, A9,
+> A10, A12, A13, G7, G8, G51.
+
+**Topmost while shown.** `OverlappedPresenter.IsAlwaysOnTop` (§1) is set at
+launch whether or not docking succeeded, and asserted again on every path that
+ends shown. Measured: a shown Noto is above a maximized window and above a
+borderless full-screen window, including one that is itself topmost (the most
+recently activated topmost window wins). An **exclusive** full-screen
+application (DXGI exclusive mode) is out of reach: summoning Noto makes it
+leave exclusive mode, as Alt+Tab does. Not validated. A hidden Noto has no
+place in the z-order; a minimized one stays minimized until restored.
+
+**Putting it away.** Two more request kinds reach the same coordinator.
+Neither ever shows, restores or brings anything forward:
+
+```
+                        Toggle   Launch   Dismiss   Deactivated
+  hidden                show     show     -         -
+  shown, minimized      restore  restore  -         -
+  shown, behind         focus    focus    hide      hide, if allowed and current
+  shown, in front       hide     -        hide      hide, if allowed and current
+```
+
+A deactivation can still read "in front": Windows tells Noto that activation
+is leaving before the foreground has visibly changed. The generation (below)
+is what makes it safe to act on.
+
+- **Dismiss** is explicit: `Ctrl+W` from any surface (A10, G7), or Escape
+  where its behaviour hides. Pin does not stop it.
+- **Deactivated** is parity A13's "close on outside click". The user's term
+  and the mechanism differ: Noto implements it as **workspace deactivation** —
+  activation moving to a window of another process, by a click, Alt+Tab, the
+  Start menu, the desktop or a virtual-desktop switch. Activation moving to
+  one of Noto's own windows (the editor's context menu, an IME window) does
+  not count. The signal is `WM_ACTIVATEAPP` on the docked window's subclass,
+  which Windows sends only when activation crosses the process boundary. So
+  Noto's own windows are excluded by Windows, not by inference. "Allowed"
+  means the `workspace.hide-on-deactivation` setting is on (the default) and
+  the workspace is not pinned. "Current" is the activation generation below.
+- The existing drops apply to both: closing, resizing, mid-transition, stale,
+  and **nothing is put away during startup**.
+- **Every hide saves first** (`SaveBeforeHide`, the explicit save). A failed
+  save keeps the workspace shown, with the editor's notice, and focus is not
+  taken back. Each dismissal is one attempt.
+
+**The activation generation.** A deactivation is decided on the dispatcher,
+after the activation change has finished, never inside it. By then it may be
+out of date. One monotonic counter, owned by the coordinator, says whether it
+still holds:
+
+```
+  WM_ACTIVATEAPP(FALSE)    generation++  ->  post Deactivated(generation)
+  WM_ACTIVATEAPP(TRUE)     generation++  ->  post Activated(generation, landed)
+                           landed = Noto's window was the foreground at this message
+  Show / Restore / Focus   generation++      (Noto brought itself forward)
+
+  A request made in generation n is valid only if generation == n when it is decided.
+  Valid Deactivated -> the table above, with every existing drop.
+  Valid Activated   -> the reconciliation below.
+```
+
+| Sequence | Result |
+|---|---|
+| FALSE → Deactivated(n) → still deactivated | hides: valid, allowed, shown |
+| FALSE → TRUE → Deactivated(n) | ignored: stale |
+| FALSE → TRUE → FALSE → Deactivated(n), Deactivated(n+2) | the first is ignored; the second hides |
+| FALSE → `Dismiss` | `Dismiss` as before. A later Deactivated finds the window hidden |
+| FALSE → `Launch` | the launch shows or focuses (generation++), so Deactivated(n) is stale. **A launch never hides** |
+| FALSE → `Toggle` | `Toggle` as before. If it brought Noto forward, Deactivated(n) is stale |
+| pinned, or the setting off | never hides automatically; `Dismiss`, Escape and the hotkey still do |
+| during a resize, during startup, while closing | dropped, as every request is |
+| hidden → TRUE, landed → Activated(n) | shown (generation++). A later Deactivated from before it is stale |
+| hidden → TRUE, landed → Activated(n) → shown → TRUE (from that show) | the second Activated finds the window shown: nothing |
+| hidden or minimized → TRUE, **not landed** → Activated(n) | nothing: it stays hidden or minimized. The generation still advances |
+| shown → TRUE → FALSE → Activated(n) | ignored: stale; a hidden window stays hidden |
+
+**Never hidden and in the foreground.** A hidden Noto must never stay the
+foreground window. Windows delivers `WM_ACTIVATEAPP(TRUE)` in two situations,
+told apart by one observation made **at that message**: whether Noto's window
+is already the foreground window.
+
+- **Genuine activation: landed.** Windows has already given Noto the
+  foreground when the message arrives. Measured in 47 of 47 cases: Alt+Tab
+  completing to a hidden Noto (the switcher takes activation, Noto hides, then
+  the switch completes to Noto), a taskbar click on a minimized Noto, and
+  Noto's own show or restore. A current `Activated` request reconciles it
+  with a launch's rules: hidden → show, minimized → restore. A shown window is
+  left alone.
+- **Background activation: did not land.** Another process asked Windows to
+  put Noto in front, and Windows refused (the foreground lock). It still
+  delivers `WM_ACTIVATEAPP(TRUE)` (with no losing thread), but the foreground
+  stays where it was. Measured in 14 of 14 cases, hidden and minimized. Noto is
+  not the foreground thread, so no keystroke can reach it, and it **must not
+  react**: a refused foreign request must never make a hidden or minimized
+  Noto visible, restored, foreground or focused.
+
+The observation is taken once, in the window procedure, and carried with the
+request. The dispatcher never reads the foreground later: posted work can wait
+seconds while Noto is minimized (measured 540 ms and 2.15 s), and reading
+afterwards is what caused the A13 race. A reconciliation never hides. Pin and
+the setting do not apply to it, because they govern putting the workspace
+away. Closing still drops it, so nothing is shown again during shutdown. Its
+staleness is only the generation's, not the time-based rule. No window class,
+shell switcher or timer is special-cased.
+
+Hide, `Dismiss` and the hotkey's hide do not advance the generation: a pending
+deactivation then finds the window hidden and does nothing. No timer, sleep or
+retry is involved. Every rule is decided by the order of events on the UI
+thread, which owns the counter.
+
+**Escape** has SideNotes' four behaviours, stored in `workspace.escape`
+(default leave-folder-or-hide; no settings UI yet). An inline input (renaming
+or naming a folder) cancels itself first, in every mode. Noto's editor is one
+level deeper than SideNotes': leaving it is the same kind of step as leaving a
+folder.
+
+```
+                       editor        note list     folder list
+  LeaveFolderOrHide    leave editor  leave folder  hide         (default)
+  LeaveFolder          leave editor  leave folder  nothing
+  Hide                 hide          hide          hide
+  None                 nothing       nothing       nothing
+```
+
+**Pin** (A9) is a toggle in the workspace header, reachable by Tab and Space;
+there is no global chord (G6 is unbound by default). While pinned, losing
+activation does not hide the workspace; `Ctrl+W`, Escape and the hotkey still
+do. Session-only: never stored, so every launch starts unpinned.
+
+**Virtual desktops.** A desktop switch is a deactivation. Unpinned, switching
+desktops hides Noto, and the hotkey shows it on the new desktop (the hidden
+case above). Pinned — or with the setting off — Noto stays shown on its own
+desktop, and the hotkey from another desktop makes Windows switch back (the
+shown case above). Both measured. The §4 contract itself is unchanged; Noto
+still uses no `IVirtualDesktopManager` method (§7).
+
+**Measured, not predicted: Noto's own taskbar button.** Pressing it while
+Noto is in front does not take activation from Noto, and Windows does not
+minimize a window that is not minimizable — so it does nothing. The design
+gate had predicted "hidden". The owner accepted the measured behaviour as a
+deviation; there is no workaround.
+
 ### 5. Screen-capture exclusion
 
 ```c

@@ -3,10 +3,10 @@
 ```
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
-Current slice:      none in progress. A17 single instance is merged: PR #90
-                    (platform mechanism, `6e56213`) and PR #91 (integration,
-                    harness, ADR-013), runtime-validated including the
-                    elevated launch
+Current slice:      #16 slice 6 — the drawer (topmost, putting it away, pin),
+                    PR #92, ready for review. Runtime-validated on a frozen
+                    build; three activation defects found by validation are
+                    fixed; the taskbar-button deviation is accepted
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
@@ -16,9 +16,11 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     text is saved before the window closes (#86) or hides.
                     One process per data root: a second launch brings the
                     running Noto forward and exits (A17).
-                    Tray and always-on-top do not exist.
+                    In review (#16 slice 6): topmost while shown; put away by
+                    Ctrl+W, Escape or losing activation; pin for a session.
+                    The tray does not exist.
 Last updated:       2026-10-06
-Evidence baseline:  main @ 6e56213 (PR #90 merged) with PR #91 merged on top — A17
+Evidence baseline:  main @ 61cd0c7 (PR #91 merged — A17 complete)
 ```
 
 > **Read this first.** A working engine is not a working product. Noto has a
@@ -27,7 +29,7 @@ Evidence baseline:  main @ 6e56213 (PR #90 merged) with PR #91 merged on top —
 > create, edit and delete a note through the UI, and the window opens docked to
 > a screen edge and can be resized from its inner edge. A global hotkey shows
 > and hides it. It is still not the application a user would recognise as
-> Noto: there is no tray, it is not always-on-top, and the editor shows raw
+> Noto: there is no tray, the drawer behaviour (#16 slice 6) is in review, and the editor shows raw
 > markdown rather than rendering it.
 
 ---
@@ -72,8 +74,8 @@ seven M0 issues remain open, including several that later milestones depend on
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (6 closed / 7 open) | Solution structure; ADRs 001–013; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey; **#82** minimized restore; **#86** save on close; **#87** Ctrl+N in an empty folder; **#16 slice 5 merged (PR #89)** — show/hide **A17 single instance merged (PRs #90, #91)** — one process per data root | The tray, always-on-top, #16 slices 6–8. #16 remains OPEN; animation and multi-monitor are later slices |
-| **M3** SideNotes Parity | **NOT STARTED** | — | — | 2 of 264 parity rows done (C1, A17), 5 partial — all as a by-product of M2, not M3 work |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey; **#82** minimized restore; **#86** save on close; **#87** Ctrl+N in an empty folder; **#16 slice 5 merged (PR #89)** — show/hide **A17 single instance merged (PRs #90, #91)** — one process per data root | **#16 slice 6, the drawer** — PR #92, in review | The tray, always-on-top, #16 slices 6–8. #16 remains OPEN; animation and multi-monitor are later slices |
+| **M3** SideNotes Parity | **NOT STARTED** | — | — | 2 of 264 parity rows done on `main` (C1, A17), 5 partial; 8 done and 9 partial with #16 slice 6 — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
 | **M6** Contextual Notes | **NOT STARTED** (3 open) | ADR-005, ADR-006 drafted as **Proposed**, deferred to M6 | — | — |
@@ -203,9 +205,9 @@ are read from it; this document never overrides it.
 
 ```
 264 parity rows total
-  2 marked done         [x]   C1 two-level navigation · A17 second launch focuses
-  5 marked in progress  [~]   B1 B16 C4 C5 C7
-257 not started         [ ]
+  8 marked done         [x]   C1 · A17 · A1 A10 A12 A14 G7 G8 (#16 slice 6; A14 re-scored to slice 3)
+  9 marked in progress  [~]   B1 B16 C4 C5 C7 · A8 A9 A13 G51 (#16 slice 6)
+247 not started         [ ]
 ```
 
 Counted from the specification, not asserted here. A `[~]` row states in its
@@ -377,7 +379,17 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ### NOW
 
-- Nothing in progress. **A17 single instance is merged: PR #90 (platform,
+- **#16 slice 6, the drawer, is PR #92** (ready for review). Topmost while
+  shown; put away by `Ctrl+W`, by Escape (four behaviours, A12) or by losing
+  activation to another application (A13, on by default); a session-only pin.
+  Every hide saves first. Runtime validation found three activation defects,
+  all fixed in the PR: the A13 shell-launch race (now `WM_ACTIVATEAPP` plus an
+  activation generation), a hidden Noto left active, and a refused foreign
+  foreground request summoning Noto (now only an activation that landed is
+  reconciled). Pressing Noto's own taskbar button does nothing, a deviation
+  from the design gate that the owner accepted. See *Outstanding validation —
+  #16 slice 6*.
+- **A17 single instance is merged: PR #90 (platform,
   `6e56213`) and PR #91 (integration).** A second launch hands its request to the
   running Noto over a named pipe and exits; ownership of a data root is a
   named mutex, decided before the database opens (ADR-013). See
@@ -586,23 +598,22 @@ SideNotes UX quality      no macOS access; parity §13 governs. Noto's UI
 
 ## 14. Quality Gates
 
-Verified on `main` @ `6e56213` (PR #90) and PR #91 on top of it:
+Verified on `main` @ `61cd0c7`, and on the #16 slice 6 branch (PR #92):
 
 ```
 Build                0 warnings, 0 errors
-Tests                1338 / 1338 passing (1213 before A17; +118 PR #90,
-                       +7 PR #91: Noto.Windows.Tests 435)
+Tests                1338 / 1338 on main; 1475 / 1475 on PR #92
                        Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
-                       Noto.UseCases.Tests         35   (1 + 33 #16 slice 3 + 1 #85)
-                       Noto.Windows.Tests         310   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5)
+                       Noto.UseCases.Tests         43   (1 + 33 #16 slice 3 + 1 #85 + 8 slice 6)
+                       Noto.Windows.Tests         564   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5 · +125 A17 · +129 slice 6)
                        Noto.Infrastructure.Tests  629   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4 + 1 #85)
 Format               dotnet format --verify-no-changes  exit 0
 Architecture tests   passing — ADR-009 boundary enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
 CodeQL               no alert introduced by a merged PR. Open on main: 5 in
                        source (#193, #194 by design; #107, #127, #159 in
-                       MainWindow, open since 2026-09-21/22) and 113 in
-                       generated obj/ files
+                       MainWindow, open since 2026-09-21/22) and 114 in
+                       generated obj/ files (#223 is A17's generated interop)
 Branch protection    required checks, linear history, conversation resolution
 ```
 
@@ -623,6 +634,58 @@ subclass and the slice 4 hotkey registration and delivery; a headless agent
 filters them out rather than fail. CI still builds and runs unit tests and never
 launches the application, which is why #68 and #16 slices 2–4 required runtime
 campaigns against the real application rather than relying on CI.
+
+### Outstanding validation — #16 slice 6
+
+All runtime evidence comes from one frozen Release build (`ac5ccd2`, `Noto.exe` sha256 `3a9afa79…`), on an
+idle desktop. `tools/validation/Invoke-Drawer.ps1` uses an isolated data root,
+starts Noto and every other window from the shell, sends keys to Noto only
+while it is in front, and brackets every foreground claim with a negative
+control. **85/85 checks (run `drawer-20261007-022230-0a8825`), 0 invalid, negative controls refused 24/24.** Noto's `Noto.Workspace` trace shows each activation
+change and what the coordinator decided.
+
+Passed:
+- topmost while shown: the window style, and `WindowFromPoint` over a
+  maximized window and over borderless full-screen windows (one itself topmost)
+- losing activation hides it: a click on another app, a newly launched
+  application (5 rounds), Alt+Tab, a click on the desktop, a virtual-desktop
+  switch. Unsaved text is saved first; a failed save keeps it shown, with the
+  notice, and focus is not taken back
+- pinned, or with the setting off, losing activation leaves it shown, above
+  the other window; the hotkey still hides a pinned, focused Noto
+- never hidden in the foreground: when an activation lands on a hidden or
+  minimized Noto (Alt+Tab completing to it, a taskbar click), it is shown or
+  restored. A refused foreign foreground request (6 rounds, hidden and
+  minimized) leaves it hidden or minimized, not in front and not focused
+- `Ctrl+W` on each surface hides it, saving first; a failed save keeps it shown
+- Escape: all four behaviours on the editor, note list and folder list (12
+  checks); Escape in the new-folder box cancels the input and never hides
+- not deactivations: Noto's own context menu, an inner-edge drag across
+  another window, a minimize
+- the pin works by keyboard (focus, Space) and is never stored
+- after an automatic hide, the hotkey and a second launch show it again
+- virtual desktops: unpinned, a switch hides it and the hotkey shows it on the
+  new desktop; pinned, it stays on its own desktop and the hotkey switches back
+
+Regression on the same frozen build: `Invoke-ShowHide.ps1` 35/35, `Invoke-SingleInstance.ps1` 61/61, `Invoke-MinimizedActivation.ps1` 36/36, `Invoke-Slice4Foreground.ps1` 36/36, `Invoke-EditorSaveOnClose.ps1` 19/19, each with 0 invalid and every negative control refused. The ShowHide, SingleInstance and
+EditorSaveOnClose harnesses turn hiding on deactivation off in their roots, so
+they keep validating the toggle, launch and close contracts unchanged; the
+default is `Invoke-Drawer.ps1`'s.
+
+Mutation: every mutant of the final source has a disposition, recorded in PR
+#92.
+- **Equivalent, with proof:** one (App's own closing check, which the
+  coordinator's shutdown drop duplicates exactly).
+- **Retired:** two, whose code the A13 fix deleted.
+- **Killed:** every other mutant, by tests, source guards or runtime.
+
+| Item | Status |
+| ---- | ------ |
+| **Noto's own taskbar button** | **Deviation from the design gate, accepted by the owner.** The gate predicted "hidden". Measured: the press does not take activation from Noto, and Windows does not minimize a window that is not minimizable, so nothing happens. No workaround |
+| **Exclusive full-screen** | Out of reach (summoning Noto ends exclusive mode); **not validated** |
+| **Startup** | A deactivation during launch never hides; unit-tested only, because the harness cannot force its timing |
+| **The "landed" rule** | Measured on Windows 11 only: 47 of 47 genuine activations found Noto already in the foreground, 14 of 14 refused requests did not. **Windows 10 not validated** (#32) |
+| **Windows 10, multi-display** | **NOT VALIDATED** (#32; one display connected) |
 
 ### Outstanding validation — A17 single instance
 
@@ -899,8 +962,10 @@ Done: #16 slice 1 platform primitives (#74) → slice 2 basic edge docking (#76)
     ↓
 Done: A17 single instance (#90, #91)
     ↓
-M2 remaining — the rest of the workspace shell: #16
-      slices 6–8 (animation, multi-monitor, hardening), tray. This is
+In review: #16 slice 6, the drawer (#92)
+    ↓
+M2 remaining — the rest of the workspace shell: the tray and run at login,
+      the settings surface, #16 animation, multi-monitor and hardening. This is
       what stands between the surfaces and a build that can be used daily
     ↓
 #14 markdown rendering · #15 export — the remaining M1 issues

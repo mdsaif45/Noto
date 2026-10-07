@@ -350,7 +350,7 @@ namespace NotoVal
                 if (WaitForSingleObject(_data, 100) != 0) continue;
                 int pid = Marshal.ReadInt32(_view);
                 string s = (Marshal.PtrToStringAnsi(_view + 4) ?? "").TrimEnd();
-                if (s.StartsWith("Noto.Instance"))
+                if (s.StartsWith("Noto."))
                 {
                     lock (_lines) _lines.Add(string.Format("{0:HH:mm:ss.fff} pid={1} {2}", DateTime.Now, pid, s));
                     if (_freezeOn != null && pid == _freezePid && s.Contains(_freezeOn)) { Instance.SuspendThreadId(_freezeTid); _freezeOn = null; Frozen.Set(); }

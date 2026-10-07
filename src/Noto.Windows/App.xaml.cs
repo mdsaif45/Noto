@@ -52,6 +52,11 @@ namespace Noto;
 /// launch owns the root; a later one hands its request to the owner and
 /// exits before it opens the database or creates a window.
 /// </para>
+/// <para>
+/// <b>#16 slice 6</b> makes it a drawer: topmost while shown, put away by
+/// <c>Ctrl+W</c>, by Escape at the top level, or by losing activation to
+/// another application — unless pinned for the session.
+/// </para>
 /// </remarks>
 public partial class App : Application
 {
@@ -256,7 +261,9 @@ public partial class App : Application
         // user action could straddle a tick and stamp two rows differently.
         IClock clock = SystemClock.Instance;
 
-        _window = new MainWindow(
+        var preferences = new WorkspacePreferences(settings);
+
+        var main = new MainWindow(
             new ListFoldersQuery(folders),
             new CreateFolderHandler(folders, clock),
             new RenameFolderHandler(folders, clock),
@@ -264,7 +271,23 @@ public partial class App : Application
             new GetNoteQuery(notes),
             new UpdateNoteContentHandler(notes, clock),
             new CreateNoteHandler(notes, clock),
-            new DeleteNoteHandler(notes, clock));
+            new DeleteNoteHandler(notes, clock))
+        {
+            Escape = preferences.Escape,
+        };
+
+        // #16 slice 6: the window's own ways of putting itself away go to the
+        // coordinator, like every other request; the window never hides
+        // itself. Pin changes only the coordinator's session state.
+        main.DismissRequested += (_, _) => OnDismissRequested();
+        main.PinChanged += (_, pinned) =>
+        {
+            if (_coordinator is not null)
+            {
+                _coordinator.Pinned = pinned;
+            }
+        };
+        _window = main;
 
         _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
         _window.Closed += (_, _) =>
@@ -299,12 +322,17 @@ public partial class App : Application
         // describe what is drawn, so they are read once the window is shown.
         // Reading them earlier gave the same result here, but is not relied
         // on. The window may appear at its default position for a moment.
-        var preferences = new WorkspacePreferences(settings);
         DockAtLaunch(_window, preferences);
 
-        if (_docked is not null && _window is MainWindow main)
+        // Topmost is a shown-state invariant (parity A8), independent of
+        // whether docking succeeded: an undocked window is still the
+        // workspace the user summoned.
+        WindowCoordinator.EnsureTopmost(_window);
+
+        if (_docked is not null)
         {
-            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide);
+            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide, preferences.HideOnDeactivation);
+            _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
         }
 
         // Lets a scripted or CI run verify startup without a human closing the
@@ -433,6 +461,82 @@ public partial class App : Application
         }
 
         Trace.WriteLine($"Noto.Instance launch action={action} key={_instanceKey?.PathHash}");
+    }
+
+    /// <summary>
+    /// <c>Ctrl+W</c>, or Escape where its behaviour hides (#16 slice 6):
+    /// a dismissal, through the coordinator, which saves unsaved text first.
+    /// Without a coordinator (docking failed) nothing hides — as the hotkey
+    /// never hides there either.
+    /// </summary>
+    private void OnDismissRequested() =>
+        _ = _coordinator?.OnActivationRequested(WorkspaceRequest.Dismiss, Environment.TickCount);
+
+    /// <summary>
+    /// Activation crossed Noto's process boundary (#16 slice 6; parity A13,
+    /// "close on outside click").
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Activation loss, not a click.</b> Parity's "outside click" is
+    /// implemented as <c>WM_ACTIVATEAPP</c>: activation moving to another
+    /// application — by a click, Alt+Tab, a newly launched window, the Start
+    /// menu or a virtual-desktop switch. Windows never sends it for a move to
+    /// one of Noto's own windows (a context menu, an IME window).
+    /// </para>
+    /// <para>
+    /// <b>Recorded now, decided later</b> (ADR-007 §4, "The activation
+    /// generation"): each change is posted, not carried out inside the
+    /// activation change, and carries the generation it was made in. A later
+    /// change, or Noto bringing itself forward, before it is decided makes it
+    /// stale.
+    /// </para>
+    /// <para>
+    /// <b>Never hidden and in the foreground.</b> An activation that landed —
+    /// Noto already the foreground window at the message, as the event
+    /// observed it then — shows a hidden workspace, as a launch would. One that
+    /// did not land (another process's refused foreground request) changes
+    /// nothing.
+    /// </para>
+    /// </remarks>
+    private void OnAppActivationChanged(AppActivationEventArgs change)
+    {
+        if (_coordinator is null || _window is null)
+        {
+            return;
+        }
+
+        int changedAt = Environment.TickCount;
+
+        if (change.Active)
+        {
+            int returned = _coordinator.OnAppActivated();
+            bool landed = change.Landed;
+
+            _ = _window.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_closing || _coordinator is null)
+                {
+                    return;
+                }
+
+                _ = _coordinator.OnActivationReturned(returned, landed, changedAt);
+            });
+
+            return;
+        }
+
+        int generation = _coordinator.OnAppDeactivated();
+
+        _ = _window.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_closing || _coordinator is null)
+            {
+                return;
+            }
+
+            _ = _coordinator.OnDeactivationRequested(generation, changedAt);
+        });
     }
 
     /// <summary>
