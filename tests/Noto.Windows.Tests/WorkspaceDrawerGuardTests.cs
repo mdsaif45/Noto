@@ -158,11 +158,17 @@ public sealed partial class WorkspaceDrawerGuardTests
     public void Every_launch_starts_unpinned()
     {
         // ADR-007 §4, A9: the pin is session-only. Nothing restores it, so the
-        // toggle must not declare a checked state, nor be checked from code.
+        // toggle must not declare a checked state, and is checked from code
+        // only by SetPinned — the tray's Keep Noto open (#16 slice 7) — which
+        // the launch never calls.
         string toggle = Regex.Match(MainXaml, @"<ToggleButton\s[^>]*x:Name=""PinToggle""[^>]*>").Value;
         Assert.False(string.IsNullOrEmpty(toggle), "The pin toggle was not found.");
         Assert.DoesNotContain("IsChecked", toggle, StringComparison.Ordinal);
-        Assert.DoesNotMatch(@"PinToggle\.IsChecked\s*=(?!=)", Code(Main));
+
+        string setPinned = Body(Main, "SetPinned");
+        Assert.Matches(@"PinToggle\.IsChecked\s*=(?!=)", setPinned);
+        Assert.DoesNotMatch(@"PinToggle\.IsChecked\s*=(?!=)", Code(Main.Replace(setPinned, string.Empty, StringComparison.Ordinal)));
+        Assert.DoesNotContain("SetPinned(", Body(App, "OnLaunched"), StringComparison.Ordinal);
     }
 
     /// <summary>The source without line comments, so a comment cannot satisfy or fail a guard.</summary>
