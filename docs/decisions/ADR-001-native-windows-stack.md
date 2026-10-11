@@ -181,6 +181,7 @@ if the gate fails, and interop is where the genuinely dangerous bugs live.
 
 - Depends on the Windows App SDK, whose bug turnaround is slow
 - No built-in tray icon — requires `H.NotifyIcon.WinUI` or raw `Shell_NotifyIcon`
+  (raw `Shell_NotifyIcon` was chosen: ADR-014)
 - Opacity must go through XAML rather than the Win32 route (verified working)
 - Per-pixel click-through is permanently off the table
 - Some deployment paths require package identity (see ADR-008)

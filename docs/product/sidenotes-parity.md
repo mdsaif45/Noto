@@ -108,11 +108,11 @@ That labelling is preserved here.
 | `[ ]` | A2 | Side changing | Left / right edge; default right | Left / right, switchable; default right | MUST | — | M2 |
 | `[ ]` | A3 | Open Bar | Semi-transparent edge strip; click to reveal. Hide: never / mouse inactive / always | Edge handle with the same three hide modes | MUST | — | `always` must not require another surface |
 | `[ ]` | A4 | Hot Side mode | Hover the screen edge to reveal | Hover activation, independently disableable | MUST | — | Principle 7 |
-| `[ ]` | A5 | Menubar Icon mode | Menu-bar icon toggles visibility | **System tray** icon toggles visibility | ADAPT | — | macOS menu bar → Windows tray |
-| `[ ]` | A6 | Icon context menu | Right-click menu-bar icon → actions | Tray icon right-click context menu | ADAPT | — | |
+| `[~]` | A5 | Menubar Icon mode | Menu-bar icon toggles visibility | **System tray** icon toggles visibility | ADAPT | — | macOS menu bar → Windows tray. **Partial** — #16 slice 7 (ADR-014): selecting the tray icon shows, restores or brings Noto forward, but does not hide it. On Windows 11 a new icon sits in the overflow, and opening the overflow takes activation from Noto before the click arrives (measured), so an in-front Noto is never in front when the click lands: selection is a launch, not a toggle. Hiding from the tray is its menu's Hide |
+| `[x]` | A6 | Icon context menu | Right-click menu-bar icon → actions | Tray icon right-click context menu | ADAPT | — | **Done** — #16 slice 7 (ADR-014): Show, Hide, Keep Noto open, Quit; by right-click, Shift+F10 or the menu key |
 | `[ ]` | A7 | Global show/hide shortcut | `⌃⌥⌘␣`, configurable | Global hotkey, configurable, works when unfocused | MUST | — | See G |
 | `[~]` | A8 | Always on top | Over other apps incl. full-screen; Stage Manager compatible | Topmost over normal and full-screen windows | MUST | — | Stage Manager has no analogue; that half is dropped. **Partial** — #16 slice 6: topmost over normal and borderless full-screen windows (runtime-validated). Exclusive full-screen is out of reach (summoning Noto ends exclusive mode) and not validated |
-| `[~]` | A9 | Pin window open | Configurable shortcut pins the panel visible | Pin panel open, keyboard + tray reachable | MUST | — | **Partial** — #16 slice 6: a header pin toggle, reachable by Tab and Space, session-only. The tray path does not exist yet |
+| `[x]` | A9 | Pin window open | Configurable shortcut pins the panel visible | Pin panel open, keyboard + tray reachable | MUST | — | **Done** — #16 slice 6: a header pin toggle, reachable by Tab and Space, session-only; #16 slice 7: the tray's Keep Noto open, through the same toggle. A configurable chord is G6 |
 | `[x]` | A10 | Close window | `⌘W` hides the panel | `Ctrl+W` hides the panel | MUST | — | **Done** — #16 slice 6: `Ctrl+W` hides the workspace from any surface, saving unsaved text first |
 | `[ ]` | A11 | Hide with modifier+Enter | Optional `⌘↩` binding to hide | Optional `Ctrl+Enter` binding to hide | SHOULD | — | Optional, off by default |
 | `[x]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | **Done** — #16 slice 6: the four behaviours, default leave-folder-or-hide, stored in `workspace.escape`. Choosing one in a settings UI is G51/J26 |
@@ -673,7 +673,7 @@ because it has no Windows equivalent to bind one to.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | H1 | Menu bar item | Menu-bar icon + right-click menu | **System tray** icon + context menu | ADAPT | — | = A5, A6 |
+| `[~]` | H1 | Menu bar item | Menu-bar icon + right-click menu | **System tray** icon + context menu | ADAPT | — | = A5, A6; scored with them: partial while A5 is (#16 slice 7) |
 | `[ ]` | H2 | Share extension | System share sheet; also a web-address share extension | **Copy / save-as / open-with**, no share sheet | ADAPT | — | Windows has no NSSharingService analogue |
 | `[ ]` | H3 | AppleScript API | Full scripting API over folders and notes | **`noto://` URI + CLI (+ PowerShell module)** | ADAPT | — | ADR-010 makes this cheap |
 | `[ ]` | H4 | Apple Shortcuts actions | 12+ automation actions | **CLI is the automation surface**; no GUI-flow integration | ADAPT | — | No Windows equivalent worth targeting |

@@ -138,6 +138,18 @@ public sealed class TrayLifetimeGuardTests
     }
 
     [Fact]
+    public void Landed_means_the_workspace_window_itself_is_in_front()
+    {
+        // The menu's hidden window takes the foreground; for a hidden Noto that
+        // activation must not land (ADR-007 §4, ADR-014). The runtime test of
+        // this observation depends on which window happens to be in front, so
+        // the comparison itself is pinned here.
+        string docked = File.ReadAllText(SourcePath("src", "Noto.Platform.Windows", "DockedWindow.cs"));
+
+        Assert.Contains("self.OnActivateApp(wParam != 0, NativeMethods.GetForegroundWindow() == hwnd);", Code(docked), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_critical_session_end_is_never_refused()
     {
         Assert.Contains("ShouldBlock(args.Critical,", Body(Tray, "OnQueryEndSession"), StringComparison.Ordinal);

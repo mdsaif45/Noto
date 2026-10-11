@@ -380,13 +380,21 @@ try {
         if (Want 8) {
             Close-Flyout
             Hide-Noto; Target-Front
-            $m = Trace-Mark; $null = Open-Menu; Keys-ToNotoMenu 0x1B
+            $m = Trace-Mark
+            $rows = try { Open-Menu } catch { $null }
+            # The menu's window takes the foreground: an activation that must not land on the hidden workspace.
+            Add-Result $run '8  the menu over a hidden Noto opens and leaves it hidden' ([bool]$rows -and (Is-Hidden (Ev))) "rows=$rows $(Show-State (Ev)); trace: $(Trace-Since $m)"
+            if ((Menu-Window) -ne [IntPtr]::Zero -and (FgPid) -eq $noto.Pid) { Keys-ToNotoMenu 0x1B }
             Add-Result $run '8  menu dismissed by Escape while hidden -> still hidden; the icon window is not left in front' ((Is-Hidden (Ev)) -and (Fg) -ne $noto.Tray) "fg pid $(FgPid); trace: $(Trace-Since $m)"
             Never-Hidden-Active '8  after Escape'
             Add-Result $run '8  ... the menu''s activation did not land and was not reconciled' ((Trace-Since $m) -match 'request=Activated action=None[^|]*landed=False' -and (Trace-Since $m) -notmatch 'action=Show') ''
             Close-Flyout
             Target-Front
-            $m = Trace-Mark; $null = Open-Menu -Mouse
+            Hide-Noto; Target-Front
+            $m = Trace-Mark; $rows = try { Open-Menu -Mouse } catch { $null }
+            Add-Result $run '8  the menu over a hidden Noto opens by right click, Noto still hidden' ([bool]$rows -and (Is-Hidden (Ev))) "rows=$rows $(Show-State (Ev))"
+            if (-not $rows) { if ((Menu-Window) -ne [IntPtr]::Zero -and (FgPid) -eq $noto.Pid) { Keys-ToNotoMenu 0x1B } }
+            else {
             $r = New-Object NotoVal.Win32+RECT; [void][NotoVal.Win32]::GetWindowRect($target.Hwnd, [ref]$r)
             $tx = [int](($r.Left + $r.Right) / 2); $ty = [int]($r.Top + 80)
             if ((Root-Class $tx $ty) -notlike 'WindowsForms*') { throw 'the target is not under the click-away point' }
@@ -394,6 +402,7 @@ try {
             [NotoVal.Tray]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Tray]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 1200
             Add-Result $run '8  menu dismissed by a click on another app -> closed, that app in front, Noto still hidden' ((Menu-Window) -eq [IntPtr]::Zero -and (Fg) -eq $target.Hwnd -and (Is-Hidden (Ev))) "fg pid $(FgPid); trace: $(Trace-Since $m)"
             Never-Hidden-Active '8  after click-away'
+            }
         }
 
         if (Want 9) {

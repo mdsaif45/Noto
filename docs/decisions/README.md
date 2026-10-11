@@ -28,6 +28,7 @@ These records are the defense against that.
 | [ADR-011](ADR-011-design-system.md) | A token-based design system, defined before the screens | Accepted |
 | [ADR-012](ADR-012-entity-identifiers.md) | Entity identifiers: ULIDs stored as TEXT | Accepted |
 | [ADR-013](ADR-013-single-instance-and-activation-handoff.md) | Single instance and activation handoff | Accepted |
+| [ADR-014](ADR-014-tray-and-application-lifetime.md) | The notification-area icon and the application's lifetime | Accepted |
 
 ### Why two are Proposed
 
