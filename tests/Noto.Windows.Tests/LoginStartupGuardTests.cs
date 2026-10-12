@@ -41,6 +41,22 @@ public sealed class LoginStartupGuardTests
     }
 
     [Fact]
+    public void An_elevated_login_start_never_owns()
+    {
+        // ADR-007 §8, ADR-013: elevation never owns a data root. No runtime
+        // run here is elevated, so the rule is pinned in the source.
+        Assert.Contains("_ownership = elevated ? null : InstanceOwnership.TryAcquire(_instanceKey);", Body(App, "ClaimForLogin"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_registration_that_cannot_be_read_is_off()
+    {
+        // An access failure cannot be provoked on the current user's own key;
+        // it must never read as on.
+        Assert.Matches(@"catch \(Exception ex\) when \(IsAccessFailure\(ex\)\)\s*\{\s*return LoginStartupState\.Off;", Body(Login, "State"));
+    }
+
+    [Fact]
     public void A_login_start_never_activates_the_window()
     {
         string launch = Code(Body(App, "OnLaunched"));
