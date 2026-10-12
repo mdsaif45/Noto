@@ -146,6 +146,17 @@ Before the first public release:
 
 ---
 
+### Where packaging stands
+
+> **Added 2026-10-12 by run at login (#94, ADR-015).** The decision above is
+> unchanged; this records that it is not built yet.
+
+Noto ships unpackaged today (`WindowsPackageType=None`): there is no sparse
+manifest, installer, updater or certificate, and signing (#5) is unresolved.
+Until the sparse package lands, run at login uses the registry `Run` key this
+ADR names as the substitute (ADR-015). The packaging slice owns moving it to
+`StartupTask` and removing the `Run` value; uninstall must remove it too.
+
 ### Single instance (A17)
 
 The single-instance mechanism (ADR-013) — a named mutex and a named pipe keyed

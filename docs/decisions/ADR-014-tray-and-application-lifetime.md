@@ -130,7 +130,9 @@ repeated across events seconds apart. The receive time is read with
     foreground goes back to where it was.
 - **The choice is returned by the menu loop** (`TPM_RETURNCMD`). `WM_COMMAND` is
   not handled, so another process cannot choose Quit by sending one.
-- **Not in the menu:** settings, run at login, diagnostics, update checks.
+- **Not in the menu:** settings, diagnostics, update checks. Run at login was
+  added later as "Start Noto with Windows" (ADR-015), read from Windows when the
+  menu opens.
 
 ### Closing still quits
 
@@ -236,7 +238,9 @@ is validated.
 - **No elevation concerns.** Noto never owns a data root elevated (ADR-007 §8),
   so no message filter is needed for `TaskbarCreated`.
 
-### Run at login: not decided here
+### Run at login: decided in ADR-015
+
+The paragraphs below record the boundary as it stood when this was written.
 
 Run at login (A16, J4) is the next decision. It depends on this one: Noto
 started at login can run with only the icon, and the icon must tolerate a
