@@ -166,7 +166,11 @@ Noto has five on the parity list.
 - [ ] Each handler unit-tested without UI or platform dependencies
 - [ ] Events raised only after the mutation succeeds, never on failure
 - [ ] An event subscriber that throws does not fail the command
-- [ ] No repository write path exists outside a command handler
+- [x] No repository write path exists outside a command handler, enforced by
+  `ArchitectureEnforcementTests` (#20). It reads the IL of the built
+  application and of every layer: a call to a repository write is allowed
+  only in a `Noto.UseCases` type with a public `Handle` method returning
+  `CommandResult`.
 
 ---
 

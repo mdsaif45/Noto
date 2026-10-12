@@ -616,7 +616,8 @@ Tests                1475 / 1475 on main; 1526 / 1526 on the slice 7 branch
                        Noto.Windows.Tests         615   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5 · +125 A17 · +129 slice 6 · +51 slice 7)
                        Noto.Infrastructure.Tests  629   (530 + 42 settings + 44 #16 slice 3 + 12 slice 4 + 1 #85)
 Format               dotnet format --verify-no-changes  exit 0
-Architecture tests   passing — ADR-009 boundary enforced mechanically
+Architecture tests   passing — ADR-009 boundary and the ADR-010 rule (repository
+                       writes only from command handlers) enforced mechanically
 CI                   Build & test · Analyze C# · CodeQL · Validate docs & governance
 CodeQL               no alert introduced by a merged PR. Open on main: 5 in
                        source (#193, #194 by design; #107, #127, #159 in

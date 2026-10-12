@@ -106,7 +106,8 @@ implementation or a test seam that earns it — nowhere else.
 | `Noto.Core` | Domain model and services. Targets plain `net9.0`, so a Windows dependency is impossible rather than merely discouraged | — |
 | `Noto.Infrastructure` | SQLite, repositories, migrations, FTS5, files, settings, logging | Core |
 | `Noto.Platform.Windows` | All Win32 interop: window management, hotkeys, clipboard, capture, DPI, monitors | Core |
-| `Noto.Windows` | The WinUI 3 application: startup, composition root, XAML, views | UseCases, Infrastructure, Platform.Windows |
+| `Noto.UI` | The design system: tokens, themes and styles as XAML resources (ADR-011) | — |
+| `Noto.Windows` | The WinUI 3 application: startup, composition root, XAML, views | UseCases, Infrastructure, Platform.Windows, UI |
 | `Noto.Core.Tests` | Domain, command and **architecture boundary** tests | Core |
 | `Noto.UseCases.Tests` | Use-case and boundary tests | UseCases |
 | `Noto.Infrastructure.Tests` | Storage, migration, search tests | Infrastructure |
@@ -118,7 +119,12 @@ theorised.
 
 A separate `Noto.Presentation` project is **not** created yet. ADR-009's
 boundary is currently held by `Noto.Core` targeting plain `net9.0` and by the
-architecture tests. Presentation view models arrive with the workspace in M2;
+architecture tests.
+
+The rules that span layers are checked against the built application in
+`Noto.Windows.Tests` (`ArchitectureEnforcementTests`, #20):
+- a repository write is reachable only from a command handler (ADR-010);
+- `Noto.UI` references no other Noto layer. Presentation view models arrive with the workspace in M2;
 creating an empty project for them now would be a directory for appearance.
 
 `Noto.Sync` is **not created yet**. ADR-002 defers sync past v1, and empty
