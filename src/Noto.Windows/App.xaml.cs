@@ -57,6 +57,11 @@ namespace Noto;
 /// <c>Ctrl+W</c>, by Escape at the top level, or by losing activation to
 /// another application — unless pinned for the session.
 /// </para>
+/// <para>
+/// <b>#16 slice 7</b> adds the notification-area icon and the session's end
+/// (ADR-014). The icon is an input surface only: what it asks for goes to the
+/// coordinator or to the one close path, like everything else.
+/// </para>
 /// </remarks>
 public partial class App : Application
 {
@@ -188,6 +193,15 @@ public partial class App : Application
     /// <summary>A close that will go ahead has begun: no activation starts after it.</summary>
     private volatile bool _closing;
 
+    /// <summary>
+    /// The notification-area icon (#16 slice 7), or <see langword="null"/> when
+    /// Windows refused its window. Removed first when the window closes.
+    /// </summary>
+    private TrayIcon? _tray;
+
+    /// <summary>The workspace window, for the session's end to save its unsaved text.</summary>
+    private MainWindow? _main;
+
     public App() => InitializeComponent();
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -288,10 +302,19 @@ public partial class App : Application
             }
         };
         _window = main;
+        _main = main;
 
         _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
+
+        // The one end of the application (ADR-014): Alt+F4, the taskbar's
+        // Close, the tray's Quit and the session ending all arrive here,
+        // through AppWindow.Closing. Raised once, when the window is
+        // destroyed; every disposal below is idempotent besides.
         _window.Closed += (_, _) =>
         {
+            // The icon first: before the mutex is released, so a successor's
+            // icon never appears beside this one.
+            _tray?.Dispose();
             _hotkey?.Dispose();
 
             // The pipe first, then the mutex: a successor waiting on the
@@ -305,9 +328,14 @@ public partial class App : Application
         // to keep unsaved text: only a close that goes ahead stops activation.
         // From here a later launch is told Noto is shutting down, and waits to
         // take over instead of handing its request to a closing window.
+        //
+        // The one shutdown transition (ADR-014), entered once. A second close
+        // request can raise Closing again before the window is gone — measured
+        // under Restart Manager, which sends its own WM_CLOSE after the one the
+        // session's end posts — and must change nothing.
         _window.AppWindow.Closing += (_, e) =>
         {
-            if (!e.Cancel)
+            if (!e.Cancel && !_closing)
             {
                 _closing = true;
                 _activationPipe?.BeginShutdown();
@@ -334,6 +362,11 @@ public partial class App : Application
             _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide, preferences.HideOnDeactivation);
             _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
         }
+
+        // After the coordinator, so every callback finds the wiring final.
+        // Callbacks are dispatched only after OnLaunched returns, so one made
+        // during startup meets the startup rule (it never hides).
+        StartTray();
 
         // Lets a scripted or CI run verify startup without a human closing the
         // window. Not a product feature.
@@ -464,6 +497,197 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// Adds the notification-area icon (#16 slice 7, ADR-014). A refusal is
+    /// recorded, not fatal: Noto runs without the icon, and without session-end
+    /// saving, as before this slice.
+    /// </summary>
+    /// <remarks>
+    /// <c>Trace</c> lines prefixed <c>Noto.Tray</c> and <c>Noto.Session</c>
+    /// name outcomes only, never content, for the runtime harness.
+    /// </remarks>
+    private void StartTray()
+    {
+        try
+        {
+            _tray = TrayIcon.Create("Noto");
+        }
+        catch (Win32Exception ex)
+        {
+            Trace.WriteLine($"Noto.Tray unavailable error={ex.NativeErrorCode}");
+            return;
+        }
+
+        TrayIcon tray = _tray;
+        tray.Invoked += (_, e) => OnTrayInvoked(e.ReceivedAt);
+        tray.MenuRequested += (_, e) => OnTrayMenuRequested(tray, e);
+        tray.SessionEnding += (_, e) => OnSessionEnding(e);
+        tray.SessionEnded += (_, e) => OnSessionEnded(e.Ending);
+        tray.Readded += (_, _) => Trace.WriteLine($"Noto.Tray readded added={tray.IsAdded} error={tray.LastError}");
+        Trace.WriteLine($"Noto.Tray added={tray.IsAdded} error={tray.LastError}");
+    }
+
+    /// <summary>
+    /// The icon was selected — a click, Enter or Space: a launch (ADR-014).
+    /// </summary>
+    /// <remarks>
+    /// Not the toggle. On Windows 11 a new icon sits in the overflow, and
+    /// opening the overflow takes activation from Noto before the click is
+    /// delivered (measured): an in-front Noto is never in front when the click
+    /// arrives, so the toggle's "hide" could not happen. A launch shows,
+    /// restores or brings Noto forward and never hides it; a second select of
+    /// a double click finds it shown and does nothing.
+    /// </remarks>
+    private void OnTrayInvoked(int receivedAt) => ActivateFromTray(receivedAt, "invoked");
+
+    /// <summary>A launch from the icon, through the one coordinator — or, without one, the hotkey's fallback.</summary>
+    private void ActivateFromTray(int requestTime, string source)
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        WorkspaceAction action = WorkspaceAction.Focus;
+
+        if (_coordinator is not null)
+        {
+            action = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, requestTime);
+        }
+        else if (_windowHandle is not null)
+        {
+            _ = WindowActivation.BringToForeground(_windowHandle);
+        }
+
+        Trace.WriteLine($"Noto.Tray {source} action={action}");
+    }
+
+    /// <summary>
+    /// The icon's menu (parity A6). Where the workspace is, is read before the
+    /// menu takes the foreground; what a choice does is decided again when it
+    /// is made.
+    /// </summary>
+    private void OnTrayMenuRequested(TrayIcon tray, TrayMenuRequestedEventArgs request)
+    {
+        if (_closing || _windowHandle is null)
+        {
+            return;
+        }
+
+        TrayMenuState state = TrayMenu.For(WindowActivation.PresenceOf(_windowHandle), _coordinator?.Pinned ?? false, _coordinator is not null);
+
+        tray.ShowMenu(
+            request,
+            [
+                new(TrayCommand.Show, "&Show Noto", state.ShowEnabled),
+                new(TrayCommand.Hide, "&Hide Noto", state.HideEnabled),
+                new(TrayCommand.KeepOpen, "&Keep Noto open", state.KeepOpenEnabled, state.KeepOpenChecked, SeparatorBefore: true),
+                new(TrayCommand.Quit, "&Quit Noto", Enabled: true, SeparatorBefore: true),
+            ],
+            OnTrayCommand);
+    }
+
+    /// <summary>A menu choice, each through the path that already owns it.</summary>
+    private void OnTrayCommand(TrayCommand command)
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        Trace.WriteLine($"Noto.Tray command={command}");
+
+        switch (command)
+        {
+            case TrayCommand.Show:
+                ActivateFromTray(Environment.TickCount, "show");
+                break;
+
+            case TrayCommand.Hide:
+                OnDismissRequested();
+                break;
+
+            case TrayCommand.KeepOpen:
+                // Through the header's toggle, the one pin path: it raises
+                // PinChanged, which sets the coordinator's pin.
+                if (_coordinator is not null)
+                {
+                    _main?.SetPinned(!_coordinator.Pinned);
+                }
+
+                break;
+
+            case TrayCommand.Quit:
+                Quit();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Quit: the close Alt+F4 makes, through <c>AppWindow.Closing</c> — one
+    /// save, a failure cancels, a second close with the same text discards.
+    /// </summary>
+    /// <remarks>
+    /// <c>WM_CLOSE</c> is sent, so Closing — and Closed, if the close went ahead
+    /// — have run when it returns (measured). A close a failed save cancelled
+    /// leaves Noto open: it is then shown as a launch would, so its notice can
+    /// be read even if Noto was minimized. A hidden Noto is never unsaved:
+    /// every hide saves first.
+    /// </remarks>
+    private void Quit()
+    {
+        if (_windowHandle is null)
+        {
+            return;
+        }
+
+        WindowClose.Request(_windowHandle);
+
+        if (!_closing)
+        {
+            ActivateFromTray(Environment.TickCount, "quit-cancelled");
+        }
+    }
+
+    /// <summary>
+    /// Windows asks whether the session may end (ADR-014): unsaved text is
+    /// saved now, synchronously. A failure refuses a non-critical end, with a
+    /// reason Windows shows; nothing is discarded silently.
+    /// </summary>
+    /// <remarks>
+    /// Nothing changes state here: the session's end may still be cancelled.
+    /// </remarks>
+    private void OnSessionEnding(SessionEndingEventArgs e)
+    {
+        bool saved = _main?.SaveBeforeHide() ?? true;
+        Trace.WriteLine($"Noto.Session query critical={e.Critical} saved={saved}");
+
+        if (!saved && _windowHandle is not null)
+        {
+            e.Block(_windowHandle, "Noto could not save a note. Cancel to keep it.");
+        }
+    }
+
+    /// <summary>
+    /// The session ends after all: a last synchronous save — for text typed
+    /// after the query was answered — then the one close path. Shutdown begins
+    /// only in <c>AppWindow.Closing</c>; a later or duplicate close request
+    /// (Restart Manager sends its own) finds the window gone and does nothing.
+    /// </summary>
+    private void OnSessionEnded(bool ending)
+    {
+        Trace.WriteLine($"Noto.Session ended ending={ending}");
+
+        if (!ending || _closing || _windowHandle is null)
+        {
+            return;
+        }
+
+        bool saved = _main?.SaveBeforeHide() ?? true;
+        Trace.WriteLine($"Noto.Session saved={saved}");
+        WindowClose.Post(_windowHandle);
+    }
+
+    /// <summary>
     /// <c>Ctrl+W</c>, or Escape where its behaviour hides (#16 slice 6):
     /// a dismissal, through the coordinator, which saves unsaved text first.
     /// Without a coordinator (docking failed) nothing hides — as the hotkey
@@ -553,8 +777,8 @@ public partial class App : Application
     /// <para>
     /// <b>Chrome.</b> No title bar, no minimise, no maximise. A WinUI 3
     /// caption drag never reaches the window's hit test, so a title bar would
-    /// let the user drag the window off its edge. Closing it is Alt+F4 or the
-    /// taskbar menu until the tray and hide slices arrive.
+    /// let the user drag the window off its edge. Closing it is Alt+F4, the
+    /// taskbar menu or the tray's Quit (#16 slice 7).
     /// </para>
     /// <para>
     /// The geometry and the resize behaviour are the platform's; the width

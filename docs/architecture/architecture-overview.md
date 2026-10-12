@@ -1,7 +1,7 @@
 # Architecture Overview
 
 **Status:** Draft
-**Last updated:** 2026-10-05 (implementation status; single instance, ADR-013)
+**Last updated:** 2026-10-12 (implementation status; the tray and the application's lifetime, ADR-014)
 **Decisions:** [ADR-001](../decisions/ADR-001-native-windows-stack.md),
 [ADR-003](../decisions/ADR-003-sqlite-data-access.md),
 [ADR-005](../decisions/ADR-005-context-engine.md)
@@ -23,7 +23,7 @@
 | Command dispatch and events, e.g. `NoteCreated` (*Commands and events*, *Data flow*) | **Partly built.** The 23 command handlers and 7 queries exist and are called directly by the UI. There is no dispatcher, registry or event aggregator (#21) |
 | `NoteService`; a repository using Dapper (*Data flow*) | **Not as described.** Handlers carry the rules; repositories use hand-written SQL on `Microsoft.Data.Sqlite`. Dapper was removed |
 | Database and file I/O on the thread pool (*Threading*) | **Not built.** All database work is synchronous on the UI thread |
-| Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. There is no tray |
+| Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. The tray icon is added after the window and its coordinator exist, not in phase 1 (#16 slice 7, ADR-014) |
 | Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Not built** (#10, #7). The failure model and `StorageException` exist; there is no unhandled-exception handler, no logging, and a database that fails to initialise is not caught |
 | FTS5, attachment files, logging in Infrastructure (*Projects*) | **Not built** (#17, attachments, #7) |
 

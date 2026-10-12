@@ -398,9 +398,10 @@ save as leaving the editor. It is not autosave (parity B19 stays M3's). If the
 save fails, the window is not hidden: the text stays and the editor's notice
 says why. Hiding is not leaving, so the editor stays open.
 
-**Close** is unchanged by this slice: until a tray exists, closing quits.
-Unsaved text gets one save; a failure cancels the close, and a second close
-with the same text discards it (#86).
+**Close** is unchanged by this slice: closing quits. Unsaved text gets one
+save; a failure cancels the close, and a second close with the same text
+discards it (#86). The tray (#16 slice 7) kept this: Alt+F4 and the taskbar's
+Close still quit, and the tray's Quit is the same close — see ADR-014.
 
 **Requests are serialized and never queued.** They arrive one at a time on the
 UI thread from the hotkey's message, and are carried out synchronously. Dropped:
@@ -586,6 +587,14 @@ case above). Pinned — or with the setting off — Noto stays shown on its own
 desktop, and the hotkey from another desktop makes Windows switch back (the
 shown case above). Both measured. The §4 contract itself is unchanged; Noto
 still uses no `IVirtualDesktopManager` method (§7).
+
+**The tray** (#16 slice 7, ADR-014) adds entry points, not rules. Selecting the
+icon is a `Launch` — not the toggle: on Windows 11, opening the overflow takes
+activation from Noto before the click arrives, so an in-front Noto is never in
+front by then (measured). Its menu's Show is a `Launch`, Hide a `Dismiss`, and
+Keep Noto open is the header's pin path. The menu's own window takes the
+foreground; for a hidden Noto that activation does not land, so nothing is
+shown.
 
 **Measured, not predicted: Noto's own taskbar button.** Pressing it while
 Noto is in front does not take activation from Noto, and Windows does not

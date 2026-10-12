@@ -320,6 +320,107 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     internal static partial int MessageBox(nint hWnd, string lpText, string lpCaption, uint uType);
 
+    // The notification-area icon, its menu and session end (#16 slice 7, ADR-014).
+    // Every import sets SetLastError, which also keeps the generator from
+    // emitting a direct extern (see GetForegroundWindow).
+
+    internal const uint WM_NULL = 0x0000;
+    internal const uint WM_CLOSE = 0x0010;
+    internal const uint WM_QUERYENDSESSION = 0x0011;
+    internal const uint WM_ENDSESSION = 0x0016;
+    internal const uint WM_CONTEXTMENU = 0x007B;
+    internal const uint WM_APP = 0x8000;
+    internal const uint ENDSESSION_CRITICAL = 0x40000000;
+
+    internal const uint WS_POPUP = 0x80000000;
+    internal const uint WS_EX_TOOLWINDOW = 0x00000080;
+
+    internal const uint NIM_ADD = 0;
+    internal const uint NIM_DELETE = 2;
+    internal const uint NIM_SETVERSION = 4;
+    internal const uint NIF_MESSAGE = 0x01;
+    internal const uint NIF_ICON = 0x02;
+    internal const uint NIF_TIP = 0x04;
+    internal const uint NIF_SHOWTIP = 0x80;
+    internal const uint NOTIFYICON_VERSION_4 = 4;
+    internal const uint NIN_SELECT = 0x0400;
+    internal const uint NIN_KEYSELECT = 0x0401;
+
+    internal const uint MF_STRING = 0x0000;
+    internal const uint MF_GRAYED = 0x0001;
+    internal const uint MF_CHECKED = 0x0008;
+    internal const uint MF_SEPARATOR = 0x0800;
+    internal const uint TPM_RIGHTBUTTON = 0x0002;
+    internal const uint TPM_NONOTIFY = 0x0080;
+    internal const uint TPM_RETURNCMD = 0x0100;
+
+    /// <summary>The system's generic application icon: shared, never destroyed.</summary>
+    internal const nint IDI_APPLICATION = 32512;
+
+    /// <summary><c>NOTIFYICONDATAW</c>, the Vista-and-later layout, with fixed buffers so it stays blittable.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NOTIFYICONDATAW
+    {
+        public uint cbSize;
+        public nint hWnd;
+        public uint uID;
+        public uint uFlags;
+        public uint uCallbackMessage;
+        public nint hIcon;
+        public fixed char szTip[128];
+        public uint dwState;
+        public uint dwStateMask;
+        public fixed char szInfo[256];
+        public uint uTimeoutOrVersion;
+        public fixed char szInfoTitle[64];
+        public uint dwInfoFlags;
+        public Guid guidItem;
+        public nint hBalloonIcon;
+    }
+
+    [LibraryImport("shell32.dll", EntryPoint = "Shell_NotifyIconW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool Shell_NotifyIcon(uint dwMessage, NOTIFYICONDATAW* lpData);
+
+    [LibraryImport("user32.dll", EntryPoint = "RegisterWindowMessageW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial uint RegisterWindowMessage(string lpString);
+
+    [LibraryImport("user32.dll", EntryPoint = "LoadIconW", SetLastError = true)]
+    internal static partial nint LoadIcon(nint hInstance, nint lpIconName);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nint CreatePopupMenu();
+
+    [LibraryImport("user32.dll", EntryPoint = "AppendMenuW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool AppendMenu(nint hMenu, uint uFlags, nuint uIDNewItem, string? lpNewItem);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial int TrackPopupMenuEx(nint hMenu, uint uFlags, int x, int y, nint hwnd, nint lptpm);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool DestroyMenu(nint hMenu);
+
+    [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool PostMessage(nint hWnd, uint Msg, nint wParam, nint lParam);
+
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW", SetLastError = true)]
+    internal static partial nint SendMessage(nint hWnd, uint Msg, nint wParam, nint lParam);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool IsWindow(nint hWnd);
+
+    [LibraryImport("user32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ShutdownBlockReasonCreate(nint hWnd, string pwszReason);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ShutdownBlockReasonDestroy(nint hWnd);
+
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 

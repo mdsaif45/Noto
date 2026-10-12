@@ -1123,8 +1123,9 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Saves an unsaved note before the window closes — Alt+F4 or the
-    /// taskbar's Close, the only ways to close it.
+    /// Saves an unsaved note before the window closes — Alt+F4, the taskbar's
+    /// Close, the tray's Quit, or the session ending (ADR-014): every close
+    /// arrives here.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1143,8 +1144,10 @@ public sealed partial class MainWindow : Window
     /// single attempt.
     /// </para>
     /// <para>
-    /// Not covered: the session ending, the process being killed, or a crash.
-    /// None of those raises this event (#10).
+    /// The session ending is handled before this (ADR-014): Windows' query
+    /// saves through <see cref="SaveBeforeHide"/>, and the close that follows
+    /// finds the editor clean. Not covered: the process being killed, or a
+    /// crash. Neither raises this event (#10).
     /// </para>
     /// </remarks>
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
@@ -1251,6 +1254,14 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnPinToggled(object sender, RoutedEventArgs e) =>
         PinChanged?.Invoke(this, PinToggle.IsChecked == true);
+
+    /// <summary>
+    /// Sets the pin from outside the header — the tray's Keep Noto open (#16
+    /// slice 7). Through the toggle itself, so the change takes the one pin
+    /// path (<see cref="PinChanged"/>) and the header always shows it. Never
+    /// called at launch: every launch starts unpinned.
+    /// </summary>
+    internal void SetPinned(bool pinned) => PinToggle.IsChecked = pinned;
 
     /// <summary>
     /// Creates a note in the open folder and opens it (parity B1).

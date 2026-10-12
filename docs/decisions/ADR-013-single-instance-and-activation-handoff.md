@@ -195,7 +195,10 @@ allow-list and never executed as text.
   - the pipe answers `ShuttingDown`;
   - the coordinator drops every request.
 - **When the window closes:** the pipe is closed first, then the mutex is
-  released, so a successor can create the pipe.
+  released, so a successor can create the pipe. Since #16 slice 7 the tray icon
+  is removed before both, so a successor's icon never appears beside this one,
+  and the tray's Quit and the session's end reach shutdown through the same
+  close (ADR-014).
 - **Residual race:** a request accepted a moment before the close goes ahead is
   dropped. The second launch exits 0 and no Noto remains. This needs a launch
   and a close within milliseconds of each other. It is documented, not
