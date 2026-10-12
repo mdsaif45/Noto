@@ -28,18 +28,26 @@ foreach ($impl in 'Test-NewProcess', 'IsNew') {
 }
 Check 'Test-NewProcess : a seen pid whose start time is unknown is not taken as new' (-not (Test-NewProcess $seen 4242 $null $since))
 
-# WaitNew against a real process: found once as new, then never again as new by a later wait.
+# WaitNew against a real process, in the order a harness uses it: the launch reference is taken, the process is
+# launched and starts, and only then does the wait begin. Its pid is put in Seen to stand for a pid Windows reused.
 $name = 'noto-identity-' + [guid]::NewGuid().ToString('N').Substring(0, 6)
 $copy = Join-Path ([IO.Path]::GetTempPath()) "$name.exe"
 Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') $copy
 try {
-    $live = [System.Collections.Generic.HashSet[int]]::new()
+    $launch = Get-Date
     $p = Start-Process -FilePath $copy -ArgumentList '-n', '30', '127.0.0.1' -WindowStyle Hidden -PassThru
-    $first = [NotoVal.Instance]::WaitNew($name, $live, 1, 10000)
-    Check 'WaitNew : the process started during the wait is found, once' ($first.Count -eq 1 -and $first[0].Id -eq $p.Id)
-    $again = [NotoVal.Instance]::WaitNew($name, $live, 1, 500)
-    Check 'WaitNew : the same process (seen pid, started before this wait) is not found again' ($again.Count -eq 0)
-    $first + $again | ForEach-Object { $_.Dispose() }
+    if (-not (Get-Process -Id $p.Id -ErrorAction SilentlyContinue)) { throw 'the test process did not start' }
+    $reused = [System.Collections.Generic.HashSet[int]]::new(); [void]$reused.Add($p.Id)
+    $atWait = Get-Date
+    $found = [NotoVal.Instance]::WaitNew($name, $reused, 1, 5000, $launch)
+    Check 'WaitNew : a reused pid that started after the launch began, before the wait, is found (launch reference)' ($found.Count -eq 1 -and $found[0].Id -eq $p.Id)
+    $missed = [NotoVal.Instance]::WaitNew($name, [System.Collections.Generic.HashSet[int]]::new([int[]]@($p.Id)), 1, 500, $atWait)
+    Check 'WaitNew : with the wait as the reference (the old order) the same process is missed - why the launch is the reference' ($missed.Count -eq 0)
+    $again = [NotoVal.Instance]::WaitNew($name, $reused, 1, 500, (Get-Date))
+    Check 'WaitNew : a process this run has already found (seen pid, started before this launch) is not found again' ($again.Count -eq 0)
+    $twice = [NotoVal.Instance]::WaitNew($name, [System.Collections.Generic.HashSet[int]]::new(), 2, 500, $launch)
+    Check 'WaitNew : one process is never returned twice by one wait' ($twice.Count -eq 1)
+    $found + $missed + $again + $twice | ForEach-Object { $_.Dispose() }
 }
 finally {
     Get-Process -Name $name -ErrorAction SilentlyContinue | Stop-Process -Force

@@ -468,8 +468,9 @@ try {
         Add-Result $run '12 a click on the desktop (the shell) -> hidden' (-not $e.WsVisible) (Show-State $e)
         Never-Hidden-Active '12 after the desktop click'
         $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+        $since = Get-Date
         $view.Application.ShellExecute($NotoExe, "--data-root=`"$data`"", $run.Root, 'open', 1)
-        $second = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 1, 30000)
+        $second = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 1, 30000, $since)
         foreach ($p in $second) { Add-Started $run $p.Id $p.StartTime.ToUniversalTime().Ticks }
         $exited = if ($second.Count) { $second[0].WaitForExit(15000) } else { $false }
         $e = Wait-Presence $noto { param($e) $e.WsVisible -and $e.IsForeground }

@@ -208,11 +208,14 @@ namespace NotoVal
             return !seen.Contains(pid) || start >= since;
         }
 
-        /// <summary>Waits for <paramref name="count"/> new processes by that name, opening each one's handle at once.</summary>
-        public static Process[] WaitNew(string name, HashSet<int> seen, int count, int timeoutMs)
+        /// <summary>
+        /// Waits for <paramref name="count"/> new processes by that name, opening each one's handle at once.
+        /// <paramref name="since"/> is the moment the caller's launch began, taken before its first ShellExecute: a
+        /// launched process can start before the wait does, so the start of the wait cannot be the reference.
+        /// </summary>
+        public static Process[] WaitNew(string name, HashSet<int> seen, int count, int timeoutMs, DateTime since)
         {
             var found = new List<Process>();
-            var since = DateTime.Now;
             var clock = Stopwatch.StartNew();
             while (found.Count < count && clock.ElapsedMilliseconds < timeoutMs)
             {
