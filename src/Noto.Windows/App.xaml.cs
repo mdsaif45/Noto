@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Core.Activation;
 using Noto.Core.Settings;
+using Noto.Infrastructure.Diagnostics;
 using Noto.Infrastructure.Storage;
 using Noto.Platform.Windows;
 using Noto.UseCases.Folders;
@@ -227,6 +228,14 @@ public partial class App : Application
         // machine fails with "unable to open database file" without this.
         paths.EnsureCreated();
 
+        // #7: the log exists before the database and settings, so their
+        // failures reach it. It writes only typed events (IStorageLog) at
+        // Information until settings are read; creating it does no I/O, so a
+        // second launch that hands off below costs nothing here. The Trace
+        // lines elsewhere are a separate channel: the runtime validation
+        // harness reads them.
+        var log = new RollingFileLog(paths.LogsDirectory);
+
         // A17 (ADR-013): decide who owns this data root before anything opens
         // it. A second launch hands its request to the owner and exits here —
         // no database, no window.
@@ -239,7 +248,7 @@ public partial class App : Application
         // startup is taken now and acted on once the window exists.
         StartActivationPipe();
 
-        var database = new NotoDatabase(paths.DatabaseFile);
+        var database = new NotoDatabase(paths.DatabaseFile, log);
 
         // Creates the file on first run and applies any pending migration.
         database.Initialize();
@@ -263,8 +272,17 @@ public partial class App : Application
         //
         // Not passed to MainWindow: none of its surfaces reads a setting. The
         // dock below reads the edge and width through WorkspacePreferences.
-        var settings = new SqliteSettingsStore(database);
+        var settings = new SqliteSettingsStore(database, log);
         settings.Load();
+
+        log.Level = settings.Read(SettingKeys.DiagnosticsLogLevel);
+        settings.SettingChanged += (_, e) =>
+        {
+            if (e.Key == SettingKeys.DiagnosticsLogLevel)
+            {
+                log.Level = settings.Read(SettingKeys.DiagnosticsLogLevel);
+            }
+        };
 
         // Phase 1 (architecture-overview.md §startup): the hotkey is
         // registered before any window exists, on its own message-only

@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Noto.Core.Diagnostics;
 using Noto.Core.Storage;
 
 namespace Noto.Infrastructure.Storage;
@@ -160,7 +161,8 @@ public sealed class NotoDatabase
         if (willTransformUserData)
         {
             string copy = MigrationSafetyCopy.Create(connection, DatabasePath, current);
-            _log.SafetyCopyCreated(current, copy);
+            // The data root is the database's folder; the copy sits beside it.
+            _log.SafetyCopyCreated(current, DataRootPath.Of(Path.GetDirectoryName(DatabasePath) ?? string.Empty, copy));
         }
 
         var runner = new MigrationRunner(_log);
