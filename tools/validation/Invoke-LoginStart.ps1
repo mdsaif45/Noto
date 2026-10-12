@@ -320,11 +320,14 @@ try {
                 Target-Front; $script:noto = Start-Login
                 Target-Front; $null = Open-Menu; Keys-ToNotoMenu 0x57   # W: Start Noto with Windows
                 Close-Flyout
+                # Read only once Noto says it has written: the choice can run after the keystroke's wait has ended.
+                $null = Wait-Trace $noto.Pid 'Noto\.Login before=Off after=On' 10
                 $value = (Registry-Snapshot $RunPath)['Noto']
                 Target-Front; $row = Open-Menu; Keys-ToNotoMenu 0x1B; Close-Flyout
                 Add-Result $run '9  choosing it registers exactly "<this exe>" --login; the row reads checked' ($value -eq "String|$expectedCommand" -and $row -eq 'EC|Start Noto with Windows') "value=$value row=$row; trace: $(Trace-Of $noto.Pid)"
                 Target-Front; $null = Open-Menu; Keys-ToNotoMenu 0x57
                 Close-Flyout
+                $null = Wait-Trace $noto.Pid 'Noto\.Login before=On after=Off' 10
                 $runMid = Registry-Snapshot $RunPath
                 Add-Result $run '9  choosing it again removes it' (-not $runMid.Contains('Noto') -and (Trace-Of $noto.Pid) -match 'Noto\.Login before=On after=Off') "trace: $(Trace-Of $noto.Pid)"
                 Add-Result $run '9  Windows'' Startup apps setting byte-identical throughout (never written)' (Same $approvedBefore (Registry-Snapshot $ApprovedPath)) ''
