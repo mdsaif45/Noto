@@ -556,6 +556,15 @@ public partial class App : Application
 
         _windowHandle = WindowHandle.FromHwnd(WindowNative.GetWindowHandle(_window));
 
+        // #95: the window's icon — its taskbar button and Alt+Tab — is Noto's
+        // own, the same file the executable embeds and the tray loads.
+        string icon = Path.Combine(AppContext.BaseDirectory, "Assets", "Noto.ico");
+
+        if (File.Exists(icon))
+        {
+            _window.AppWindow.SetIcon(icon);
+        }
+
         // The one end of the application (ADR-014): Alt+F4, the taskbar's
         // Close, the tray's Quit and the session ending all arrive here,
         // through AppWindow.Closing. Raised once, when the window is
@@ -814,7 +823,7 @@ public partial class App : Application
         tray.SessionEnding += (_, e) => OnSessionEnding(e);
         tray.SessionEnded += (_, e) => OnSessionEnded(e.Ending);
         tray.Readded += (_, _) => Trace.WriteLine($"Noto.Tray readded added={tray.IsAdded} error={tray.LastError}");
-        Trace.WriteLine($"Noto.Tray added={tray.IsAdded} error={tray.LastError}");
+        Trace.WriteLine($"Noto.Tray added={tray.IsAdded} error={tray.LastError} icon={(tray.HasOwnIcon ? "own" : "system")}");
     }
 
     /// <summary>
