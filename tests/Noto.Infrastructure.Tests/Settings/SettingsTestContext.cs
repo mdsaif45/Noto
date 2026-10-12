@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Noto.Core.Diagnostics;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Infrastructure.Storage;
@@ -124,11 +125,11 @@ public sealed class RecordingStorageLog : IStorageLog
 {
     public List<(string Key, SettingFallbackReason Reason, string ExpectedType)> Fallbacks { get; } = [];
 
-    public List<Exception> Unreadable { get; } = [];
+    public List<ExceptionSummary> Unreadable { get; } = [];
 
-    public List<(string Key, Exception Exception)> SubscriberFailures { get; } = [];
+    public List<(string Key, ExceptionSummary Failure)> SubscriberFailures { get; } = [];
 
-    public void SafetyCopyCreated(int fromVersion, string path)
+    public void SafetyCopyCreated(int fromVersion, DataRootPath copy)
     {
     }
 
@@ -144,17 +145,17 @@ public sealed class RecordingStorageLog : IStorageLog
     {
     }
 
-    public void MigrationFailed(int version, Exception exception)
+    public void MigrationFailed(int version, ExceptionSummary failure)
     {
     }
 
-    public void SettingFellBackToDefault(string key, SettingFallbackReason reason, string expectedType) =>
-        Fallbacks.Add((key, reason, expectedType));
+    public void SettingFellBackToDefault(SettingKey key, SettingFallbackReason reason) =>
+        Fallbacks.Add((key.Name, reason, key.Kind.ToString()));
 
-    public void SettingsUnreadable(Exception exception) => Unreadable.Add(exception);
+    public void SettingsUnreadable(ExceptionSummary failure) => Unreadable.Add(failure);
 
-    public void SettingSubscriberFailed(string key, Exception exception) =>
-        SubscriberFailures.Add((key, exception));
+    public void SettingSubscriberFailed(SettingKey key, ExceptionSummary failure) =>
+        SubscriberFailures.Add((key.Name, failure));
 }
 
 /// <summary>Keys used only by the tests, to exercise types #9 registers none of.</summary>

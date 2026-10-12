@@ -1,3 +1,6 @@
+using Noto.Core.Diagnostics;
+using Noto.Core.Settings;
+
 namespace Noto.Core.Storage;
 
 /// <summary>
@@ -6,17 +9,22 @@ namespace Noto.Core.Storage;
 /// <remarks>
 /// A narrow interface rather than a general logger: it names the events worth
 /// recording, which makes it obvious that <b>note content is never among
-/// them</b> (principle 10). The full logging infrastructure arrives with #7;
-/// this is the seam it will plug into.
+/// them</b> (principle 10).
+/// <para>
+/// The parameters make the rule hold by type, not by care (#7): a location is a
+/// <see cref="DataRootPath"/>, which has no absolute form; a failure is an
+/// <see cref="ExceptionSummary"/>, which has no message or stack trace; a
+/// setting is its <see cref="SettingKey"/>, never its value. No parameter takes
+/// free text a caller could fill with content.
+/// </para>
 /// </remarks>
 public interface IStorageLog
 {
     /// <summary>
-    /// A pre-migration safety copy was written. The path is infrastructure, not
-    /// user content, so recording it is safe — and it is what a user needs if a
-    /// migration goes wrong.
+    /// A pre-migration safety copy was written: where it is, relative to the
+    /// data root, is what a user needs if a migration goes wrong.
     /// </summary>
-    void SafetyCopyCreated(int fromVersion, string path);
+    void SafetyCopyCreated(int fromVersion, DataRootPath copy);
 
     void MigrationStarting(int fromVersion, int toVersion, int pendingCount);
 
@@ -25,10 +33,9 @@ public interface IStorageLog
     void MigrationCompleted(int version);
 
     /// <summary>
-    /// A migration failed and was rolled back. The exception is a SQLite error
-    /// about schema, never about content.
+    /// A migration failed and was rolled back.
     /// </summary>
-    void MigrationFailed(int version, Exception exception);
+    void MigrationFailed(int version, ExceptionSummary failure);
 
     /// <summary>
     /// A stored setting could not be used and its default was substituted.
@@ -47,7 +54,7 @@ public interface IStorageLog
     /// every clean install.
     /// </para>
     /// </remarks>
-    void SettingFellBackToDefault(string key, SettingFallbackReason reason, string expectedType);
+    void SettingFellBackToDefault(SettingKey key, SettingFallbackReason reason);
 
     /// <summary>
     /// Settings could not be read at all, so every setting is at its default
@@ -59,7 +66,7 @@ public interface IStorageLog
     /// "settings cannot prevent the application from starting" requires and
     /// also exactly what a user would report as "it forgot my settings".
     /// </remarks>
-    void SettingsUnreadable(Exception exception);
+    void SettingsUnreadable(ExceptionSummary failure);
 
     /// <summary>
     /// A settings subscriber threw while being told a value changed.
@@ -71,7 +78,7 @@ public interface IStorageLog
     /// instead, because a subscriber failing silently is how a view stops
     /// reacting to a setting and nobody finds out.
     /// </remarks>
-    void SettingSubscriberFailed(string key, Exception exception);
+    void SettingSubscriberFailed(SettingKey key, ExceptionSummary failure);
 }
 
 /// <summary>
@@ -94,7 +101,7 @@ public enum SettingFallbackReason
     Invalid,
 }
 
-/// <summary>Discards everything. The default until #7 lands.</summary>
+/// <summary>Discards everything: for components and tests that are given no log.</summary>
 public sealed class NullStorageLog : IStorageLog
 {
     public static NullStorageLog Instance { get; } = new();
@@ -103,7 +110,7 @@ public sealed class NullStorageLog : IStorageLog
     {
     }
 
-    public void SafetyCopyCreated(int fromVersion, string path)
+    public void SafetyCopyCreated(int fromVersion, DataRootPath copy)
     {
     }
 
@@ -119,19 +126,19 @@ public sealed class NullStorageLog : IStorageLog
     {
     }
 
-    public void MigrationFailed(int version, Exception exception)
+    public void MigrationFailed(int version, ExceptionSummary failure)
     {
     }
 
-    public void SettingFellBackToDefault(string key, SettingFallbackReason reason, string expectedType)
+    public void SettingFellBackToDefault(SettingKey key, SettingFallbackReason reason)
     {
     }
 
-    public void SettingsUnreadable(Exception exception)
+    public void SettingsUnreadable(ExceptionSummary failure)
     {
     }
 
-    public void SettingSubscriberFailed(string key, Exception exception)
+    public void SettingSubscriberFailed(SettingKey key, ExceptionSummary failure)
     {
     }
 }

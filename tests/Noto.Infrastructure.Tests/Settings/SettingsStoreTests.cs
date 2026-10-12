@@ -1,4 +1,5 @@
 using System.Globalization;
+using Noto.Core.Diagnostics;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -398,9 +399,9 @@ public sealed class SettingsStoreTests : IDisposable
 
         Assert.True(store.Write(TestSettingKeys.Count, 42));
 
-        (string key, Exception ex) = Assert.Single(_context.Log.SubscriberFailures);
+        (string key, ExceptionSummary failure) = Assert.Single(_context.Log.SubscriberFailures);
         Assert.Equal("test.count", key);
-        Assert.IsType<InvalidOperationException>(ex);
+        Assert.Equal(typeof(InvalidOperationException).FullName, Assert.Single(failure.Types));
     }
 
     [Fact]
@@ -478,7 +479,7 @@ public sealed class SettingsStoreTests : IDisposable
         var store = new SqliteSettingsStore(_context.Database, _context.Log);
         store.Load(TestSettingKeys.AllIncludingProduction);
 
-        Assert.IsType<StorageException>(Assert.Single(_context.Log.Unreadable));
+        Assert.Equal(typeof(StorageException).FullName, Assert.Single(_context.Log.Unreadable).Types[0]);
     }
 
     [Fact]
@@ -605,12 +606,12 @@ public sealed class SettingsStoreTests : IDisposable
     {
         // Guards the scope boundary: #9's two hotkey keys, #16 slice 3's edge
         // and global width, and slice 6's Escape behaviour and hiding on
-        // deactivation, and Slice 1's single-click opening and theme (the
-        // only two keys its approved design adds). Hover and tray toggles
-        // belong to later #16 slices and must not appear here by accident.
-        // The per-display width is a family (SettingKeys.Families), not a key.
+        // deactivation, Slice 1's single-click opening and theme, and #7's log
+        // level. Hover and tray toggles belong to later #16 slices and must not
+        // appear here by accident. The per-display width is a family
+        // (SettingKeys.Families), not a key.
         Assert.Equal(
-            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme"],
+            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme", "diagnostics.log-level"],
             SettingKeys.All.Select(k => k.Name));
     }
 }

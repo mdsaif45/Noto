@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
+using Noto.Core.Diagnostics;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 
@@ -101,7 +102,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
             // Defaults for this session. Deliberately not rethrown, and
             // deliberately not written back: see WriteBack note below.
             _cache.Clear();
-            _log.SettingsUnreadable(ex);
+            _log.SettingsUnreadable(ExceptionSummary.From(ex));
             return;
         }
 
@@ -291,7 +292,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
                 // instead — a subscriber that quietly stops reacting to a
                 // setting is invisible until someone reports the UI "not
                 // updating", and #7 gives this somewhere to go.
-                _log.SettingSubscriberFailed(key.Name, ex);
+                _log.SettingSubscriberFailed(key, ExceptionSummary.From(ex));
             }
         }
     }
@@ -305,13 +306,13 @@ public sealed class SqliteSettingsStore : ISettingsStore
 
         if (!TryParse(key, stored, out object? parsed))
         {
-            _log.SettingFellBackToDefault(key.Name, SettingFallbackReason.Corrupt, key.Kind.ToString());
+            _log.SettingFellBackToDefault(key, SettingFallbackReason.Corrupt);
             return false;
         }
 
         if (!key.IsValidValue(parsed))
         {
-            _log.SettingFellBackToDefault(key.Name, SettingFallbackReason.Invalid, key.Kind.ToString());
+            _log.SettingFellBackToDefault(key, SettingFallbackReason.Invalid);
             return false;
         }
 
