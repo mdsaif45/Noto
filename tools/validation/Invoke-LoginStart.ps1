@@ -22,9 +22,14 @@
     9  (-RealRegistry, the one approved round trip) choose the row: Run\Noto becomes exactly "<this exe>" --login and
        the row reads checked; choose again: removed. The prior Run and StartupApproved state is snapshotted first and
        restored in finally; StartupApproved must be byte-identical throughout (Noto never writes it).
+    0  (-RealRegistry, first) the registry this harness reads and writes is the user's real hive: a scratch value it
+       writes must be seen by a process the shell starts, and gone after. A packaged host (an MSIX app such as a
+       terminal or an agent) virtualizes HKCU writes for the processes it starts: there, a "restore" would only touch
+       a private copy and a value Noto writes can stay invisible. That run is INVALID before anything else happens.
 
 .EXAMPLE
-  pwsh -NoProfile -File tools/validation/Invoke-LoginStart.ps1 -NotoExe <path>\Noto.exe [-RealRegistry]
+  pwsh -NoProfile -File tools/validation/Invoke-LoginStart.ps1 -NotoExe <path>\Noto.exe
+  pwsh -NoProfile -File tools/validation/Invoke-InShell.ps1 -NotoExe <path>\Noto.exe Invoke-LoginStart -RealRegistry
 #>
 param([Parameter(Mandatory)] [string] $NotoExe, [switch] $RealRegistry)
 $ErrorActionPreference = 'Stop'
@@ -227,12 +232,33 @@ function Registry-Snapshot([string] $Path) {
     } finally { $k.Dispose() }
 }
 function Same($A, $B) { ($A | ConvertTo-Json -Compress) -eq ($B | ConvertTo-Json -Compress) }
+function Real-View([string] $Path, [string] $Name) {
+    # The key as a process the shell started sees it: the user's real hive.
+    Start-ShortLived $run -Script 'registry-probe.ps1' -Out (Join-Path $run.Root "registry-$Name.txt") -Arguments "-Key `"$Path`""
+}
+function Assert-RealHive {
+    <# 0: a scratch value this harness writes must reach the real hive, or nothing here can be trusted to restore it. #>
+    $path = "Software\Noto.Validation.RealHive-$($run.Id)"; $token = [guid]::NewGuid().ToString('N')
+    $parent = (Get-Process -Id $PID).Parent
+    try {
+        $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($path, $true)
+        try { $k.SetValue('probe', $token, [Microsoft.Win32.RegistryValueKind]::String) } finally { $k.Dispose() }
+        $seen = @(Real-View $path 'probe-written')
+    }
+    finally { [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($path, $false) }
+    $after = @(Real-View $path 'probe-removed')
+    $context = "harness pid=$PID parent=$($parent.ProcessName)($($parent.Id)); real view of the scratch key: [$($seen -join '; ')] then [$($after -join '; ')]"
+    if ($seen -notcontains "probe=String|$token") { throw "the registry this harness writes is not the user's real hive, so its snapshot and restore would not be real; run it through Invoke-InShell.ps1. $context" }
+    if ($after -notcontains '<key>=absent') { throw "the scratch key $path is still in the real hive after cleanup. $context" }
+    Add-Result $run '0  the harness reads and writes the real hive: its scratch value seen by a shell-started process, then gone' $true $context
+}
 
 # ---------------------------------------------------------------- run
 
 $log = [NotoVal.DebugLog]::new()
 try {
     $code = Invoke-IsolatedRun $run -Title 'Run at login: the hidden start' -Body {
+        if ($RealRegistry) { Assert-RealHive }
         Assert-ChordFree $run
         if (@(Get-Process -Name Noto -ErrorAction SilentlyContinue).Count) { throw 'a Noto process is already running; close it and rerun' }
         $script:data = Join-Path $run.Root 'root'; New-Item -ItemType Directory $data | Out-Null
@@ -314,6 +340,7 @@ try {
         if ($RealRegistry) {
             # 9 - the one approved round trip on the real registration, restored whatever happens
             $runBefore = Registry-Snapshot $RunPath; $approvedBefore = Registry-Snapshot $ApprovedPath
+            $approvedReal = Real-View $ApprovedPath 'approved-before'
             if ($runBefore.Contains('Noto')) { throw 'a Run\Noto value already exists; refusing to touch it' }
             $expectedCommand = "`"$NotoExe`" --login"
             try {
@@ -323,8 +350,9 @@ try {
                 # Read only once Noto says it has written: the choice can run after the keystroke's wait has ended.
                 $null = Wait-Trace $noto.Pid 'Noto\.Login before=Off after=On' 10
                 $value = (Registry-Snapshot $RunPath)['Noto']
+                $real = @(Real-View $RunPath 'run-written') -match '^Noto='
                 Target-Front; $row = Open-Menu; Keys-ToNotoMenu 0x1B; Close-Flyout
-                Add-Result $run '9  choosing it registers exactly "<this exe>" --login; the row reads checked' ($value -eq "String|$expectedCommand" -and $row -eq 'EC|Start Noto with Windows') "value=$value row=$row; trace: $(Trace-Of $noto.Pid)"
+                Add-Result $run '9  choosing it registers exactly "<this exe>" --login; the row reads checked' ($value -eq "String|$expectedCommand" -and "$real" -eq "Noto=String|$expectedCommand" -and $row -eq 'EC|Start Noto with Windows') "value=$value real view=$real row=$row; trace: $(Trace-Of $noto.Pid)"
                 Target-Front; $null = Open-Menu; Keys-ToNotoMenu 0x57
                 Close-Flyout
                 $null = Wait-Trace $noto.Pid 'Noto\.Login before=On after=Off' 10
@@ -335,7 +363,9 @@ try {
             finally {
                 $k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($RunPath, $true)
                 try { if (-not $runBefore.Contains('Noto')) { $k.DeleteValue('Noto', $false) } } finally { $k.Dispose() }
-                Add-Result $run '9  restored: Run and StartupApproved identical to the snapshot' ((Same $runBefore (Registry-Snapshot $RunPath)) -and (Same $approvedBefore (Registry-Snapshot $ApprovedPath))) "Run values $((Registry-Snapshot $RunPath).Count)"
+                $runReal = @(Real-View $RunPath 'run-restored') -join "`n"; $approvedRealAfter = @(Real-View $ApprovedPath 'approved-after')
+                $runBeforeLines = @($runBefore.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join "`n"
+                Add-Result $run '9  restored: Run and StartupApproved identical to the snapshot, here and in the real view' ((Same $runBefore (Registry-Snapshot $RunPath)) -and (Same $approvedBefore (Registry-Snapshot $ApprovedPath)) -and $runReal -eq $runBeforeLines -and ($approvedRealAfter -join "`n") -eq ($approvedReal -join "`n")) "Run values $((Registry-Snapshot $RunPath).Count); real Run identical=$($runReal -eq $runBeforeLines); real StartupApproved identical=$(($approvedRealAfter -join "`n") -eq ($approvedReal -join "`n")) ($($approvedReal.Count) values)"
             }
         }
     }
