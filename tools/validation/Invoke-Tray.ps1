@@ -133,10 +133,17 @@ function Never-Hidden-Active([string] $Label) {
 }
 
 function Root-Class([int] $X, [int] $Y) { [NotoVal.Instance]::RootClassAt($X, $Y) }
+function Describe-At([int] $X, [int] $Y) {
+    <# The top-level window at a screen point - class, title and owning process - for an INVALID run to name what was there. #>
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
+    $root = [NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2)
+    $p = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($root, [ref]$p)
+    "class '$(Root-Class $X $Y)' title '$([NotoVal.Win32]::Text($root))' process $((Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName) ($p)"
+}
 function Click-Class([int] $X, [int] $Y, [string[]] $Classes, [switch] $Right, [switch] $Double) {
-    if ($Classes -notcontains (Root-Class $X $Y)) { throw "refusing to click at ($X,$Y): root class '$(Root-Class $X $Y)' is not one of $($Classes -join ',')" }
+    if ($Classes -notcontains (Root-Class $X $Y)) { throw "refusing to click at ($X,$Y): expected $($Classes -join ' or '), found $(Describe-At $X $Y)" }
     [void][NotoVal.Win32]::SetCursorPos($X, $Y); Start-Sleep -Milliseconds 200
-    if ($Classes -notcontains (Root-Class $X $Y)) { throw 'the window under the pointer changed' }
+    if ($Classes -notcontains (Root-Class $X $Y)) { throw "the window under the pointer at ($X,$Y) changed to $(Describe-At $X $Y)" }
     if ($Right) { [NotoVal.Tray]::mouse_event(8, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Tray]::mouse_event(16, 0, 0, 0, [IntPtr]::Zero) }
     elseif ($Double) { 1..2 | ForEach-Object { [NotoVal.Tray]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Tray]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 60 } }
     else { [NotoVal.Tray]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Tray]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero) }
@@ -210,7 +217,15 @@ function Ctrl([string] $Label, [IntPtr] $Away) {
     $run.Controls.Add([pscustomobject]@{ Label = $Label; Refused = $neg.Refused; Detail = $neg.Detail })
     if (-not $neg.Refused) { Add-Invalid $run "$Label negative control was granted the foreground: $($neg.Detail)" }
 }
-function Target-Front { $null = Set-ForegroundByKeyboard $target }
+function Target-Front {
+    <# As Set-ForegroundByKeyboard, but a refusal names the window that covers the target, so an INVALID run says why. #>
+    $r = New-Object NotoVal.Win32+RECT; [void][NotoVal.Win32]::GetWindowRect($target.Hwnd, [ref]$r)
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = [int](($r.Left + $r.Right) / 2); $pt.Y = [int]($r.Top + 80)
+    if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $target.Hwnd) {
+        throw "the target is covered at ($($pt.X),$($pt.Y)) by $(Describe-At $pt.X $pt.Y)"
+    }
+    $null = Set-ForegroundByKeyboard $target
+}
 function Noto-Front {
     if ((Fg) -eq $noto.Hwnd) { return }
     Target-Front; Send-ActivationChord -AllowedForeground $target.Hwnd
@@ -397,7 +412,7 @@ try {
             else {
             $r = New-Object NotoVal.Win32+RECT; [void][NotoVal.Win32]::GetWindowRect($target.Hwnd, [ref]$r)
             $tx = [int](($r.Left + $r.Right) / 2); $ty = [int]($r.Top + 80)
-            if ((Root-Class $tx $ty) -notlike 'WindowsForms*') { throw 'the target is not under the click-away point' }
+            if ((Root-Class $tx $ty) -notlike 'WindowsForms*') { throw "the target is not under the click-away point ($tx,$ty): found $(Describe-At $tx $ty)" }
             [void][NotoVal.Win32]::SetCursorPos($tx, $ty); Start-Sleep -Milliseconds 200
             [NotoVal.Tray]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Tray]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 1200
             Add-Result $run '8  menu dismissed by a click on another app -> closed, that app in front, Noto still hidden' ((Menu-Window) -eq [IntPtr]::Zero -and (Fg) -eq $target.Hwnd -and (Is-Hidden (Ev))) "fg pid $(FgPid); trace: $(Trace-Since $m)"
