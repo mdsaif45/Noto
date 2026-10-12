@@ -19,7 +19,7 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     away by Ctrl+W, Escape or losing activation; pin for a
                     session. The tray (#16 slice 7, PR #93): an icon and menu,
                     and the session's end saving unsaved text. In review
-                    (#94): starting hidden at sign-in.
+                    (#94): starting hidden at sign-in; (#95) Noto's own icon.
 Last updated:       2026-10-13
 Evidence baseline:  main @ acb9e75 (PR #93 merged — #16 slice 7 complete)
 ```
@@ -255,6 +255,7 @@ This distinction matters more than any other line in this document.
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
 | Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
 | Restore from minimized, and activation of a minimized window | DONE — single display only | PR #82 → `63014bf`. A restore re-docks at the remembered requested width, on the window's own edge and display. The hotkey restores a minimized window before taking the foreground. Minimized stays distinct from hidden (ADR-007 §4, *Minimized and restored*) |
+| Noto's icon — the executable, the window, the tray | DONE | #95: "the edge drawer", generated per size by `tools/branding/New-NotoIcon.ps1` (`docs/branding/`); `ApplicationIcon`, `AppWindow.SetIcon`, and the tray loads the executable's own resource at the small-icon size; in the frozen `7205ef2` campaign the tray reported `icon=own` |
 | Start hidden at sign-in, and Start Noto with Windows | DONE — single display; a real sign-in not validated | #94 (ADR-015), frozen `7205ef2` campaign 363/363: `--login` hidden start with no handoff; `HKCU\…\Run` registration read from Windows each time; Windows' Startup apps setting read, never written |
 | Notification-area icon, its menu, the session's end | DONE — single display | PR #93 → `acb9e75` | #16 slice 7 (ADR-014): raw `Shell_NotifyIcon` on a hidden top-level window, `TaskbarCreated` re-add, a native popup menu, `WM_QUERYENDSESSION` / `WM_ENDSESSION` |
 | Show and hide through the global hotkey | DONE — single display | #16 slice 5, PR #89. Hidden is `AppWindow.Hide()`; every show re-docks against the current display and ends normal, docked and focused; unsaved editor text is saved once before hiding (ADR-007 §4, *Show and hide*) |
@@ -615,7 +616,8 @@ Verified on `main` @ `acb9e75`, and on the run-at-login branch:
 
 ```
 Build                0 warnings, 0 errors
-Tests                1526 / 1526 on main; 1574 / 1574 on the run-at-login branch
+Tests                1526 / 1526 on main; 1574 / 1574 on the run-at-login branch;
+                       1578 / 1578 with Noto's icon (#95: +4 in Noto.Windows.Tests)
                        Noto.Core.Tests            239   (119 + 40 #16 slice 3 + 80 slice 4)
                        Noto.UseCases.Tests         43   (1 + 33 #16 slice 3 + 1 #85 + 8 slice 6)
                        Noto.Windows.Tests         663   (35 #67 · +100 slice 1 · +32 slice 2 · +54 slice 3 · +27 slice 4 · +36 #82 · +1 #85 · +25 slice 5 · +125 A17 · +129 slice 6 · +51 slice 7 · +48 #94)
@@ -1114,7 +1116,7 @@ Done: A17 single instance (#90, #91)
     ↓
 Done: #16 slice 6, the drawer (#92) · #16 slice 7, the tray (#93)
     ↓
-In review: run at login (#94, ADR-015)
+In review: run at login (#94, ADR-015) · Noto's icon (#95)
     ↓
 M2 remaining — the rest of the workspace shell:
       the settings surface, #16 animation, multi-monitor and hardening. This is
