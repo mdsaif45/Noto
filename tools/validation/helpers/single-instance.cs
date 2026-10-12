@@ -199,16 +199,28 @@ namespace NotoVal
             return NtQueryInformationProcess(p.SafeHandle, 0, ref i, Marshal.SizeOf(i), out r) == 0 ? (int)i.Parent : -1;
         }
 
+        /// <summary>
+        /// Whether a process is one the run has not seen: a seen pid counts only for a process that started before
+        /// <paramref name="since"/>. Windows reuses an exited process's pid. (NotoValidation.psm1 Test-NewProcess.)
+        /// </summary>
+        public static bool IsNew(HashSet<int> seen, int pid, DateTime start, DateTime since)
+        {
+            return !seen.Contains(pid) || start >= since;
+        }
+
         /// <summary>Waits for <paramref name="count"/> new processes by that name, opening each one's handle at once.</summary>
         public static Process[] WaitNew(string name, HashSet<int> seen, int count, int timeoutMs)
         {
             var found = new List<Process>();
+            var since = DateTime.Now;
             var clock = Stopwatch.StartNew();
             while (found.Count < count && clock.ElapsedMilliseconds < timeoutMs)
             {
                 foreach (var p in Process.GetProcessesByName(name))
                 {
-                    if (seen.Contains(p.Id)) { p.Dispose(); continue; }
+                    DateTime start;
+                    try { start = p.StartTime; } catch (Exception) { p.Dispose(); continue; }
+                    if (!IsNew(seen, p.Id, start, since) || found.Any(f => f.Id == p.Id)) { p.Dispose(); continue; }
                     try { var _ = p.SafeHandle; seen.Add(p.Id); found.Add(p); } catch (Exception) { p.Dispose(); }
                 }
                 Thread.Sleep(5);

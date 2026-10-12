@@ -189,14 +189,25 @@ function Get-ShellPid {
     $p = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($tray, [ref]$p); [int]$p
 }
 
+function Test-NewProcess {
+    <#
+      Whether a process is one this run has not seen: a pid the run has seen counts only for a process that started
+      before $Since, the moment the launch or wait began. Windows reuses an exited process's pid, so a pid alone
+      cannot say a process is the one seen before. (helpers/single-instance.cs IsNew is the same rule.)
+    #>
+    param([Parameter(Mandatory)] [System.Collections.Generic.HashSet[int]] $Seen, [Parameter(Mandatory)] [int] $ProcessId, [Nullable[datetime]] $StartTime, [Parameter(Mandatory)] [datetime] $Since)
+    (-not $Seen.Contains($ProcessId)) -or ($null -ne $StartTime -and $StartTime -ge $Since)
+}
+
 function Start-ViaShell {
     <# Starts a process from inside the running shell and returns it once seen. The marker must be unique to this start. #>
     param($Run, [Parameter(Mandatory)] [string] $File, [string] $Arguments = '', [Parameter(Mandatory)] [string] $Marker, [int] $Show = 1, [int] $TimeoutSeconds = 30)
     $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+    $since = Get-Date
     $view.Application.ShellExecute($File, $Arguments, $Run.Root, 'open', $Show)
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        $p = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($Marker) -and -not $Run.Seen.Contains([int]$_.ProcessId) } | Select-Object -First 1
+        $p = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($Marker) -and (Test-NewProcess $Run.Seen ([int]$_.ProcessId) $_.CreationDate $since) } | Select-Object -First 1
         if ($p) {
             $shell = Get-ShellPid
             if ([int]$p.ParentProcessId -ne $shell) { Stop-Process -Id $p.ProcessId -Force; throw "process $($p.ProcessId) was not started by the shell (parent $($p.ParentProcessId), shell $shell)" }

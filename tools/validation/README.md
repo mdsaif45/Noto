@@ -156,6 +156,8 @@ is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
 ## Files
 
 - `Invoke-HarnessSelfTest.ps1`: the smoke test of the method.
+- `Test-ProcessIdentity.ps1`: the regression check, with no desktop, that a reused pid is a new process: one the run has seen counts only if it started before the launch or wait.
+- `Invoke-InShell.ps1`: runs a validation script in a process the shell starts, so it sees the user's real registry.
 - `NotoValidation.psm1`: the shared module (interop, shell launch, guarded input, evidence, data isolation, desktop, cleanup).
 - `helpers/target-app.ps1`: the other app, a window with a text box that reports what is typed into it.
 - `helpers/foreground-probe.ps1`: the negative control; it records its parent and the windows in front before and after.
