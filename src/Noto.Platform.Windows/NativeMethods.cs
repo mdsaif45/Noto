@@ -357,6 +357,29 @@ internal static unsafe partial class NativeMethods
     /// <summary>The system's generic application icon: shared, never destroyed.</summary>
     internal const nint IDI_APPLICATION = 32512;
 
+    /// <summary>
+    /// The resource id of an executable's own icon: the SDK embeds
+    /// <c>ApplicationIcon</c> under the same number (#95).
+    /// </summary>
+    internal const nint AppIconResource = 32512;
+
+    internal const uint IMAGE_ICON = 1;
+    internal const int SM_CXSMICON = 49;
+    internal const int SM_CYSMICON = 50;
+
+    [LibraryImport("user32.dll", EntryPoint = "LoadImageW", SetLastError = true)]
+    internal static partial nint LoadImage(nint hInst, nint name, uint type, int cx, int cy, uint fuLoad);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool DestroyIcon(nint hIcon);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial int GetSystemMetrics(int nIndex);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint GetModuleHandle(string? lpModuleName);
+
     /// <summary><c>NOTIFYICONDATAW</c>, the Vista-and-later layout, with fixed buffers so it stays blittable.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct NOTIFYICONDATAW

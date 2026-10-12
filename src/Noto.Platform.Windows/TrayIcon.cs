@@ -182,8 +182,18 @@ public sealed unsafe class TrayIcon : IDisposable
         _taskbarCreated = taskbarCreated;
         _tooltip = tooltip;
 
-        // ADR-014: a placeholder until Noto has an icon of its own.
-        _icon = NativeMethods.LoadIcon(0, NativeMethods.IDI_APPLICATION);
+        // #95: the executable's own icon, at the shell's small-icon size so
+        // Windows does not scale it; the system's generic icon only when the
+        // executable has none (a test host).
+        nint own = NativeMethods.LoadImage(
+            NativeMethods.GetModuleHandle(null),
+            NativeMethods.AppIconResource,
+            NativeMethods.IMAGE_ICON,
+            NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSMICON),
+            NativeMethods.GetSystemMetrics(NativeMethods.SM_CYSMICON),
+            0);
+        HasOwnIcon = own != 0;
+        _icon = HasOwnIcon ? own : NativeMethods.LoadIcon(0, NativeMethods.IDI_APPLICATION);
     }
 
     /// <summary>The icon was selected. The application treats it as a launch.</summary>
@@ -207,6 +217,12 @@ public sealed unsafe class TrayIcon : IDisposable
 
     /// <summary>Whether the last attempt to add the icon succeeded.</summary>
     public bool IsAdded { get; private set; }
+
+    /// <summary>
+    /// Whether the icon is the executable's own (#95), loaded here and
+    /// destroyed with the tray, rather than Windows' shared generic one.
+    /// </summary>
+    public bool HasOwnIcon { get; }
 
     /// <summary>The Win32 error of the last failed add; 0 after a success.</summary>
     public int LastError { get; private set; }
@@ -355,6 +371,12 @@ public sealed unsafe class TrayIcon : IDisposable
 
         // WM_NCDESTROY, handled below, removes the subclass and frees the handle.
         _ = NativeMethods.DestroyWindow(_hwnd);
+
+        // Only an icon this tray loaded; the shared generic one is never destroyed.
+        if (HasOwnIcon)
+        {
+            _ = NativeMethods.DestroyIcon(_icon);
+        }
     }
 
     /// <summary>
