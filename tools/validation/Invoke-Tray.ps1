@@ -458,6 +458,8 @@ try {
             $e = Wait-For { param($e) -not $e.WsVisible }
             Add-Result $run '9  menu Hide while behind with unsaved text -> saved, then hidden (a dismissal)' ((Is-Hidden $e) -and (Row 'Content') -eq $text -and (Trace-Since $m) -match 'request=Dismiss action=Hide') "content saved=$((Row 'Content') -eq $text); trace: $(Trace-Since $m)"
             Never-Hidden-Active '9  after menu Hide'
+            # Hide leaves the shell in front with the overflow still open; a click elsewhere may only dismiss it.
+            Close-Flyout
 
             Noto-Front; Set-Editor "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"; Bin-Note
             Target-Front
