@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Noto.Core.Diagnostics;
 using Noto.Core.Storage;
 using Noto.Infrastructure.Storage.Migrations;
 
@@ -245,7 +246,7 @@ public sealed class MigrationRunner
         {
             transaction.Rollback();
 
-            _log.MigrationFailed(migration.Version, ex);
+            _log.MigrationFailed(migration.Version, ExceptionSummary.From(ex));
 
             throw new StorageException(
                 StorageFailure.MigrationFailed,
@@ -263,7 +264,7 @@ public sealed class MigrationRunner
             // later edit might remove without realising it is load-bearing.
             transaction.Rollback();
 
-            _log.MigrationFailed(migration.Version, ex);
+            _log.MigrationFailed(migration.Version, ExceptionSummary.From(ex));
             throw;
         }
     }

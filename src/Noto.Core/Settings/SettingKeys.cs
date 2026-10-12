@@ -1,4 +1,5 @@
 using Noto.Core.Activation;
+using Noto.Core.Diagnostics;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
 using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
@@ -193,6 +194,18 @@ public static class SettingKeys
         new("appearance.theme", WorkspaceTheme.System, Enum.IsDefined);
 
     /// <summary>
+    /// How much Noto writes to its log (#7).
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="LogLevel.Information"/>. The log runs at that level
+    /// from before settings load — a database or settings failure must reach
+    /// it — and takes this value once settings are read, and again whenever it
+    /// changes. No settings UI yet.
+    /// </remarks>
+    public static readonly SettingKey<LogLevel> DiagnosticsLogLevel =
+        new("diagnostics.log-level", LogLevel.Information);
+
+    /// <summary>
     /// Every declared key.
     /// </summary>
     /// <remarks>
@@ -211,6 +224,7 @@ public static class SettingKeys
         WorkspaceHideOnDeactivation,
         WorkspaceSingleClickOpen,
         AppearanceTheme,
+        DiagnosticsLogLevel,
     ];
 
     /// <summary>
