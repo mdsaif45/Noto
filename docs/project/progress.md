@@ -4,9 +4,9 @@
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
 Current slice:      #16 slice 7 — the tray and the application's lifetime
-                    (ADR-014), on feat/16-slice7-tray. Implemented, tested and
-                    mutation-checked; the final runtime campaign on a frozen
-                    build is pending
+                    (ADR-014), in review. Runtime-validated on the frozen
+                    build 6373c48: every harness passed, the Explorer restart
+                    last
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
@@ -75,7 +75,7 @@ seven M0 issues remain open, including several that later milestones depend on
 | --------- | ------ | -------------- | ------------ | ---- |
 | **M0** Foundation & Architecture | **IN PROGRESS** (6 closed / 7 open) | Solution structure; ADRs 001–013; WinUI 3 + Windows App SDK validated; SQLite foundation; CI, CodeQL, branch protection; **#22 design system merged (`Noto.UI`)** | **#9 settings persistence merged (PR #65)** — typed keys, defaults, change notification | #21 commands/events, #20 architecture tests, #7 logging, #10 error handling, #11 perf harness |
 | **M1** Core Note Engine | **IN PROGRESS** (0 closed / 3 open) | **#13 complete in substance** — slices 1–6 merged: all 23 commands and all 7 queries of contract §1. #13 is still OPEN on GitHub | — | #14 markdown — **partially addressed** by M2-3 (plain-source editing only); #15 export. Both still open |
-| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey; **#82** minimized restore; **#86** save on close; **#87** Ctrl+N in an empty folder; **#16 slice 5 merged (PR #89)** — show/hide; **A17 single instance merged (PRs #90, #91)** — one process per data root; **#16 slice 6 merged (PR #92)** — the drawer: topmost, put away, pin | **#16 slice 7, the tray and the application's lifetime** — feat/16-slice7-tray, final runtime campaign pending | Run at login (A16), then #16 slices 8a/8b (multi-monitor, mixed DPI) and 9 (hardening). #16 remains OPEN |
+| **M2** SideNotes Workspace | **IN PROGRESS** (1 closed / 3 open) | M2-0 integration spike (#54); **M2-1 Folder Pane merged (PR #57)** — list, create, rename, states, keyboard, focus; **M2-2 Note List merged (PR #60)** — enter a folder, note list, selection, states; **M2-3 Note Editor merged (PR #63)** — plain-source editing, note create and delete, save-on-leave; **#16 slice 1 merged (PR #74)** — window platform primitives; **#16 slice 2 merged (PR #76)** — basic edge docking at launch; **#16 slice 3 merged (PR #78)** — edge setting, inner-edge resize, per-display width persistence; **#16 slice 4 merged (PR #80)** — global activation hotkey; **#82** minimized restore; **#86** save on close; **#87** Ctrl+N in an empty folder; **#16 slice 5 merged (PR #89)** — show/hide; **A17 single instance merged (PRs #90, #91)** — one process per data root; **#16 slice 6 merged (PR #92)** — the drawer: topmost, put away, pin | **#16 slice 7, the tray and the application's lifetime** — in review, runtime-validated on a frozen build | Run at login (A16), then #16 slices 8a/8b (multi-monitor, mixed DPI) and 9 (hardening). #16 remains OPEN |
 | **M3** SideNotes Parity | **NOT STARTED** | — | — | 8 of 264 parity rows done on `main`, 9 partial (with #16 slice 6); 10 done and 10 partial with #16 slice 7 — all as a by-product of M2, not M3 work |
 | **M4** Hardening | **NOT STARTED** | — | — | — |
 | **M5** Windows Enhancements | **NOT STARTED** (no issues yet) | — | — | — |
@@ -255,7 +255,7 @@ This distinction matters more than any other line in this document.
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
 | Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
 | Restore from minimized, and activation of a minimized window | DONE — single display only | PR #82 → `63014bf`. A restore re-docks at the remembered requested width, on the window's own edge and display. The hotkey restores a minimized window before taking the foreground. Minimized stays distinct from hidden (ADR-007 §4, *Minimized and restored*) |
-| Notification-area icon, its menu, the session's end | IMPLEMENTED — final runtime campaign pending | #16 slice 7 (ADR-014): raw `Shell_NotifyIcon` on a hidden top-level window, `TaskbarCreated` re-add, a native popup menu, `WM_QUERYENDSESSION` / `WM_ENDSESSION` |
+| Notification-area icon, its menu, the session's end | DONE — single display; in review | #16 slice 7 (ADR-014): raw `Shell_NotifyIcon` on a hidden top-level window, `TaskbarCreated` re-add, a native popup menu, `WM_QUERYENDSESSION` / `WM_ENDSESSION` |
 | Show and hide through the global hotkey | DONE — single display | #16 slice 5, PR #89. Hidden is `AppWindow.Hide()`; every show re-docks against the current display and ends normal, docked and focused; unsaved editor text is saved once before hiding (ADR-007 §4, *Show and hide*) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
 | Packaging and identity decided | DECIDED | ADR-008 |
@@ -389,9 +389,9 @@ WinUI 3 validated   ≠   Noto UI designed
   (measured in a Phase 0 before any production code). Its menu: Show, Hide,
   Keep Noto open (the header's pin path) and Quit (the close Alt+F4 makes).
   The session's end saves unsaved text, and refuses a non-critical end when
-  that fails. Exactly one shutdown transition. Tests and mutations pass; the
-  final runtime campaign on a frozen build is pending. See *Outstanding
-  validation — #16 slice 7*.
+  that fails. Exactly one shutdown transition. Validated on the frozen build
+  `6373c48`: the tray harness and every regression harness passed, the real
+  Explorer restart last. See *Outstanding validation — #16 slice 7*.
 - **#16 slice 6, the drawer, is merged** (PR #92 → `dc27173`). Topmost while
   shown; put away by `Ctrl+W`, by Escape or by losing activation; a
   session-only pin. See *Outstanding validation — #16 slice 6*.
@@ -463,7 +463,7 @@ WinUI 3 validated   ≠   Noto UI designed
 ```
 #16 Edge-Docked Sidebar — slices 1–6 and the #82 restore fix merged;
 A17 single instance merged (PRs #90, #91). Slice 7 (the tray and the
-application's lifetime) is in its final validation. Next: run at login
+application's lifetime) is in review. Next: run at login
 (A16), then #16 slices 8a/8b and 9.
 ```
 
@@ -673,15 +673,37 @@ transition is now entered once, and the tray's own window ignores `WM_CLOSE`.
 - **Killed by a guard, equivalent at runtime:** 1, the click as a toggle.
   Through the overflow it behaves as a launch, which is why D9 was made.
 
-**Runtime:** `tools/validation/Invoke-Tray.ps1` passed 56/56 on an unfrozen
-build during development; that is not the evidence. The final campaign — every
-harness on one frozen build, the Explorer restart last — is **pending**. One
-attempt on `ae9499d` was stopped as INVALID by a system overlay
-(`PickerHost`'s `Shell_SystemDim`) and counts for nothing.
+**Runtime evidence comes from one frozen Release build**, used for every run:
+- commit `6373c48`;
+- `Noto.exe` sha256 `9d29fe1b…`, `Noto.dll` `e4737bdb…`;
+- manifest `02a4da25…`, 356 files, verified before the campaign.
+
+Every run was on an idle desktop, with no other automation running. Each run
+started Noto from the shell, used an isolated data root, and bracketed every
+foreground claim with negative controls. Every run checked afterwards that the
+real data was unchanged.
+
+| Harness | Run | Checks | Failed | Invalid | Controls refused |
+| ------- | --- | -----: | -----: | ------: | ---------------: |
+| `Invoke-Tray.ps1` | `tray-20261012-100221-daf4a3` | 58 | 0 | 0 | 10/10 |
+| `Invoke-Drawer.ps1` | `drawer-20261012-100732-3e6081` | 86 | 0 | 0 | 24/24 |
+| `Invoke-ShowHide.ps1` | `show-hide-20261012-101257-7bb5ae` | 35 | 0 | 0 | 7/7 |
+| `Invoke-SingleInstance.ps1` | `single-instance-20261012-101529-4f647a` | 61 | 0 | 0 | 6/6 |
+| `Invoke-MinimizedActivation.ps1` | `minimized-20261012-101733-37a463` | 36 | 0 | 0 | 12/12 |
+| `Invoke-Slice4Foreground.ps1` | `slice4-20261012-101836-fef8f3` | 36 | 0 | 0 | 15/15 |
+| `Invoke-EditorSaveOnClose.ps1` | `save-on-close-20261012-101938-06dd38` | 19 | 0 | 0 | 0/0 (none needed) |
+| `Invoke-Tray.ps1 -ExplorerRestart`, last | `tray-20261012-102100-ad7d64` | 7 | 0 | 0 | 0/0 (none needed) |
+
+The Explorer restart was real: Explorer came back as a new process, the icon
+was re-added exactly once, and Noto kept its process, stayed hidden and
+unpinned, and received no workspace request.
+
+Two earlier attempts on other builds are not evidence. One on `ae9499d` was
+stopped as INVALID by a system overlay (`PickerHost`'s `Shell_SystemDim`). A
+development run on an unfrozen build passed 56/56.
 
 | Item | Status |
 | ---- | ------ |
-| **Final frozen campaign** | **PENDING** |
 | **A real logoff, shutdown or restart** | **NOT VALIDATED** — cannot be driven from inside the session; Restart Manager stands in |
 | **A critical shutdown** | **NOT VALIDATED** — Restart Manager cannot request one |
 | **An icon on the taskbar itself** | **NOT MEASURED** — putting it there is a setting change; the overflow is the default |
@@ -1017,7 +1039,7 @@ Done: A17 single instance (#90, #91)
     ↓
 Done: #16 slice 6, the drawer (#92)
     ↓
-In validation: #16 slice 7, the tray and the application's lifetime (ADR-014)
+In review: #16 slice 7, the tray and the application's lifetime (ADR-014)
     ↓
 M2 remaining — the rest of the workspace shell: run at login,
       the settings surface, #16 animation, multi-monitor and hardening. This is
