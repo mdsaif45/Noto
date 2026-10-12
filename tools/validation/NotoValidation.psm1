@@ -425,7 +425,10 @@ function Test-NegativeControl {
     $before = [NotoVal.Win32]::GetForegroundWindow()
     $line = (Start-ShortLived $Run -Script 'foreground-probe.ps1' -Out $out -Arguments "-Hwnd $([int64]$Hwnd)") -join ' '
     $after = [NotoVal.Win32]::GetForegroundWindow()
-    [pscustomobject]@{ Refused = ($line -match 'sfw=False') -and ($after -eq $before); Detail = "$line; foreground unchanged=$($after -eq $before)" }
+    # Whose window was in front decides which of Windows' exceptions could have applied, so a grant says it.
+    $owner = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($before, [ref]$owner)
+    $name = (Get-Process -Id $owner -ErrorAction SilentlyContinue).ProcessName
+    [pscustomobject]@{ Refused = ($line -match 'sfw=False') -and ($after -eq $before); Detail = "$line; foreground unchanged=$($after -eq $before); in front before: $name($owner) '$([NotoVal.Win32]::Text($before))'" }
 }
 
 function Assert-ForegroundLocked {
