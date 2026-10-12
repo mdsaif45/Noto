@@ -4,8 +4,8 @@
 Project:            Noto — a Windows-native notes application
 Current milestone:  M2 — SideNotes Workspace  (in progress)
 Current slice:      Run at login (#94, ADR-015), on feat/94-run-at-login.
-                    Implemented, tested and mutation-checked; the final runtime
-                    campaign on a frozen build is pending
+                    Validated: the final campaign on the frozen 7205ef2 build
+                    passed 363/363, through the real registry; in review
 Overall status:     Engine complete. Three production UI surfaces exist and the
                     UI now writes notes; settings persist. The window docks to
                     its remembered edge at its remembered width and resizes
@@ -18,9 +18,9 @@ Overall status:     Engine complete. Three production UI surfaces exist and the
                     The drawer (#16 slice 6, PR #92): topmost while shown; put
                     away by Ctrl+W, Escape or losing activation; pin for a
                     session. The tray (#16 slice 7, PR #93): an icon and menu,
-                    and the session's end saving unsaved text. In progress
+                    and the session's end saving unsaved text. In review
                     (#94): starting hidden at sign-in.
-Last updated:       2026-10-12
+Last updated:       2026-10-13
 Evidence baseline:  main @ acb9e75 (PR #93 merged — #16 slice 7 complete)
 ```
 
@@ -255,7 +255,7 @@ This distinction matters more than any other line in this document.
 | Edge setting, inner-edge resize, per-display width persistence | DONE — single display only | #16 slice 3, PR #78 → `b17a1ae`; native window subclass, borderless chrome, `workspace.edge` / `workspace.width` settings (ADR-007 §4) |
 | Global activation hotkey — brings the window to the foreground | DONE — foreground only; no hide | #16 slice 4, PR #80 → `3d2d23f`; `Ctrl+Alt+Win+Space` by default, message-only receiver, `activation.hotkey.enabled` / `activation.hotkey.binding` settings read at startup (ADR-007 §4); foreground evidence from the corrected harness, `tools/validation/` (PR #83 → `8f6d762`) |
 | Restore from minimized, and activation of a minimized window | DONE — single display only | PR #82 → `63014bf`. A restore re-docks at the remembered requested width, on the window's own edge and display. The hotkey restores a minimized window before taking the foreground. Minimized stays distinct from hidden (ADR-007 §4, *Minimized and restored*) |
-| Start hidden at sign-in, and Start Noto with Windows | IMPLEMENTED — final runtime campaign pending | #94 (ADR-015): `--login` hidden start with no handoff; `HKCU\…\Run` registration read from Windows each time; Windows' Startup apps setting read, never written |
+| Start hidden at sign-in, and Start Noto with Windows | DONE — single display; a real sign-in not validated | #94 (ADR-015), frozen `7205ef2` campaign 363/363: `--login` hidden start with no handoff; `HKCU\…\Run` registration read from Windows each time; Windows' Startup apps setting read, never written |
 | Notification-area icon, its menu, the session's end | DONE — single display | PR #93 → `acb9e75` | #16 slice 7 (ADR-014): raw `Shell_NotifyIcon` on a hidden top-level window, `TaskbarCreated` re-add, a native popup menu, `WM_QUERYENDSESSION` / `WM_ENDSESSION` |
 | Show and hide through the global hotkey | DONE — single display | #16 slice 5, PR #89. Hidden is `AppWindow.Hide()`; every show re-docks against the current display and ends normal, docked and focused; unsaved editor text is saved once before hiding (ADR-007 §4, *Show and hide*) |
 | DPI / multi-monitor behaviour investigated | RESEARCHED | `docs/research/` |
@@ -392,8 +392,8 @@ WinUI 3 validated   ≠   Noto UI designed
   with Windows registers it under the user's `Run` key. Windows'
   registration is the only truth: off, on, or turned off in Windows' Startup
   apps (read, never written; unreadable counts as off). Tests and mutations
-  pass; the final runtime campaign is pending. See *Outstanding validation —
-  run at login*.
+  pass, and the final campaign on the frozen `7205ef2` build passed through
+  the real registry. See *Outstanding validation — run at login*.
 - **#16 slice 7, the tray and the application's lifetime, is merged** (PR #93
   → `acb9e75`). A tray icon whose selection is a launch, its menu, the
   session's end saving unsaved text, one shutdown transition. See
@@ -468,8 +468,8 @@ WinUI 3 validated   ≠   Noto UI designed
 
 ```
 #16 Edge-Docked Sidebar — slices 1–7 and the #82 restore fix merged;
-A17 single instance merged (PRs #90, #91). Run at login (#94) is in its
-final validation. Next: #16 slices 8a/8b and 9.
+A17 single instance merged (PRs #90, #91). Run at login (#94) is validated
+and in review. Next: #16 slices 8a/8b and 9.
 ```
 
 **M2-1, M2-2 and M2-3 were each gated before implementation, and #16 is now
@@ -660,9 +660,11 @@ committed):
   it as a launch. `--login` against a running owner exited silently, with no
   handoff and the owner untouched.
 - **P3:** a restore after minimizing re-docked exactly.
-- **P4:** one approved write to the real `Run\Noto`, read back exactly. Your
-  prior state was restored and verified identical. `StartupApproved` was only
-  read; writing `Run` creates no entry there.
+- **P4:** one write to `Run\Noto`, read back exactly and restored.
+  `StartupApproved` was only read. **Correction (2026-10-12):** the probe ran
+  from a packaged (MSIX) host. That host virtualizes HKCU writes, so P4's write
+  and restore reached a private copy, not your hive. The real round trip is the
+  final campaign's below.
 
 The undocumented `StartupApproved` form, as found: 12 bytes, first byte `0x02`
 enabled or `0x03` disabled. Anything else is treated as disabled (the owner's
@@ -672,14 +674,46 @@ decision).
 L2, L3 and L14 were also killed at runtime. Mutants that could write the real
 registry were never given a runtime run.
 
-**Runtime:** `tools/validation/Invoke-LoginStart.ps1` passed 26/26 on an
-unfrozen build during development; that is not the evidence. The final
-campaign on a frozen build — including the one approved round trip on the real
-registration (`-RealRegistry`) — is **pending**.
+**Runtime: the final campaign on the frozen `7205ef2` build (#94 with #95 on
+top) passed.** Every stage, with the real registry last:
+
+```
+Tray 58 · Drawer 87 · ShowHide 35 · SingleInstance 61 · MinimizedActivation 36
+Slice4Foreground 36 · EditorSaveOnClose 19 · LoginStart -RealRegistry 31
+-> 363 checks, 0 failed, 0 invalid; 80/80 negative controls refused
+```
+
+- **The real registration.** The harness first proved it was on the user's real
+  hive: a shell-started process saw its scratch value, then saw it gone.
+  - Choosing the row wrote `Run\Noto` = `"<exe>" --login` (`before=Off
+    after=On`). That value was read back both by the harness and by a
+    shell-started process, and the row read checked.
+  - Choosing it again removed the value (`before=On after=Off`).
+  - `Run` (11 values) and `StartupApproved` (20 values) were identical to the
+    snapshot, also as a shell-started process saw them. `StartupApproved` was
+    never written.
+
+- **What it took to get a valid campaign.** The fixes were all to the harness;
+  there was no product defect.
+  - Menu Hide left the overflow open, so the overflow is now closed after it.
+  - The registry was read before Noto had written it, so the read now waits
+    for Noto's trace.
+  - A packaged host virtualizes HKCU. `-RealRegistry` now runs through
+    `Invoke-InShell.ps1` and refuses a virtualized view.
+  - Probes started by the shell could inherit a foreground right the shell had
+    just used. A probe host now starts every probe, and each control records
+    its ancestry.
+  - Windows reuses pids. A process is now identified by its pid and its start
+    time, and a launch is judged from the moment it began.
+- **The environment it ran in.** The live foreground-lock timeout was
+  2147483647 ms, not the stored 200000, through two clean restarts. The setter
+  was not found: it was not cua-driver and not ChatGPT/Codex. It is stricter,
+  not looser, so it was accepted as the baseline. A computer-use daemon that
+  starts at logon was disabled for the campaign.
 
 | Item | Status |
 | ---- | ------ |
-| **Final frozen campaign** | **PENDING** |
+| **Final frozen campaign** | **PASSED** — frozen `7205ef2`, 363/363, real registry round trip included |
 | **A real sign-in** | **NOT VALIDATED** — cannot be driven from inside a session; Noto is started from the shell with `--login`, as Explorer starts a `Run` entry |
 | **Turned off in Windows Startup apps, on the real key** | **NOT VALIDATED on the real key** — that would mean writing `StartupApproved`, which Noto never does; validated on a scratch key |
 | **Windows 10** | **NOT VALIDATED** (#32) |
@@ -1080,7 +1114,7 @@ Done: A17 single instance (#90, #91)
     ↓
 Done: #16 slice 6, the drawer (#92) · #16 slice 7, the tray (#93)
     ↓
-In validation: run at login (#94, ADR-015)
+In review: run at login (#94, ADR-015)
     ↓
 M2 remaining — the rest of the workspace shell:
       the settings surface, #16 animation, multi-monitor and hardening. This is
