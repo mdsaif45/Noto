@@ -224,8 +224,9 @@ function Start-ShortLived {
     if ($lines[0] -notmatch '^pid=(\d+) parent=(\d+) start=(\d+)$') { throw "helper $Script did not report its pid" }
     $procId = [int]$Matches[1]; $parent = [int]$Matches[2]; $start = [long]$Matches[3]
     if ($parent -ne (Get-ShellPid)) { throw "helper $Script pid $procId was not started by the shell (parent $parent)" }
-    if (-not $Run.Seen.Add($procId)) { throw "helper $Script reported a pid already seen in this run: $procId" }
-    Add-Started $Run $procId $start
+    # Identified by pid AND start time: over a long run Windows reuses an exited helper's pid for a later one.
+    if (@($Run.Started | Where-Object { $_.Pid -eq $procId -and $_.Start -eq $start }).Count) { throw "helper $Script reported a process already seen in this run: $procId" }
+    [void]$Run.Seen.Add($procId); Add-Started $Run $procId $start
     @($lines[1..($lines.Count - 2)])
 }
 
