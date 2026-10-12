@@ -26,8 +26,14 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RootNamespace>Noto</RootNamespace>
     <AssemblyName>Noto</AssemblyName>
-    <ApplicationIcon />
+    <!-- #95: one icon for the executable, the window (taskbar, Alt+Tab) and the tray. Built by tools/branding/New-NotoIcon.ps1. -->
+    <ApplicationIcon>Assets\Noto.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The window's icon is set from this file at runtime (AppWindow.SetIcon). -->
+    <Content Include="Assets\Noto.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
