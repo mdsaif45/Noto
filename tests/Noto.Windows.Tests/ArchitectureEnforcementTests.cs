@@ -29,7 +29,7 @@ public sealed class ArchitectureEnforcementTests
     [Fact]
     public void Repository_writes_are_reached_only_from_command_handlers()
     {
-        var app = BuiltApplication.Load();
+        using var app = BuiltApplication.Load();
         var writes = app.RepositoryWrites();
         var handlers = app.CommandHandlers();
 
@@ -68,7 +68,8 @@ public sealed class ArchitectureEnforcementTests
         // layer of Noto. Presentation logic lives in the application until a Noto.Presentation project exists.
         string[] forbidden = ["Noto", "Noto.Core", "Noto.UseCases", "Noto.Infrastructure", "Noto.Platform.Windows"];
 
-        var violations = BuiltApplication.Load().ReferencesOf("Noto.UI")
+        using var app = BuiltApplication.Load();
+        var violations = app.ReferencesOf("Noto.UI")
             .Where(name => forbidden.Contains(name, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
@@ -81,7 +82,7 @@ public sealed class ArchitectureEnforcementTests
     internal sealed record Call(string CallerAssembly, string CallerType, string CallerMethod, string CalleeType, string CalleeMethod);
 
     /// <summary>The built application's assemblies, read as metadata.</summary>
-    internal sealed class BuiltApplication
+    internal sealed class BuiltApplication : IDisposable
     {
         private static readonly Dictionary<ushort, OpCode> OpCodesByValue = typeof(OpCodes)
             .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
@@ -92,14 +93,37 @@ public sealed class ArchitectureEnforcementTests
 
         private BuiltApplication(Dictionary<string, (PEReader, MetadataReader)> assemblies) => _assemblies = assemblies;
 
+        public void Dispose()
+        {
+            foreach (var (pe, _) in _assemblies.Values)
+            {
+                pe.Dispose();
+            }
+        }
+
         internal static BuiltApplication Load()
         {
             string root = RepositoryRoot();
             string configuration = AppContext.BaseDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? "Release" : "Debug";
             string output = Path.Join(root, "src", "Noto.Windows", "bin", configuration, "net9.0-windows10.0.19041.0", "win-x64");
 
-            var assemblies = new Dictionary<string, (PEReader, MetadataReader)>();
+            var app = new BuiltApplication([]);
 
+            try
+            {
+                app.Read(root, configuration, output);
+            }
+            catch
+            {
+                app.Dispose();
+                throw;
+            }
+
+            return app;
+        }
+
+        private void Read(string root, string configuration, string output)
+        {
             foreach (var (name, project) in new[] { ("Noto", "Noto.Windows"), ("Noto.Core", "Noto.Core"), ("Noto.UseCases", "Noto.UseCases"), ("Noto.Infrastructure", "Noto.Infrastructure"), ("Noto.Platform.Windows", "Noto.Platform.Windows"), ("Noto.UI", "Noto.UI") })
             {
                 string dll = Path.Join(output, name + ".dll");
@@ -120,11 +144,11 @@ public sealed class ArchitectureEnforcementTests
                     throw new InvalidOperationException($"{dll} is older than {newer}: build the solution in {configuration} before running this test, or it would check stale code.");
                 }
 
+                // Owned by this instance from the moment it exists, so Dispose releases it whatever fails next.
                 var pe = new PEReader(ImmutableArray.Create(File.ReadAllBytes(dll)));
-                assemblies[name] = (pe, pe.GetMetadataReader());
+                _assemblies[name] = (pe, default!);
+                _assemblies[name] = (pe, pe.GetMetadataReader());
             }
-
-            return new BuiltApplication(assemblies);
         }
 
         internal IEnumerable<string> ReferencesOf(string assembly)
@@ -180,10 +204,8 @@ public sealed class ArchitectureEnforcementTests
 
             foreach (var h in md.TypeDefinitions)
             {
-                foreach (var m in md.GetTypeDefinition(h).GetMethods())
+                foreach (var method in md.GetTypeDefinition(h).GetMethods().Select(md.GetMethodDefinition))
                 {
-                    var method = md.GetMethodDefinition(m);
-
                     if (md.GetString(method.Name) == "Handle" && (method.Attributes & System.Reflection.MethodAttributes.Public) == System.Reflection.MethodAttributes.Public
                         && method.DecodeSignature(new Names(md), null).ReturnType.StartsWith("Noto.Core.Commands.CommandResult", StringComparison.Ordinal))
                     {
@@ -204,10 +226,8 @@ public sealed class ArchitectureEnforcementTests
             {
                 string caller = FullName(md, OuterType(md, h));
 
-                foreach (var m in md.GetTypeDefinition(h).GetMethods())
+                foreach (var method in md.GetTypeDefinition(h).GetMethods().Select(md.GetMethodDefinition))
                 {
-                    var method = md.GetMethodDefinition(m);
-
                     if (method.RelativeVirtualAddress == 0)
                     {
                         continue;
