@@ -29,7 +29,7 @@ public sealed class ArchitectureEnforcementTests
     [Fact]
     public void Repository_writes_are_reached_only_from_command_handlers()
     {
-        using var app = BuiltApplication.Load();
+        var app = BuiltApplication.Load();
         var writes = app.RepositoryWrites();
         var handlers = app.CommandHandlers();
 
@@ -68,7 +68,7 @@ public sealed class ArchitectureEnforcementTests
         // layer of Noto. Presentation logic lives in the application until a Noto.Presentation project exists.
         string[] forbidden = ["Noto", "Noto.Core", "Noto.UseCases", "Noto.Infrastructure", "Noto.Platform.Windows"];
 
-        using var app = BuiltApplication.Load();
+        var app = BuiltApplication.Load();
         var violations = app.ReferencesOf("Noto.UI")
             .Where(name => forbidden.Contains(name, StringComparer.OrdinalIgnoreCase))
             .ToList();
@@ -82,48 +82,25 @@ public sealed class ArchitectureEnforcementTests
     internal sealed record Call(string CallerAssembly, string CallerType, string CallerMethod, string CalleeType, string CalleeMethod);
 
     /// <summary>The built application's assemblies, read as metadata.</summary>
-    internal sealed class BuiltApplication : IDisposable
+    internal sealed class BuiltApplication
     {
         private static readonly Dictionary<ushort, OpCode> OpCodesByValue = typeof(OpCodes)
             .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
             .Select(f => (OpCode)f.GetValue(null)!)
             .ToDictionary(o => (ushort)o.Value);
 
-        private readonly Dictionary<string, (PEReader Pe, MetadataReader Md)> _assemblies;
+        private readonly Dictionary<string, string> _paths;
 
-        private BuiltApplication(Dictionary<string, (PEReader, MetadataReader)> assemblies) => _assemblies = assemblies;
+        private BuiltApplication(Dictionary<string, string> paths) => _paths = paths;
 
-        public void Dispose()
-        {
-            foreach (var (pe, _) in _assemblies.Values)
-            {
-                pe.Dispose();
-            }
-        }
-
+        /// <summary>Finds each built assembly and checks it is newer than its project's sources. Opens none of them.</summary>
         internal static BuiltApplication Load()
         {
             string root = RepositoryRoot();
             string configuration = AppContext.BaseDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? "Release" : "Debug";
             string output = Path.Join(root, "src", "Noto.Windows", "bin", configuration, "net9.0-windows10.0.19041.0", "win-x64");
+            var paths = new Dictionary<string, string>();
 
-            var app = new BuiltApplication([]);
-
-            try
-            {
-                app.Read(root, configuration, output);
-            }
-            catch
-            {
-                app.Dispose();
-                throw;
-            }
-
-            return app;
-        }
-
-        private void Read(string root, string configuration, string output)
-        {
             foreach (var (name, project) in new[] { ("Noto", "Noto.Windows"), ("Noto.Core", "Noto.Core"), ("Noto.UseCases", "Noto.UseCases"), ("Noto.Infrastructure", "Noto.Infrastructure"), ("Noto.Platform.Windows", "Noto.Platform.Windows"), ("Noto.UI", "Noto.UI") })
             {
                 string dll = Path.Join(output, name + ".dll");
@@ -144,53 +121,48 @@ public sealed class ArchitectureEnforcementTests
                     throw new InvalidOperationException($"{dll} is older than {newer}: build the solution in {configuration} before running this test, or it would check stale code.");
                 }
 
-                // Owned by this instance from the moment it exists, so Dispose releases it whatever fails next.
-                var pe = new PEReader(ImmutableArray.Create(File.ReadAllBytes(dll)));
-                _assemblies[name] = (pe, default!);
-                _assemblies[name] = (pe, pe.GetMetadataReader());
+                paths[name] = dll;
             }
+
+            return new BuiltApplication(paths);
         }
 
-        internal IEnumerable<string> ReferencesOf(string assembly)
+        internal List<string> ReferencesOf(string assembly)
         {
-            var md = _assemblies[assembly].Md;
-            return md.AssemblyReferences.Select(h => md.GetString(md.GetAssemblyReference(h).Name));
+            using var pe = Open(assembly);
+            var md = pe.GetMetadataReader();
+            return md.AssemblyReferences.Select(h => md.GetString(md.GetAssemblyReference(h).Name)).ToList();
         }
 
         /// <summary>Each repository interface in Core, and each Infrastructure type implementing one, with its write methods.</summary>
         internal Dictionary<string, HashSet<string>> RepositoryWrites()
         {
-            var core = _assemblies["Noto.Core"].Md;
-            var writes = new Dictionary<string, HashSet<string>>();
+            using var corePe = Open("Noto.Core");
+            var core = corePe.GetMetadataReader();
 
-            foreach (var h in core.TypeDefinitions)
-            {
-                var type = core.GetTypeDefinition(h);
-                string name = core.GetString(type.Name);
-
-                if ((type.Attributes & System.Reflection.TypeAttributes.Interface) != 0 && name.StartsWith('I') && name.EndsWith("Repository", StringComparison.Ordinal))
-                {
-                    writes[FullName(core, h)] = type.GetMethods()
+            var writes = core.TypeDefinitions
+                .Where(h => IsRepositoryInterface(core, core.GetTypeDefinition(h)))
+                .ToDictionary(
+                    h => FullName(core, h),
+                    h => core.GetTypeDefinition(h).GetMethods()
                         .Select(m => core.GetString(core.GetMethodDefinition(m).Name))
                         .Where(m => !ReadPrefixes.Any(p => m.StartsWith(p, StringComparison.Ordinal)))
-                        .ToHashSet();
-                }
-            }
+                        .ToHashSet());
 
-            var infrastructure = _assemblies["Noto.Infrastructure"].Md;
+            using var infrastructurePe = Open("Noto.Infrastructure");
+            var infrastructure = infrastructurePe.GetMetadataReader();
 
-            foreach (var h in infrastructure.TypeDefinitions)
-            {
-                var type = infrastructure.GetTypeDefinition(h);
-                var implemented = type.GetInterfaceImplementations()
+            var implementations = infrastructure.TypeDefinitions
+                .Select(h => (Type: FullName(infrastructure, h), Implements: infrastructure.GetTypeDefinition(h).GetInterfaceImplementations()
                     .Select(i => TypeName(infrastructure, infrastructure.GetInterfaceImplementation(i).Interface))
                     .Where(writes.ContainsKey)
-                    .ToList();
+                    .ToList()))
+                .Where(t => t.Implements.Count > 0)
+                .ToList();
 
-                if (implemented.Count > 0)
-                {
-                    writes[FullName(infrastructure, h)] = implemented.SelectMany(i => writes[i]).ToHashSet();
-                }
+            foreach (var (type, implements) in implementations)
+            {
+                writes[type] = implements.SelectMany(i => writes[i]).ToHashSet();
             }
 
             return writes;
@@ -199,40 +171,28 @@ public sealed class ArchitectureEnforcementTests
         /// <summary>The command handlers: Noto.UseCases types with a public Handle method returning Noto.Core.Commands.CommandResult.</summary>
         internal HashSet<string> CommandHandlers()
         {
-            var md = _assemblies["Noto.UseCases"].Md;
-            var handlers = new HashSet<string>();
+            using var pe = Open("Noto.UseCases");
+            var md = pe.GetMetadataReader();
 
-            foreach (var h in md.TypeDefinitions)
-            {
-                foreach (var method in md.GetTypeDefinition(h).GetMethods().Select(md.GetMethodDefinition))
-                {
-                    if (md.GetString(method.Name) == "Handle" && (method.Attributes & System.Reflection.MethodAttributes.Public) == System.Reflection.MethodAttributes.Public
-                        && method.DecodeSignature(new Names(md), null).ReturnType.StartsWith("Noto.Core.Commands.CommandResult", StringComparison.Ordinal))
-                    {
-                        handlers.Add(FullName(md, h));
-                    }
-                }
-            }
-
-            return handlers;
+            return md.TypeDefinitions
+                .Where(h => md.GetTypeDefinition(h).GetMethods().Select(md.GetMethodDefinition).Any(m => IsCommandHandle(md, m)))
+                .Select(h => FullName(md, h))
+                .ToHashSet();
         }
 
         /// <summary>Every call, virtual call and method-pointer load in an assembly's IL, with the type that makes it.</summary>
-        internal IEnumerable<Call> CallsIn(string assembly)
+        internal List<Call> CallsIn(string assembly)
         {
-            var (pe, md) = _assemblies[assembly];
+            using var pe = Open(assembly);
+            var md = pe.GetMetadataReader();
+            var calls = new List<Call>();
 
             foreach (var h in md.TypeDefinitions)
             {
                 string caller = FullName(md, OuterType(md, h));
 
-                foreach (var method in md.GetTypeDefinition(h).GetMethods().Select(md.GetMethodDefinition))
+                foreach (var method in md.GetTypeDefinition(h).GetMethods().Select(md.GetMethodDefinition).Where(m => m.RelativeVirtualAddress != 0))
                 {
-                    if (method.RelativeVirtualAddress == 0)
-                    {
-                        continue;
-                    }
-
                     var il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILReader();
 
                     while (il.RemainingBytes > 0)
@@ -249,7 +209,7 @@ public sealed class ArchitectureEnforcementTests
                         if (op == OpCodes.Call || op == OpCodes.Callvirt || op == OpCodes.Ldftn || op == OpCodes.Ldvirtftn)
                         {
                             var (type, name) = Callee(md, MetadataTokens.EntityHandle(il.ReadInt32()));
-                            yield return new Call(assembly, caller, md.GetString(method.Name), type, name);
+                            calls.Add(new Call(assembly, caller, md.GetString(method.Name), type, name));
                         }
                         else if (op.OperandType == OperandType.InlineSwitch)
                         {
@@ -271,7 +231,23 @@ public sealed class ArchitectureEnforcementTests
                     }
                 }
             }
+
+            return calls;
         }
+
+        /// <summary>Opens one assembly; the caller's <c>using</c> releases it when its query ends.</summary>
+        private PEReader Open(string assembly) => new(ImmutableArray.Create(File.ReadAllBytes(_paths[assembly])));
+
+        private static bool IsRepositoryInterface(MetadataReader md, TypeDefinition type)
+        {
+            string name = md.GetString(type.Name);
+            return (type.Attributes & System.Reflection.TypeAttributes.Interface) != 0 && name.StartsWith('I') && name.EndsWith("Repository", StringComparison.Ordinal);
+        }
+
+        private static bool IsCommandHandle(MetadataReader md, MethodDefinition method) =>
+            md.GetString(method.Name) == "Handle"
+            && (method.Attributes & System.Reflection.MethodAttributes.Public) == System.Reflection.MethodAttributes.Public
+            && method.DecodeSignature(new Names(md), null).ReturnType.StartsWith("Noto.Core.Commands.CommandResult", StringComparison.Ordinal);
 
         private static (string Type, string Name) Callee(MetadataReader md, EntityHandle handle)
         {
