@@ -17,7 +17,7 @@ way. This harness rules it out:
 |---|---|
 | Noto is not the harness's child | Every process starts through the running shell (desktop view `ShellExecute`), so its parent is `explorer.exe`. The parent is checked on every start. |
 | The foreground comes from real input to another app | The target app is brought forward by a real click, then real typing. The typed token must appear in that app's text box. |
-| Negative control | Immediately before and after every hotkey press, an unrelated shell-started process that has received no input calls `SetForegroundWindow` for whichever window is not in front. Windows must refuse it. If Windows grants it even once, the run is **INVALID**: exit code 2, whatever the checks say. Each press is bracketed because a refusal is not guaranteed (see *Known limitations*). |
+| Negative control | Immediately before and after every hotkey press, an unrelated process that has received no input calls `SetForegroundWindow` for whichever window is not in front. Windows must refuse it. If Windows grants it even once, the run is **INVALID**: exit code 2, whatever the checks say. Each press is bracketed because a refusal is not guaranteed (see *Known limitations*). The probe is started by the run's probe host, which the shell starts once before the run touches the desktop, never by the shell at the moment of the control; each control records the probe's parent and whose window was in front. |
 | The harness needs no foreground rights | The harness never calls `SetForegroundWindow`. |
 | Injection is fenced | Typing happens only while the target owns the foreground. It stops the moment the foreground changes. The activation chord is sent only while one of the run's own windows is in front. Clicks are refused unless the window under the point is the target. The only other keys sent are the shell's Win+Ctrl virtual-desktop hotkeys, which Windows consumes before any app sees them. |
 | Isolated data | Every run gets a new root, `%TEMP%\noto-validation\<run>`. Noto always starts with `--data-root=` under it. Settings are written only to databases under it, and that path is asserted before every write. |
@@ -115,6 +115,14 @@ is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
     repeated.
   - *Cause:* not established. The earlier "never-activated window" explanation
     does not cover the later cases.
+  - *Seen 2026-10-12:* three grants in four campaigns, each right after the
+    shell itself had activated Noto or launched something, to a probe the shell
+    had just started. In an A/B on the same sequences, a shell-started probe was
+    granted once in 56 trials (after the shell activated Noto) and a probe the
+    run's probe host started was granted in none of 55; the host itself was
+    refused all 57 times it asked. The rates are too low for that difference to
+    be significant. Probes have come from the probe host since, so the shell is
+    no longer in a probe's ancestry; a grant is still INVALID.
   - *What it means for results:* any grant makes the run INVALID, and an
     INVALID run proves nothing. Only runs in which every control was refused
     count, so a run that fails this way is repeated, never averaged in.
@@ -150,7 +158,8 @@ is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
 - `Invoke-HarnessSelfTest.ps1`: the smoke test of the method.
 - `NotoValidation.psm1`: the shared module (interop, shell launch, guarded input, evidence, data isolation, desktop, cleanup).
 - `helpers/target-app.ps1`: the other app, a window with a text box that reports what is typed into it.
-- `helpers/foreground-probe.ps1`: the negative control.
+- `helpers/foreground-probe.ps1`: the negative control; it records its parent and the windows in front before and after.
+- `helpers/probe-host.ps1`: the run's probe host, which starts every negative-control probe.
 - `helpers/hotkey-holder.ps1`: another process holding Ctrl+Alt+Win+Space.
 - `helpers/fullscreen-app.ps1`: a borderless full-screen window, optionally itself topmost (Invoke-Drawer.ps1).
 - `helpers/single-instance.cs`: the single-instance probes, shared by both A17 scripts (key, mutex, pipe, raw requests, restricted clients, debug-output reader, squatter).
