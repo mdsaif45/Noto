@@ -1,12 +1,13 @@
 using Noto.Core.Commands;
 using Noto.Core.Tags;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Tags;
 
 /// <summary>
 /// Renames a tag (design §6, contract §11 row 20).
 /// </summary>
-public sealed record RenameTag(TagId TagId, string Name);
+public sealed record RenameTag(TagId TagId, string Name) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="RenameTag"/>.

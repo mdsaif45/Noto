@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
@@ -16,7 +17,7 @@ namespace Noto.UseCases.Notes;
 /// No <c>SortOrder</c> argument either — the engine computes it (contract §5),
 /// which is what keeps the O6 renormalisation trigger out of the caller.
 /// </remarks>
-public sealed record ReorderNote(NoteId NoteId, NoteId? AfterNoteId);
+public sealed record ReorderNote(NoteId NoteId, NoteId? AfterNoteId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="ReorderNote"/>.

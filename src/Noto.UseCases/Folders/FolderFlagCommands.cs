@@ -1,14 +1,15 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
 
 /// <summary>Pins a folder to the top of the list (design §6, parity C8).</summary>
-public sealed record PinFolder(FolderId FolderId);
+public sealed record PinFolder(FolderId FolderId) : ICommand<CommandResult>;
 
 /// <summary>Unpins a folder (design §6, parity C8).</summary>
-public sealed record UnpinFolder(FolderId FolderId);
+public sealed record UnpinFolder(FolderId FolderId) : ICommand<CommandResult>;
 
 /// <summary>Handles <see cref="PinFolder"/>.</summary>
 /// <remarks>

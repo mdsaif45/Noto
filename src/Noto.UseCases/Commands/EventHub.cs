@@ -1,0 +1,82 @@
+using Noto.Core.Diagnostics;
+
+namespace Noto.UseCases.Commands;
+
+/// <summary>
+/// The in-process event aggregator ADR-010 calls for: subscribe, publish, unsubscribe. Nothing more (#21).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Synchronous, on the publishing thread.</b> No queue, no bus, nothing across processes (ADR-010).
+/// </para>
+/// <para>
+/// <b>A subscriber that throws is isolated.</b> The event is a fact about a mutation that has already succeeded, so a
+/// subscriber's failure cannot undo it and must not stop the other subscribers: it is reported, as types only, and the
+/// next subscriber is told. As everywhere in Noto, running out of memory is never swallowed.
+/// </para>
+/// <para>
+/// Subscribers are kept per exact event type, in subscription order. Each subscribe or unsubscribe replaces the list, so
+/// a subscriber that subscribes or unsubscribes while an event is being delivered changes only the next delivery.
+/// </para>
+/// </remarks>
+public sealed class EventHub
+{
+    private readonly Action<ExceptionSummary> _subscriberFailed;
+    private readonly Dictionary<Type, Delegate[]> _subscribers = [];
+
+    /// <param name="subscriberFailed">Where a subscriber's failure is reported: the application log.</param>
+    public EventHub(Action<ExceptionSummary> subscriberFailed)
+    {
+        _subscriberFailed = subscriberFailed ?? throw new ArgumentNullException(nameof(subscriberFailed));
+    }
+
+    /// <summary>Tells <paramref name="subscriber"/> of every <typeparamref name="TEvent"/> until the returned handle is disposed.</summary>
+    public IDisposable Subscribe<TEvent>(Action<TEvent> subscriber)
+        where TEvent : IEvent
+    {
+        ArgumentNullException.ThrowIfNull(subscriber);
+
+        _subscribers[typeof(TEvent)] = [.. Subscribers(typeof(TEvent)), subscriber];
+
+        return new Subscription(() => _subscribers[typeof(TEvent)] = Without(Subscribers(typeof(TEvent)), subscriber));
+    }
+
+    /// <summary>Tells every subscriber of <typeparamref name="TEvent"/>, in subscription order.</summary>
+    public void Publish<TEvent>(TEvent fact)
+        where TEvent : IEvent
+    {
+        ArgumentNullException.ThrowIfNull(fact);
+
+        foreach (Delegate subscriber in Subscribers(typeof(TEvent)))
+        {
+            try
+            {
+                ((Action<TEvent>)subscriber)(fact);
+            }
+            catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
+            {
+                _subscriberFailed(ExceptionSummary.From(ex));
+            }
+        }
+    }
+
+    private Delegate[] Subscribers(Type eventType) => _subscribers.TryGetValue(eventType, out Delegate[]? list) ? list : [];
+
+    // One subscription removes one entry, even when the same delegate was subscribed twice.
+    private static Delegate[] Without(Delegate[] list, Delegate subscriber)
+    {
+        int index = Array.FindIndex(list, s => ReferenceEquals(s, subscriber));
+        return index < 0 ? list : [.. list[..index], .. list[(index + 1)..]];
+    }
+
+    private sealed class Subscription(Action unsubscribe) : IDisposable
+    {
+        private Action? _unsubscribe = unsubscribe;
+
+        public void Dispose()
+        {
+            _unsubscribe?.Invoke();
+            _unsubscribe = null;
+        }
+    }
+}
