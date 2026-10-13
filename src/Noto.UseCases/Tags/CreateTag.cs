@@ -1,13 +1,14 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Tags;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Tags;
 
 /// <summary>
 /// Creates a tag (design §6, contract §11 row 19).
 /// </summary>
-public sealed record CreateTag(string Name);
+public sealed record CreateTag(string Name) : ICommand<CommandResult<TagId>>;
 
 /// <summary>
 /// Handles <see cref="CreateTag"/>.

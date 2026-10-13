@@ -26,6 +26,12 @@ public interface IAppLog
 
     /// <summary>A task faulted and nothing observed it. Not fatal: .NET does not end the process for it.</summary>
     void UnobservedTaskException(ExceptionSummary failure);
+
+    /// <summary>
+    /// A subscriber to an event threw (#21). Not fatal: the command that raised the event had already succeeded,
+    /// and the other subscribers were still told (ADR-010).
+    /// </summary>
+    void EventSubscriberFailed(ExceptionSummary failure);
 }
 
 /// <summary>Which last-chance boundary saw an exception.</summary>

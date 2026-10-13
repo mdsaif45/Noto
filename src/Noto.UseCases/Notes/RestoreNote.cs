@@ -1,13 +1,14 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
 /// <summary>
 /// Brings a note back out of the recycle bin (design §6, parity B23).
 /// </summary>
-public sealed record RestoreNote(NoteId NoteId);
+public sealed record RestoreNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>Handles <see cref="RestoreNote"/>.</summary>
 /// <remarks>

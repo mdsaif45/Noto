@@ -1,13 +1,14 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
 
 /// <summary>
 /// Renames a folder (design §6, parity C13).
 /// </summary>
-public sealed record RenameFolder(FolderId FolderId, string Name);
+public sealed record RenameFolder(FolderId FolderId, string Name) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="RenameFolder"/>.

@@ -18,7 +18,7 @@ namespace Noto.Core.Commands;
 /// straddle.
 /// </para>
 /// </remarks>
-public readonly struct CommandResult<T>
+public readonly struct CommandResult<T> : ICommandResult
 {
     private readonly T? _value;
 
@@ -79,7 +79,7 @@ public readonly struct CommandResult<T>
 /// Kept as its own struct rather than <c>CommandResult&lt;Unit&gt;</c>, which
 /// would introduce a placeholder type that exists only to be ignored.
 /// </remarks>
-public readonly struct CommandResult
+public readonly struct CommandResult : ICommandResult
 {
     private CommandResult(CommandFailure? failure) => Failure = failure;
 

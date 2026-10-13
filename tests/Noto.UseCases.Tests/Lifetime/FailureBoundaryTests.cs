@@ -273,6 +273,10 @@ public sealed class FailureBoundaryTests
         {
         }
 
+        public void EventSubscriberFailed(ExceptionSummary failure)
+        {
+        }
+
         private void ThrowIf(string name)
         {
             if (ThrowOn == name)

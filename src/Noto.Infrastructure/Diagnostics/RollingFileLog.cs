@@ -137,6 +137,9 @@ public sealed class RollingFileLog : IStorageLog, IAppLog
     public void UnobservedTaskException(ExceptionSummary failure) =>
         Write(LogLevel.Warning, "UnobservedTaskException", w => WriteFailure(w, failure));
 
+    public void EventSubscriberFailed(ExceptionSummary failure) =>
+        Write(LogLevel.Warning, "EventSubscriberFailed", w => WriteFailure(w, failure));
+
     // The declared name only: a family member's scope is opaque text, possibly a row name read from the database.
     private static void WriteKey(Utf8JsonWriter w, SettingKey key)
     {

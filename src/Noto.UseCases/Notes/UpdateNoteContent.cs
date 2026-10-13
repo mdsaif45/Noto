@@ -1,13 +1,14 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
 /// <summary>
 /// Replaces a note's content (design §6, parity B19).
 /// </summary>
-public sealed record UpdateNoteContent(NoteId NoteId, string Content);
+public sealed record UpdateNoteContent(NoteId NoteId, string Content) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="UpdateNoteContent"/>.

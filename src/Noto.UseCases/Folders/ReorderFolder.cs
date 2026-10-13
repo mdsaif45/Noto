@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
 
@@ -17,7 +18,7 @@ namespace Noto.UseCases.Folders;
 /// single scope; no <c>SortOrder</c> argument either — the engine computes it
 /// (contract §5), which keeps the O6 renormalisation trigger out of the caller.
 /// </remarks>
-public sealed record ReorderFolder(FolderId FolderId, FolderId? AfterFolderId);
+public sealed record ReorderFolder(FolderId FolderId, FolderId? AfterFolderId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="ReorderFolder"/>.

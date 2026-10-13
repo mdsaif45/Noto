@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
 
@@ -8,7 +9,7 @@ namespace Noto.UseCases.Folders;
 /// Moves a folder and its active notes into the recycle bin
 /// (design §6, parity C11).
 /// </summary>
-public sealed record DeleteFolder(FolderId FolderId);
+public sealed record DeleteFolder(FolderId FolderId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="DeleteFolder"/> — Cases A and B.
