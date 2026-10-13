@@ -83,13 +83,8 @@ public sealed class RollingFileLog : IStorageLog
             w.WriteNumber("pending", pendingCount);
         });
 
-    // The description is the migration's own fixed text, written in code.
-    public void MigrationApplied(int version, string description) =>
-        Write(LogLevel.Information, "MigrationApplied", w =>
-        {
-            w.WriteNumber("version", version);
-            w.WriteString("description", description);
-        });
+    public void MigrationApplied(int version) =>
+        Write(LogLevel.Information, "MigrationApplied", w => w.WriteNumber("version", version));
 
     public void MigrationCompleted(int version) =>
         Write(LogLevel.Information, "MigrationCompleted", w => w.WriteNumber("version", version));

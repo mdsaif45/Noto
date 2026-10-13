@@ -307,7 +307,11 @@ in the data root.
     message or stack trace;
   - a location is a `DataRootPath`: relative to the data root, or
     `<outside>`, never absolute;
+  - a migration is its version number;
   - a setting is its `SettingKey`, never its value.
+
+  `DiagnosticsContractTests` fails if any event takes a parameter of another
+  type, so a `string` cannot be added back.
 - **Bounded.** A file is closed before it passes 1 MiB, and the newest 10 are
   kept.
 - **Never the reason Noto fails.** A write that cannot happen is dropped. The

@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Noto.Core.Diagnostics;
+using Noto.Core.Settings;
+using Noto.Core.Storage;
 using Xunit;
 
 namespace Noto.Core.Tests.Diagnostics;
@@ -14,6 +16,23 @@ public sealed class DiagnosticsContractTests
     private const string Secret = "SECRET-NOTE-TEXT-4711";
 
     private static readonly string Root = Path.Join(Path.GetTempPath(), "noto-root-3f1c");
+
+    [Fact]
+    public void Every_log_event_takes_only_types_that_cannot_carry_free_text()
+    {
+        // The rule holds by signature: a string parameter, or an object one, is a place a caller could put note text,
+        // a path or a message. Each permitted type is either a number or enum, or a type that admits no such text.
+        Type[] permitted = [typeof(int), typeof(DataRootPath), typeof(ExceptionSummary), typeof(SettingKey), typeof(SettingFallbackReason)];
+
+        var offending = typeof(IStorageLog).GetMethods()
+            .SelectMany(m => m.GetParameters().Select(p => (Method: m.Name, p.Name, p.ParameterType)))
+            .Where(p => !permitted.Contains(p.ParameterType))
+            .Select(p => $"{p.Method}({p.ParameterType.Name} {p.Name})")
+            .ToList();
+
+        Assert.True(offending.Count == 0, "Free-text-capable log parameters: " + string.Join(", ", offending));
+        Assert.NotEmpty(typeof(IStorageLog).GetMethods());
+    }
 
     [Fact]
     public void An_exception_summary_holds_the_type_chain_and_hresult_and_nothing_else()
