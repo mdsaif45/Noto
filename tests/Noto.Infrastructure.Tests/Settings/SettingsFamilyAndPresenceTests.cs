@@ -1,6 +1,7 @@
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
+using Noto.Infrastructure.Diagnostics;
 using Noto.Infrastructure.Storage;
 using Xunit;
 
@@ -25,6 +26,36 @@ public sealed class SettingsFamilyAndPresenceTests : IDisposable
         var store = new SqliteSettingsStore(_context.Database, _context.Log);
         store.Load(TestSettingKeys.AllIncludingProduction, TestFamilies);
         return store;
+    }
+
+    // ------------------------------------------------- the log (#7)
+
+    [Fact]
+    public void A_hand_written_row_name_never_reaches_the_log_file()
+    {
+        // The store rebuilds a member from whatever a row is named; the log must record only the family.
+        const string Secret = "SECRET-NOTE-TEXT-4711";
+        _context.SeedRaw(@"workspace.width::C:\Users\SecretUser\" + Secret, "not-a-number");
+        string logs = Path.Join(Path.GetDirectoryName(_context.DatabasePath)!, "logs-" + Guid.NewGuid().ToString("N")[..8]);
+        var log = new RollingFileLog(logs);
+
+        try
+        {
+            new SqliteSettingsStore(_context.Database, log).Load();
+
+            string text = string.Join('\n', Directory.EnumerateFiles(logs).Select(File.ReadAllText));
+            Assert.Contains("\"key\":\"workspace.width\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"scoped\":true", text, StringComparison.Ordinal);
+            Assert.DoesNotContain(Secret, text, StringComparison.Ordinal);
+            Assert.DoesNotContain("SecretUser", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(logs))
+            {
+                Directory.Delete(logs, recursive: true);
+            }
+        }
     }
 
     // ------------------------------------------------- family loading
