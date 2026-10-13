@@ -16,10 +16,12 @@ Native, local-first, keyboard-first, and quiet.
 
 > **Status: pre-alpha. There is nothing to install yet.**
 >
-> The note engine and SQLite storage are built. The app opens docked to a
-> screen edge, with three plain surfaces (folders, notes, and a raw-markdown
-> editor), and a global hotkey brings it forward. It is **not usable daily
-> yet**: there is no tray, no show/hide, no search and no markdown rendering.
+> The note engine and SQLite storage are built, and so is the Windows shell:
+> a topmost drawer docked to a screen edge, shown and hidden by a global hotkey
+> and a tray icon, one instance per data root. On top of it are three plain
+> surfaces (folders, notes, and a raw-markdown editor). It is **not usable
+> daily yet**: there are no settings, no search, no markdown rendering, no
+> recycle bin and no export.
 > Current status is in [progress.md](docs/project/progress.md); the plan is in
 > the [roadmap](docs/roadmap/roadmap.md).
 >

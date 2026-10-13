@@ -1,7 +1,7 @@
 # SideNotes Parity Specification
 
 **Status:** Draft
-**Last updated:** 2026-09-14
+**Last updated:** 2026-10-13 — rows re-scored against the running application (see *Current status*)
 **Milestone:** [M3 — SideNotes Parity](../roadmap/roadmap.md#m3--sidenotes-parity--the-first-product)
 **Source:** [sidenotes-feature-inventory.md](../research/_raw/sidenotes-feature-inventory.md) — SideNotes 1.6.5, macOS
 
@@ -57,6 +57,57 @@ each table**, not crammed into a cell.
 every clause is. A row does not become `[~]` because a neighbouring row moved,
 and it does not stay `[ ]` because unrelated work is outstanding.
 
+**Delivered means a user can do it in the running application.** A command
+handler with tests, or a setting that exists only in the database, delivers
+nothing on its own:
+
+```
+engine command exists  ≠  a user can reach it  ≠  the parity row is met
+```
+
+A provisional row whose open question could still change its requirement is
+not scored, even when the application happens to meet it today (B25, C3).
+
+### Current status
+
+Counted from the rows below on 2026-10-13, re-scored against the running
+application. With run at login (#94, PR #96) merged:
+
+| Level | Rows | `[x]` | `[~]` | `[ ]` |
+| ----- | ---: | ----: | ----: | ----: |
+| MUST | 147 | 13 | 13 | 121 |
+| SHOULD | 66 | 0 | 1 | 65 |
+| ADAPT | 23 | 2 | 2 | 19 |
+| BETTER | 5 | 0 | 0 | 5 |
+| DROP | 23 | — | — | 23 (never checked) |
+| **Total** | **264** | **15** | **16** | **233** |
+
+On `main` before PR #96, A16 is `[ ]`: 14 / 16 / 234, and 12 MUSTs done.
+
+```
+MUST [x]  A1 A9 A10 A14 A16 A17 A19 · C1 C13 · G1 G7 G8 G9
+ADAPT [x] A6 I13
+```
+
+**The 2026-10-13 re-score.** Two rows went down, because what they credit is a
+stored option no user can choose: A12 `[x]` → `[~]`, G51 `[~]` → `[ ]`. Eleven
+went up, because a user can already do what they ask and they had never been
+re-read: A19, C13, G1, G9, I13 to `[x]`; A7, C2, C15, F1, G14, G15 to `[~]`.
+
+### Traceability
+
+Every row traces to the inventory. These are **Noto enhancements**, not
+SideNotes behaviour, and are labelled so they are never mistaken for parity
+debt:
+
+| Rows | Why they are Noto's |
+| ---- | ------------------- |
+| B7, B23, I7, I15, J2 | BETTER — §12. The inventory records no trash, no export and no keyboard-only activation in SideNotes |
+| G26 | SideNotes documents no pin-note chord; `Ctrl+Shift+P` is Noto's proposal |
+| B22, E8, A18, A19, G52 | The inventory marks the SideNotes behaviour UNKNOWN; each is kept on Noto's own merits (principle 3 for E8) |
+| D51 | A SideNotes defect turned into a Noto requirement |
+| Tags | No row at all: the engine has tags (contract §7); they are not parity |
+
 **Where two rows are one decision, the pair is scored together.** B7 and B23
 are the case that exists today: B7's chord performs a soft delete, but the
 recycle bin and restore that make a soft delete recoverable are B23's
@@ -110,25 +161,26 @@ That labelling is preserved here.
 | `[ ]` | A4 | Hot Side mode | Hover the screen edge to reveal | Hover activation, independently disableable | MUST | — | Principle 7 |
 | `[~]` | A5 | Menubar Icon mode | Menu-bar icon toggles visibility | **System tray** icon toggles visibility | ADAPT | — | macOS menu bar → Windows tray. **Partial** — #16 slice 7 (ADR-014): selecting the tray icon shows, restores or brings Noto forward, but does not hide it. On Windows 11 a new icon sits in the overflow, and opening the overflow takes activation from Noto before the click arrives (measured), so an in-front Noto is never in front when the click lands: selection is a launch, not a toggle. Hiding from the tray is its menu's Hide |
 | `[x]` | A6 | Icon context menu | Right-click menu-bar icon → actions | Tray icon right-click context menu | ADAPT | — | **Done** — #16 slice 7 (ADR-014): Show, Hide, Keep Noto open, Quit; by right-click, Shift+F10 or the menu key |
-| `[ ]` | A7 | Global show/hide shortcut | `⌃⌥⌘␣`, configurable | Global hotkey, configurable, works when unfocused | MUST | — | See G |
+| `[~]` | A7 | Global show/hide shortcut | `⌃⌥⌘␣`, configurable | Global hotkey, configurable, works when unfocused | MUST | — | **Partial** — `Ctrl+Alt+Win+Space` shows and hides Noto when it is not focused, on by default (#16 slices 4–5). Configurable only by editing the stored setting: no settings UI (G50). See G1 |
 | `[~]` | A8 | Always on top | Over other apps incl. full-screen; Stage Manager compatible | Topmost over normal and full-screen windows | MUST | — | Stage Manager has no analogue; that half is dropped. **Partial** — #16 slice 6: topmost over normal and borderless full-screen windows (runtime-validated). Exclusive full-screen is out of reach (summoning Noto ends exclusive mode) and not validated |
 | `[x]` | A9 | Pin window open | Configurable shortcut pins the panel visible | Pin panel open, keyboard + tray reachable | MUST | — | **Done** — #16 slice 6: a header pin toggle, reachable by Tab and Space, session-only; #16 slice 7: the tray's Keep Noto open, through the same toggle. A configurable chord is G6 |
 | `[x]` | A10 | Close window | `⌘W` hides the panel | `Ctrl+W` hides the panel | MUST | — | **Done** — #16 slice 6: `Ctrl+W` hides the workspace from any surface, saving unsaved text first |
 | `[ ]` | A11 | Hide with modifier+Enter | Optional `⌘↩` binding to hide | Optional `Ctrl+Enter` binding to hide | SHOULD | — | Optional, off by default |
-| `[x]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | **Done** — #16 slice 6: the four behaviours, default leave-folder-or-hide, stored in `workspace.escape`. Choosing one in a settings UI is G51/J26 |
+| `[~]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | **Partial** — #16 slice 6 built the four behaviours and stores the choice in `workspace.escape`; a user reaches only the default, leave-folder-or-hide. The other three need the settings UI (G51/J26). Re-scored 2026-10-13: a stored option no user can choose is not delivered |
 | `[~]` | A13 | Close on click outside | Panel hides on outside click | Same, as a setting | MUST | — | **Partial** — #16 slice 6: hides when activation moves to another application (the mechanism behind "outside click"), on by default, suppressed by pin; stored in `workspace.hide-on-deactivation`. No settings UI yet (J5) |
 | `[x]` | A14 | Width resize | Free drag on the window edge; no presets | Free drag resize, width persisted | MUST | — | **Done** — #16 slice 3 (#78): free inner-edge drag, width remembered per display |
 | `[ ]` | A15 | Drag-to-reveal at edge | Dragging content to the edge reveals the panel; disableable | Same; two independent toggles as in SideNotes | MUST | — | Disableable per principle 7 |
 | `[x]` | A16 | Launch on startup | Auto-launch at login | Run at login, off by default | MUST | #94 | **Done** — run at login (ADR-015): the tray's Start Noto with Windows registers a hidden start (`--login`) under the user's `Run` key, off by default; Windows' Startup apps setting is honoured and never overridden. A real sign-in is not validated end to end (not drivable from inside a session); `StartupTask` waits for the sparse package (ADR-008) |
 | `[x]` | A17 | Second launch focuses | Relaunch brings existing instance forward | Single-instance; second launch shows the panel | MUST | — | **Done** — A17 (#90, #91; ADR-013): a second launch hands off and exits; the running Noto is shown, restored or brought forward, never hidden |
 | `[ ]` | A18 | Multi-display behavior | Undocumented | Deterministic monitor choice + follow-focus option | MUST | — | ⚠ provisional — UNKNOWN in every source |
-| `[ ]` | A19 | Virtual desktop behavior | Undocumented (Spaces) | Defined, documented Virtual Desktop behavior | MUST | — | ⚠ provisional — UNKNOWN |
+| `[x]` | A19 | Virtual desktop behavior | Undocumented (Spaces) | Defined, documented Virtual Desktop behavior | MUST | — | **Done** — defined and documented in ADR-007 §4 (*Virtual desktops*): the hotkey never moves the window between desktops, and a desktop switch is a deactivation. Measured by `Invoke-ShowHide.ps1` and `Invoke-Drawer.ps1`. Q2 (what SideNotes does) stays open; per Q2 it cannot change this requirement |
 | `[ ]` | A20 | Slide animation | Panel slides out from the edge | Slide-in/out within the perf budget | SHOULD | — | ⚠ provisional — INFERRED from review |
 | `[ ]` | A21 | Two-finger edge gesture | Trackpad edge gesture; known to conflict | Precision-touchpad gesture **if** available, **off by default** | ADAPT | — | ⚠ provisional — INFERRED. Keyboard path mandatory |
 
-**A1–A4, A14, A16** are M2 work, not M3 — they are listed here because parity
-is defined by the whole set, and M3's exit criterion reads this table. They
-arrive checked.
+**A1–A4, A14, A16** were planned as M2 work — they are listed here because
+parity is defined by the whole set, and M3's exit criterion reads this table.
+A1, A14 and A16 are checked; A2 (switching sides), A3 (Open Bar) and A4 (Hot
+Side) are not built, and move to the M3 product slices.
 
 **A3 and A4 are the product's loudest research finding.** SideNotes users have
 complained for years that they must choose between a visible Open Bar that
@@ -185,15 +237,16 @@ never as the only path to anything (principle 7).
 | `[ ]` | B22 | Duplicate note | Not documented (folder duplication is) | Duplicate note | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
 | `[ ]` | B23 | Trash / restore | **None.** Recovery is backups only | Soft delete + recycle bin + restore | BETTER | — | ADR-002; M1 |
 | `[ ]` | B24 | Note templates | Not documented | **Not a parity requirement** | DROP | — | No evidence it exists. Do not build speculatively |
-| `[ ]` | B25 | Per-note width | Notes fill panel width; no per-note size | Notes fill panel width | MUST | — | ⚠ provisional — INFERRED |
+| `[ ]` | B25 | Per-note width | Notes fill panel width; no per-note size | Notes fill panel width | MUST | — | ⚠ provisional — INFERRED. Met by construction today (the editor fills the panel); scored when the row stops being provisional |
 | `[ ]` | B26 | Empty note placeholder | Placeholder UI for empty notes | Placeholder text in an empty note | SHOULD | — | |
 
 **B7 and B23 are one decision, not two.** SideNotes deletes immediately behind
 a confirmation popover, and has no trash — the inventory is explicit that
 recovery is via backups only. Noto inverts this: soft delete into a recycle
 bin, which removes the need for a modal confirmation on every delete. This is a
-BETTER row and is justified in section 12; it is also already M1 work, so it
-costs M3 nothing.
+BETTER row and is justified in section 12. The engine half is M1 work and is
+built (`DeleteNote`, `RestoreNote`, `ListDeletedNotes`); the recycle bin a user
+can open is not.
 
 **Which is why B7 is still `[ ]` after M2-3.** The chord is wired, the delete is
 soft, and there is no blocking confirmation — every clause of B7's own
@@ -269,8 +322,8 @@ would be inventing a SideNotes feature, which this document forbids.
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | C1 | Folders | Folder list is top level; entering shows notes | Same two-level navigation model | MUST | — | **Done** — M2-1 (#57) + M2-2 (#60): replacing navigation, folder list ⇄ note list |
-| `[ ]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | — | |
-| `[ ]` | C3 | Nesting depth | Flat, one level (no sub-folders documented) | **Flat, one level** | MUST | — | ⚠ provisional — INFERRED from absence. Do not add nesting |
+| `[~]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | — | **Partial** — M2-1 (#57): `Ctrl+N` in the folder list focuses the name box, and Create adds the folder. No URI or CLI (H-rows) |
+| `[ ]` | C3 | Nesting depth | Flat, one level (no sub-folders documented) | **Flat, one level** | MUST | — | ⚠ provisional — INFERRED from absence. Met by construction (no `ParentId`; the UI is flat); scored when Q6 is resolved. Do not add nesting |
 | `[~]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | **Partial** — M2-2 (#60): `Ctrl+Down` and double-click. The single-click **setting** is deferred with #9 settings |
 | `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | — | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12's four behaviours landed with #16 slice 6 |
 | `[ ]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | — | |
@@ -280,9 +333,9 @@ would be inventing a SideNotes feature, which this document forbids.
 | `[ ]` | C10 | Folder sorting | Exists since 1.3; keys not enumerated | Sort by name / created / modified / manual | SHOULD | — | ⚠ provisional — UNKNOWN options |
 | `[ ]` | C11 | Delete folder | Confirmation popover | Soft delete to recycle bin, notes included | MUST | — | Consistent with B23 |
 | `[ ]` | C12 | Duplicate folder | Copy a folder with contents | Same | SHOULD | — | |
-| `[ ]` | C13 | Rename folder | Inline rename; Esc cancels | Inline rename; Esc cancels | MUST | — | |
+| `[x]` | C13 | Rename folder | Inline rename; Esc cancels | Inline rename; Esc cancels | MUST | — | **Done** — M2-1 (#57): `F2` starts an inline rename, `Enter` commits, `Esc` and focus loss cancel. See *C2 / C13* below |
 | `[ ]` | C14 | Open last folder on restart | Setting | Same setting | SHOULD | — | |
-| `[ ]` | C15 | Empty folder guidance | Helper text in an empty folder | Same | SHOULD | — | Principle 2: shown only in the empty state |
+| `[~]` | C15 | Empty folder guidance | Helper text in an empty folder | Same | SHOULD | — | **Partial** — an empty folder reads "This folder has no notes yet." It does not say how to add one. Principle 2: shown only in the empty state |
 | `[ ]` | C16 | Folder URL | `Copy URL` from context menu | `noto://` folder URI, copyable | ADAPT | — | See H5 |
 | `[ ]` | C17 | Folder colors | Not documented | **Not a parity requirement** | DROP | — | Theme has folder *styling*, not per-folder color |
 | `[ ]` | C18 | All-notes / favorites / archive | None documented | **Not a parity requirement** | DROP | — | Pinning + search are the documented access paths |
@@ -506,7 +559,7 @@ neither is required by a principle.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | F1 | Light / dark / system | Follow system, or set manually | Same three states; follows Windows theme | MUST | — | Principle 8 |
+| `[~]` | F1 | Light / dark / system | Follow system, or set manually | Same three states; follows Windows theme | MUST | — | **Partial** — Light, Dark and High Contrast follow the Windows theme (`Noto.UI` ThemeDictionaries, #22). No manual choice (needs the settings UI); Light and High Contrast not yet visually reviewed |
 | `[ ]` | F2 | UI themes | Installable color themes | Installable color themes | SHOULD | — | Built on ADR-011 tokens |
 | `[ ]` | F3 | Custom theme files | `.sntheme` = JSON, schema-documented, editable in any editor | JSON theme file + published schema | SHOULD | — | Format is Noto's own |
 | `[ ]` | F4 | Theme structure | `light` / `dark` / `any`; sections incl. notes.clean + 6 colors | Equivalent structure; must cover the six note colors | SHOULD | — | Structure follows ADR-011, not SideNotes' |
@@ -554,7 +607,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
-| `[ ]` | G1 | Show / hide app | `⌃⌥⌘␣` | `Ctrl+Alt+Win+Space` | MUST | — | ⚠ may collide with IME switchers |
+| `[x]` | G1 | Show / hide app | `⌃⌥⌘␣` | `Ctrl+Alt+Win+Space` | MUST | — | **Done** — #16 slices 4–5: shows and hides from any app, on by default. Rebinding is G50. ⚠ may collide with IME switchers |
 | `[ ]` | G2 | New note in current folder | `⌃⌥⌘N` | `Ctrl+Alt+Win+N` | MUST | — | |
 | `[ ]` | G3 | Search | `⌃⌥⌘F` | `Ctrl+Alt+Win+F` | MUST | — | |
 | `[ ]` | G4 | Note from clipboard | configurable, no default | `Ctrl+Alt+Win+V` | MUST | — | Noto proposes a default |
@@ -567,7 +620,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
 | `[x]` | G7 | Close panel | `⌘W` | `Ctrl+W` | MUST | — | **Done** — = A10 |
 | `[x]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | **Done** — = A12 |
-| `[ ]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | |
+| `[x]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | **Done** — M2-2 (#60). Same code as C4, whose `[~]` is the single-click setting |
 | `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | — | |
 | `[ ]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | |
 | `[ ]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | |
@@ -577,8 +630,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
-| `[ ]` | G14 | New note / new folder | `⌘N` | `Ctrl+N` | MUST | — | Context-dependent |
-| `[ ]` | G15 | Delete note | `⌥⌘⌫` | `Ctrl+Alt+Backspace` ↯ | MUST | — | Order swapped for Windows convention |
+| `[~]` | G14 | New note / new folder | `⌘N` | `Ctrl+N` | MUST | — | **Partial** — context-dependent: the folder list focuses the folder name box, the note list creates and opens a note (#63, #87). Unbound in the editor |
+| `[~]` | G15 | Delete note | `⌥⌘⌫` | `Ctrl+Alt+Backspace` ↯ | MUST | — | **Partial** — works in the editor (#63), a soft delete; not from the note list. Order swapped for Windows convention. B7 stays `[ ]` until B23's recycle bin has a UI |
 | `[ ]` | G16 | Move note to folder | `⇧⌘M` | `Ctrl+Shift+M` | MUST | — | |
 | `[ ]` | G17 | Move note up | `⇧⌥⌘↑` | `Ctrl+Alt+Shift+Up` | MUST | — | |
 | `[ ]` | G18 | Move note down | `⇧⌥⌘↓` | `Ctrl+Alt+Shift+Down` | MUST | — | |
@@ -629,7 +682,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[ ]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | — | |
-| `[~]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | **Partial** — the four options exist and are stored (A12); no settings UI to choose one yet |
+| `[ ]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | The four options exist and are stored (A12); no settings UI to choose one. Re-scored 2026-10-13 from `[~]`: this row is the setting, and no user can reach it |
 | `[ ]` | G52 | Rebind in-app shortcuts | Undocumented whether possible | Rebindable, with conflict detection | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
 
 ### Collisions with standard Windows shortcuts
@@ -732,7 +785,7 @@ the documented use cases (D38, I4) without pretending to be a share sheet.
 | `[ ]` | I10 | Restore a backup | Restore from a chosen backup | Same, verified in M4 | MUST | — | |
 | `[ ]` | I11 | Backups in cloud drive | Backup folder may be iCloud Drive | **User-chosen backup folder** (OneDrive etc.) | ADAPT | — | Noto writes to a folder; the user picks it |
 | `[ ]` | I12 | iCloud sync | Automatic cross-device sync; last-write-wins; iCloud canonical | **No sync in v1** — local-first only | ADAPT | — | ADR-002. BYO-folder sync is post-v1 |
-| `[ ]` | I13 | Local storage location | SQLite in Application Support; paths vary by channel | SQLite under `%LOCALAPPDATA%`; one location | ADAPT | — | ADR-003; one channel, one path |
+| `[x]` | I13 | Local storage location | SQLite in Application Support; paths vary by channel | SQLite under `%LOCALAPPDATA%`; one location | ADAPT | — | **Done** — ADR-003; `NotoStoragePaths`: `%LOCALAPPDATA%\Noto\noto.db`, one channel, one path |
 | `[ ]` | I14 | Legacy storage format | Pre-1.3 JSON format | **Not applicable** | DROP | — | Noto has no legacy format |
 | `[ ]` | I15 | Data portability | Effectively via SQLite + backups | Documented schema + markdown export + open backups | BETTER | — | ADR-002 makes this a contract |
 
@@ -893,8 +946,8 @@ infinite well.
 
 | ID | Gap in SideNotes | Noto | Why it is justified |
 | -- | ---------------- | ---- | ------------------- |
-| I7, I15 | **No bulk / text / markdown export.** Image export and print only; portability is the SQLite file and backups | Bulk export to markdown files; documented schema; open backup format | **ADR-002 promises the data outlives the app.** Content is already markdown source (ADR-004), so export is a copy. Ships in M1 — costs M3 nothing |
-| B7, B23 | **No trash or undo for deleted notes.** Recovery is backups only; a confirmation popover is the only protection | Soft delete + recycle bin + restore | Same promise. A confirmation dialog is not data safety, it is a speed bump. Also ships in M1 |
+| I7, I15 | **No bulk / text / markdown export.** Image export and print only; portability is the SQLite file and backups | Bulk export to markdown files; documented schema; open backup format | **ADR-002 promises the data outlives the app.** Content is already markdown source (ADR-004), so export is a copy. Planned for M1 (#15); not started |
+| B7, B23 | **No trash or undo for deleted notes.** Recovery is backups only; a confirmation popover is the only protection | Soft delete + recycle bin + restore | Same promise. A confirmation dialog is not data safety, it is a speed bump. Engine built in M1; no recycle-bin UI yet |
 | J2 (with A3, A4, J1) | **No keyboard-only activation.** Users must accept a visible edge bar or a menu-bar icon; `Hide Open Bar = always` is gated on being in another mode | Every activation surface independently disableable — including all of them at once | **The most-requested missing SideNotes feature in reviews**, and principle 7 states it directly. Costs one settings decision over the parity implementation |
 
 A3, A4 and J1 stay MUST/ADAPT rather than BETTER because the activation
@@ -912,9 +965,9 @@ shape at once. If it is ever wanted, it is an M7 candidate with its own case.
 better than SideNotes; the roadmap puts them in M5–M8 and
 `competitor-enhancements.md`, deliberately separate from this document so that
 "we promised SideNotes parity" never blurs into "we are making Noto better."
-The rows above earn their place because two of the three themes are already M1
-work mandated by an ADR, and the third is a settings decision rather than a
-feature.
+The rows above earn their place because two of the three themes are M1 work
+mandated by an ADR, and the third is a settings decision rather than a
+feature. None of the five is delivered yet.
 
 ---
 
@@ -1017,7 +1070,7 @@ SideNotes keystroke is unknown, and Noto is remapping chords anyway (section 7).
 | **SHOULD** | 66 | Gaps listed and re-decided at the M4 gate |
 | **ADAPT** | 23 | Windows mechanism, same outcome; counted as work |
 | **DROP** | 23 | Decisions, never checked, never re-litigated without a reason |
-| **BETTER** | 5 | Deliberate excess; 4 of 5 already land in M1 |
+| **BETTER** | 5 | Deliberate excess; 4 of 5 planned for M1, 0 of 5 delivered |
 | **Total rows** | **264** | Traced to ~273 inventory items (K. pricing / version history / privacy are not requirements) |
 
 ### Rows by category
@@ -1048,9 +1101,11 @@ SideNotes keystroke is unknown, and Noto is remapping chords anyway (section 7).
 
 Three categories — **D (editor), G (shortcuts), J (preferences)** — are 143 of
 264 rows, 54% of the document, and they hold 89 of the 147 MUSTs. That is where
-M3 is won or lost. Categories A
-(M2) and the M1 slices of B, C and I arrive already checked; they are listed
-because M3's exit criterion reads the whole table, not because M3 builds them.
+M3 is won or lost. Category A (M2) and the M1 slices of B, C and I were
+expected to arrive checked. They did not: M2 delivered most of A, and the M1
+engine is built, but most B, C and I rows still need a surface a user can reach
+— see *Current status*. They are listed because M3's exit criterion reads the
+whole table.
 
 **Floating notes** appear in the roadmap's M3 list but have no inventory row —
 SideNotes has them, the inventory did not enumerate them as a numbered feature.

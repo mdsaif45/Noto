@@ -173,7 +173,9 @@ Noto is a background utility. These are requirements, not aspirations:
 | Window follow lag | no visible lag |
 
 Performance-sensitive changes must be **measured**, not assumed. Put the
-numbers in the PR.
+numbers in the PR. `tools/validation/Invoke-Performance.ps1` measures the baseline on a Release
+build; the budgets and the recorded baseline are in
+[quality-gates.md](docs/architecture/quality-gates.md#performance-budgets).
 
 ---
 
