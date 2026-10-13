@@ -48,6 +48,10 @@ public sealed class NotoDatabase
 
     public string DatabasePath { get; }
 
+    // SQLite's primary result codes for a file that is not a database, and for a damaged one.
+    private const int SqliteNotADatabase = 26;
+    private const int SqliteCorrupt = 11;
+
     /// <summary>
     /// Opens a configured connection. The caller disposes it.
     /// </summary>
@@ -68,8 +72,13 @@ public sealed class NotoDatabase
 
             // The path is infrastructure, not user content, so it is safe to
             // name — and without it this error is undiagnosable.
+            //
+            // A file SQLite can read but that is not a database, or is
+            // damaged, is a different failure from one it cannot open, with a
+            // different fix (#10): the user restores or moves the file, rather
+            // than closing whatever holds it.
             throw new StorageException(
-                StorageFailure.CannotOpen,
+                ex.SqliteErrorCode is SqliteNotADatabase or SqliteCorrupt ? StorageFailure.Corrupt : StorageFailure.CannotOpen,
                 $"Could not open the database at '{DatabasePath}'.",
                 ex);
         }
