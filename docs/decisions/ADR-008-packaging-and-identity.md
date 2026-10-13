@@ -152,7 +152,7 @@ Before the first public release:
 > unchanged; this records that it is not built yet.
 
 Noto ships unpackaged today (`WindowsPackageType=None`): there is no sparse
-manifest, installer, updater or certificate, and signing (#5) is unresolved.
+manifest, installer, updater or certificate. Signing (#5): see *Signing* below.
 Until the sparse package lands, run at login uses the registry `Run` key this
 ADR names as the substitute (ADR-015). The packaging slice owns moving it to
 `StartupTask` and removing the `Run` value; uninstall must remove it too.
@@ -164,6 +164,82 @@ by the user and the data root — depends on neither package identity nor
 `AppInstance`, so it works unchanged unpackaged and as a sparse package. When
 the sparse package lands, the A17 runtime harness is re-run on the packaged
 build.
+
+### Signing (#5): what it costs and what an unsigned build does
+
+> **Added 2026-10-13 by the code-signing research (#5).** The decision above is
+> unchanged: the sparse package still has to be signed. This records the
+> options, prices and lead times found, and the recommendation. Prices are as
+> published on the dates checked; they change, so re-check before buying.
+
+**What must be signed, and why.**
+- **The identity (sparse) package.** Microsoft: it "must be signed with a
+  certificate that is trusted on the target computer". A self-signed
+  certificate registers only on a machine where its public certificate was
+  imported into *Trusted People*, so it is for development only. The
+  manifest's `Publisher` must equal the certificate's Subject.
+- **`Noto.exe`, its DLLs and the installer.** Smart App Control (Windows 11)
+  checks the signature of every module, DLLs included, and blocks unsigned
+  code it cannot vouch for. Signed code can still be blocked until it has
+  reputation.
+
+**SmartScreen gives no new file instant trust any more.** Since 2024, EV
+certificates no longer bypass SmartScreen. Every option below starts with
+warnings, and builds reputation by signing release after release with the
+same identity. Reputation is per file hash and publisher, so each new build
+starts low.
+
+| Option | Who can use it | Cost (checked 2026-10-13) | Lead time | Notes |
+| ------ | -------------- | ------------------------- | --------- | ----- |
+| **Azure Artifact Signing** (formerly Trusted Signing) | Organizations in the USA, Canada, EU, UK; **individuals in the USA and Canada only** | ~$9.99/month (Basic, 5,000 signatures) | identity validation: a few business days | No hardware token; signs from CI; Microsoft's recommendation outside the Store. Supports MSIX |
+| **OV / IV certificate** from a public CA | Anyone, worldwide; IV is the individual form | Microsoft quotes $150–300/year for OV. SSL.com's own price for IV: $129/year (1-year term), plus key storage: a YubiKey token $379, or an eSigner cloud subscription | 3–5 days standard (SSL.com) | Since June 2023 the key must be on a hardware token or HSM. **Since 2026-03-01 a certificate lasts at most 460 days** (CA/B Forum CSC-31), so a multi-year purchase means re-issues |
+| **EV certificate** | Organizations | $400+/year (Microsoft) | longer validation | **Not recommended**: same SmartScreen treatment as OV since 2024 |
+| **SignPath Foundation** | Open-source projects with an OSI licence and no proprietary parts; Noto is MIT | Free | application and review | **The certificate names SignPath Foundation as the publisher, not Noto.** The project must already be released, every signing is approved by hand, roles and MFA are required, and the download page must carry a code-signing policy. MSIX support for the free tier is not confirmed by the Foundation's own documents |
+| **Microsoft Store (MSIX)** | Anyone | Free: the Store re-signs | certification per release | Gives no SmartScreen warnings, but it is a different channel. This ADR rejected Store-only; it stays a possible secondary channel |
+| **Self-signed** | Development only | Free | none | Registers only where the certificate was imported; public users get a strong block |
+
+**The unsigned fallback, measured against what Noto is today.**
+- **Unpackaged (today).** An unsigned `Noto.exe` runs.
+  - Downloaded from the internet, it gets SmartScreen's *Windows protected
+    your PC*; a user can go on with *More info → Run anyway*.
+  - On a machine with Smart App Control on, it is blocked, and there is no
+    per-app exception short of turning Smart App Control off.
+  - A build the user compiles, or copies without the internet mark, gets
+    neither warning.
+- **Sparse package.** It **cannot be registered on an end user's machine
+  unsigned**, so the features it unlocks (`StartupTask`, notifications,
+  protocol activation) do not exist in an unsigned build.
+- **Conclusion.** Dogfooding with unsigned, unpackaged builds is viable for the
+  author and for testers willing to click through SmartScreen on a machine
+  without Smart App Control. A public pre-release is not: some Windows 11
+  machines will refuse to run it.
+
+**Recommendation.**
+1. **Development and dogfooding:** stay unsigned and unpackaged. Use a
+   self-signed certificate only on the development machine, when the sparse
+   package is being built.
+2. **The first public release:** Azure Artifact Signing if the publisher is
+   eligible: an organization in the USA, Canada, EU or UK, or an individual in
+   the USA or Canada. Otherwise an **IV/OV certificate with cloud or token key
+   storage** (for example SSL.com IV, $129/year plus key storage).
+   **SignPath Foundation** only if Noto accepts SignPath Foundation, not Noto,
+   as the publisher every user sees.
+3. **Do not buy EV** for SmartScreen.
+4. **Budget the lead time:** days for identity validation. Plan for re-issue
+   every 460 days at most, and for SmartScreen warnings on early releases
+   whatever the option.
+
+**What the owner still decides:** the publisher's identity, an individual or an
+organization and in which country. That alone picks between options 2a and 2b
+above. Nothing is bought or built by this record.
+
+Sources, read 2026-10-13:
+- Microsoft Learn, [Code signing options for Windows app developers](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options) (updated 2026-08-29);
+- Microsoft Learn, [Grant package identity by packaging with external location](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/grant-identity-to-nonpackaged-apps) (updated 2026-10-03);
+- Microsoft Support, [Smart App Control FAQ](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions);
+- [SSL.com IV code signing](https://www.ssl.com/products/software-integrity/code-signing/iv/);
+- [SignPath Foundation terms](https://signpath.org/terms);
+- DigiCert, [code signing validity change (CSC-31)](https://www.digicert.com/blog/understanding-the-new-code-signing-certificate-validity-change).
 
 ## Future reconsideration criteria
 
