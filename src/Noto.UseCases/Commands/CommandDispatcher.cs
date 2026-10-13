@@ -56,6 +56,13 @@ public sealed class CommandDispatcher
         CommandRegistry.Entry<TResult> entry = _registry.Find(command)
             ?? throw new InvalidOperationException($"No handler is registered for {command.GetType().Name}.");
 
+        return RunInChain(entry, command, _events);
+    }
+
+    // The chain's depth is the thread's, not this instance's, so it is counted here, in static code.
+    private static TResult RunInChain<TResult>(CommandRegistry.Entry<TResult> entry, ICommand<TResult> command, EventHub events)
+        where TResult : ICommandResult
+    {
         if (_chainDepth >= MaxDepth)
         {
             throw new InvalidOperationException($"{command.GetType().Name} was dispatched {MaxDepth} commands deep: events are causing commands in a loop.");
@@ -65,7 +72,7 @@ public sealed class CommandDispatcher
 
         try
         {
-            return entry.Run(command, _events);
+            return entry.Run(command, events);
         }
         finally
         {
