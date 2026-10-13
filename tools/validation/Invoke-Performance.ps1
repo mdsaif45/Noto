@@ -5,20 +5,30 @@
 
 .DESCRIPTION
   One isolated data root, seeded at a realistic size: NoteCount notes (default 1000) across 20 folders, with the
-  measured folder holding a short note, a large note (a deterministic ~100 KB Markdown-style document) and 48 more. Noto is started by the shell, as a user starts it, on a temporary virtual desktop. Every timing is taken
-  from outside the process, by polling what a user would see: a window becoming visible, an element appearing in UI
-  Automation, a row changing in the database. Polling resolves to about 10-30 ms, plus UI Automation's own cost; the
-  numbers are comparable between runs on one machine, not absolute.
+  measured folder holding a short note, a large note (a deterministic ~100 KB Markdown-style document) and 48 more.
+  Noto is started by the shell, as a user starts it, on a temporary virtual desktop. Every timing is taken from
+  outside the process: the kernel's process creation time, a window becoming visible, an element appearing in UI
+  Automation, a row changing in the database, or a line Noto traces (read from the debug-output channel and stamped
+  on arrival). Polling resolves to about 10-30 ms, plus UI Automation's own cost; the numbers compare between runs on
+  one machine, not across machines. Medians are true medians (the mean of the middle two for an even count).
 
-    cold       The run's first start, before anything else of Noto's has run: process creation (the kernel's own
-               time) -> the window visible, and -> tray and hotkey ready (Noto traces "Noto.Tray added"). It is a cold
-               start only when the run is the first Noto start since Windows started (the file cache holds none of
-               Noto's binaries); the run records the boot time and its own start so that can be checked. It also
-               creates the database of a new data root.
+  Three startup moments are kept apart, because they are different claims:
+    hotkey registered   Noto traces "Noto.Hotkey registered" once RegisterHotKey has succeeded.
+    tray added          Noto traces "Noto.Tray added".
+    first chord served  The chord, pressed the moment the hotkey is registered, has shown the window: the hotkey
+                        actually responding, which also needs Noto's UI thread to be pumping messages.
+
+    cold       The run's first start, from a copy of the build made with unbuffered I/O (robocopy /J) into a new
+               folder, so none of Noto's own files are in the file cache: process creation -> hotkey registered,
+               tray added, the window visible. Windows' shared components are as warm as after any sign-in, and an
+               on-access antivirus scans the new files first, so this is a first start after an install or update:
+               an upper bound on a cold start after sign-in. On a new data root, so it also creates the database.
     start      N warm starts on the seeded data root: process creation -> the window visible -> the folder list
-               populated, and -> tray and hotkey ready.
-    login      N hidden --login starts: process creation -> tray and hotkey ready, never a window.
-    hotkey     From a hidden --login start: the activation chord -> the window visible and in front.
+               populated; and -> hotkey registered, tray added.
+    login      N hidden --login starts: process creation -> hotkey registered, tray added; never a window. In all
+               but the last, the chord is pressed as soon as the hotkey is registered: process creation -> the
+               window shown and in front (first chord served).
+    hotkey     From the last, never-shown --login start: the activation chord -> the window visible and in front.
     idle       Hidden, then shown: CPU over IdleSeconds (ms of CPU, and % of one core), working set and private bytes.
     open/load  A note opened from the list: Enter -> the editor present -> the editor holding the note's text. Short
                and large notes.
@@ -88,8 +98,15 @@ function Traced([int] $ProcessId, [string] $Pattern) {
 }
 function Created([int] $ProcessId) { (Get-Process -Id $ProcessId).StartTime }
 function Stats([double[]] $Values) {
-    $sorted = @($Values | Sort-Object)
-    [ordered]@{ n = $sorted.Count; min = $sorted[0]; median = $sorted[[int][math]::Floor(($sorted.Count - 1) / 2)]; max = $sorted[-1]; values = $sorted }
+    $sorted = @($Values | Sort-Object); $n = $sorted.Count; $mid = [int][math]::Floor(($n - 1) / 2)
+    $median = if ($n % 2) { $sorted[$mid] } else { ($sorted[$mid] + $sorted[$mid + 1]) / 2 }
+    [ordered]@{ n = $n; min = $sorted[0]; median = $median; max = $sorted[-1]; values = $sorted }
+}
+if ((Stats @(4, 1)).median -ne 2.5 -or (Stats @(3, 1, 2)).median -ne 2 -or (Stats @(5)).median -ne 5) { throw 'Stats: the median is wrong' }
+function Since([pscustomobject] $Process, [string] $Pattern, [int] $TimeoutMs = 30000) {
+    # Milliseconds from the process's creation to the first line it traces that matches; $null if none in time.
+    if (-not (Until { Traced $Process.Pid $Pattern } $TimeoutMs)) { return $null }
+    [math]::Round(((Traced $Process.Pid $Pattern) - $Process.Created).TotalMilliseconds)
 }
 function Keys-ToNoto([int] $Key, [switch] $Ctrl) {
     if ((Fg) -ne $noto.Hwnd) { throw 'refusing keys: Noto is not the foreground window' }
@@ -102,8 +119,8 @@ function Shown-InFront {
     Send-ActivationChord -AllowedForeground $target.Hwnd
     if (-not (Until { (Fg) -eq $noto.Hwnd } 10000)) { throw 'the hotkey did not bring Noto forward' }
 }
-function Start-Owner([string] $Switches = '') {
-    $p = Start-ViaShell $run -File $NotoExe -Arguments "--data-root=`"$data`" $Switches".Trim() -Marker "--data-root=`"$data`" $Switches".Trim()
+function Start-Owner([string] $Switches = '', [string] $Exe = $NotoExe) {
+    $p = Start-ViaShell $run -File $Exe -Arguments "--data-root=`"$data`" $Switches".Trim() -Marker "--data-root=`"$data`" $Switches".Trim()
     [pscustomobject]@{ Pid = $p.Pid; Created = Created $p.Pid; Hwnd = [IntPtr]::Zero }
 }
 function Stop-Owner {
@@ -177,17 +194,25 @@ try {
         $script:data = Join-Path $run.Root 'root'; New-Item -ItemType Directory $data | Out-Null
         $script:target = Start-TargetApp $run
 
-        # cold: the first start of Noto in this run, on the new data root (it creates the database)
+        # cold: the build copied with unbuffered I/O, so none of Noto's files are in the file cache; a new data root
         $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+        $coldDir = Join-Path $run.Root 'cold-build'
+        $null = robocopy (Split-Path $NotoExe) $coldDir /E /J /R:0 /W:0 /NFL /NDL /NJH /NJS /NP
+        if ($LASTEXITCODE -ge 8) { throw "the unbuffered copy failed (robocopy $LASTEXITCODE)" }
+        foreach ($f in 'Noto.exe', 'Noto.dll') {
+            if ((Get-FileHash (Join-Path (Split-Path $NotoExe) $f)).Hash -ne (Get-FileHash (Join-Path $coldDir $f)).Hash) { throw "the cold copy of $f differs" }
+        }
         Set-ForegroundByKeyboard $target | Out-Null
-        $script:noto = Start-Owner
+        $script:noto = Start-Owner -Exe (Join-Path $coldDir 'Noto.exe')
         $coldVisible = Until { Window $noto.Pid } 60000 5; $coldWindowMs = Ms $noto.Created
-        $null = Until { Traced $noto.Pid 'Noto\.Tray added' } 60000
-        $coldTray = Traced $noto.Pid 'Noto\.Tray added'
-        if (-not ($coldVisible -and $coldTray)) { throw "the first start was not measured (visible=$coldVisible tray=$([bool]$coldTray))" }
-        $results.cold = [ordered]@{ windowMs = $coldWindowMs; trayReadyMs = [math]::Round(($coldTray - $noto.Created).TotalMilliseconds); bootTime = $boot.ToString('O'); minutesSinceBoot = [math]::Round(($noto.Created - $boot).TotalMinutes, 1) }
+        $coldHotkey = Since $noto 'Noto\.Hotkey registered' 60000
+        $coldTray = Since $noto 'Noto\.Tray added' 60000
+        if (-not ($coldVisible -and $null -ne $coldHotkey -and $null -ne $coldTray)) { throw "the cold start was not measured (visible=$coldVisible hotkey=$coldHotkey tray=$coldTray)" }
+        $results.cold = [ordered]@{ method = 'unbuffered copy (robocopy /J), new data root'; hotkeyRegisteredMs = $coldHotkey; trayAddedMs = $coldTray; windowMs = $coldWindowMs; bootTime = $boot.ToString('O'); minutesSinceBoot = [math]::Round(($noto.Created - $boot).TotalMinutes, 1) }
         Stop-Owner
-        Add-Result $run 'cold: the run''s first start, window visible and tray ready' $true ("window={0} tray={1} ms; {2} min after boot" -f $results.cold.windowMs, $results.cold.trayReadyMs, $results.cold.minutesSinceBoot)
+        if ((Split-Path $coldDir -Parent) -ne $run.Root -or (Split-Path $coldDir -Leaf) -ne 'cold-build') { throw 'refusing to remove an unexpected folder' }
+        Remove-Item -LiteralPath $coldDir -Recurse -Force
+        Add-Result $run 'cold: uncached build, new data root' $true ("hotkey registered={0} tray added={1} window={2} ms" -f $coldHotkey, $coldTray, $coldWindowMs)
         $now = [DateTimeOffset]::UtcNow.ToString('O')
         $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Performance', 1, `$t, `$t)" -Parameters @{ '$f' = $FolderId; '$t' = $now }
         foreach ($n in @(@($SmallId, $Small, 1), @($LargeId, $Large, 2))) {
@@ -200,7 +225,7 @@ try {
         if ((Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT count(*) FROM Notes') -ne $NoteCount) { throw 'the seeded note count is wrong' }
         Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'workspace.hide-on-deactivation' -Value 'False'
 
-        # start: window visible, folder list populated, tray and hotkey ready
+        # start: window visible, folder list populated; hotkey registered, tray added
         $starts = @()
         foreach ($i in 1..$Runs) {
             Set-ForegroundByKeyboard $target | Out-Null
@@ -208,29 +233,36 @@ try {
             $visible = Until { Window $noto.Pid } 30000 5; $windowMs = Ms $noto.Created
             $script:noto.Hwnd = Window $noto.Pid
             $usable = Until { FirstItem $noto.Hwnd 'FolderList' } 30000 5; $usableMs = Ms $noto.Created
-            $null = Until { Traced $noto.Pid 'Noto\.Tray added' } 30000
-            $tray = Traced $noto.Pid 'Noto\.Tray added'
-            $starts += [pscustomobject]@{ Window = $windowMs; Usable = $usableMs; Tray = [math]::Round(($tray - $noto.Created).TotalMilliseconds) }
-            if (-not ($visible -and $usable -and $tray)) { throw "start $i was not measured (visible=$visible usable=$usable tray=$([bool]$tray))" }
+            $hotkeyMs = Since $noto 'Noto\.Hotkey registered'; $trayMs = Since $noto 'Noto\.Tray added'
+            if (-not ($visible -and $usable -and $null -ne $hotkeyMs -and $null -ne $trayMs)) { throw "start $i was not measured (visible=$visible usable=$usable hotkey=$hotkeyMs tray=$trayMs)" }
+            $starts += [pscustomobject]@{ Window = $windowMs; Usable = $usableMs; Hotkey = $hotkeyMs; Tray = $trayMs }
             Stop-Owner
             Start-Sleep -Seconds 2
         }
-        $results.start = [ordered]@{ windowMs = Stats ($starts.Window); usableMs = Stats ($starts.Usable); trayReadyMs = Stats ($starts.Tray) }
-        Add-Result $run 'start: window visible, folder list populated, tray ready' $true ("median window={0} usable={1} tray={2} ms" -f $results.start.windowMs.median, $results.start.usableMs.median, $results.start.trayReadyMs.median)
+        $results.start = [ordered]@{ windowMs = Stats ($starts.Window); folderListMs = Stats ($starts.Usable); hotkeyRegisteredMs = Stats ($starts.Hotkey); trayAddedMs = Stats ($starts.Tray) }
+        Add-Result $run 'start: window, folder list, hotkey registered, tray added' $true ("median window={0} folder list={1} hotkey registered={2} tray added={3} ms" -f $results.start.windowMs.median, $results.start.folderListMs.median, $results.start.hotkeyRegisteredMs.median, $results.start.trayAddedMs.median)
 
-        # login: hidden start, tray and hotkey ready, never a window
-        $logins = @()
+        # login: hidden start; hotkey registered, tray added, never a window; then the first chord served
+        $logins = @(); $served = @()
         foreach ($i in 1..$Runs) {
             Set-ForegroundByKeyboard $target | Out-Null
             $script:noto = Start-Owner '--login'
-            if (-not (Until { Traced $noto.Pid 'Noto\.Tray added' } 30000)) { throw "login start ${i}: the tray never became ready" }
-            $logins += [math]::Round(((Traced $noto.Pid 'Noto\.Tray added') - $noto.Created).TotalMilliseconds)
-            $shown = [bool](Window $noto.Pid)
+            $hotkeyMs = Since $noto 'Noto\.Hotkey registered'
+            if ($null -eq $hotkeyMs) { throw "login start ${i}: the hotkey was never registered" }
+            if ($i -lt $Runs) {
+                # Pressed the moment the hotkey is registered: shown when Noto's UI thread serves it.
+                Send-ActivationChord -AllowedForeground $target.Hwnd -NoWait
+                if (-not (Until { ($h = Window $noto.Pid) -and (Fg) -eq $h } 30000 5)) { throw "login start ${i}: the first chord was not served" }
+                $served += Ms $noto.Created
+            }
+            $trayMs = Since $noto 'Noto\.Tray added'
+            if ($null -eq $trayMs) { throw "login start ${i}: the tray icon was never added" }
+            $logins += [pscustomobject]@{ Hotkey = $hotkeyMs; Tray = $trayMs }
             if ($i -lt $Runs) { Stop-Owner; Start-Sleep -Seconds 2 }
-            if ($shown) { throw "login start $i showed a window" }
+            elseif (Window $noto.Pid) { throw "login start $i showed a window" }
         }
-        $results.login = [ordered]@{ trayReadyMs = Stats $logins }
-        Add-Result $run 'login: hidden start, tray and hotkey ready, no window' $true "median $($results.login.trayReadyMs.median) ms"
+        $results.login = [ordered]@{ hotkeyRegisteredMs = Stats ($logins.Hotkey); trayAddedMs = Stats ($logins.Tray); firstChordServedMs = Stats $served }
+        Add-Result $run 'login: hidden start; hotkey registered, tray added, first chord served' $true ("median hotkey registered={0} tray added={1} first chord served={2} ms" -f $results.login.hotkeyRegisteredMs.median, $results.login.trayAddedMs.median, $results.login.firstChordServedMs.median)
 
         # idle, hidden: the last --login start, never shown
         $script:noto.Hwnd = [NotoVal.Win32]::TopWindows([uint32]$noto.Pid) | Where-Object { [NotoVal.Win32]::Text($_) -eq 'Noto' } | Select-Object -First 1
