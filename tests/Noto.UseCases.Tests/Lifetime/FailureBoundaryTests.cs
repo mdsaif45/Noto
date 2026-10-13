@@ -94,6 +94,49 @@ public sealed class FailureBoundaryTests
     }
 
     [Fact]
+    public void A_log_that_throws_while_recording_the_failure_stops_neither_the_save_nor_the_end()
+    {
+        _log.ThrowOn = nameof(IAppLog.UnhandledException);
+        var boundary = Boundary(() => true);
+
+        bool handled = false;
+        var error = Record.Exception(() => handled = boundary.Fail(UnhandledSource.UiThread, new InvalidOperationException()));
+
+        Assert.Null(error);
+        Assert.True(handled);
+        Assert.Equal(1, _saves);
+        Assert.Equal(1, _shutdowns);
+        Assert.Equal([true], _log.Saves);
+        Assert.False(boundary.Fail(UnhandledSource.OtherThread, new InvalidOperationException()));
+        Assert.Equal(1, _shutdowns);
+    }
+
+    [Fact]
+    public void A_log_that_throws_while_recording_the_save_is_not_mistaken_for_a_failed_save()
+    {
+        _log.ThrowOn = nameof(IAppLog.EmergencySave);
+        var boundary = Boundary(() => true);
+
+        Assert.Null(Record.Exception(() => boundary.Fail(UnhandledSource.UiThread, new InvalidOperationException())));
+
+        Assert.Empty(_log.SaveFailures);
+        Assert.Equal(1, _saves);
+        Assert.Equal(1, _shutdowns);
+    }
+
+    [Fact]
+    public void A_save_that_throws_and_a_log_that_throws_recording_it_still_end_the_application_once()
+    {
+        _log.ThrowOn = nameof(IAppLog.EmergencySaveFailed);
+        var boundary = Boundary(() => throw new IOException());
+
+        Assert.Null(Record.Exception(() => boundary.Fail(UnhandledSource.OtherThread, new InvalidOperationException())));
+
+        Assert.Equal(1, _saves);
+        Assert.Equal(1, _shutdowns);
+    }
+
+    [Fact]
     public void Failures_arriving_together_on_many_threads_are_handled_exactly_once()
     {
         var boundary = Boundary(() => true);
@@ -169,6 +212,9 @@ public sealed class FailureBoundaryTests
     {
         private readonly object _gate = new();
 
+        /// <summary>The event that throws instead of recording, to stand for a log that fails.</summary>
+        public string? ThrowOn { get; set; }
+
         public List<(UnhandledSource Source, ExceptionSummary Failure)> Unhandled { get; } = [];
 
         public List<bool> Saves { get; } = [];
@@ -181,6 +227,8 @@ public sealed class FailureBoundaryTests
 
         public void UnhandledException(UnhandledSource source, ExceptionSummary failure)
         {
+            ThrowIf(nameof(UnhandledException));
+
             lock (_gate)
             {
                 Unhandled.Add((source, failure));
@@ -189,6 +237,8 @@ public sealed class FailureBoundaryTests
 
         public void EmergencySave(bool saved)
         {
+            ThrowIf(nameof(EmergencySave));
+
             lock (_gate)
             {
                 Saves.Add(saved);
@@ -197,6 +247,8 @@ public sealed class FailureBoundaryTests
 
         public void EmergencySaveFailed(ExceptionSummary failure)
         {
+            ThrowIf(nameof(EmergencySaveFailed));
+
             lock (_gate)
             {
                 SaveFailures.Add(failure);
@@ -205,6 +257,14 @@ public sealed class FailureBoundaryTests
 
         public void UnobservedTaskException(ExceptionSummary failure)
         {
+        }
+
+        private void ThrowIf(string name)
+        {
+            if (ThrowOn == name)
+            {
+                throw new InvalidOperationException("the log failed");
+            }
         }
     }
 }

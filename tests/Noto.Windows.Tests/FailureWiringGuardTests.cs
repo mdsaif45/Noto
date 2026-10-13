@@ -68,6 +68,9 @@ public sealed class FailureWiringGuardTests
         int end = Index(exit, "Environment.Exit(FailedExitCode);");
 
         Assert.True(transition < release && release < end, $"transition={transition} release={release} end={end}");
+
+        // Unconditional: a release that throws must not leave a failed process running.
+        Assert.Matches(@"finally\s*\{[^{}]*Environment\.Exit\(FailedExitCode\);", exit);
     }
 
     [Fact]

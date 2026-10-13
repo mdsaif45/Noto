@@ -15,7 +15,8 @@ namespace Noto.UseCases.Lifetime;
 /// </para>
 /// <para>
 /// <b>The save is the editor's own</b> — the same one a hide or the session's end uses — tried once. If it throws,
-/// that is recorded and the shutdown goes ahead: nothing here is retried, and nothing here throws.
+/// that is recorded and the shutdown goes ahead. If the log itself throws, that write is skipped: neither the save
+/// nor the shutdown depends on the log. Nothing here is retried, and nothing here throws.
 /// </para>
 /// <para>
 /// <b>The shutdown is the application's own one transition</b> (ADR-014), passed in; this class adds none.
@@ -48,19 +49,43 @@ public sealed class FailureBoundary
             return false;
         }
 
-        _log.UnhandledException(source, ExceptionSummary.From(exception));
-
+        // Once claimed, the application ends whatever else fails here: the shutdown is in a finally, and a log
+        // that throws is skipped rather than allowed to stop the save or the end.
         try
         {
-            _log.EmergencySave(_trySave());
-        }
-        catch (Exception ex)
-        {
-            // The process is already failing: a save that throws is recorded, never handled again or rethrown.
-            _log.EmergencySaveFailed(ExceptionSummary.From(ex));
-        }
+            Record(() => _log.UnhandledException(source, ExceptionSummary.From(exception)));
 
-        _shutdown();
-        return true;
+            bool saved;
+
+            try
+            {
+                saved = _trySave();
+            }
+            catch (Exception ex)
+            {
+                // The process is already failing: a save that throws is recorded, never handled again or rethrown.
+                Record(() => _log.EmergencySaveFailed(ExceptionSummary.From(ex)));
+                return true;
+            }
+
+            Record(() => _log.EmergencySave(saved));
+            return true;
+        }
+        finally
+        {
+            _shutdown();
+        }
+    }
+
+    private static void Record(Action write)
+    {
+        try
+        {
+            write();
+        }
+        catch (Exception)
+        {
+            // Best effort: the log's own failure is the one thing that cannot be recorded.
+        }
     }
 }
