@@ -60,7 +60,7 @@ public sealed partial class SingleInstanceWiringGuardTests
     {
         string onRequest = Body(App, "OnLaunchRequested");
 
-        Assert.Contains("TryEnqueue(", onRequest, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueueGuarded(", onRequest, StringComparison.Ordinal);
         Assert.DoesNotContain("OnActivationRequested", onRequest, StringComparison.Ordinal);
         Assert.DoesNotContain("WindowActivation", onRequest, StringComparison.Ordinal);
         Assert.DoesNotContain("RunPendingLaunch()", onRequest, StringComparison.Ordinal);
@@ -90,12 +90,12 @@ public sealed partial class SingleInstanceWiringGuardTests
     [Fact]
     public void A_close_that_goes_ahead_stops_the_pipe_before_ownership_is_released()
     {
-        string launch = Body(App, "OnLaunched");
+        string release = Body(App, "ReleaseResources");
 
         Assert.True(
-            Index(launch, "_activationPipe?.Dispose()") < Index(launch, "_ownership?.Dispose()"),
+            Index(release, "_activationPipe?.Dispose()") < Index(release, "_ownership?.Dispose()"),
             "The pipe must close before the mutex is released, so a successor finds the pipe's name free.");
-        Assert.Contains("_activationPipe?.BeginShutdown()", launch, StringComparison.Ordinal);
+        Assert.Contains("_activationPipe?.BeginShutdown()", Body(App, "BeginShutdownOnce"), StringComparison.Ordinal);
     }
 
     /// <summary>The text of a method's body, from its declaration to the next member at the same depth.</summary>

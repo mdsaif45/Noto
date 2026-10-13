@@ -24,7 +24,7 @@
 | `NoteService`; a repository using Dapper (*Data flow*) | **Not as described.** Handlers carry the rules; repositories use hand-written SQL on `Microsoft.Data.Sqlite`. Dapper was removed |
 | Database and file I/O on the thread pool (*Threading*) | **Not built.** All database work is synchronous on the UI thread |
 | Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. The tray icon is added after the window and its coordinator exist, not in phase 1 (#16 slice 7, ADR-014) |
-| Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Partly built.** Logging exists (#7, *Logging* below). The failure model and `StorageException` exist; there is no unhandled-exception handler, and a database that fails to initialise is not caught (#10) |
+| Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Built** (#10, on #7's log). A database that cannot start is refused with a message naming the file. An unhandled exception is recorded, the open note saved once and Noto ended once. There is no restart and no crash-loop detection |
 | FTS5, attachment files, logging in Infrastructure (*Projects*) | **Partly built.** Logging is (#7, `RollingFileLog`); FTS5 and attachment files are not (#17, attachments) |
 
 ## Shape
@@ -287,14 +287,44 @@ recover.
 
 | Failure | Response |
 | ------- | -------- |
-| Database unreadable | Refuse to start rather than risk the data; clear message pointing at the file |
+| Database unreadable | Refuse to start rather than risk the data; clear message pointing at the file. **Built (#10):** a message per `StorageFailure` names the file on screen; the log records only the reason; exit 5 |
 | Migration fails | Roll back, keep the old database, report; **never** leave a half-migrated store |
 | A window fails to create | Log, continue; do not take the application down |
 | Context resolution throws | Log, treat as "no context", show nothing |
 | Hotkey registration conflicts | Report in settings; the application still works |
-| Unhandled exception | Log, attempt to save open notes, restart cleanly |
+| Unhandled exception | Log, attempt to save open notes, restart cleanly. **Built (#10), without the restart:** recorded once, the open note saved once, Noto ended through its one shutdown transition; exit 4 |
 
 **Logs never contain note content or user file paths** (principle 10).
+
+### Failure handling
+
+#10 builds on the log (#7).
+
+**When Noto cannot start.** A database that cannot be opened or brought up to
+date (`StorageFailure`) stops startup:
+- the user sees a message (`StartupNotice`) saying what went wrong and naming
+  the file;
+- the log records `StartupFailed` with only the reason and the exception's
+  types;
+- what the process holds is released, and it exits with code 5.
+
+**The last-chance boundaries.** Every failure Noto does not handle reaches one
+`FailureBoundary`:
+- `Application.UnhandledException` (XAML callbacks);
+- `AppDomain.UnhandledException` (other threads);
+- `UiWork`, which every callback Noto queues on the UI thread goes through.
+  WinUI routes a queued callback's exception to neither of the others: it ends
+  the process with nothing recorded and nothing saved.
+
+The first failure is recorded, the open note saved once with the editor's own
+save, and Noto ended through its **one shutdown transition**
+(`BeginShutdownOnce`, `ReleaseResources`), with exit code 4. Every later
+failure, on any thread, does nothing. A save that throws is recorded, never
+rethrown or retried. From another thread the save is handed to the UI thread,
+with a bounded wait.
+
+An unobserved task is only recorded: .NET does not end the process for it.
+There is no restart, no crash-loop detection and no telemetry.
 
 ### Logging
 

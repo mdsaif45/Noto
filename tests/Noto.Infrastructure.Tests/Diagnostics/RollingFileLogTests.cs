@@ -96,6 +96,33 @@ public sealed partial class RollingFileLogTests : IDisposable
     }
 
     [Fact]
+    public void Failure_events_record_the_reason_and_the_exception_types_never_the_message()
+    {
+        var log = new RollingFileLog(Logs);
+        var thrown = new InvalidOperationException(Secret, new IOException(@"C:\Users\SecretUser\noto.db"));
+
+        log.StartupFailed(StorageFailure.Corrupt, ExceptionSummary.From(new StorageException(StorageFailure.Corrupt, Secret, thrown)));
+        log.UnhandledException(UnhandledSource.UiThread, ExceptionSummary.From(thrown));
+        log.EmergencySave(saved: false);
+        log.EmergencySaveFailed(ExceptionSummary.From(thrown));
+        log.UnobservedTaskException(ExceptionSummary.From(new AggregateException(thrown)));
+
+        var lines = AllLines().Select(l => JsonDocument.Parse(l).RootElement).ToList();
+        Assert.Equal(
+            ["StartupFailed", "UnhandledException", "EmergencySave", "EmergencySaveFailed", "UnobservedTaskException"],
+            lines.Select(l => l.GetProperty("event").GetString()));
+        Assert.Equal(["Error", "Error", "Warning", "Error", "Warning"], lines.Select(l => l.GetProperty("level").GetString()));
+        Assert.Equal("Corrupt", lines[0].GetProperty("reason").GetString());
+        Assert.Equal("UiThread", lines[1].GetProperty("source").GetString());
+        Assert.False(lines[2].GetProperty("saved").GetBoolean());
+
+        string text = AllText();
+        Assert.DoesNotContain(Secret, text, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecretUser", text, StringComparison.Ordinal);
+        Assert.DoesNotMatch(AbsolutePath(), text);
+    }
+
+    [Fact]
     public void A_setting_is_recorded_by_its_key_reason_and_kind()
     {
         var log = new RollingFileLog(Logs);

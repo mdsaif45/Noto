@@ -72,15 +72,23 @@ public sealed class TrayLifetimeGuardTests
         Assert.Equal(1, Regex.Count(code, @"_coordinator\?\.BeginShutdown\(\)"));
         Assert.Equal(1, Regex.Count(code, @"_activationPipe\?\.BeginShutdown\(\)"));
 
+        // Entered from a close that goes ahead, and from the failure path (#10); nowhere else, and once.
         string closing = Regex.Match(code, @"_window\.AppWindow\.Closing \+= [\s\S]*?\n        \};").Value;
-        Assert.Contains("if (!e.Cancel && !_closing)", closing, StringComparison.Ordinal);
-        Assert.Contains("_closing = true;", closing, StringComparison.Ordinal);
+        Assert.Contains("if (!e.Cancel)", closing, StringComparison.Ordinal);
+        Assert.Contains("BeginShutdownOnce();", closing, StringComparison.Ordinal);
+        Assert.Contains("BeginShutdownOnce();", Body(App, "ExitAfterFailure"), StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Count(code, @"BeginShutdownOnce\(\);"));
+
+        string transition = Body(App, "BeginShutdownOnce");
+        Assert.True(Index(transition, "if (_closing)") < Index(transition, "_closing = true;"), "A second entry must return before changing anything.");
     }
 
     [Fact]
     public void Cleanup_runs_once_on_closed_icon_first()
     {
-        string closed = Regex.Match(Code(App), @"_window\.Closed \+= [\s\S]*?\n        \};").Value;
+        // The window's Closed releases through the one method the failure paths use too (#10).
+        Assert.Contains("_window.Closed += (_, _) => ReleaseResources();", Code(App), StringComparison.Ordinal);
+        string closed = Body(App, "ReleaseResources");
         int tray = Index(closed, "_tray?.Dispose()");
         int hotkey = Index(closed, "_hotkey?.Dispose()");
         int pipe = Index(closed, "_activationPipe?.Dispose()");
