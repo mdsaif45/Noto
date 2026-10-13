@@ -36,7 +36,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         var log = new RollingFileLog(Logs);
 
         log.MigrationStarting(1, 2, 1);
-        log.MigrationApplied(2, "Add tags");
+        log.MigrationApplied(2);
         log.MigrationCompleted(2);
 
         var lines = AllLines();
@@ -47,6 +47,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         Assert.Equal("MigrationApplied", applied.RootElement.GetProperty("event").GetString());
         Assert.Equal("Information", applied.RootElement.GetProperty("level").GetString());
         Assert.Equal(2, applied.RootElement.GetProperty("version").GetInt32());
+        Assert.Equal(["event", "level", "time", "version"], applied.RootElement.EnumerateObject().Select(p => p.Name).Order());
     }
 
     [Fact]
@@ -115,7 +116,7 @@ public sealed partial class RollingFileLogTests : IDisposable
 
         for (int i = 0; i < 30; i++)
         {
-            log.MigrationApplied(i, "Rotation test migration");
+            log.MigrationApplied(i);
         }
 
         var files = Directory.GetFiles(Logs, "noto-*.log");
@@ -131,7 +132,7 @@ public sealed partial class RollingFileLogTests : IDisposable
 
         for (int i = 0; i < 60; i++)
         {
-            log.MigrationApplied(i, "Retention test migration");
+            log.MigrationApplied(i);
         }
 
         Assert.Equal(3, Directory.GetFiles(Logs, "noto-*.log").Length);
@@ -149,7 +150,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         Assert.Equal(LogLevel.Information, log.Level);
 
         log.Level = LogLevel.Warning;
-        log.MigrationApplied(1, "Below the level");
+        log.MigrationApplied(1);
         log.SettingFellBackToDefault(SettingKeys.WorkspaceEdge, SettingFallbackReason.Invalid);
 
         log.Level = LogLevel.Error;
@@ -218,7 +219,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         {
             for (int i = 0; i < 200; i++)
             {
-                log.MigrationApplied((writer * 1000) + i, "Concurrent writer");
+                log.MigrationApplied((writer * 1000) + i);
             }
         });
 

@@ -7,7 +7,7 @@ namespace Noto.Infrastructure.Storage;
 
 /// <summary>One ordered, irreversible schema change.</summary>
 /// <param name="Version">1-based, contiguous, and never reused.</param>
-/// <param name="Description">What it does, for logs and diagnostics.</param>
+/// <param name="Description">What it does, for readers of the code and for the exception a failed migration throws. Never logged: the log records the version (#7).</param>
 /// <param name="Sql">The statements, applied inside a transaction.</param>
 /// <param name="RequiresForeignKeysDisabled">
 /// Whether foreign key enforcement must be suspended while this migration runs.
@@ -240,7 +240,7 @@ public sealed class MigrationRunner
             }
 
             transaction.Commit();
-            _log.MigrationApplied(migration.Version, migration.Description);
+            _log.MigrationApplied(migration.Version);
         }
         catch (SqliteException ex)
         {
