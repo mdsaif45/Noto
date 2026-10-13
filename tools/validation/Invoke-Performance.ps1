@@ -141,19 +141,38 @@ function Open-Note([string] $NoteId, [string] $Content) {
         if (Element $noto.Hwnd 'NoteEditor') { throw 'Escape did not leave the editor' }
     }
     # Escape from the editor returns to the folder's note list; otherwise the folder is entered with Ctrl+Down (parity
-    # C4; Enter is not bound on the folder list).
-    if (-not (Element $noto.Hwnd 'NoteList')) {
-        if (-not (Until { ($script:folder = FirstItem $noto.Hwnd 'FolderList') } 10000)) { throw 'no folder to select' }
+    # C4; Enter is not bound on the folder list). Which surface is up is decided by which list exists, never by its
+    # rows: a collapsed surface is absent from UI Automation, but leaving the editor collapses it a moment before the
+    # note list appears, and then re-queries the notes, clearing the rows while it does.
+    $script:surface = $null
+    $settled = Until { $script:surface = if (Element $noto.Hwnd 'NoteList') { 'notes' } elseif (Element $noto.Hwnd 'FolderList') { 'folders' }; $script:surface } 10000
+    if (-not $settled) { throw "no list surface is up (window visible=$([NotoVal.Win32]::IsWindowVisible($noto.Hwnd)) editor=$([bool](Element $noto.Hwnd 'NoteEditor')))" }
+    if ($script:surface -eq 'folders') {
+        if (-not (Until { ($script:folder = FirstItem $noto.Hwnd 'FolderList') } 10000)) {
+            $ids = try { @($AE::FromHandle($noto.Hwnd).FindAll($Scope::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.AutomationId } | Where-Object { $_ } | Select-Object -Unique) -join ',' } catch { "uia error: $($_.Exception.Message)" }
+            throw "no folder to select (visible=$([NotoVal.Win32]::IsWindowVisible($noto.Hwnd)) fg=$((Fg) -eq $noto.Hwnd) noteListRows=$([bool](FirstItem $noto.Hwnd 'NoteList')) ids=$ids)"
+        }
         $script:folder.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $script:folder.SetFocus(); Start-Sleep -Milliseconds 200
         Keys-ToNoto 0x28 -Ctrl
     }
-    $script:items = @()
-    $entered = Until { $l = Element $noto.Hwnd 'NoteList'; if ($l) { $script:items = @($l.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))) }; $script:items.Count -ge 2 } 10000
-    if (-not $entered) { throw "Ctrl+Down did not open the folder (notes listed: $($script:items.Count))" }
+    $rowCondition = [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
+    $script:rows = @()
+    $entered = Until { $l = Element $noto.Hwnd 'NoteList'; if ($l) { $script:rows = @($l.FindAll($Scope::Descendants, $rowCondition)) }; $script:rows.Count -ge 2 } 10000
+    if (-not $entered) { throw "Ctrl+Down did not open the folder (notes listed: $($script:rows.Count))" }
+    # Leaving the editor re-queries the list and then focuses the row of the note that was open, so a row is chosen
+    # only once that has settled, re-read each time, and Enter is pressed only while the chosen row holds focus.
+    Start-Sleep -Milliseconds 500
     $index = if ($NoteId -eq $LargeId) { 1 } else { 0 }   # sort order: the short note first
-    $item = $script:items[$index]
-    $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $item.SetFocus(); Start-Sleep -Milliseconds 300
-    if ((Fg) -ne $noto.Hwnd) { Shown-InFront; $item.SetFocus(); Start-Sleep -Milliseconds 200 }
+    $focused = Until {
+        try {
+            $row = @((Element $noto.Hwnd 'NoteList').FindAll($Scope::Descendants, $rowCondition))[$index]
+            $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $row.SetFocus()
+            Start-Sleep -Milliseconds 150
+            $row.Current.HasKeyboardFocus -and (Fg) -eq $noto.Hwnd
+        }
+        catch { $false }
+    } 10000 100
+    if (-not $focused) { throw 'the note''s row did not keep keyboard focus' }
     $t0 = Get-Date
     Keys-ToNoto 0x0D
     $present = Until { Element $noto.Hwnd 'NoteEditor' } 30000 5
