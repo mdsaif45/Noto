@@ -418,7 +418,9 @@ A burst of presses made during startup therefore brings the window forward
 once; the rest are older than that transition and dropped.
 
 **Startup** is unchanged: a manual launch opens shown, normal and docked, on
-the current topology. Hidden is never persisted. Launch at login is deferred.
+the current topology. Hidden is never persisted. A start at sign-in (`--login`,
+ADR-015) is hidden: the window is created and docked but never activated, and
+the first toggle or launch shows it through the show path above.
 
 **Virtual desktops.** The hotkey never moves the window between desktops; it
 does what Windows does. Measured on Windows 11 (10.0.26300):

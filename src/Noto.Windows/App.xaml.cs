@@ -62,6 +62,11 @@ namespace Noto;
 /// (ADR-014). The icon is an input surface only: what it asks for goes to the
 /// coordinator or to the one close path, like everything else.
 /// </para>
+/// <para>
+/// <b>Run at login</b> (#94, ADR-015): with <c>--login</c> Noto starts hidden —
+/// it takes the data root only if it is free, never hands off, and never
+/// activates the window, so nothing is shown until the user asks.
+/// </para>
 /// </remarks>
 public partial class App : Application
 {
@@ -202,6 +207,13 @@ public partial class App : Application
     /// <summary>The workspace window, for the session's end to save its unsaved text.</summary>
     private MainWindow? _main;
 
+    /// <summary>
+    /// This executable's registration to start at sign-in (#94, ADR-015), read
+    /// from Windows each time; <see langword="null"/> when the executable's path
+    /// is unknown.
+    /// </summary>
+    private LoginRegistration? _login;
+
     public App() => InitializeComponent();
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -215,6 +227,10 @@ public partial class App : Application
         // SQLite persistence — restart included — without touching the
         // user's notes or settings. Without it, startup is exactly as before.
         string[] commandLine = Environment.GetCommandLineArgs();
+
+        // ADR-015: started by Windows at sign-in. A hidden start: nothing is
+        // shown until the user asks, and a running Noto is left alone.
+        bool login = commandLine.Contains(LoginRegistration.LoginSwitch);
         string? dataRoot = commandLine
             .FirstOrDefault(a => a.StartsWith(DataRootSwitch, StringComparison.Ordinal))?[DataRootSwitch.Length..];
 
@@ -230,7 +246,7 @@ public partial class App : Application
         // A17 (ADR-013): decide who owns this data root before anything opens
         // it. A second launch hands its request to the owner and exits here —
         // no database, no window.
-        if (!ClaimDataRoot(paths))
+        if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths)))
         {
             return;
         }
@@ -344,10 +360,18 @@ public partial class App : Application
             }
         };
 
-        _window.Activate();
+        // A login start never activates the window: it is created, docked and
+        // wired, but nothing is presented until the first toggle or launch
+        // shows it (measured, #94 Phase 0: no frame, never in front).
+        if (!login)
+        {
+            _window.Activate();
+        }
 
         // After Activate: the inset is read from DWM's frame bounds, which
         // describe what is drawn, so they are read once the window is shown.
+        // A hidden (login) start docks a window never shown; every show
+        // re-docks against the display as it is then.
         // Reading them earlier gave the same result here, but is not relied
         // on. The window may appear at its default position for a moment.
         DockAtLaunch(_window, preferences);
@@ -423,6 +447,41 @@ public partial class App : Application
             _ => 3,
         });
 
+        return false;
+    }
+
+    /// <summary>
+    /// The claim of a login start (#94, ADR-015): ownership if the data root
+    /// is free, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// Never a handoff — handing off would show the running workspace, and a
+    /// login start must never show anything. Never a message box at sign-in.
+    /// Already owned: exit 0, leaving the owner as it is. Elevated: never owns
+    /// (ADR-007 §8); exit 3, silently.
+    /// </remarks>
+    private bool ClaimForLogin(NotoStoragePaths paths)
+    {
+        _instanceKey = InstanceKey.ForDataRoot(paths.Root);
+        bool elevated = ProcessIdentity.IsElevated();
+
+        try
+        {
+            _ownership = elevated ? null : InstanceOwnership.TryAcquire(_instanceKey);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or WaitHandleCannotBeOpenedException)
+        {
+            _ownership = null;
+        }
+
+        Trace.WriteLine($"Noto.Instance login-claim owner={_ownership is not null} elevated={elevated} key={_instanceKey.PathHash}");
+
+        if (_ownership is not null)
+        {
+            return true;
+        }
+
+        Environment.Exit(elevated ? 3 : 0);
         return false;
     }
 
@@ -518,6 +577,7 @@ public partial class App : Application
         }
 
         TrayIcon tray = _tray;
+        _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
         tray.Invoked += (_, e) => OnTrayInvoked(e.ReceivedAt);
         tray.MenuRequested += (_, e) => OnTrayMenuRequested(tray, e);
         tray.SessionEnding += (_, e) => OnSessionEnding(e);
@@ -575,12 +635,21 @@ public partial class App : Application
 
         TrayMenuState state = TrayMenu.For(WindowActivation.PresenceOf(_windowHandle), _coordinator?.Pinned ?? false, _coordinator is not null);
 
+        // Read from Windows as the menu opens: the registration may have been
+        // removed or turned off elsewhere since the last time.
+        LoginStartupRow login = LoginStartupRow.For(_login?.State() ?? LoginStartupState.Off);
+
         tray.ShowMenu(
             request,
             [
                 new(TrayCommand.Show, "&Show Noto", state.ShowEnabled),
                 new(TrayCommand.Hide, "&Hide Noto", state.HideEnabled),
                 new(TrayCommand.KeepOpen, "&Keep Noto open", state.KeepOpenEnabled, state.KeepOpenChecked, SeparatorBefore: true),
+                new(
+                    TrayCommand.StartWithWindows,
+                    login.TurnedOffInWindows ? "Start Noto with &Windows (turned off in Windows Startup apps)" : "Start Noto with &Windows",
+                    login.Enabled && _login is not null,
+                    login.Checked),
                 new(TrayCommand.Quit, "&Quit Noto", Enabled: true, SeparatorBefore: true),
             ],
             OnTrayCommand);
@@ -616,10 +685,41 @@ public partial class App : Application
 
                 break;
 
+            case TrayCommand.StartWithWindows:
+                ToggleLoginStartup();
+                break;
+
             case TrayCommand.Quit:
                 Quit();
                 break;
         }
+    }
+
+    /// <summary>
+    /// Start Noto with Windows (#94, ADR-015): flips the registration, judged on
+    /// what Windows has now, not on what the menu showed.
+    /// </summary>
+    /// <remarks>
+    /// Off -> registered; on -> removed. Turned off in Windows' Startup apps:
+    /// nothing — Noto never changes that setting, and never reports it as on.
+    /// The state read back after the write is the one recorded.
+    /// </remarks>
+    private void ToggleLoginStartup()
+    {
+        if (_login is null)
+        {
+            return;
+        }
+
+        LoginStartupState before = _login.State();
+        LoginStartupState after = before switch
+        {
+            LoginStartupState.Off => _login.Enable(),
+            LoginStartupState.On => _login.Disable(),
+            _ => before,
+        };
+
+        Trace.WriteLine($"Noto.Login before={before} after={after}");
     }
 
     /// <summary>
