@@ -181,6 +181,9 @@ already inside it.
 
 **Elevation (ADR-007 §8):**
 
+- A start at sign-in (`--login`, ADR-015) never hands off: it takes the root
+  only if it is free and otherwise exits silently, since a handoff would show
+  the running workspace. It sends nothing, so the protocol is unchanged.
 - An elevated launch never owns. It hands off to a running owner, or, with
   none running, it is refused with a message box.
 - An owner it found shutting down also gets a refusal, not a takeover.

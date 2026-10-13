@@ -18,6 +18,9 @@ public enum TrayCommand
 
     /// <summary>Quit Noto: the close Alt+F4 makes.</summary>
     Quit,
+
+    /// <summary>Start Noto with Windows: flips the sign-in registration (#94, ADR-015).</summary>
+    StartWithWindows,
 }
 
 /// <summary>One row of the menu.</summary>
