@@ -65,7 +65,7 @@ public sealed class NotoIconTests
     {
         string app = Regex.Replace(File.ReadAllText(SourcePath("src", "Noto.Windows", "App.xaml.cs")), @"//.*", string.Empty);
 
-        Assert.Contains(@"Path.Combine(AppContext.BaseDirectory, ""Assets"", ""Noto.ico"")", app, StringComparison.Ordinal);
+        Assert.Contains(@"Path.Join(AppContext.BaseDirectory, ""Assets"", ""Noto.ico"")", app, StringComparison.Ordinal);
         Assert.Contains("_window.AppWindow.SetIcon(icon);", app, StringComparison.Ordinal);
     }
 
