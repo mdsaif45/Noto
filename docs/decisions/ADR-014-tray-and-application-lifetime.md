@@ -71,8 +71,10 @@ No new request kind, coordinator or state. `WorkspaceToggle` is unchanged.
 - **A failed add is recorded, not fatal.** The next `TaskbarCreated` tries again.
   If the window itself cannot be created, Noto runs without the icon and without
   session-end saving, as before this decision.
-- **The icon is a placeholder.** It is Windows' generic application icon until
-  Noto has its own. This is not a visual identity.
+- **The icon is Noto's own** (#95, `docs/branding/`). It was Windows' generic
+  application icon when this was written. The tray loads the executable's
+  embedded icon at the shell's small-icon size, and falls back to the generic
+  one only when the executable has none.
 
 ### Selecting the icon is a launch, not the toggle
 
@@ -289,7 +291,7 @@ tray does not depend on run at login.
 - The menu does not follow the dark theme.
 - **After a crash the old icon lingers** until the pointer passes over it.
   Identity by window is the cost of not using a GUID while unsigned.
-- **The icon is a placeholder.**
+- **The icon was a placeholder at first;** #95 replaced it with Noto's own.
 
 ## Future reconsideration criteria
 
