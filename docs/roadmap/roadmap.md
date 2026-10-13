@@ -39,7 +39,7 @@ Every item below carries one status, from this vocabulary only:
 | **dropped** | Deliberately not done, with the reason |
 
 ```
-M0  Foundation          every engineering item built; 4 PRs in review (#98 #99 #100 #11's);
+M0  Foundation          every engineering item built; 4 PRs in review (#98 #99 #100 #101);
                         #21 events, #19 board, #5 signing RFC still open        NOT COMPLETE
 M1  Core Note Engine    engine complete for notes, folders, tags (#13);
                         markdown (#14) and export/backup (#15) not started     ENGINE DONE, PRODUCT NO

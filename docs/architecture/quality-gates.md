@@ -38,53 +38,76 @@ lost.
 
 | Measure | Budget | Baseline (#11), median of 5 | Verdict |
 | ------- | ------ | --------------------------- | ------- |
-| Cold start to usable | < 1s | **not yet measured** — needs a run immediately after a restart. A first start on a new data root, cache warm, which also creates the database: hotkey ready 599 ms | — |
-| Warm start | < 300ms | window 387 · hotkey ready 500 · folder list 599 ms | **not met** |
-| Sidebar open (after first) | < 100ms, perceptually instant | hotkey → shown and in front 29 ms (max 61) | met |
-| Note switch | < 50ms | short note: editor 29 · text loaded 49 ms (max 58) | **borderline** |
+| Cold start to usable | < 1s | **First start after an install or update** (none of Noto's files cached; antivirus scans them first): hotkey registered 1,878 · window 2,128 ms. **A cold start after sign-in is not measured** (see below) | **not met** for a first start after install |
+| Warm start | < 300ms | hotkey registered 306 · first chord served 490 · window 432 · folder list 678 ms | **not met** |
+| Sidebar open (after first) | < 100ms, perceptually instant | hotkey → shown and in front 29 ms (max 30) | met |
+| Note switch | < 50ms | short note: editor 32 · text loaded 56 ms (max 69; medians 56–76 across six runs of this build) | **not met** |
 | Search results | < 100ms at 10k notes | — | not measurable: no search exists (#17) |
-| Idle CPU | < 0.1% | 0 ms of CPU in 60 s, hidden and shown (under one 15.6 ms clock tick: < 0.03%) | met |
-| Idle memory | < 150MB working set | hidden 147.7 MB (private 76.7) · shown 160.0 MB (private 86.2) | met hidden, **not met shown** |
-| Large note (100KB) render | < 200ms | 100,636 chars: editor 402 · text loaded 466 ms | **not met** |
-| Hidden start at sign-in (`--login`) | no budget | hotkey ready 429 ms, no window | recorded only |
-| Save | no budget | hotkey hide → the row in the database: short 35 · large 46 ms | recorded only |
+| Idle CPU | < 0.1% | hidden 16 ms in 60 s (0.026%) · shown 0 ms | met |
+| Idle memory | < 150MB working set | hidden 147.6 MB (private 76.7) · shown 161.0 MB (private 87.3) | met hidden, **not met shown** |
+| Large note (100KB) render | < 200ms | 100,636 chars: editor 451 · text loaded 479 ms | **not met** |
+| Hidden start at sign-in (`--login`) | no budget | hotkey registered 297 · first chord served 490 ms, no window | recorded only |
+| Save | no budget | hotkey hide → the row in the database: short 26 · large 27 ms | recorded only |
 
 **"Usable" means the global hotkey responds**, not that every window is built.
-Noto registers the hotkey before it adds the tray icon, and traces the tray
-icon; that trace is the "hotkey ready" time. Startup is staged deliberately
-(architecture-overview.md).
+Three moments are measured, because they are different claims:
 
-**The baseline changed no budget.** Three are not met and one is borderline;
-they stay as written and are M4 work (the M4 gate below), not a reason to
-revise a number. "Large note render" was measured on the plain-text editor that
-exists today, not on rendered markdown (#14).
+| Moment | What it proves |
+| ------ | -------------- |
+| hotkey registered | `RegisterHotKey` has succeeded (Noto traces `Noto.Hotkey registered`). The earliest a press can be delivered |
+| first chord served | The chord, pressed the moment the hotkey is registered during a `--login` start, has shown the window in front. **This is "the hotkey responds"**: it also needs Noto's UI thread to be pumping messages |
+| tray added | The tray icon exists (`Noto.Tray added`). Not a hotkey measure |
+
+Startup is staged deliberately (architecture-overview.md).
+
+**The baseline changed no budget.** Five are not met; they stay as written
+and are M4 work (the M4 gate below), not a reason to revise a number. "Large
+note render" was measured on the plain-text editor that exists today, not on
+rendered markdown (#14).
 
 ### The baseline (#11)
 
 `tools/validation/Invoke-Performance.ps1` measures the real application from
 outside its process, through the runtime validation harness: an isolated data
 root, Noto started by the shell, its own virtual desktop, real data checked
-unchanged. Every timing is a poll of what a user would see — a window visible,
-an element in UI Automation, a row in the database — so it resolves to about
-10–30 ms. The numbers compare between runs on one machine, not across machines.
+unchanged. Every timing is the kernel's process creation time, a window
+becoming visible, an element in UI Automation, a row in the database, or a
+line Noto traces. It resolves to about 10–30 ms, and the numbers compare
+between runs on one machine, not across machines. Medians are true medians.
 
 ```
 pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <Release build>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
 ```
 
+A run takes about 10–15 minutes at the defaults. It needs a build with
+`--login` (#94), and it uses no negative controls, so its summary line reads
+`refused 0/0`.
+
 | Recorded | |
 | -------- | - |
-| Build | frozen Release `02e5993`: `main` @ `acb9e75` with the open PRs #96–#100 (#94, #95, #20, #7, #10) merged locally |
-| Machine | 20 logical processors, Windows 11, one display |
-| Run | `performance-20261013-123947-1a9019`, `-Runs 5 -IdleSeconds 60 -NoteCount 1000`, every check passed |
+| Build | frozen Release `c36674b`: `main` @ `acb9e75` with PRs #96–#101 merged locally (#94, #95, #20, #7, #10, #11) |
+| Machine | 20 logical processors, 24 GB, Windows 11, one display, Windows Defender real-time protection on |
+| Run | `performance-20261013-141011-0c2351`, `-Runs 5 -IdleSeconds 60 -NoteCount 1000`, every check passed |
 | Data | 1,000 notes in 20 folders; the measured folder holds 50, among them a 57-character note and a 100,636-character Markdown-style note |
-| Conditions | 31 minutes after a restart, after earlier runs (so no start was cold); `cua-driver` and `codex-windows-sandbox-service` idle in the background |
+| Conditions | `cua-driver` and `codex-windows-sandbox-service` idle in the background |
+
+**How the cold start is measured.** The run's first start is from a copy of
+the build made with unbuffered I/O (`robocopy /J`) into a new folder, so none
+of Noto's own files are in the file cache. That is exactly a first start after
+an install or update, including the antivirus scan of new files. It is an
+**upper bound** on a cold start after sign-in, where the files are uncached
+but already scanned. That second number needs the first Noto start after a
+restart, which cannot be produced without ending the session doing the
+measuring; it is not recorded here.
+
+**Run to run.** Medians of separate runs on the same build differ noticeably:
+across six runs of `c36674b`, the warm window took 417–502 ms and the short-note
+load 56–76 ms. One start in five can be about 1 s slower than the rest, which
+is why `performance.json` keeps every value with the median, min and max.
 
 **Not covered.** Search (none exists), stores far beyond 1,000 notes (the
 search budget's 10,000), more than one display, Windows 10, and rendered
-markdown. Each is measured when what it measures
-exists. A cold start is a cold start only when the run is the first Noto start
-since Windows started; the script records the boot time to show it.
+markdown. Each is measured when what it measures exists.
 
 **Motion and the budgets (Slice 1.3).** The drawer's content animates for
 250 ms on show and 167 ms on hide, on the compositor. "Sidebar open" is
