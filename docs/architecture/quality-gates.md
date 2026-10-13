@@ -69,7 +69,7 @@ an element in UI Automation, a row in the database — so it resolves to about
 10–30 ms. The numbers compare between runs on one machine, not across machines.
 
 ```
-pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <Release build>\Noto.exe [-Runs 5] [-IdleSeconds 60]
+pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <Release build>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
 ```
 
 | Recorded | |
