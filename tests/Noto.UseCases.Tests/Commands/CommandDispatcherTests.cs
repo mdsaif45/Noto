@@ -84,7 +84,12 @@ public sealed class CommandDispatcherTests
 
         Assert.Empty(_trail);
 
-        // The depth was released on the way out: the next command runs.
+        // The depth is released on the way out, every time: after as many throws as the bound, a command still runs.
+        for (int i = 1; i < CommandDispatcher.MaxDepth; i++)
+        {
+            Assert.Throws<TimeoutException>(() => dispatcher.Dispatch(new Explode()));
+        }
+
         Assert.True(dispatcher.Dispatch(new Add(1, 1)).IsSuccess);
     }
 
@@ -172,17 +177,35 @@ public sealed class CommandDispatcherTests
     }
 
     [Fact]
-    public void A_command_dispatched_from_another_thread_is_refused()
+    public void The_depth_belongs_to_the_chain_so_a_dispatch_starting_elsewhere_is_not_counted_against_it()
     {
         var dispatcher = Dispatcher(Registry());
-        Exception? error = null;
+        Exception? inThisChain = null;
+        Exception? inAnotherChain = null;
+        CommandResult? fromAnotherChain = null;
+        using var deepen = _events.Subscribe<Added>(e =>
+        {
+            if (e.Sum < CommandDispatcher.MaxDepth)
+            {
+                dispatcher.Dispatch(new Add(e.Sum, 1));
+                return;
+            }
 
-        var thread = new Thread(() => error = Record.Exception(() => dispatcher.Dispatch(new Add(1, 1))));
-        thread.Start();
-        thread.Join();
+            // At the bound: one more command in this chain is a loop; a dispatch that starts on another thread is a
+            // chain of its own and runs.
+            inThisChain = Record.Exception(() => dispatcher.Dispatch(new Refuse()));
+            var elsewhere = new Thread(() => inAnotherChain = Record.Exception(() => fromAnotherChain = dispatcher.Dispatch(new Refuse())));
+            elsewhere.Start();
+            elsewhere.Join();
+        });
 
-        Assert.IsType<InvalidOperationException>(error);
-        Assert.Empty(_trail);
+        dispatcher.Dispatch(new Add(0, 1));
+
+        Assert.IsType<InvalidOperationException>(inThisChain);
+        Assert.Null(inAnotherChain);
+        Assert.NotNull(fromAnotherChain);
+        Assert.Equal(1, _trail.Count(t => t == "handled Refuse"));
+        Assert.Equal(CommandDispatcher.MaxDepth, _trail.Count(t => t == "handled Add"));
     }
 
     private CommandDispatcher Dispatcher(CommandRegistry registry) => new(registry, _events);

@@ -7,7 +7,8 @@ namespace Noto.UseCases.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Synchronous, on the publishing thread.</b> No queue, no bus, nothing across processes (ADR-010).
+/// <b>Synchronous, on the publishing thread.</b> No queue, no bus, nothing across processes (ADR-010). Subscribing,
+/// unsubscribing and publishing are safe from any thread; delivery runs on whichever thread published.
 /// </para>
 /// <para>
 /// <b>A subscriber that throws is isolated.</b> The event is a fact about a mutation that has already succeeded, so a
@@ -23,6 +24,7 @@ public sealed class EventHub
 {
     private readonly Action<ExceptionSummary> _subscriberFailed;
     private readonly Dictionary<Type, Delegate[]> _subscribers = [];
+    private readonly Lock _gate = new();
 
     /// <summary>Creates an event hub with no subscribers.</summary>
     /// <param name="subscriberFailed">Where a subscriber's failure is reported: the application log.</param>
@@ -37,9 +39,18 @@ public sealed class EventHub
     {
         ArgumentNullException.ThrowIfNull(subscriber);
 
-        _subscribers[typeof(TEvent)] = [.. Subscribers(typeof(TEvent)), subscriber];
+        lock (_gate)
+        {
+            _subscribers[typeof(TEvent)] = [.. Subscribers(typeof(TEvent)), subscriber];
+        }
 
-        return new Subscription(() => _subscribers[typeof(TEvent)] = Without(Subscribers(typeof(TEvent)), subscriber));
+        return new Subscription(() =>
+        {
+            lock (_gate)
+            {
+                _subscribers[typeof(TEvent)] = Without(Subscribers(typeof(TEvent)), subscriber);
+            }
+        });
     }
 
     /// <summary>Tells every subscriber of <typeparamref name="TEvent"/>, in subscription order.</summary>
@@ -48,7 +59,15 @@ public sealed class EventHub
     {
         ArgumentNullException.ThrowIfNull(fact);
 
-        foreach (Delegate subscriber in Subscribers(typeof(TEvent)))
+        Delegate[] subscribers;
+
+        // The list is replaced, never changed in place, so delivery runs over a snapshot outside the lock.
+        lock (_gate)
+        {
+            subscribers = Subscribers(typeof(TEvent));
+        }
+
+        foreach (Delegate subscriber in subscribers)
         {
             try
             {
@@ -61,6 +80,7 @@ public sealed class EventHub
         }
     }
 
+    // Called under _gate.
     private Delegate[] Subscribers(Type eventType) => _subscribers.TryGetValue(eventType, out Delegate[]? list) ? list : [];
 
     // One subscription removes one entry, even when the same delegate was subscribed twice.
