@@ -148,6 +148,9 @@ public partial class App : Application
 
             hotkey.Pressed += (_, e) => OnHotkeyPressed(e.MessageTime);
 
+            // #11: the moment the hotkey is registered, for the performance baseline (Invoke-Performance.ps1).
+            Trace.WriteLine($"Noto.Hotkey registered chord={chord}");
+
             // Ownership passes to the caller; the finally below must not dispose it.
             GlobalHotkey registered = hotkey;
             hotkey = null;
