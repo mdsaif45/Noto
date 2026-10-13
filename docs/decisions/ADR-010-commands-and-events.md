@@ -170,8 +170,10 @@ Noto has five on the parity list.
 ### Testing requirements
 
 - [ ] Each handler unit-tested without UI or platform dependencies
-- [ ] Events raised only after the mutation succeeds, never on failure
-- [ ] An event subscriber that throws does not fail the command
+- [x] Events raised only after the mutation succeeds, never on failure
+  (`CommandDispatcherTests`, `CreateNoteDispatchTests`, #21)
+- [x] An event subscriber that throws does not fail the command
+  (`CommandDispatcherTests`, `CreateNoteDispatchTests`, #21)
 - [x] No repository write path exists outside a command handler, enforced by
   `ArchitectureEnforcementTests` (#20). It reads the IL of the built
   application and of every layer: a call to a repository write is allowed
