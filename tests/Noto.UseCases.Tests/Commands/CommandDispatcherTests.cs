@@ -177,6 +177,37 @@ public sealed class CommandDispatcherTests
     }
 
     [Fact]
+    public void A_subscription_disposed_by_many_threads_at_once_unsubscribes_exactly_once()
+    {
+        // The same delegate is subscribed twice, so a handle that unsubscribed twice would remove both and leave
+        // nothing to tell. Repeated, because a race shows only when the threads actually overlap.
+        const int Rounds = 300;
+        const int Threads = 8;
+
+        for (int round = 0; round < Rounds; round++)
+        {
+            var hub = new EventHub(_ => { });
+            int told = 0;
+            Action<Added> count = _ => Interlocked.Increment(ref told);
+            IDisposable one = hub.Subscribe(count);
+            using IDisposable other = hub.Subscribe(count);
+            using var start = new Barrier(Threads);
+
+            var disposers = Enumerable.Range(0, Threads).Select(_ => new Thread(() =>
+            {
+                start.SignalAndWait();
+                one.Dispose();
+            })).ToList();
+            disposers.ForEach(t => t.Start());
+            disposers.ForEach(t => t.Join());
+
+            hub.Publish(new Added(0));
+
+            Assert.True(told == 1, $"Round {round}: {told} registrations left after concurrent disposal of one handle; expected 1.");
+        }
+    }
+
+    [Fact]
     public void The_depth_belongs_to_the_chain_so_a_dispatch_starting_elsewhere_is_not_counted_against_it()
     {
         var dispatcher = Dispatcher(Registry());
