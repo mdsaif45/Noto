@@ -39,8 +39,8 @@ Every item below carries one status, from this vocabulary only:
 | **dropped** | Deliberately not done, with the reason |
 
 ```
-M0  Foundation          #20 #7 #10 #11 in review (#98 #99 #100 #101); #21's dispatcher and
-                        events not built; #5 research in review (#103); #19 open   NOT COMPLETE
+M0  Foundation          #20 #7 #10 #11 in review (#98 #99 #100 #101); #21 in review (#104,
+                        draft); #5 research in review (#103); #19 decided (#105)   NOT COMPLETE
 M1  Core Note Engine    engine complete for notes, folders, tags (#13);
                         markdown (#14) and export/backup (#15) not started     ENGINE DONE, PRODUCT NO
 M2  Workspace           shell validated: dock, resize, hotkey, drawer, tray,
@@ -108,8 +108,8 @@ architectural boundaries are enforced by tests rather than intentions.*
 | Solution and project structure per ADR-009 | implemented | 6 source and 4 test projects |
 | **Architecture tests** — `Noto.Core` has no platform or presentation dependency | implemented | Core boundary guards on `main`; #20 adds the layer graph, ADR-010 handler rules and `Noto.UI` isolation over the built output — in review (PR #98) |
 | CI builds and tests the real solution | implemented | build and test, C# analysis, CodeQL, docs governance |
-| Command infrastructure (ADR-010) | partially implemented | Every mutation is a UseCases handler returning `CommandResult`, wired explicitly in the composition root; #20 enforces it. ADR-010's **registry and dispatcher do not exist**: callers hold handlers and call them directly (#21) |
-| Domain event infrastructure (ADR-010) | not started | #21. ADR-010 (Accepted) requires events after a successful command; nothing publishes or subscribes |
+| Command infrastructure (ADR-010) | in review | Every mutation is a UseCases handler returning `CommandResult`; #20 enforces it. The registry and dispatcher are in PR #104 (#21, draft) |
+| Domain event infrastructure (ADR-010) | in review | #21, PR #104 (draft): `EventHub`, events only after success; `NoteCreated` is the reference |
 | Design token foundation (ADR-011) | implemented | #22, PR #56: `Noto.UI` |
 | SQLite, connection management, migration runner (ADR-003) | implemented | schema v1, migration 002, safety copy |
 | Structured logging that never records note content | in review | #7, PR #99 |
@@ -117,7 +117,7 @@ architectural boundaries are enforced by tests rather than intentions.*
 | Settings persistence | implemented | #9, PR #65 |
 | Test infrastructure | implemented | pool isolation (#47, #85); runtime validation harness (`tools/validation`) |
 | Performance measurement harness and baseline | in review | #11; `quality-gates.md` |
-| Project board | not started | #19. CONTRIBUTING's workflow (step 2) uses it; whether it exists cannot be checked without a `project`-scoped token |
+| Project board | decided: optional | #19, option B: GitHub Issues are the source of truth (PR #105) |
 | Code-signing RFC | in review | #5, PR #103: options, prices, lead times and the unsigned fallback recorded in ADR-008. The roadmap requires this to be confirmed **during M0**; the publisher's identity is the owner's input |
 
 ### The framework gate

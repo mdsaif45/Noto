@@ -63,8 +63,8 @@ the icon is not on `main`; PR #102 carries the same commits onto `main`.
 | Solution structure (ADR-009) | implemented | 6 source, 4 test projects |
 | Architecture tests | implemented; **#20 in review** | Core boundary on `main`. PR #98: layer graph and ADR-010 handler rules over the built output, `Noto.UI` isolation. Complete; mutation-tested 8/8 |
 | CI | implemented | build and test, C# analysis, CodeQL, docs governance; branch protection |
-| Commands (ADR-010) | **partially implemented** | Every mutation is a UseCases handler, wired explicitly in the composition root, and #20 enforces it. ADR-010's **registry and dispatcher do not exist**: callers hold handlers and call them directly (#21) |
-| Domain events (ADR-010) | **not started** | #21. ADR-010 (Accepted) requires events after a successful command, never on failure, with throwing subscribers isolated; none of it exists. A design gate is prepared; nothing is implemented |
+| Commands (ADR-010) | **in review** | Every mutation is a UseCases handler, and #20 enforces it. ADR-010's registry and dispatcher are built in PR #104 (#21, draft); on `main` today, callers still call handlers directly |
+| Domain events (ADR-010) | **in review** | #21, PR #104 (draft): events published only after success, throwing subscribers isolated and logged; `CreateNote` announces `NoteCreated`. Runtime and performance runs pending |
 | Design tokens (ADR-011) | implemented | #22, PR #56 |
 | SQLite, migrations | implemented | schema v1, migration 002, safety copy |
 | Settings persistence | implemented | #9, PR #65 |
@@ -72,7 +72,7 @@ the icon is not on `main`; PR #102 carries the same commits onto `main`.
 | Structured logging | **#7 in review** | PR #99: no event takes a parameter that can carry free text — a signature test enforces it; a migration is logged by its version, a setting by its declared name, never a scope or value; rolling JSON-lines file. Mutation-tested; runtime-validated 8/8 on frozen `c36674b` |
 | Error handling | **#10 in review** | PR #100 (stacked on #99): one failure boundary — logged once, the open note saved once, ended once, and the end does not depend on the log or on releasing resources succeeding; startup database failures shown, not crashed. 18/18 mutants killed; runtime-validated 32/32 on frozen `c36674b` (Debug, for its fault trigger) |
 | Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. Two runs by independent agents from fresh clones and the documents alone reproduced every verdict, but **#11's "someone other than its author" is not shown to be met**: no repository document says an agent counts. The cold start is measured with none of Noto's files cached (a first start after install, antivirus scan included); a start right after sign-in is not measured, and #11 does not require it |
-| Project board | **not started** | #19. CONTRIBUTING's workflow (step 2) moves issues on it; whether it exists cannot be checked without a `project`-scoped token |
+| Project board | **decided: optional** | #19, option B: GitHub Issues are the source of truth. PR #105 removes the board step from CONTRIBUTING |
 | Code-signing RFC | **in review** | #5, PR #103: options, prices, lead times and the unsigned fallback recorded in ADR-008. The roadmap requires this to be confirmed **during M0**. The recommendation's branch depends on the publisher's identity, which is the owner's input |
 
 ### What closes M0
@@ -85,15 +85,14 @@ Nothing is closed by moving an issue out of the milestone.
 #7   merge PR #99
 #10  merge PR #100 (after #99)
 #11  merge PR #101; its testing requirement ("followed by someone other than its
-     author") is open: two independent agent runs reproduced the baseline, but no
-     repository document says an agent counts. A human reproduction, or a recorded
-     owner decision that the agent runs count, settles it
-#21  build ADR-010's registry, dispatcher and events (design gate prepared), or
-     amend ADR-010 and the roadmap by a recorded decision
-#5   merge PR #103; the owner names the publisher (individual or organization,
-     and country), which picks the signing option
-#19  the owner decides: create the board (needs a project-scoped token), or make
-     CONTRIBUTING's board step optional
+     author") is open, and the owner will settle it with one human reproduction.
+     The agent runs are not counted
+#21  approved and built in PR #104 (draft): its runtime and performance runs
+     are pending a clean desktop
+#5   merge PR #103 (research accepted); the release decision waits for the
+     owner's publisher identity (individual or organization, and country)
+#19  decided (option B): Issues are the source of truth and a board is
+     optional; merge PR #105
 ```
 
 When every line holds, M0 is **complete**, and no new M0 work is opened after it.
