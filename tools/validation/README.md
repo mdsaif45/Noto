@@ -17,7 +17,7 @@ way. This harness rules it out:
 |---|---|
 | Noto is not the harness's child | Every process starts through the running shell (desktop view `ShellExecute`), so its parent is `explorer.exe`. The parent is checked on every start. |
 | The foreground comes from real input to another app | The target app is brought forward by a real click, then real typing. The typed token must appear in that app's text box. |
-| Negative control | Immediately before and after every hotkey press, an unrelated shell-started process that has received no input calls `SetForegroundWindow` for whichever window is not in front. Windows must refuse it. If Windows grants it even once, the run is **INVALID**: exit code 2, whatever the checks say. Each press is bracketed because a refusal is not guaranteed (see *Known limitations*). |
+| Negative control | Immediately before and after every hotkey press, an unrelated process that has received no input calls `SetForegroundWindow` for whichever window is not in front. Windows must refuse it. If Windows grants it even once, the run is **INVALID**: exit code 2, whatever the checks say. Each press is bracketed because a refusal is not guaranteed (see *Known limitations*). The probe is started by the run's probe host, which the shell starts once before the run touches the desktop, never by the shell at the moment of the control; each control records the probe's parent and whose window was in front. |
 | The harness needs no foreground rights | The harness never calls `SetForegroundWindow`. |
 | Injection is fenced | Typing happens only while the target owns the foreground. It stops the moment the foreground changes. The activation chord is sent only while one of the run's own windows is in front. Clicks are refused unless the window under the point is the target. The only other keys sent are the shell's Win+Ctrl virtual-desktop hotkeys, which Windows consumes before any app sees them. |
 | Isolated data | Every run gets a new root, `%TEMP%\noto-validation\<run>`. Noto always starts with `--data-root=` under it. Settings are written only to databases under it, and that path is asserted before every write. |
@@ -52,6 +52,7 @@ the foreground window.
 | `Invoke-SingleInstance.ps1 -NotoExe <exe>` | A17, single instance (ADR-013). A second launch is caught the instant it appears and watched to the end: exit code, every window it showed, any message box. Noto's own `Noto.Instance` diagnostics are read from the debug-output channel. The key, mutex and pipe are probed by name, from the harness's own computation of the key. Covers: one owner; a handoff that brings the owner forward (hidden, minimized, behind another app, on another desktop) and never hides it; no database access by the second launch; malformed, oversized, wrong-version and unknown-kind requests rejected; clients the pipe's ACL must refuse; a launch during startup; five launches at once; a launch during shutdown, which waits then takes over (the owner's UI thread is frozen the instant shutdown begins); a killed owner; an unreachable owner, which gives up after about 5 s; pipe squatting; and a foreign pipe server refused by Noto's own client. Launches model the user: a real click on the desktop first, so the shell is in front. |
 | `Invoke-SingleInstanceElevated.ps1 -NotoExe <exe>` | A17 scenario 23, the elevated launch. **Needs one UAC approval** from the person at the machine. Only `helpers/elevated-launch.ps1` runs elevated. With no owner, the elevated Noto must be refused (message box, exit 3, never owns). With a normal owner, it must hand off (exit 0). A declined prompt makes the run INVALID. |
 | `Invoke-Tray.ps1 -NotoExe <exe> [-ExplorerRestart]` | #16 slice 7, the tray and the application's lifetime (ADR-014). Exactly one icon, by its window and id and in the overflow, and one visible Noto window. Selecting the icon (a click, Enter, Space) while hidden, minimized or behind another app is a launch: shown, restored or brought forward, in front and focused. Opening the overflow over a shown, unpinned Noto hides it first (measured), and the click then shows it: the icon never hides Noto. A double click shows it once. The menu's rows in each state, read from the menu itself; dismissing it by Escape or a click elsewhere leaves nothing changed and no Noto window in front. Show, Hide (saving first; a failed save keeps Noto shown), Keep Noto open (the header follows; a relaunch starts unpinned) and Quit (icon, mutex and pipe gone; unsaved text saved; a failed save keeps Noto open and shows it; Quit again discards). `TaskbarCreated` re-adds the icon and changes nothing else. The session's end through Restart Manager: clean, unsaved text saved, a failed save refused; one shutdown and one release each time. A second launch while hidden; a relaunch after Quit; a click on the icon the moment it appears. `-ExplorerRestart` adds a real Explorer restart, run last. |
+| `Invoke-LoginStart.ps1 -NotoExe <exe> [-RealRegistry]` | Run at login (#94, ADR-015). Three `--login` starts, each watched from before it begins by a desktop-wide window-show hook and a foreground sampler: no window of Noto may be shown, uncloaked or in front at any moment, and the data root and the tray icon must be its own. The first hotkey after a login start shows the workspace docked, in front and focused with its folders loaded; a restore after minimizing re-docks; a tray click and a plain second launch (after a real desktop click) show it as a launch. `--login` while an owner runs, shown or hidden, exits without a handoff and leaves the owner untouched. The tray's Start Noto with Windows row is read from the menu itself and must match Windows' registration. Quit of a login start never shown exits cleanly. `-RealRegistry` adds the one approved round trip on the real `Run\Noto` value: the prior `Run` and `StartupApproved` state is snapshotted first and restored in `finally`, and `StartupApproved` must stay byte-identical. It runs through `Invoke-InShell.ps1`, and first proves its registry is the real hive: a scratch value it writes must be seen by a process the shell starts, or the run is INVALID before anything is touched. Each readback and the restore are also checked in that real view. |
 | `Invoke-EditorSaveOnClose.ps1 -NotoExe <exe>` | Unsaved editor text when the window closes: saved and exits; a clean editor exits untouched; a failed save cancels the close and keeps the text and notice; a second close with the same text discards and exits; text edited after a failure is a new first attempt; closing from the note or folder list is unaffected. The editor text is set through UI Automation, so nothing is typed into the editor. |
 
 ## Prerequisites
@@ -114,6 +115,14 @@ is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
     repeated.
   - *Cause:* not established. The earlier "never-activated window" explanation
     does not cover the later cases.
+  - *Seen 2026-10-12:* three grants in four campaigns, each right after the
+    shell itself had activated Noto or launched something, to a probe the shell
+    had just started. In an A/B on the same sequences, a shell-started probe was
+    granted once in 56 trials (after the shell activated Noto) and a probe the
+    run's probe host started was granted in none of 55; the host itself was
+    refused all 57 times it asked. The rates are too low for that difference to
+    be significant. Probes have come from the probe host since, so the shell is
+    no longer in a probe's ancestry; a grant is still INVALID.
   - *What it means for results:* any grant makes the run INVALID, and an
     INVALID run proves nothing. Only runs in which every control was refused
     count, so a run that fails this way is repeated, never averaged in.
@@ -129,6 +138,15 @@ is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
   reached by UI Automation focus and a real key to the shell. A real logoff, shutdown or restart cannot be driven
   from inside the session: Restart Manager, the route an installer uses, stands in for it. `-ExplorerRestart`
   ends and restarts the user's shell; it runs last, and only when asked for.
+- **A real sign-in cannot be driven from inside a session.** `Invoke-LoginStart.ps1` starts Noto from the shell
+  with `--login`, as Explorer starts a `Run` entry, and validates the registration itself only with
+  `-RealRegistry`, which touches the user's real `Run` key once and restores it. Windows' Startup apps setting
+  (`StartupApproved`) is never written, so the turned-off-in-Windows state is validated on a scratch key by
+  `LoginStartupTests`, not on the real one.
+- **A packaged host virtualizes the registry.** A terminal, editor or agent installed as an MSIX package gives the
+  processes it starts a private copy of HKCU writes: there, a harness's write or "restore" never reaches the user's
+  hive, and a value it once deleted stays hidden from it even after Noto writes it for real. `Invoke-InShell.ps1`
+  runs a harness in a process the shell starts, as Noto itself is started, and `-RealRegistry` refuses any other.
 - Only the displays attached during the run are tested. To test a
   multi-display layout, the displays must be connected.
 - Keyboard focus is read from `GetGUIThreadInfo`, which names the window that
@@ -138,9 +156,12 @@ is validated by `Invoke-Drawer.ps1`; `Invoke-MinimizedActivation.ps1` and
 ## Files
 
 - `Invoke-HarnessSelfTest.ps1`: the smoke test of the method.
+- `Test-ProcessIdentity.ps1`: the regression check, with no desktop, that a reused pid is a new process: one the run has seen counts only if it started before the launch or wait.
+- `Invoke-InShell.ps1`: runs a validation script in a process the shell starts, so it sees the user's real registry.
 - `NotoValidation.psm1`: the shared module (interop, shell launch, guarded input, evidence, data isolation, desktop, cleanup).
 - `helpers/target-app.ps1`: the other app, a window with a text box that reports what is typed into it.
-- `helpers/foreground-probe.ps1`: the negative control.
+- `helpers/foreground-probe.ps1`: the negative control; it records its parent and the windows in front before and after.
+- `helpers/probe-host.ps1`: the run's probe host, which starts every negative-control probe.
 - `helpers/hotkey-holder.ps1`: another process holding Ctrl+Alt+Win+Space.
 - `helpers/fullscreen-app.ps1`: a borderless full-screen window, optionally itself topmost (Invoke-Drawer.ps1).
 - `helpers/single-instance.cs`: the single-instance probes, shared by both A17 scripts (key, mutex, pipe, raw requests, restricted clients, debug-output reader, squatter).

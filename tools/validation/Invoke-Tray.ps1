@@ -210,6 +210,24 @@ function Open-Menu([switch] $Mouse) {
     if ((Menu-Window) -eq [IntPtr]::Zero) { throw 'the menu did not open' }
     [NotoVal.Tray]::MenuRows((Menu-Window))
 }
+function Menu-Over-Hidden([string] $Label, [switch] $Mouse) {
+    <#
+      Asks for the menu over a hidden Noto and classifies the outcome. The menu's own window takes the foreground, so a
+      request that reached Noto always leaves "activation=returned" in its trace. FAIL only when it reached Noto and Noto
+      misbehaved - showed itself, or opened no menu. INVALID when it never reached Noto and Noto stayed hidden: the
+      overflow, the click or the shell failed, and the underlying error is kept.
+    #>
+    $m = Trace-Mark; $err = ''
+    $rows = try { Open-Menu -Mouse:$Mouse } catch { $err = $_.Exception.Message; $null }
+    $e = Ev
+    $reached = (Trace-Since $m) -match 'activation=returned'
+    if (-not $reached -and -not $e.WsVisible) {
+        Add-Invalid $run "$Label - the request never reached Noto: $err; $(Show-State $e); trace: $(Trace-Since $m)"
+        return $null
+    }
+    Add-Result $run $Label ([bool]$rows -and (Is-Hidden $e)) "rows=$rows error='$err' $(Show-State $e); trace: $(Trace-Since $m)"
+    $rows
+}
 function Choose([string] $Letter) { Keys-ToNotoMenu ([int][char]$Letter.ToUpperInvariant()) }   # the rows' access keys: S, H, K, Q
 
 function Ctrl([string] $Label, [IntPtr] $Away) {
@@ -396,9 +414,8 @@ try {
             Close-Flyout
             Hide-Noto; Target-Front
             $m = Trace-Mark
-            $rows = try { Open-Menu } catch { $null }
             # The menu's window takes the foreground: an activation that must not land on the hidden workspace.
-            Add-Result $run '8  the menu over a hidden Noto opens and leaves it hidden' ([bool]$rows -and (Is-Hidden (Ev))) "rows=$rows $(Show-State (Ev)); trace: $(Trace-Since $m)"
+            $rows = Menu-Over-Hidden '8  the menu over a hidden Noto opens and leaves it hidden'
             if ((Menu-Window) -ne [IntPtr]::Zero -and (FgPid) -eq $noto.Pid) { Keys-ToNotoMenu 0x1B }
             Add-Result $run '8  menu dismissed by Escape while hidden -> still hidden; the icon window is not left in front' ((Is-Hidden (Ev)) -and (Fg) -ne $noto.Tray) "fg pid $(FgPid); trace: $(Trace-Since $m)"
             Never-Hidden-Active '8  after Escape'
@@ -406,8 +423,7 @@ try {
             Close-Flyout
             Target-Front
             Hide-Noto; Target-Front
-            $m = Trace-Mark; $rows = try { Open-Menu -Mouse } catch { $null }
-            Add-Result $run '8  the menu over a hidden Noto opens by right click, Noto still hidden' ([bool]$rows -and (Is-Hidden (Ev))) "rows=$rows $(Show-State (Ev))"
+            $m = Trace-Mark; $rows = Menu-Over-Hidden '8  the menu over a hidden Noto opens by right click, Noto still hidden' -Mouse
             if (-not $rows) { if ((Menu-Window) -ne [IntPtr]::Zero -and (FgPid) -eq $noto.Pid) { Keys-ToNotoMenu 0x1B } }
             else {
             $r = New-Object NotoVal.Win32+RECT; [void][NotoVal.Win32]::GetWindowRect($target.Hwnd, [ref]$r)
@@ -442,6 +458,8 @@ try {
             $e = Wait-For { param($e) -not $e.WsVisible }
             Add-Result $run '9  menu Hide while behind with unsaved text -> saved, then hidden (a dismissal)' ((Is-Hidden $e) -and (Row 'Content') -eq $text -and (Trace-Since $m) -match 'request=Dismiss action=Hide') "content saved=$((Row 'Content') -eq $text); trace: $(Trace-Since $m)"
             Never-Hidden-Active '9  after menu Hide'
+            # Hide leaves the shell in front with the overflow still open; a click elsewhere may only dismiss it.
+            Close-Flyout
 
             Noto-Front; Set-Editor "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"; Bin-Note
             Target-Front

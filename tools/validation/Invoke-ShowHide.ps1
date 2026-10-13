@@ -328,6 +328,7 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     $null = Set-ForegroundByKeyboard $target
     $marker = "--data-root=`"$data`""
     $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+    $since17 = Get-Date
     $view.Application.ShellExecute($NotoExe, $marker, $run.Root, 'open', 1)
     # A press every 100 ms while the target is in front, for up to 8 s. Presses stop as soon as anything else
     # (Noto's window, appearing) takes the foreground, so every press sent was made while Noto was starting.
@@ -336,7 +337,7 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     $h17 = [IntPtr]::Zero; $deadline = (Get-Date).AddSeconds(30)
     while ((Get-Date) -lt $deadline -and $h17 -eq [IntPtr]::Zero) {
         Start-Sleep -Milliseconds 250
-        $p17 = Get-CimInstance Win32_Process -Filter "Name='Noto.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($marker) -and -not $run.Seen.Contains([int]$_.ProcessId) } | Select-Object -First 1
+        $p17 = Get-CimInstance Win32_Process -Filter "Name='Noto.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($marker) -and (Test-NewProcess $run.Seen ([int]$_.ProcessId) $_.CreationDate $since17) } | Select-Object -First 1
         if ($p17) { $h17 = [NotoVal.Win32]::TopWindows([uint32]$p17.ProcessId) | Where-Object { [NotoVal.Win32]::Text($_) -eq 'Noto' } | Select-Object -First 1; if (-not $h17) { $h17 = [IntPtr]::Zero } }
     }
     if ($p17) { [void]$run.Seen.Add([int]$p17.ProcessId); Add-Started $run ([int]$p17.ProcessId) ((Get-Process -Id $p17.ProcessId).StartTime.ToUniversalTime().Ticks) }

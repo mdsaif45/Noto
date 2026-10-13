@@ -119,7 +119,7 @@ That labelling is preserved here.
 | `[~]` | A13 | Close on click outside | Panel hides on outside click | Same, as a setting | MUST | — | **Partial** — #16 slice 6: hides when activation moves to another application (the mechanism behind "outside click"), on by default, suppressed by pin; stored in `workspace.hide-on-deactivation`. No settings UI yet (J5) |
 | `[x]` | A14 | Width resize | Free drag on the window edge; no presets | Free drag resize, width persisted | MUST | — | **Done** — #16 slice 3 (#78): free inner-edge drag, width remembered per display |
 | `[ ]` | A15 | Drag-to-reveal at edge | Dragging content to the edge reveals the panel; disableable | Same; two independent toggles as in SideNotes | MUST | — | Disableable per principle 7 |
-| `[ ]` | A16 | Launch on startup | Auto-launch at login | Run at login, off by default | MUST | — | M2 |
+| `[x]` | A16 | Launch on startup | Auto-launch at login | Run at login, off by default | MUST | #94 | **Done** — run at login (ADR-015): the tray's Start Noto with Windows registers a hidden start (`--login`) under the user's `Run` key, off by default; Windows' Startup apps setting is honoured and never overridden. A real sign-in is not validated end to end (not drivable from inside a session); `StartupTask` waits for the sparse package (ADR-008) |
 | `[x]` | A17 | Second launch focuses | Relaunch brings existing instance forward | Single-instance; second launch shows the panel | MUST | — | **Done** — A17 (#90, #91; ADR-013): a second launch hands off and exits; the running Noto is shown, restored or brought forward, never hidden |
 | `[ ]` | A18 | Multi-display behavior | Undocumented | Deterministic monitor choice + follow-focus option | MUST | — | ⚠ provisional — UNKNOWN in every source |
 | `[ ]` | A19 | Virtual desktop behavior | Undocumented (Spaces) | Defined, documented Virtual Desktop behavior | MUST | — | ⚠ provisional — UNKNOWN |
@@ -771,7 +771,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J1 | General → Show or Hide Notes | Open Bar / Hot Side / Menubar Icon | Edge handle / Hover / Tray — **independently toggled** | ADAPT | — | Not exclusive modes; see A3/A4 and §12 |
 | `[ ]` | J2 | General → Hide Open Bar | never / mouse inactive / always | Same three, **unconditionally available** | BETTER | — | SideNotes gates `always` on other modes |
 | `[ ]` | J3 | General → Side | Left / Right (default Right) | Same | MUST | — | = A2 |
-| `[ ]` | J4 | General → Launch on Startup | on / off | Same, off by default | MUST | — | = A16 |
+| `[ ]` | J4 | General → Launch on Startup | on / off | Same, off by default | MUST | #94 | = A16. The setting exists in Windows (ADR-015) and in the tray; the settings surface does not |
 | `[ ]` | J5 | General → Close on outside click | on / off | Same | MUST | — | = A13 |
 | `[ ]` | J6 | Notes → Quick Formatting Toolbar | above / below / disabled | Same three | SHOULD | — | = D25 |
 | `[ ]` | J7 | Folders → Single-click opening | on / off | Same | MUST | — | = C4 |
