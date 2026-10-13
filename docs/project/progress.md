@@ -7,7 +7,7 @@ Last updated:       2026-10-13
 Evidence baseline:  main @ acb9e75 (PR #93, #16 slice 7)
 In review:          PR #96 run at login (#94) · PR #97 Noto icon (#95)
                     PR #98 architecture enforcement (#20) · PR #99 logging (#7)
-                    PR #100 failure handling (#10) · the #11 performance baseline PR
+                    PR #100 failure handling (#10) · PR #101 performance baseline (#11)
 ```
 
 > **Read this first.** The technical Windows shell is strong: a docked,
@@ -67,17 +67,18 @@ not implemented · not started · deferred · dropped.
 | SQLite, migrations | implemented | schema v1, migration 002, safety copy |
 | Settings persistence | implemented | #9, PR #65 |
 | Test infrastructure | implemented | SQLite pool isolation (#47, #85); `tools/validation` runtime harness |
-| Structured logging | **#7 in review** | PR #99: typed events that cannot carry note text, messages or paths; rolling JSON-lines file; mutation-tested |
-| Error handling | **#10 in review** | PR #100 (stacked on #99): one failure boundary — logged once, the open note saved once, ended once; startup database failures shown, not crashed; 15/15 mutants killed; runtime-validated |
-| Performance harness and baseline | **#11 in review** | `Invoke-Performance.ps1`; baseline in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). The cold start needs one run immediately after a restart |
+| Structured logging | **#7 in review** | PR #99: no event takes a parameter that can carry free text — a signature test enforces it; a migration is logged by its version, a setting by its declared name, never a scope or value; rolling JSON-lines file. Mutation-tested; runtime-validated 8/8 on frozen `c36674b` |
+| Error handling | **#10 in review** | PR #100 (stacked on #99): one failure boundary — logged once, the open note saved once, ended once, and the end does not depend on the log or on releasing resources succeeding; startup database failures shown, not crashed. 18/18 mutants killed; runtime-validated 32/32 on frozen `c36674b` (Debug, for its fault trigger) |
+| Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. A cold start after sign-in is not measured: the cold number is a first start after install, its upper bound |
 | Project board | not started | #19 — needs a `project`-scoped token |
 | Code-signing RFC | not started | #5 — research; blocks distribution, not code |
 
 ### What closes M0
 
 ```
-1. merge, in order:  #96 → #97 → #98 → #99 → #100 → #11's PR   (each needs the owner's approval)
-2. #11: one Invoke-Performance run immediately after a restart, for the cold start
+1. merge, in order:  #96 → #97 → #98 → #99 → #100 → #101   (each needs the owner's approval)
+2. decide whether #11 accepts the first-start-after-install number as its cold start,
+   or wants one run right after a restart as well (one restart, then the documented command)
 3. decide #21, #19, #5 — none is foundation code a later slice is blocked on:
      #21 domain events   no consumer yet → move to the milestone of its first consumer
      #19 project board   process, not code → keep open outside M0, or close
@@ -201,7 +202,7 @@ numbers, budgets and verdicts are recorded once, in
 
 ```
 Tests          main @ acb9e75: 1526
-               all six open PRs merged locally: 1638 (Core 262 · UseCases 56 · Infrastructure 643 · Windows 677)
+               all six open PRs merged locally (c36674b): 1654 (Core 273 · UseCases 59 · Infrastructure 645 · Windows 677)
 Format         dotnet format --verify-no-changes   exit 0
 CI             Build & test · Analyze C# · CodeQL · Validate docs & governance
 Runtime        tools/validation — every harness on a frozen Release build,
@@ -225,10 +226,12 @@ more than one display; a non-US keyboard layout.
 | #98 | #20 architecture enforcement | `main` | ready |
 | #99 | #7 structured logging | `main` | ready |
 | #100 | #10 failure handling | `feat/7-structured-logging` | ready; merges after #99 |
-| #11's PR | #11 performance baseline | `feat/95-noto-icon` | the cold-start run is pending; retargets to `main` after #97 |
+| #101 | #11 performance baseline | `feat/94-run-at-login` (needs `--login`) | ready; retargets to `main` after #96 |
 
-All six merged together (`02e5993` plus the #100 guard update) build and pass
-1638 tests. **#16 stays open**: slices 8a/8b (multi-monitor, mixed DPI)
+All six merged together (`c36674b`) build with no warnings and pass 1654
+tests. Merging #100 after #96 meets one documentation conflict in
+`architecture-overview.md` (*Not as described*): keep #96's startup row and
+#100's error-policy and logging rows. **#16 stays open**: slices 8a/8b (multi-monitor, mixed DPI)
 and 9 (hardening) remain. #69 is fixed by PR #87 and still open; #13 is
 complete in substance and still open — closing either is the owner's decision.
 
