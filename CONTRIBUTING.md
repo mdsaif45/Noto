@@ -52,13 +52,16 @@ issue -> branch -> implement -> test -> commit -> PR -> CI -> review -> merge
 ```
 
 1. Pick or open an issue. Make sure it has a type, an area, and a priority.
-2. Move it to **In Progress** on the project board.
-3. Create a branch from `main`.
-4. Implement, with tests.
-5. Commit using Conventional Commits.
-6. Open a pull request and link the issue with `Closes #123`.
-7. Get CI green.
-8. Merge. The issue closes automatically.
+2. Create a branch from `main`.
+3. Implement, with tests.
+4. Commit using Conventional Commits.
+5. Open a pull request and link the issue with `Closes #123`.
+6. Get CI green.
+7. Merge. The issue closes automatically.
+
+**GitHub Issues are the source of truth** for what is planned, in progress and
+done: their labels, milestone, assignee and linked pull requests. A GitHub
+Project board is optional, a view over the issues, and no step depends on it.
 
 ### Branch naming
 
