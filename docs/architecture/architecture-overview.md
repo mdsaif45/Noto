@@ -221,8 +221,15 @@ is a hard budget.
   result; a command cannot announce anything else.
 - `CommandDispatcher.Dispatch` runs the handler and, **only on success**,
   publishes the event. A failed result or a throwing handler publishes nothing.
-  An unregistered command, a dispatch off the UI thread, or a chain of commands
-  dispatched from subscribers deeper than 8 is a programming error and throws.
+  An unregistered command, or a chain of commands dispatched from subscribers
+  deeper than 8, is a programming error and throws. The depth belongs to the
+  synchronous chain, not to the dispatcher.
+- **Threading is the entry point's concern, not the dispatcher's.** The
+  dispatcher knows nothing of the UI thread. `MainWindow` dispatches from its
+  own event handlers, which run on the UI thread; an entry point that starts
+  on another thread (the activation pipe, later `noto://`) hands its work to the
+  UI thread with `UiWork` before it dispatches, because the window's subscribers
+  touch XAML.
 - `EventHub` delivers synchronously, in subscription order. A subscriber that
   throws is reported to the log (`EventSubscriberFailed`, types only) and the
   others are still told.

@@ -64,6 +64,27 @@ public sealed class CommandDispatchGuardTests
         Assert.True(found.Count == 0, $"Reflection in Noto.UseCases.Commands: {string.Join(", ", found)}");
     }
 
+    [Fact]
+    public void The_dispatch_machinery_knows_nothing_of_the_ui_its_thread_or_the_platform()
+    {
+        // Noto.UseCases is presentation-independent (ADR-009). Which thread an entry point dispatches on is the
+        // entry point's concern (Noto.Windows marshals with UiWork); the commands code may not encode it. Doc comments
+        // are checked too: a UI-thread rule written down here is the same layer leak.
+        string[] forbidden =
+        [
+            "UI thread", "UI-thread", "UiThread", "UiWork", "Microsoft.UI", "Windows.", "WinRT", "Xaml", "XAML",
+            "DispatcherQueue", "SynchronizationContext", "CurrentManagedThreadId", "Hwnd", "HWND", "Interop",
+        ];
+        string commands = string.Join(
+            '\n',
+            Directory.EnumerateFiles(Path.GetDirectoryName(SourcePath("src", "Noto.UseCases", "Commands", "CommandDispatcher.cs"))!, "*.cs")
+                .Select(File.ReadAllText));
+
+        var found = forbidden.Where(term => commands.Contains(term, StringComparison.Ordinal)).ToList();
+
+        Assert.True(found.Count == 0, $"UI or platform terms in Noto.UseCases.Commands: {string.Join(", ", found)}");
+    }
+
     private static string WithoutComments(string source) => Regex.Replace(source, @"//.*", string.Empty);
 
     /// <summary>Walks up to the repository root; a guard that silently skips is worse than none.</summary>
