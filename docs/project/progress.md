@@ -69,7 +69,7 @@ not implemented · not started · deferred · dropped.
 | Test infrastructure | implemented | SQLite pool isolation (#47, #85); `tools/validation` runtime harness |
 | Structured logging | **#7 in review** | PR #99: no event takes a parameter that can carry free text — a signature test enforces it; a migration is logged by its version, a setting by its declared name, never a scope or value; rolling JSON-lines file. Mutation-tested; runtime-validated 8/8 on frozen `c36674b` |
 | Error handling | **#10 in review** | PR #100 (stacked on #99): one failure boundary — logged once, the open note saved once, ended once, and the end does not depend on the log or on releasing resources succeeding; startup database failures shown, not crashed. 18/18 mutants killed; runtime-validated 32/32 on frozen `c36674b` (Debug, for its fault trigger) |
-| Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. A cold start after sign-in is not measured: the cold number is a first start after install, its upper bound |
+| Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. Reproduced by an independent run from a fresh clone and the documents alone. A cold start after sign-in is not measured: the cold number is a first start after install, its upper bound |
 | Project board | not started | #19 — needs a `project`-scoped token |
 | Code-signing RFC | not started | #5 — research; blocks distribution, not code |
 
