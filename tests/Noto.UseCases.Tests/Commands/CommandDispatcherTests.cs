@@ -147,7 +147,7 @@ public sealed class CommandDispatcherTests
     public void A_disposed_subscription_is_told_nothing_more_and_the_others_still_are()
     {
         var dispatcher = Dispatcher(Registry());
-        var gone = _events.Subscribe<Added>(_ => _trail.Add("gone"));
+        using var gone = _events.Subscribe<Added>(_ => _trail.Add("gone"));
         using var stays = _events.Subscribe<Added>(_ => _trail.Add("stays"));
 
         gone.Dispose();
@@ -162,7 +162,7 @@ public sealed class CommandDispatcherTests
     {
         var dispatcher = Dispatcher(Registry());
         Action<Added> twice = _ => _trail.Add("told");
-        var one = _events.Subscribe(twice);
+        using var one = _events.Subscribe(twice);
         using var other = _events.Subscribe(twice);
 
         one.Dispose();
