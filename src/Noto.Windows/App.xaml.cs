@@ -6,13 +6,17 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Core.Activation;
+using Noto.Core.Commands;
 using Noto.Core.Diagnostics;
+using Noto.Core.Folders;
+using Noto.Core.Notes;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
 using Noto.Infrastructure.Diagnostics;
 using Noto.Infrastructure.Storage;
 using Noto.Platform.Windows;
+using Noto.UseCases.Commands;
 using Noto.UseCases.Folders;
 using Noto.UseCases.Lifetime;
 using Noto.UseCases.Notes;
@@ -496,15 +500,23 @@ public partial class App : Application
         // there is one source of truth and it is Windows'.
         _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
 
+        // #21: every mutation the window makes is dispatched. The registry names each command, its handler and, for
+        // CreateNote, its event; nothing is discovered. A subscriber's failure is logged as types only.
+        var commands = new CommandRegistry()
+            .Register<CreateFolder, CommandResult<FolderId>>(new CreateFolderHandler(folders, clock).Handle)
+            .Register<RenameFolder, CommandResult>(new RenameFolderHandler(folders, clock).Handle)
+            .Register<UpdateNoteContent, CommandResult>(new UpdateNoteContentHandler(notes, clock).Handle)
+            .Register<CreateNote, CommandResult<NoteId>, NoteCreated>(
+                new CreateNoteHandler(notes, clock).Handle,
+                static (command, result) => new NoteCreated(result.Value, command.FolderId))
+            .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle);
+        var events = new EventHub(failure => log.EventSubscriberFailed(failure));
+
         var main = new MainWindow(
             new ListFoldersQuery(folders),
-            new CreateFolderHandler(folders, clock),
-            new RenameFolderHandler(folders, clock),
             new ListNotesInFolderQuery(notes),
             new GetNoteQuery(notes),
-            new UpdateNoteContentHandler(notes, clock),
-            new CreateNoteHandler(notes, clock),
-            new DeleteNoteHandler(notes, clock))
+            new CommandDispatcher(commands, events))
         {
             Escape = preferences.Escape,
             SingleClickOpen = preferences.SingleClickOpen,
