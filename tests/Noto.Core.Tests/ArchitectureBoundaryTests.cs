@@ -18,10 +18,10 @@ namespace Noto.Core.Tests;
 /// erode, the deferral stops being safe and nobody notices until M6.
 /// </para>
 /// <para>
-/// This is a first cut covering the boundary that exists today. Issue #20
-/// broadens it — notably to the ADR-010 rule that no repository write is
-/// reachable outside a command handler. Handlers now exist; the rule still
-/// needs a definition a test can check, so it remains open under #20.
+/// The rules that span layers — the ADR-010 rule that a repository write is
+/// reachable only from a command handler, and the design system's isolation —
+/// need the built application, so they live in Noto.Windows.Tests
+/// (ArchitectureEnforcementTests, #20).
 /// </para>
 /// </remarks>
 public sealed class ArchitectureBoundaryTests
