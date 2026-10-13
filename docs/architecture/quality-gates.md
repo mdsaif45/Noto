@@ -36,9 +36,9 @@ Noto is a background utility competing with a scratch file that is **already
 open**. The moment a user weighs whether opening Noto is worth it, Noto has
 lost.
 
-| Measure | Budget | Baseline (#11), median of 5 | Verdict |
+| Measure | Budget | Baseline (#11), median of 5 (first chord served: 4) | Verdict |
 | ------- | ------ | --------------------------- | ------- |
-| Cold start to usable | < 1s | **First start after an install or update** (none of Noto's files cached; antivirus scans them first): hotkey registered 1,878 · window 2,128 ms. **A cold start after sign-in is not measured** (see below) | **not met** for a first start after install |
+| Cold start to usable | < 1s | **First start after an install or update** (none of Noto's files cached; antivirus scans them first): hotkey registered 1,878 · window 2,128 · tray added 2,338 ms. **A cold start after sign-in is not measured** (see below) | **not met** for a first start after install |
 | Warm start | < 300ms | hotkey registered 306 · first chord served 490 · window 432 · folder list 678 ms | **not met** |
 | Sidebar open (after first) | < 100ms, perceptually instant | hotkey → shown and in front 29 ms (max 30) | met |
 | Note switch | < 50ms | short note: editor 32 · text loaded 56 ms (max 69; medians 56–76 across six runs of this build) | **not met** |
@@ -75,17 +75,22 @@ becoming visible, an element in UI Automation, a row in the database, or a
 line Noto traces. It resolves to about 10–30 ms, and the numbers compare
 between runs on one machine, not across machines. Medians are true medians.
 
+From the repository root:
+
 ```
-pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <Release build>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
+dotnet build Noto.sln -c Release
+pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe src\Noto.Windows\bin\Release\net9.0-windows10.0.19041.0\win-x64\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
 ```
 
-A run takes about 10–15 minutes at the defaults. It needs a build with
-`--login` (#94), and it uses no negative controls, so its summary line reads
-`refused 0/0`.
+A run takes about 5 minutes at the defaults. It needs a build with `--login`
+(#94), and it uses no negative controls, so its summary line reads
+`refused 0/0`. Every measure is a median of `-Runs` samples, except first
+chord served, which leaves the last `--login` start unchorded for the hidden
+idle measurement (4 of 5).
 
 | Recorded | |
 | -------- | - |
-| Build | frozen Release `c36674b`: `main` @ `acb9e75` with PRs #96–#101 merged locally (#94, #95, #20, #7, #10, #11) |
+| Build | frozen Release `c36674b`: `main` @ `acb9e75` with PRs #96–#101 merged locally (#94, #95, #20, #7, #10, #11), .NET SDK 10.0.301 (`global.json` rolls forward from 9.0.205). Later commits to #101 change only the script and these documents, not the application |
 | Machine | 20 logical processors, 24 GB, Windows 11, one display, Windows Defender real-time protection on |
 | Run | `performance-20261013-141011-0c2351`, `-Runs 5 -IdleSeconds 60 -NoteCount 1000`, every check passed |
 | Data | 1,000 notes in 20 folders; the measured folder holds 50, among them a 57-character note and a 100,636-character Markdown-style note |
@@ -100,9 +105,23 @@ but already scanned. That second number needs the first Noto start after a
 restart, which cannot be produced without ending the session doing the
 measuring; it is not recorded here.
 
+**Independent reproduction.** Issue #11 asks for the procedure to be followed
+by someone other than its author. Two runs were made by separate agents with
+none of the author's context, each from a fresh clone, its own Release build
+and only these documents, on the same machine:
+
+| Run | Result |
+| --- | ------ |
+| `performance-20261013-133632-f86041` | **INVALID** in the large-note stage. It found a race in the script (leaving the editor re-queries the note list); the script was fixed |
+| `performance-20261013-141809-767934` | Every check passed; **every verdict above reproduced**. Cold window 1,835 · warm window 470 · hotkey registered 333 · first chord served 491 · short-note load 73 · large-note load 505 ms; idle 147.5 / 160.8 MB |
+
+Not reproduced: a different machine, a different person, or a cold start after
+sign-in. Builds are not byte-identical across clones (the paths embedded in
+them differ), so a reproduction compares measurements, not binaries.
+
 **Run to run.** Medians of separate runs on the same build differ noticeably:
-across six runs of `c36674b`, the warm window took 417–502 ms and the short-note
-load 56–76 ms. One start in five can be about 1 s slower than the rest, which
+across the eight runs of this code, the warm window took 417–502 ms and the
+short-note load 56–76 ms. One start in five can be about 1 s slower than the rest, which
 is why `performance.json` keeps every value with the median, min and max.
 
 **Not covered.** Search (none exists), stores far beyond 1,000 notes (the
