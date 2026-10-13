@@ -47,16 +47,45 @@ public enum SettingValueKind
 /// </remarks>
 public abstract class SettingKey
 {
+    private const int MaxDeclaredNameLength = 64;
+
     private protected SettingKey(string name, SettingValueKind kind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
+        int scope = name.IndexOf(SettingKeyFamily.Separator, StringComparison.Ordinal);
+        string declared = scope < 0 ? name : name[..scope];
+
+        if (!IsDeclaredName(declared))
+        {
+            throw new ArgumentException(
+                "A setting's declared name is lowercase ASCII letters, digits, '.' and '-', starting with a letter, "
+                + $"at most {MaxDeclaredNameLength} characters.",
+                nameof(name));
+        }
+
         Name = name;
+        DeclaredName = declared;
+        IsScoped = scope >= 0;
         Kind = kind;
     }
 
     /// <summary>The key as stored in the <c>Settings</c> table.</summary>
     public string Name { get; }
+
+    /// <summary>
+    /// The name as declared in code: the whole <see cref="Name"/>, or for a family member its family's prefix. Never
+    /// a scope.
+    /// </summary>
+    /// <remarks>
+    /// What the log records (#7). A scope is opaque text — a display identity, or whatever a row in the table was
+    /// named — so it is never written; the declared name is restricted to identifier characters, so it cannot carry
+    /// a path, a sentence or a note.
+    /// </remarks>
+    public string DeclaredName { get; }
+
+    /// <summary>Whether this key is a family member, named <c>prefix::scope</c>.</summary>
+    public bool IsScoped { get; }
 
     /// <summary>Which of the five supported value types this key holds.</summary>
     public SettingValueKind Kind { get; }
@@ -77,6 +106,11 @@ public abstract class SettingKey
     public abstract Type ValueType { get; }
 
     public override string ToString() => Name;
+
+    private static bool IsDeclaredName(string name) =>
+        name.Length is > 0 and <= MaxDeclaredNameLength
+        && char.IsAsciiLetterLower(name[0])
+        && name.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '.' or '-');
 }
 
 /// <summary>

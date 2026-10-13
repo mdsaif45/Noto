@@ -99,7 +99,7 @@ public sealed class RollingFileLog : IStorageLog
     public void SettingFellBackToDefault(SettingKey key, SettingFallbackReason reason) =>
         Write(LogLevel.Warning, "SettingFellBackToDefault", w =>
         {
-            w.WriteString("key", key.Name);
+            WriteKey(w, key);
             w.WriteString("reason", reason.ToString());
             w.WriteString("kind", key.Kind.ToString());
         });
@@ -110,9 +110,20 @@ public sealed class RollingFileLog : IStorageLog
     public void SettingSubscriberFailed(SettingKey key, ExceptionSummary failure) =>
         Write(LogLevel.Warning, "SettingSubscriberFailed", w =>
         {
-            w.WriteString("key", key.Name);
+            WriteKey(w, key);
             WriteFailure(w, failure);
         });
+
+    // The declared name only: a family member's scope is opaque text, possibly a row name read from the database.
+    private static void WriteKey(Utf8JsonWriter w, SettingKey key)
+    {
+        w.WriteString("key", key.DeclaredName);
+
+        if (key.IsScoped)
+        {
+            w.WriteBoolean("scoped", true);
+        }
+    }
 
     private static void WriteFailure(Utf8JsonWriter w, ExceptionSummary failure)
     {
