@@ -94,10 +94,7 @@ public sealed class EventHub
     {
         private Action? _unsubscribe = unsubscribe;
 
-        public void Dispose()
-        {
-            _unsubscribe?.Invoke();
-            _unsubscribe = null;
-        }
+        // Taken atomically, so of any number of disposals, even concurrent ones, exactly one unsubscribes.
+        public void Dispose() => Interlocked.Exchange(ref _unsubscribe, null)?.Invoke();
     }
 }
