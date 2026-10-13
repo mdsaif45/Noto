@@ -4,10 +4,10 @@
 Project:            Noto — a Windows-native notes application
 Phase:              closing M0; the product phase (M3 slices) is prepared, not started
 Last updated:       2026-10-13
-Evidence baseline:  main @ acb9e75 (PR #93, #16 slice 7)
-In review:          PR #96 run at login (#94) · PR #97 Noto icon (#95)
-                    PR #98 architecture enforcement (#20) · PR #99 logging (#7)
-                    PR #100 failure handling (#10) · PR #101 performance baseline (#11)
+Evidence baseline:  main @ 4d085d5 (PR #96, run at login)
+In review:          PR #102 Noto icon (#95) · PR #98 architecture enforcement (#20)
+                    PR #99 logging (#7) · PR #100 failure handling (#10)
+                    PR #101 performance baseline (#11) · PR #103 code-signing research (#5)
 ```
 
 > **Read this first.** The technical Windows shell is strong: a docked,
@@ -39,7 +39,7 @@ not implemented · not started · deferred · dropped.
 
 | Milestone | Status | GitHub (open / closed) |
 | --------- | ------ | ---------------------- |
-| **M0** Foundation & Architecture | **Not complete** — every engineering item is built; four are in review; three non-engineering issues are open (§2) | 7 / 6 |
+| **M0** Foundation & Architecture | **Not complete** — four items in review; #21's dispatcher and events not built; #5 in review; #19 open; #11's independent-reproduction requirement open (§2) | 7 / 6 |
 | **M1** Core Note Engine | **Engine complete, product not** — notes, folders and tags are complete in the engine; markdown (#14) and export/backup (#15) are not started (§3) | 3 / 0 |
 | **M2** SideNotes Workspace | **Partially implemented** — the shell is validated; settings, multi-monitor, motion and side switching are not built (§4) | 3 / 1 |
 | **M3** SideNotes Parity | **Not started as M3 work** — 15 of 264 rows `[x]` with #96 (13 of 147 MUSTs), all by-products of M2 (§5) | 2 / 0 |
@@ -48,7 +48,9 @@ not implemented · not started · deferred · dropped.
 | **M6** Contextual Notes | Not started; ADR-005, ADR-006 Proposed | 3 / 0 |
 | **M7–M9** | Not started | — |
 
-#94 and #95 have no milestone; they are M2 work.
+#94 and #95 have no milestone; they are M2 work. #94 is merged. #95's PR #97 merged into
+its stacked base (`feat/94-run-at-login`) after that branch had already been merged, so
+the icon is not on `main`; PR #102 carries the same commits onto `main`.
 
 ---
 
@@ -56,36 +58,45 @@ not implemented · not started · deferred · dropped.
 
 | Item | Status | Evidence |
 | ---- | ------ | -------- |
-| Governance, research, ADRs | implemented | ADR-001–014 on `main`; ADR-015 in PR #96 |
+| Governance, research, ADRs | implemented | ADR-001–015 on `main` |
 | Window spike / framework gate | validated on Windows 11 | ADR-001. Windows 10 22H2 not verified (#32, M4) |
 | Solution structure (ADR-009) | implemented | 6 source, 4 test projects |
 | Architecture tests | implemented; **#20 in review** | Core boundary on `main`. PR #98: layer graph and ADR-010 handler rules over the built output, `Noto.UI` isolation. Complete; mutation-tested 8/8 |
 | CI | implemented | build and test, C# analysis, CodeQL, docs governance; branch protection |
-| Commands (ADR-010) | implemented | every mutation is a UseCases handler |
-| Domain events (ADR-010) | **not started** | #21. Nothing consumes an event; ADR-010 allows building it with its first consumer |
+| Commands (ADR-010) | **partially implemented** | Every mutation is a UseCases handler, wired explicitly in the composition root, and #20 enforces it. ADR-010's **registry and dispatcher do not exist**: callers hold handlers and call them directly (#21) |
+| Domain events (ADR-010) | **not started** | #21. ADR-010 (Accepted) requires events after a successful command, never on failure, with throwing subscribers isolated; none of it exists. A design gate is prepared; nothing is implemented |
 | Design tokens (ADR-011) | implemented | #22, PR #56 |
 | SQLite, migrations | implemented | schema v1, migration 002, safety copy |
 | Settings persistence | implemented | #9, PR #65 |
 | Test infrastructure | implemented | SQLite pool isolation (#47, #85); `tools/validation` runtime harness |
 | Structured logging | **#7 in review** | PR #99: no event takes a parameter that can carry free text — a signature test enforces it; a migration is logged by its version, a setting by its declared name, never a scope or value; rolling JSON-lines file. Mutation-tested; runtime-validated 8/8 on frozen `c36674b` |
 | Error handling | **#10 in review** | PR #100 (stacked on #99): one failure boundary — logged once, the open note saved once, ended once, and the end does not depend on the log or on releasing resources succeeding; startup database failures shown, not crashed. 18/18 mutants killed; runtime-validated 32/32 on frozen `c36674b` (Debug, for its fault trigger) |
-| Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. Reproduced by an independent run from a fresh clone and the documents alone. A cold start after sign-in is not measured: the cold number is a first start after install, its upper bound |
-| Project board | not started | #19 — needs a `project`-scoped token |
-| Code-signing RFC | not started | #5 — research; blocks distribution, not code |
+| Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. Two runs by independent agents from fresh clones and the documents alone reproduced every verdict, but **#11's "someone other than its author" is not shown to be met**: no repository document says an agent counts. The cold start is measured with none of Noto's files cached (a first start after install, antivirus scan included); a start right after sign-in is not measured, and #11 does not require it |
+| Project board | **not started** | #19. CONTRIBUTING's workflow (step 2) moves issues on it; whether it exists cannot be checked without a `project`-scoped token |
+| Code-signing RFC | **in review** | #5, PR #103: options, prices, lead times and the unsigned fallback recorded in ADR-008. The roadmap requires this to be confirmed **during M0**. The recommendation's branch depends on the publisher's identity, which is the owner's input |
 
 ### What closes M0
 
+Each item is either done by evidence or settled by a recorded owner decision.
+Nothing is closed by moving an issue out of the milestone.
+
 ```
-1. merge, in order:  #96 → #97 → #98 → #99 → #100 → #101   (each needs the owner's approval)
-2. decide whether #11 accepts the first-start-after-install number as its cold start,
-   or wants one run right after a restart as well (one restart, then the documented command)
-3. decide #21, #19, #5 — none is foundation code a later slice is blocked on:
-     #21 domain events   no consumer yet → move to the milestone of its first consumer
-     #19 project board   process, not code → keep open outside M0, or close
-     #5  signing RFC     blocks distribution → move to the packaging milestone (M4/M9)
+#20  merge PR #98
+#7   merge PR #99
+#10  merge PR #100 (after #99)
+#11  merge PR #101; its testing requirement ("followed by someone other than its
+     author") is open: two independent agent runs reproduced the baseline, but no
+     repository document says an agent counts. A human reproduction, or a recorded
+     owner decision that the agent runs count, settles it
+#21  build ADR-010's registry, dispatcher and events (design gate prepared), or
+     amend ADR-010 and the roadmap by a recorded decision
+#5   merge PR #103; the owner names the publisher (individual or organization,
+     and country), which picks the signing option
+#19  the owner decides: create the board (needs a project-scoped token), or make
+     CONTRIBUTING's board step optional
 ```
 
-When 1–3 hold, M0 is **complete**, and no new M0 work is opened after it.
+When every line holds, M0 is **complete**, and no new M0 work is opened after it.
 
 ---
 
@@ -120,8 +131,8 @@ session pin (header toggle, tray)                           #16 slice 6–7
 tray icon and menu; session end saves unsaved text          #16 slice 7
 one Noto per data root; a second launch hands off           A17
 save on leave, on hide and on close                         M2-3, #86, slice 5
-hidden start at sign-in (Start Noto with Windows)           #94 — in review
-Noto's own icon                                             #95 — in review
+hidden start at sign-in (Start Noto with Windows)           #94
+Noto's own icon                                             #95 — in review (PR #102)
 ```
 
 **What M2 does not provide as a finished product:**
@@ -144,9 +155,8 @@ no continuous persistence  B19, deferred to M3 by decision
 *Current status*.** Re-scored against the running application on 2026-10-13.
 
 ```
-264 rows · with #96 merged:  15 [x] · 16 [~] · 233 [ ]
-on main (A16 not merged):     14 [x] · 16 [~] · 234 [ ]
-MUST: 13 of 147 done with #96 (12 on main)
+264 rows:  15 [x] · 16 [~] · 233 [ ]
+MUST: 13 of 147 done
 ```
 
 The re-score took two rows down (A12, G51: a stored option no user can choose
@@ -201,8 +211,8 @@ numbers, budgets and verdicts are recorded once, in
 ## 9. Quality gates
 
 ```
-Tests          main @ acb9e75: 1526
-               all six open PRs merged locally (c36674b): 1654 (Core 273 · UseCases 59 · Infrastructure 645 · Windows 677)
+Tests          main @ 4d085d5: 1574
+               the foundation PRs merged locally (c36674b): 1654 (Core 273 · UseCases 59 · Infrastructure 645 · Windows 677)
 Format         dotnet format --verify-no-changes   exit 0
 CI             Build & test · Analyze C# · CodeQL · Validate docs & governance
 Runtime        tools/validation — every harness on a frozen Release build,
@@ -221,17 +231,15 @@ more than one display; a non-US keyboard layout.
 
 | PR | Issue | Base | State |
 | -- | ----- | ---- | ----- |
-| #96 | #94 run at login | `main` | ready; validated 363/363 on frozen `7205ef2`, real registry round trip |
-| #97 | #95 Noto icon | `feat/94-run-at-login` | ready; merges after #96 |
+| #102 | #95 Noto icon | `main` | ready; #97's two commits, unchanged |
 | #98 | #20 architecture enforcement | `main` | ready |
 | #99 | #7 structured logging | `main` | ready |
-| #100 | #10 failure handling | `feat/7-structured-logging` | ready; merges after #99 |
-| #101 | #11 performance baseline | `feat/94-run-at-login` (needs `--login`) | ready; retargets to `main` after #96 |
+| #100 | #10 failure handling | `main` | ready once #99 is merged (until then its diff includes #99) |
+| #103 | #5 code-signing research | `main` | ready; documentation only |
+| #101 | #11 performance baseline | `main` | ready; last |
 
-All six merged together (`c36674b`) build with no warnings and pass 1654
-tests. Merging #100 after #96 meets one documentation conflict in
-`architecture-overview.md` (*Not as described*): keep #96's startup row and
-#100's error-policy and logging rows. **#16 stays open**: slices 8a/8b (multi-monitor, mixed DPI)
+Merged locally together (`c36674b`), the foundation PRs build with no warnings
+and pass 1654 tests. **#16 stays open**: slices 8a/8b (multi-monitor, mixed DPI)
 and 9 (hardening) remain. #69 is fixed by PR #87 and still open; #13 is
 complete in substance and still open — closing either is the owner's decision.
 
@@ -261,7 +269,6 @@ complete in substance and still open — closing either is the owner's decision.
 ## 12. Deferred and dropped
 
 ```
-deferred   Domain events            #21 — built with its first consumer
 deferred   FTS5 search foundation   to M3 with search (#17)
 deferred   Purge / retention        Cases E/F — needs a policy decision
 deferred   Contextual notes         ADR-005/006 Proposed, M6

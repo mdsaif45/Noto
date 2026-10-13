@@ -116,7 +116,9 @@ and only these documents, on the same machine:
 | `performance-20261013-141809-767934` | Every check passed; **every verdict above reproduced**. Cold window 1,835 · warm window 470 · hotkey registered 333 · first chord served 491 · short-note load 73 · large-note load 505 ms; idle 147.5 / 160.8 MB |
 
 Not reproduced: a different machine, a different person, or a cold start after
-sign-in. Builds are not byte-identical across clones (the paths embedded in
+sign-in. No repository document says an agent counts as "someone other than its
+author", so these runs do not by themselves meet #11's requirement: a human
+reproduction, or a recorded owner decision, does. Builds are not byte-identical across clones (the paths embedded in
 them differ), so a reproduction compares measurements, not binaries.
 
 **Run to run.** Medians of separate runs on the same build differ noticeably:

@@ -45,7 +45,7 @@ slices 8a/8b, #30), floating notes.
 database; the drawer moves like a native Windows surface; every control looks
 and behaves consistently in Light, Dark and High Contrast.
 
-**Depends on:** M0 closed; run at login merged (#94, PR #96) for J4.
+**Depends on:** M0 closed. J4 builds on run at login (#94, merged).
 
 ### Steps, each one PR
 

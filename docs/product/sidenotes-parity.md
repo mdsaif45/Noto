@@ -71,7 +71,7 @@ not scored, even when the application happens to meet it today (B25, C3).
 ### Current status
 
 Counted from the rows below on 2026-10-13, re-scored against the running
-application. With run at login (#94, PR #96) merged:
+application (run at login, #94, merged as PR #96):
 
 | Level | Rows | `[x]` | `[~]` | `[ ]` |
 | ----- | ---: | ----: | ----: | ----: |
@@ -81,8 +81,6 @@ application. With run at login (#94, PR #96) merged:
 | BETTER | 5 | 0 | 0 | 5 |
 | DROP | 23 | — | — | 23 (never checked) |
 | **Total** | **264** | **15** | **16** | **233** |
-
-On `main` before PR #96, A16 is `[ ]`: 14 / 16 / 234, and 12 MUSTs done.
 
 ```
 MUST [x]  A1 A9 A10 A14 A16 A17 A19 · C1 C13 · G1 G7 G8 G9

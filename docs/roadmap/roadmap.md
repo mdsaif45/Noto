@@ -39,14 +39,14 @@ Every item below carries one status, from this vocabulary only:
 | **dropped** | Deliberately not done, with the reason |
 
 ```
-M0  Foundation          every engineering item built; 4 PRs in review (#98 #99 #100 #101);
-                        #21 events, #19 board, #5 signing RFC still open        NOT COMPLETE
+M0  Foundation          #20 #7 #10 #11 in review (#98 #99 #100 #101); #21's dispatcher and
+                        events not built; #5 research in review (#103); #19 open   NOT COMPLETE
 M1  Core Note Engine    engine complete for notes, folders, tags (#13);
                         markdown (#14) and export/backup (#15) not started     ENGINE DONE, PRODUCT NO
 M2  Workspace           shell validated: dock, resize, hotkey, drawer, tray,
-                        single instance; run at login in review (#96);
+                        single instance, run at login (#96); icon in review (#102);
                         multi-monitor, slide-in, settings UI not built          PARTIAL
-M3  Parity              15 of 264 rows [x] with #96 (13 of 147 MUSTs)          NOT STARTED as M3 work
+M3  Parity              15 of 264 rows [x] (13 of 147 MUSTs)                    NOT STARTED as M3 work
 M4+                                                                          NOT STARTED
 ```
 
@@ -108,8 +108,8 @@ architectural boundaries are enforced by tests rather than intentions.*
 | Solution and project structure per ADR-009 | implemented | 6 source and 4 test projects |
 | **Architecture tests** — `Noto.Core` has no platform or presentation dependency | implemented | Core boundary guards on `main`; #20 adds the layer graph, ADR-010 handler rules and `Noto.UI` isolation over the built output — in review (PR #98) |
 | CI builds and tests the real solution | implemented | build and test, C# analysis, CodeQL, docs governance |
-| Command infrastructure (ADR-010) | implemented | every mutation is a UseCases handler returning `CommandResult`; #20 enforces it |
-| Domain event infrastructure (ADR-010) | not started | #21. Nothing consumes an event yet; built with its first consumer |
+| Command infrastructure (ADR-010) | partially implemented | Every mutation is a UseCases handler returning `CommandResult`, wired explicitly in the composition root; #20 enforces it. ADR-010's **registry and dispatcher do not exist**: callers hold handlers and call them directly (#21) |
+| Domain event infrastructure (ADR-010) | not started | #21. ADR-010 (Accepted) requires events after a successful command; nothing publishes or subscribes |
 | Design token foundation (ADR-011) | implemented | #22, PR #56: `Noto.UI` |
 | SQLite, connection management, migration runner (ADR-003) | implemented | schema v1, migration 002, safety copy |
 | Structured logging that never records note content | in review | #7, PR #99 |
@@ -117,8 +117,8 @@ architectural boundaries are enforced by tests rather than intentions.*
 | Settings persistence | implemented | #9, PR #65 |
 | Test infrastructure | implemented | pool isolation (#47, #85); runtime validation harness (`tools/validation`) |
 | Performance measurement harness and baseline | in review | #11; `quality-gates.md` |
-| Project board | not started | #19 — needs a `project`-scoped token |
-| Code-signing RFC | not started | #5 — research, blocks distribution, not M0 code |
+| Project board | not started | #19. CONTRIBUTING's workflow (step 2) uses it; whether it exists cannot be checked without a `project`-scoped token |
+| Code-signing RFC | in review | #5, PR #103: options, prices, lead times and the unsigned fallback recorded in ADR-008. The roadmap requires this to be confirmed **during M0**; the publisher's identity is the owner's input |
 
 ### The framework gate
 
@@ -154,7 +154,7 @@ months later.
 | `Note`, `Folder`, `Tag` domain types, no platform dependency (ADR-009) | implemented | frozen engine contract; #13 slices 1–6 |
 | `Attachment`, `Task` domain types | not started | no consumer until D-rows (M3) |
 | Repositories and migrations | implemented | three repositories; schema v2 |
-| Commands and handlers for every mutation (ADR-010) | implemented | 23 commands, 7 queries |
+| Commands and handlers for every mutation (ADR-010) | implemented | 23 commands, 7 queries. Dispatching them through a registry is #21 (M0), not built |
 | Domain events | not started | #21 (M0) |
 | Note content as markdown source (ADR-004) | implemented | content is stored as markdown source |
 | Markdown parsing and rendering (#14) | not started | the editor is a plain `TextBox`; invisible markdown is M3 |
@@ -190,7 +190,7 @@ rename folder; list folders and notes; get, create, update and delete a note).
 | Create, edit, delete | implemented | note create, edit, delete; folder create and rename |
 | Reorder, drag & drop, folder delete, pin, colour, fold, move | not started in the UI | engine commands exist |
 | System tray | validated | #16 slice 7 |
-| Run at login | in review | #94, PR #96 |
+| Run at login | validated | #94, PR #96 |
 | Single instance | validated | A17, PRs #90, #91 |
 | The design system applied to real surfaces (ADR-011) | implemented | all three surfaces use `Noto.UI` tokens |
 | Per-monitor DPI and multi-monitor correctness | not started | #16 slices 8a/8b; #30 |
