@@ -22,16 +22,21 @@ public sealed class DiagnosticsContractTests
     {
         // The rule holds by signature: a string parameter, or an object one, is a place a caller could put note text,
         // a path or a message. Each permitted type is either a number or enum, or a type that admits no such text.
-        Type[] permitted = [typeof(int), typeof(DataRootPath), typeof(ExceptionSummary), typeof(SettingKey), typeof(SettingFallbackReason)];
+        Type[] permitted =
+        [
+            typeof(int), typeof(bool), typeof(DataRootPath), typeof(ExceptionSummary), typeof(SettingKey),
+            typeof(SettingFallbackReason), typeof(StorageFailure), typeof(UnhandledSource),
+        ];
+        Type[] logs = [typeof(IStorageLog), typeof(IAppLog)];
 
-        var offending = typeof(IStorageLog).GetMethods()
+        var offending = logs.SelectMany(l => l.GetMethods())
             .SelectMany(m => m.GetParameters().Select(p => (Method: m.Name, p.Name, p.ParameterType)))
             .Where(p => !permitted.Contains(p.ParameterType))
             .Select(p => $"{p.Method}({p.ParameterType.Name} {p.Name})")
             .ToList();
 
         Assert.True(offending.Count == 0, "Free-text-capable log parameters: " + string.Join(", ", offending));
-        Assert.NotEmpty(typeof(IStorageLog).GetMethods());
+        Assert.All(logs, l => Assert.NotEmpty(l.GetMethods()));
     }
 
     [Fact]
