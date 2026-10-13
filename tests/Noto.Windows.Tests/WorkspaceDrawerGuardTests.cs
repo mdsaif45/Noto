@@ -59,7 +59,7 @@ public sealed partial class WorkspaceDrawerGuardTests
         Assert.True(Index(handler, "_coordinator.OnAppActivated()") < Index(handler, "_coordinator.OnAppDeactivated()"),
             "A return of activation is handled on its own path, before any deactivation.");
         int left = Index(handler, "_coordinator.OnAppDeactivated()");
-        int posted = handler.IndexOf("TryEnqueue(", left, StringComparison.Ordinal);
+        int posted = handler.IndexOf("TryEnqueueGuarded(", left, StringComparison.Ordinal);
 
         Assert.True(posted > left, "The generation is taken inside the activation change, before anything is posted.");
         Assert.True(posted < Index(handler, "_coordinator.OnDeactivationRequested(generation,"),
@@ -82,7 +82,7 @@ public sealed partial class WorkspaceDrawerGuardTests
         string handler = Body(App, "OnAppActivationChanged");
         Assert.Matches(@"if \(change\.Active\)\s*\{\s*int returned = _coordinator\.OnAppActivated\(\);", handler);
         int returned = Index(handler, "_coordinator.OnAppActivated()");
-        int posted = handler.IndexOf("TryEnqueue(", returned, StringComparison.Ordinal);
+        int posted = handler.IndexOf("TryEnqueueGuarded(", returned, StringComparison.Ordinal);
 
         Assert.True(posted > returned, "The generation is taken inside the activation change, before anything is posted.");
         Assert.True(posted < Index(handler, "_coordinator.OnActivationReturned(returned, landed,"),

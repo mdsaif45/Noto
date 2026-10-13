@@ -28,7 +28,7 @@ namespace Noto.Infrastructure.Diagnostics;
 /// be created — is dropped. Writes are serialized, so lines from concurrent callers never interleave.
 /// </para>
 /// </remarks>
-public sealed class RollingFileLog : IStorageLog
+public sealed class RollingFileLog : IStorageLog, IAppLog
 {
     /// <summary>The size at which a file is closed and a new one started.</summary>
     public const long DefaultMaxFileBytes = 1024 * 1024;
@@ -113,6 +113,29 @@ public sealed class RollingFileLog : IStorageLog
             WriteKey(w, key);
             WriteFailure(w, failure);
         });
+
+    public void StartupFailed(StorageFailure reason, ExceptionSummary failure) =>
+        Write(LogLevel.Error, "StartupFailed", w =>
+        {
+            w.WriteString("reason", reason.ToString());
+            WriteFailure(w, failure);
+        });
+
+    public void UnhandledException(UnhandledSource source, ExceptionSummary failure) =>
+        Write(LogLevel.Error, "UnhandledException", w =>
+        {
+            w.WriteString("source", source.ToString());
+            WriteFailure(w, failure);
+        });
+
+    public void EmergencySave(bool saved) =>
+        Write(saved ? LogLevel.Information : LogLevel.Warning, "EmergencySave", w => w.WriteBoolean("saved", saved));
+
+    public void EmergencySaveFailed(ExceptionSummary failure) =>
+        Write(LogLevel.Error, "EmergencySaveFailed", w => WriteFailure(w, failure));
+
+    public void UnobservedTaskException(ExceptionSummary failure) =>
+        Write(LogLevel.Warning, "UnobservedTaskException", w => WriteFailure(w, failure));
 
     // The declared name only: a family member's scope is opaque text, possibly a row name read from the database.
     private static void WriteKey(Utf8JsonWriter w, SettingKey key)

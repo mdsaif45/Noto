@@ -273,7 +273,7 @@ public sealed partial class MainWindow : Window
         // and handed back to the framework before the read begins, matching
         // the initial load. Whether a frame carrying it is actually presented
         // depends on how long the read takes.
-        _ = DispatcherQueue.TryEnqueue(Refresh);
+        _ = DispatcherQueue.TryEnqueueGuarded(Refresh);
     }
 
     /// <summary>
@@ -680,7 +680,7 @@ public sealed partial class MainWindow : Window
         // Queued for the same reason as the folder list's first load: the
         // Loading state is applied and handed back to the framework before
         // the read begins.
-        _ = DispatcherQueue.TryEnqueue(RefreshNotes);
+        _ = DispatcherQueue.TryEnqueueGuarded(RefreshNotes);
     }
 
     /// <summary>
@@ -836,7 +836,7 @@ public sealed partial class MainWindow : Window
     private void OnNoteRetryClick(object sender, RoutedEventArgs e)
     {
         EnterNoteLoading();
-        _ = DispatcherQueue.TryEnqueue(RefreshNotes);
+        _ = DispatcherQueue.TryEnqueueGuarded(RefreshNotes);
     }
 
     /// <summary>
@@ -978,7 +978,7 @@ public sealed partial class MainWindow : Window
         NoteList.SelectedItem = item;
         NoteList.ScrollIntoView(item);
 
-        _ = NoteList.DispatcherQueue.TryEnqueue(
+        _ = NoteList.DispatcherQueue.TryEnqueueGuarded(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () =>
             {
@@ -1023,7 +1023,7 @@ public sealed partial class MainWindow : Window
 
         // Queued for the same reason the other surfaces queue their first
         // read: the state is applied and handed back before the read begins.
-        _ = DispatcherQueue.TryEnqueue(LoadOpenNote);
+        _ = DispatcherQueue.TryEnqueueGuarded(LoadOpenNote);
     }
 
     /// <summary>
@@ -1569,7 +1569,7 @@ public sealed partial class MainWindow : Window
         _editorState = EditorState.Loading;
         ApplyEditorState();
 
-        _ = DispatcherQueue.TryEnqueue(LoadOpenNote);
+        _ = DispatcherQueue.TryEnqueueGuarded(LoadOpenNote);
     }
 
     /// <summary>
@@ -1925,7 +1925,7 @@ public sealed partial class MainWindow : Window
         // Low priority so this runs after the layout pass that realises the
         // container, rather than in the same tick as the command that created
         // it.
-        _ = FolderList.DispatcherQueue.TryEnqueue(
+        _ = FolderList.DispatcherQueue.TryEnqueueGuarded(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () =>
             {
