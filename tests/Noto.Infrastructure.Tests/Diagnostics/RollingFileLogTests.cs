@@ -107,6 +107,30 @@ public sealed partial class RollingFileLogTests : IDisposable
         Assert.Equal("workspace.edge", line.RootElement.GetProperty("key").GetString());
         Assert.Equal("Corrupt", line.RootElement.GetProperty("reason").GetString());
         Assert.Equal("Warning", line.RootElement.GetProperty("level").GetString());
+        Assert.False(line.RootElement.TryGetProperty("scoped", out _));
+    }
+
+    [Fact]
+    public void A_family_members_scope_never_reaches_the_file_only_its_declared_name()
+    {
+        // A scope is opaque: a display identity, or the name of a row someone edited by hand.
+        const string Scope = @"C:\Users\SecretUser\SECRET-NOTE-TEXT-4711";
+        var log = new RollingFileLog(Logs);
+
+        log.SettingFellBackToDefault(SettingKeys.WorkspaceWidthByScope.For(Scope), SettingFallbackReason.Invalid);
+        log.SettingSubscriberFailed(SettingKeys.WorkspaceWidthByScope.For(Scope), ExceptionSummary.From(new InvalidOperationException()));
+
+        var lines = AllLines();
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, l =>
+        {
+            using var line = JsonDocument.Parse(l);
+            Assert.Equal("workspace.width", line.RootElement.GetProperty("key").GetString());
+            Assert.True(line.RootElement.GetProperty("scoped").GetBoolean());
+        });
+        string text = string.Join('\n', lines);
+        Assert.DoesNotContain("SECRET", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Users", text, StringComparison.Ordinal);
     }
 
     [Fact]

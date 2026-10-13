@@ -314,7 +314,9 @@ in the data root.
   - a location is a `DataRootPath`: relative to the data root, or
     `<outside>`, never absolute;
   - a migration is its version number;
-  - a setting is its `SettingKey`, never its value.
+  - a setting is its declared name — a family member by its family, never
+    its scope — and never its value; a declared name is identifier
+    characters only, checked when the key is declared.
 
   `DiagnosticsContractTests` fails if any event takes a parameter of another
   type, so a `string` cannot be added back.
