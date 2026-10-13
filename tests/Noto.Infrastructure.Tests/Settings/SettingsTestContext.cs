@@ -137,7 +137,7 @@ public sealed class RecordingStorageLog : IStorageLog
     {
     }
 
-    public void MigrationApplied(int version, string description)
+    public void MigrationApplied(int version)
     {
     }
 

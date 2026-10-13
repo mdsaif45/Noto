@@ -28,7 +28,11 @@ public interface IStorageLog
 
     void MigrationStarting(int fromVersion, int toVersion, int pendingCount);
 
-    void MigrationApplied(int version, string description);
+    /// <summary>
+    /// A migration was applied. The version identifies it; what it does is fixed in code, so the log does not
+    /// repeat it as text.
+    /// </summary>
+    void MigrationApplied(int version);
 
     void MigrationCompleted(int version);
 
@@ -118,7 +122,7 @@ public sealed class NullStorageLog : IStorageLog
     {
     }
 
-    public void MigrationApplied(int version, string description)
+    public void MigrationApplied(int version)
     {
     }
 

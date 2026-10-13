@@ -36,7 +36,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         var log = new RollingFileLog(Logs);
 
         log.MigrationStarting(1, 2, 1);
-        log.MigrationApplied(2, "Add tags");
+        log.MigrationApplied(2);
         log.MigrationCompleted(2);
 
         var lines = AllLines();
@@ -47,6 +47,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         Assert.Equal("MigrationApplied", applied.RootElement.GetProperty("event").GetString());
         Assert.Equal("Information", applied.RootElement.GetProperty("level").GetString());
         Assert.Equal(2, applied.RootElement.GetProperty("version").GetInt32());
+        Assert.Equal(["event", "level", "time", "version"], applied.RootElement.EnumerateObject().Select(p => p.Name).Order());
     }
 
     [Fact]
@@ -133,6 +134,30 @@ public sealed partial class RollingFileLogTests : IDisposable
         Assert.Equal("workspace.edge", line.RootElement.GetProperty("key").GetString());
         Assert.Equal("Corrupt", line.RootElement.GetProperty("reason").GetString());
         Assert.Equal("Warning", line.RootElement.GetProperty("level").GetString());
+        Assert.False(line.RootElement.TryGetProperty("scoped", out _));
+    }
+
+    [Fact]
+    public void A_family_members_scope_never_reaches_the_file_only_its_declared_name()
+    {
+        // A scope is opaque: a display identity, or the name of a row someone edited by hand.
+        const string Scope = @"C:\Users\SecretUser\SECRET-NOTE-TEXT-4711";
+        var log = new RollingFileLog(Logs);
+
+        log.SettingFellBackToDefault(SettingKeys.WorkspaceWidthByScope.For(Scope), SettingFallbackReason.Invalid);
+        log.SettingSubscriberFailed(SettingKeys.WorkspaceWidthByScope.For(Scope), ExceptionSummary.From(new InvalidOperationException()));
+
+        var lines = AllLines();
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, l =>
+        {
+            using var line = JsonDocument.Parse(l);
+            Assert.Equal("workspace.width", line.RootElement.GetProperty("key").GetString());
+            Assert.True(line.RootElement.GetProperty("scoped").GetBoolean());
+        });
+        string text = string.Join('\n', lines);
+        Assert.DoesNotContain("SECRET", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Users", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -142,7 +167,7 @@ public sealed partial class RollingFileLogTests : IDisposable
 
         for (int i = 0; i < 30; i++)
         {
-            log.MigrationApplied(i, "Rotation test migration");
+            log.MigrationApplied(i);
         }
 
         var files = Directory.GetFiles(Logs, "noto-*.log");
@@ -158,7 +183,7 @@ public sealed partial class RollingFileLogTests : IDisposable
 
         for (int i = 0; i < 60; i++)
         {
-            log.MigrationApplied(i, "Retention test migration");
+            log.MigrationApplied(i);
         }
 
         Assert.Equal(3, Directory.GetFiles(Logs, "noto-*.log").Length);
@@ -176,7 +201,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         Assert.Equal(LogLevel.Information, log.Level);
 
         log.Level = LogLevel.Warning;
-        log.MigrationApplied(1, "Below the level");
+        log.MigrationApplied(1);
         log.SettingFellBackToDefault(SettingKeys.WorkspaceEdge, SettingFallbackReason.Invalid);
 
         log.Level = LogLevel.Error;
@@ -245,7 +270,7 @@ public sealed partial class RollingFileLogTests : IDisposable
         {
             for (int i = 0; i < 200; i++)
             {
-                log.MigrationApplied((writer * 1000) + i, "Concurrent writer");
+                log.MigrationApplied((writer * 1000) + i);
             }
         });
 
