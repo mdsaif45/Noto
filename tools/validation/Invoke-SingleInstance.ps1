@@ -101,8 +101,9 @@ function Launch([string] $Data) {
     <# Starts Noto through the shell and returns the new process, its handle already open. #>
     Assert-UnderRun $run $Data
     $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+    $since = Get-Date
     $view.Application.ShellExecute($NotoExe, "--data-root=`"$Data`"", $run.Root, 'open', 1)
-    $p = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 1, 30000)
+    $p = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 1, 30000, $since)
     if ($p.Count -ne 1) { throw 'the launched Noto never appeared' }
     $proc = $p[0]
     if ([NotoVal.Instance]::ParentOf($proc) -ne (Get-ShellPid)) { $proc.Kill(); throw "Noto $($proc.Id) was not started by the shell" }
@@ -361,10 +362,11 @@ try {
         foreach ($delay in 0, 150, 400) {
             $null = Set-ForegroundByKeyboard $target
             $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+            $since = Get-Date
             $view.Application.ShellExecute($NotoExe, "--data-root=`"$data`"", $run.Root, 'open', 1)
             Start-Sleep -Milliseconds $delay
             $view.Application.ShellExecute($NotoExe, "--data-root=`"$data`"", $run.Root, 'open', 1)
-            $pair = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 2, 30000)
+            $pair = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 2, 30000, $since)
             foreach ($p in $pair) { Add-Started $run $p.Id $p.StartTime.ToUniversalTime().Ticks }
             Start-Sleep -Seconds 6
             $alive = @($pair | Where-Object { -not $_.HasExited })
@@ -380,8 +382,9 @@ try {
         # 9 - five simultaneous launches
         $null = Set-ForegroundByKeyboard $target
         $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+        $since = Get-Date
         1..5 | ForEach-Object { $view.Application.ShellExecute($NotoExe, "--data-root=`"$data`"", $run.Root, 'open', 1) }
-        $five = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 5, 30000)
+        $five = [NotoVal.Instance]::WaitNew('Noto', $run.Seen, 5, 30000, $since)
         foreach ($p in $five) { Add-Started $run $p.Id $p.StartTime.ToUniversalTime().Ticks }
         $deadline = (Get-Date).AddSeconds(20)
         while ((Get-Date) -lt $deadline -and @($five | Where-Object { -not $_.HasExited }).Count -gt 1) { Start-Sleep -Milliseconds 200 }

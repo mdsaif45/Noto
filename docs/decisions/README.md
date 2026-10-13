@@ -29,6 +29,7 @@ These records are the defense against that.
 | [ADR-012](ADR-012-entity-identifiers.md) | Entity identifiers: ULIDs stored as TEXT | Accepted |
 | [ADR-013](ADR-013-single-instance-and-activation-handoff.md) | Single instance and activation handoff | Accepted |
 | [ADR-014](ADR-014-tray-and-application-lifetime.md) | The notification-area icon and the application's lifetime | Accepted |
+| [ADR-015](ADR-015-run-at-login.md) | Run at login | Accepted |
 
 ### Why two are Proposed
 
