@@ -137,6 +137,20 @@ public sealed class FailureBoundaryTests
     }
 
     [Fact]
+    public void Running_out_of_memory_while_saving_is_never_swallowed_and_the_application_still_ends_once()
+    {
+        // A real one: a string longer than the runtime allows (the type itself may not be constructed, CA2201).
+        var boundary = Boundary(() => new string('x', int.MaxValue).Length > 0);
+
+        Assert.Throws<OutOfMemoryException>(() => boundary.Fail(UnhandledSource.UiThread, new InvalidOperationException()));
+
+        Assert.Empty(_log.SaveFailures);
+        Assert.Equal(1, _saves);
+        Assert.Equal(1, _shutdowns);
+        Assert.True(boundary.Handled);
+    }
+
+    [Fact]
     public void Failures_arriving_together_on_many_threads_are_handled_exactly_once()
     {
         var boundary = Boundary(() => true);

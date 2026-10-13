@@ -16,7 +16,8 @@ namespace Noto.UseCases.Lifetime;
 /// <para>
 /// <b>The save is the editor's own</b> — the same one a hide or the session's end uses — tried once. If it throws,
 /// that is recorded and the shutdown goes ahead. If the log itself throws, that write is skipped: neither the save
-/// nor the shutdown depends on the log. Nothing here is retried, and nothing here throws.
+/// nor the shutdown depends on the log. Nothing here is retried, and nothing here throws except an
+/// <see cref="OutOfMemoryException"/>, which, as everywhere in Noto, is never swallowed; the shutdown still runs.
 /// </para>
 /// <para>
 /// <b>The shutdown is the application's own one transition</b> (ADR-014), passed in; this class adds none.
@@ -61,7 +62,7 @@ public sealed class FailureBoundary
             {
                 saved = _trySave();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
             {
                 // The process is already failing: a save that throws is recorded, never handled again or rethrown.
                 Record(() => _log.EmergencySaveFailed(ExceptionSummary.From(ex)));
@@ -83,7 +84,7 @@ public sealed class FailureBoundary
         {
             write();
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
         {
             // Best effort: the log's own failure is the one thing that cannot be recorded.
         }
