@@ -327,7 +327,9 @@ save, and Noto ended through its **one shutdown transition**
 (`BeginShutdownOnce`, `ReleaseResources`), with exit code 4. Every later
 failure, on any thread, does nothing. A save that throws is recorded, never
 rethrown or retried. From another thread the save is handed to the UI thread,
-with a bounded wait.
+with a bounded wait. Once a failure is claimed, the end does not depend on
+anything else succeeding: a log write that throws is skipped, the shutdown runs
+in a `finally`, and the exit runs even if releasing a resource throws.
 
 An unobserved task is only recorded: .NET does not end the process for it.
 There is no restart, no crash-loop detection and no telemetry.

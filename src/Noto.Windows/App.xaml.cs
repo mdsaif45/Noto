@@ -1157,9 +1157,16 @@ public partial class App : Application
     /// </summary>
     private void ExitAfterFailure()
     {
-        BeginShutdownOnce();
-        ReleaseResources();
-        Environment.Exit(FailedExitCode);
+        try
+        {
+            BeginShutdownOnce();
+            ReleaseResources();
+        }
+        finally
+        {
+            // The exit is unconditional: a release that throws must not leave a failed process running.
+            Environment.Exit(FailedExitCode);
+        }
     }
 
 #if DEBUG
