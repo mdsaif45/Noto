@@ -29,7 +29,7 @@
   built Noto.exe.
 
 .EXAMPLE
-  pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <path>\Noto.exe [-Runs 5] [-IdleSeconds 60]
+  pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <path>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
 #>
 param([Parameter(Mandatory)] [string] $NotoExe, [ValidateRange(2, 50)] [int] $Runs = 5, [ValidateRange(10, 3600)] [int] $IdleSeconds = 60, [ValidateRange(50, 100000)] [int] $NoteCount = 1000)
 $ErrorActionPreference = 'Stop'
