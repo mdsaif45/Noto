@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
@@ -11,7 +12,7 @@ namespace Noto.UseCases.Notes;
 /// One of <see cref="NoteColor.Keys"/> (<c>note1</c>…<c>note6</c>), or
 /// <see langword="null"/> to clear — which is what <c>Ctrl+0</c> does.
 /// </param>
-public sealed record SetNoteColor(NoteId NoteId, string? ColorKey);
+public sealed record SetNoteColor(NoteId NoteId, string? ColorKey) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="SetNoteColor"/>.

@@ -1,14 +1,15 @@
 using Noto.Core.Commands;
 using Noto.Core.Notes;
 using Noto.Core.Tags;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Tags;
 
 /// <summary>Applies a tag to a note (design §6, contract §11 row 22).</summary>
-public sealed record AssignTagToNote(NoteId NoteId, TagId TagId);
+public sealed record AssignTagToNote(NoteId NoteId, TagId TagId) : ICommand<CommandResult>;
 
 /// <summary>Removes a tag from a note (design §6, contract §11 row 23).</summary>
-public sealed record RemoveTagFromNote(NoteId NoteId, TagId TagId);
+public sealed record RemoveTagFromNote(NoteId NoteId, TagId TagId) : ICommand<CommandResult>;
 
 /// <summary>
 /// The note precondition shared by both relationship commands.

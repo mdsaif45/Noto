@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
@@ -13,7 +14,7 @@ namespace Noto.UseCases.Notes;
 /// be recovered from a server. It is also why B7 needs no blocking confirmation
 /// dialog: the action is reversible.
 /// </remarks>
-public sealed record DeleteNote(NoteId NoteId);
+public sealed record DeleteNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>Handles <see cref="DeleteNote"/>.</summary>
 public sealed class DeleteNoteHandler(INoteRepository notes, IClock clock)

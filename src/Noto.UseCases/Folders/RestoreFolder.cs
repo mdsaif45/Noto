@@ -1,13 +1,14 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
 
 /// <summary>
 /// Brings a folder back out of the recycle bin (design §6, Case D).
 /// </summary>
-public sealed record RestoreFolder(FolderId FolderId);
+public sealed record RestoreFolder(FolderId FolderId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="RestoreFolder"/> — Case D.

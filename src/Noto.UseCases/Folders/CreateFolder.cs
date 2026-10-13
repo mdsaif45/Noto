@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
 
@@ -8,7 +9,7 @@ namespace Noto.UseCases.Folders;
 /// Creates a folder (design §6, parity C2).
 /// </summary>
 /// <param name="Name">The folder name. Must not be empty or whitespace.</param>
-public sealed record CreateFolder(string Name);
+public sealed record CreateFolder(string Name) : ICommand<CommandResult<FolderId>>;
 
 /// <summary>
 /// Handles <see cref="CreateFolder"/>.
