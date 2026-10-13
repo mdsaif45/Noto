@@ -324,7 +324,7 @@ public partial class App : Application
 
         // #95: the window's icon — its taskbar button and Alt+Tab — is Noto's
         // own, the same file the executable embeds and the tray loads.
-        string icon = Path.Combine(AppContext.BaseDirectory, "Assets", "Noto.ico");
+        string icon = Path.Join(AppContext.BaseDirectory, "Assets", "Noto.ico");
 
         if (File.Exists(icon))
         {
