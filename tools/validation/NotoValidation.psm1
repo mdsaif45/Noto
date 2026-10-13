@@ -478,6 +478,56 @@ function Invoke-HostProbe {
     @($lines[1..($lines.Count - 2)])
 }
 
+function Start-ProbeHost {
+    <#
+      The process every negative-control probe is started from (helpers/probe-host.ps1). The shell starts it once,
+      before the run touches the desktop, so no probe is started by the shell at the moment of a control: a process
+      the shell starts then can inherit a foreground right the shell has just used.
+    #>
+    param($Run)
+    $dir = Join-Path $Run.Root 'probe-host'; New-Item -ItemType Directory $dir -Force | Out-Null
+    $ready = Join-Path $dir 'host.ready'
+    $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
+    $view.Application.ShellExecute('pwsh.exe', "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $script:Helpers 'probe-host.ps1')`" -Dir `"$dir`" -Probe `"$(Join-Path $script:Helpers 'foreground-probe.ps1')`"", $Run.Root, 'open', 0)
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline -and -not (Test-Path -LiteralPath $ready)) { Start-Sleep -Milliseconds 100 }
+    if (-not (Test-Path -LiteralPath $ready)) { throw 'the probe host did not start within 30s' }
+    if ((Get-Content -LiteralPath $ready -Raw) -notmatch 'pid=(\d+) parent=(\d+) start=(\d+) session=(\d+)') { throw 'the probe host did not report its pid' }
+    $hostPid = [int]$Matches[1]; $parent = [int]$Matches[2]; $start = [long]$Matches[3]
+    if ($parent -ne (Get-ShellPid)) { throw "the probe host $hostPid was not started by the shell (parent $parent)" }
+    [void]$Run.Seen.Add($hostPid); Add-Started $Run $hostPid $start
+    $Run | Add-Member -NotePropertyName ProbeHost -NotePropertyValue ([pscustomobject]@{ Pid = $hostPid; Dir = $dir; Parent = $parent }) -Force
+}
+
+function Stop-ProbeHost {
+    param($Run)
+    if ($Run.PSObject.Properties['ProbeHost'] -and $Run.ProbeHost) { Set-Content -LiteralPath (Join-Path $Run.ProbeHost.Dir 'host.stop') -Value 'stop' }
+}
+
+function Invoke-HostProbe {
+    <# Asks the probe host for one probe (or, with -Self, for its own attempt) and returns the result lines. #>
+    param($Run, [Parameter(Mandatory)] [IntPtr] $Hwnd, [Parameter(Mandatory)] [string] $Out, [switch] $Self)
+    if (-not ($Run.PSObject.Properties['ProbeHost'] -and $Run.ProbeHost)) { throw 'no probe host: negative controls run inside Invoke-IsolatedRun' }
+    $id = [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $tmp = Join-Path $Run.ProbeHost.Dir "$id.tmp"
+    Set-Content -LiteralPath $tmp -Value (@{ Kind = $(if ($Self) { 'self' } else { 'probe' }); Hwnd = [int64]$Hwnd; Out = $Out } | ConvertTo-Json -Compress)
+    Move-Item -LiteralPath $tmp -Destination (Join-Path $Run.ProbeHost.Dir "$id.req")
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline -and -not ((Get-Content -LiteralPath $Out -ErrorAction SilentlyContinue) -match '^done$')) { Start-Sleep -Milliseconds 100 }
+    $lines = @(Get-Content -LiteralPath $Out -ErrorAction SilentlyContinue)
+    if (-not ($lines -match '^done$')) { throw "the probe host's probe did not finish within 30s" }
+    if ($lines[0] -notmatch '^pid=(\d+) parent=(\d+) start=(\d+)$') { throw 'the probe did not report its pid' }
+    $procId = [int]$Matches[1]; $parent = [int]$Matches[2]; $start = [long]$Matches[3]
+    if ($Self) { if ($procId -ne $Run.ProbeHost.Pid) { throw "the host's own attempt came from pid $procId" } }
+    else {
+        if ($parent -ne $Run.ProbeHost.Pid) { throw "probe $procId was not started by the probe host (parent $parent)" }
+        # A probe is identified by pid AND start time: over a long run Windows reuses a probe's pid for a later one.
+        if (@($Run.Started | Where-Object { $_.Pid -eq $procId -and $_.Start -eq $start }).Count) { throw "a probe reported a process already seen in this run: $procId" }
+        [void]$Run.Seen.Add($procId); Add-Started $Run $procId $start
+    }
+    @($lines[1..($lines.Count - 2)])
+}
+
 function Test-NegativeControl {
     <#
       An unrelated process, started by the run's probe host and never given input, asks for the foreground for $Hwnd.
