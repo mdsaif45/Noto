@@ -109,7 +109,7 @@ These protect against the failures that are unrecoverable or invisible:
 | ---- | --- |
 | **Migration upgrade paths** | A migration that works on a fresh install and corrupts an existing one is the worst bug this product can have. Test from populated databases, not empty ones. |
 | **Architecture boundaries** | ADR-009's rules are comments until a test fails the build. |
-| **Log redaction** | Note content must never reach a log, including via exception data. |
+| **Log redaction** | Note content must never reach a log, including via exception data. Held by the log's types (`ExceptionSummary`, `DataRootPath`, typed events) and checked by `DiagnosticsContractTests` and `RollingFileLogTests` (#7). |
 | **FTS5 query escaping** | `MATCH` takes a query language; an apostrophe crashes it. |
 | **Backup and restore** | ADR-002 promises the data outlives the app. |
 | **Mixed-DPI multi-monitor** | The dominant recurring defect theme in comparable software. |

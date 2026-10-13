@@ -202,4 +202,39 @@ public sealed class SettingKeyFamilyTests
         Assert.False(SettingKeys.WorkspaceWidth.IsValid(width));
         Assert.False(SettingKeys.WorkspaceWidthByScope.For("x").IsValid(width));
     }
+
+    // ------------------------------------------------------- declared name (#7: what the log may record)
+
+    [Fact]
+    public void A_members_declared_name_is_its_familys_prefix_and_never_its_scope()
+    {
+        var member = Widths.For(@"\\?\DISPLAY#SECRET 4711");
+
+        Assert.Equal("test.width", member.DeclaredName);
+        Assert.True(member.IsScoped);
+        Assert.Equal(SettingKeys.WorkspaceWidth.Name, SettingKeys.WorkspaceWidth.DeclaredName);
+        Assert.False(SettingKeys.WorkspaceWidth.IsScoped);
+    }
+
+    [Fact]
+    public void Every_declared_key_is_unscoped_and_logged_by_its_whole_name()
+    {
+        Assert.All(SettingKeys.All, k => Assert.False(k.IsScoped));
+        Assert.All(SettingKeys.All, k => Assert.Equal(k.Name, k.DeclaredName));
+    }
+
+    [Theory]
+    [InlineData("Workspace.Width")]
+    [InlineData("has space")]
+    [InlineData(@"C:\Users\someone")]
+    [InlineData("notes/secret")]
+    [InlineData("1st")]
+    [InlineData(".leading")]
+    [InlineData("SECRET-NOTE-TEXT")]
+    [InlineData("a2345678901234567890123456789012345678901234567890123456789012345")]
+    public void A_name_that_could_carry_text_is_refused_at_declaration(string name)
+    {
+        Assert.Throws<ArgumentException>(() => new SettingKey<int>(name, 1));
+        Assert.Throws<ArgumentException>(() => new SettingKeyFamily<int>(name, 1));
+    }
 }

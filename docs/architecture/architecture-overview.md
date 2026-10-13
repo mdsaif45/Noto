@@ -24,8 +24,8 @@
 | `NoteService`; a repository using Dapper (*Data flow*) | **Not as described.** Handlers carry the rules; repositories use hand-written SQL on `Microsoft.Data.Sqlite`. Dapper was removed |
 | Database and file I/O on the thread pool (*Threading*) | **Not built.** All database work is synchronous on the UI thread |
 | Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. The tray icon is added after the window and its coordinator exist, not in phase 1 (#16 slice 7, ADR-014). A start at sign-in (`--login`, ADR-015) creates the window hidden and never activates it until the user asks |
-| Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Not built** (#10, #7). The failure model and `StorageException` exist; there is no unhandled-exception handler, no logging, and a database that fails to initialise is not caught |
-| FTS5, attachment files, logging in Infrastructure (*Projects*) | **Not built** (#17, attachments, #7) |
+| Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Partly built.** Logging exists (#7, *Logging* below). The failure model and `StorageException` exist; there is no unhandled-exception handler, and a database that fails to initialise is not caught (#10) |
+| FTS5, attachment files, logging in Infrastructure (*Projects*) | **Partly built.** Logging is (#7, `RollingFileLog`); FTS5 and attachment files are not (#17, attachments) |
 
 ## Shape
 
@@ -295,6 +295,35 @@ recover.
 | Unhandled exception | Log, attempt to save open notes, restart cleanly |
 
 **Logs never contain note content or user file paths** (principle 10).
+
+### Logging
+
+`RollingFileLog` (#7) writes one JSON object per line to `logs\noto-<started>.log`
+in the data root.
+
+- **What it can record is fixed by its types.** It implements typed events
+  (`IStorageLog`) and has no method that takes free text:
+  - a failure is an `ExceptionSummary`: its type chain and HResult, never its
+    message or stack trace;
+  - a location is a `DataRootPath`: relative to the data root, or
+    `<outside>`, never absolute;
+  - a migration is its version number;
+  - a setting is its declared name — a family member by its family, never
+    its scope — and never its value; a declared name is identifier
+    characters only, checked when the key is declared.
+
+  `DiagnosticsContractTests` fails if any event takes a parameter of another
+  type, so a `string` cannot be added back.
+- **Bounded.** A file is closed before it passes 1 MiB, and the newest 10 are
+  kept.
+- **Never the reason Noto fails.** A write that cannot happen is dropped. The
+  logs folder is created by the log, not by startup.
+- **When it starts.** It exists before the database and settings, so their
+  failures reach it.
+- **Level.** It runs at `Information` until settings are read, then follows
+  `diagnostics.log-level`, which also applies when it changes.
+- **Separate from `Trace`.** The `Trace` lines (`Noto.Instance`, `Noto.Tray`,
+  …) are a different channel: the runtime validation harness reads them.
 
 ---
 
