@@ -20,7 +20,7 @@
 |---|---|
 | `WindowCoordinator` owns every window (*The four surfaces*) | **Partly built.** A small `WindowCoordinator` carries out every activation request for the one workspace window — the hotkey's toggle and a second launch (#16 slice 5, A17). `App.xaml.cs` still creates and docks the window; window behaviour lives in `Noto.Platform.Windows` |
 | Single process (*Shape*) | **Built (A17, ADR-013).** One process per data root: a named mutex decides the owner before the database opens; a second launch hands its request over one local named pipe and exits |
-| Command dispatch and events, e.g. `NoteCreated` (*Commands and events*, *Data flow*) | **Partly built.** The 23 command handlers and 7 queries exist and are called directly by the UI. There is no dispatcher, registry or event aggregator (#21) |
+| Command dispatch and events, e.g. `NoteCreated` (*Commands and events*, *Data flow*) | **Built** (#21). The registry, dispatcher and event hub exist; the UI's five mutations are dispatched; `CreateNote` announces `NoteCreated`. No other event exists yet and nothing in the application subscribes; queries stay direct |
 | `NoteService`; a repository using Dapper (*Data flow*) | **Not as described.** Handlers carry the rules; repositories use hand-written SQL on `Microsoft.Data.Sqlite`. Dapper was removed |
 | Database and file I/O on the thread pool (*Threading*) | **Not built.** All database work is synchronous on the UI thread |
 | Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. The tray icon is added after the window and its coordinator exist, not in phase 1 (#16 slice 7, ADR-014). A start at sign-in (`--login`, ADR-015) creates the window hidden and never activates it until the user asks |
@@ -212,6 +212,20 @@ Every mutation goes through a command (ADR-010):
 Reads do not go through commands — wrapping queries in command ceremony buys
 nothing. Dispatch is an explicit registry, not reflection, because startup time
 is a hard budget.
+
+**As built (#21), in `Noto.UseCases.Commands`:**
+
+- `CommandRegistry` names each command, its handler's `Handle` and, if it has
+  one, its event, in the composition root. Registering a command twice throws.
+  An event must be an `IEvent`, built from the command and its successful
+  result; a command cannot announce anything else.
+- `CommandDispatcher.Dispatch` runs the handler and, **only on success**,
+  publishes the event. A failed result or a throwing handler publishes nothing.
+  An unregistered command, a dispatch off the UI thread, or a chain of commands
+  dispatched from subscribers deeper than 8 is a programming error and throws.
+- `EventHub` delivers synchronously, in subscription order. A subscriber that
+  throws is reported to the log (`EventSubscriberFailed`, types only) and the
+  others are still told.
 
 ---
 
