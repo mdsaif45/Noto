@@ -24,6 +24,7 @@ public sealed class EventHub
     private readonly Action<ExceptionSummary> _subscriberFailed;
     private readonly Dictionary<Type, Delegate[]> _subscribers = [];
 
+    /// <summary>Creates an event hub with no subscribers.</summary>
     /// <param name="subscriberFailed">Where a subscriber's failure is reported: the application log.</param>
     public EventHub(Action<ExceptionSummary> subscriberFailed)
     {
