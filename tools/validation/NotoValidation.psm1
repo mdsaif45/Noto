@@ -419,12 +419,13 @@ function Set-ForegroundByKeyboard {
 
 function Send-ActivationChord {
     <# Ctrl+Alt+Win+Space. Sent only while one of this run's windows is in front, so an unregistered chord cannot type into another app. #>
-    param([Parameter(Mandatory)] [IntPtr[]] $AllowedForeground)
+    param([Parameter(Mandatory)] [IntPtr[]] $AllowedForeground, [switch] $NoWait)
     if ($AllowedForeground -notcontains [NotoVal.Win32]::GetForegroundWindow()) { throw 'refusing to send the chord: the foreground window is not one of this run''s' }
     $down = @($VK.CTRL, $VK.ALT, $VK.LWIN) | ForEach-Object { [NotoVal.Win32]::Vk($_, $false) }
     $up = @($VK.LWIN, $VK.ALT, $VK.CTRL) | ForEach-Object { [NotoVal.Win32]::Vk($_, $true) }
     [NotoVal.Win32]::Keys(@($down) + @([NotoVal.Win32]::Vk($VK.SPACE, $false), [NotoVal.Win32]::Vk($VK.SPACE, $true)) + @($up))
-    Start-Sleep -Milliseconds 1000
+    # -NoWait: a timing starts at the key press, so the caller waits for the outcome itself (Invoke-Performance).
+    if (-not $NoWait) { Start-Sleep -Milliseconds 1000 }
 }
 
 function Start-ProbeHost {
