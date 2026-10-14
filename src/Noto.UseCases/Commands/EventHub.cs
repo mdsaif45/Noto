@@ -16,8 +16,10 @@ namespace Noto.UseCases.Commands;
 /// next subscriber is told. As everywhere in Noto, running out of memory is never swallowed.
 /// </para>
 /// <para>
-/// Subscribers are kept per exact event type, in subscription order. Each subscribe or unsubscribe replaces the list, so
-/// a subscriber that subscribes or unsubscribes while an event is being delivered changes only the next delivery.
+/// Subscribers are kept per exact event type, in subscription order, so an event type must be sealed: a subscriber
+/// of a base type or of <see cref="IEvent"/> would never be told of the events published as their concrete type.
+/// Each subscribe or unsubscribe replaces the list, so a subscriber that subscribes or unsubscribes while an event is
+/// being delivered changes only the next delivery.
 /// </para>
 /// </remarks>
 public sealed class EventHub
@@ -38,6 +40,7 @@ public sealed class EventHub
         where TEvent : IEvent
     {
         ArgumentNullException.ThrowIfNull(subscriber);
+        RequireExactType<TEvent>();
 
         lock (_gate)
         {
@@ -77,6 +80,17 @@ public sealed class EventHub
             {
                 _subscriberFailed(ExceptionSummary.From(ex));
             }
+        }
+    }
+
+    /// <summary>Refuses an event type that is not sealed, the one way delivery by exact type could miss a subscriber.</summary>
+    /// <exception cref="InvalidOperationException"><typeparamref name="TEvent"/> is not sealed.</exception>
+    internal static void RequireExactType<TEvent>()
+        where TEvent : IEvent
+    {
+        if (!typeof(TEvent).IsSealed)
+        {
+            throw new InvalidOperationException($"{typeof(TEvent).Name} is not sealed; an event is delivered by its exact type, so only a sealed type can be one.");
         }
     }
 
