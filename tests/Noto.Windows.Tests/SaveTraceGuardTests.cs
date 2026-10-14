@@ -6,7 +6,7 @@ namespace Noto.Windows.Tests;
 /// <summary>
 /// #11: the performance harness times a save from the <c>Noto.Save completed</c> trace, so the trace must mean what it
 /// says: emitted once the save has been written, only on success, never on a failed save, and carrying nothing but the
-/// duration. Checked in the source, as the other wiring guards are; the XAML layer has no unit tests.
+/// duration, written the same way on every machine. Checked in the source, as the other wiring guards are; the XAML layer has no unit tests.
 /// </summary>
 public sealed class SaveTraceGuardTests
 {
@@ -41,7 +41,9 @@ public sealed class SaveTraceGuardTests
                 .Select(f => WithoutComments(File.ReadAllText(f))));
 
         Assert.Equal(1, Regex.Count(all, Regex.Escape(Signal)));
-        Assert.Contains("Trace.WriteLine($\"Noto.Save completed ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}\");", WindowSource, StringComparison.Ordinal);
+        // Invariant, so "12.34" on every machine: the harness reads a decimal point only, and a regional comma would
+        // otherwise be read as a 12 ms save.
+        Assert.Contains("Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $\"Noto.Save completed ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}\"));", WindowSource, StringComparison.Ordinal);
     }
 
     private static int Index(string text, string value)
