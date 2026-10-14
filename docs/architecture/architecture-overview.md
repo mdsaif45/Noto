@@ -20,12 +20,12 @@
 |---|---|
 | `WindowCoordinator` owns every window (*The four surfaces*) | **Partly built.** A small `WindowCoordinator` carries out every activation request for the one workspace window — the hotkey's toggle and a second launch (#16 slice 5, A17). `App.xaml.cs` still creates and docks the window; window behaviour lives in `Noto.Platform.Windows` |
 | Single process (*Shape*) | **Built (A17, ADR-013).** One process per data root: a named mutex decides the owner before the database opens; a second launch hands its request over one local named pipe and exits |
-| Command dispatch and events, e.g. `NoteCreated` (*Commands and events*, *Data flow*) | **Partly built.** The 23 command handlers and 7 queries exist and are called directly by the UI. There is no dispatcher, registry or event aggregator (#21) |
+| Command dispatch and events, e.g. `NoteCreated` (*Commands and events*, *Data flow*) | **Built** (#21). The registry, dispatcher and event hub exist; the UI's five mutations are dispatched; `CreateNote` announces `NoteCreated`. No other event exists yet and nothing in the application subscribes; queries stay direct |
 | `NoteService`; a repository using Dapper (*Data flow*) | **Not as described.** Handlers carry the rules; repositories use hand-written SQL on `Microsoft.Data.Sqlite`. Dapper was removed |
 | Database and file I/O on the thread pool (*Threading*) | **Not built.** All database work is synchronous on the UI thread |
 | Startup phases: tray in phase 1, window created lazily (*Startup*) | **Not as described.** The data root is claimed first and the activation pipe started (A17); then settings load and the hotkey registers before the window, but the window is created and activated eagerly in `OnLaunched`. The tray icon is added after the window and its coordinator exist, not in phase 1 (#16 slice 7, ADR-014). A start at sign-in (`--login`, ADR-015) creates the window hidden and never activates it until the user asks |
-| Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Not built** (#10, #7). The failure model and `StorageException` exist; there is no unhandled-exception handler, no logging, and a database that fails to initialise is not caught |
-| FTS5, attachment files, logging in Infrastructure (*Projects*) | **Not built** (#17, attachments, #7) |
+| Error policy: an unreadable database is refused with a message; unhandled exceptions are logged and open notes saved (*Error handling*) | **Built** (#10, on #7's log). A database that cannot start is refused with a message naming the file. An unhandled exception is recorded, the open note saved once and Noto ended once. There is no restart and no crash-loop detection |
+| FTS5, attachment files, logging in Infrastructure (*Projects*) | **Partly built.** Logging is (#7, `RollingFileLog`); FTS5 and attachment files are not (#17, attachments) |
 
 ## Shape
 
@@ -213,6 +213,29 @@ Reads do not go through commands — wrapping queries in command ceremony buys
 nothing. Dispatch is an explicit registry, not reflection, because startup time
 is a hard budget.
 
+**As built (#21), in `Noto.UseCases.Commands`:**
+
+- `CommandRegistry` names each command, its handler's `Handle` and, if it has
+  one, its event, in the composition root. Registering a command twice throws.
+  An event must be a sealed `IEvent`, built from the command and its
+  successful result; a command cannot announce anything else. Events are
+  delivered by exact type, so an unsealed event type is refused when it is
+  registered or subscribed to.
+- `CommandDispatcher.Dispatch` runs the handler and, **only on success**,
+  publishes the event. A failed result or a throwing handler publishes nothing.
+  An unregistered command, or a chain of commands dispatched from subscribers
+  deeper than 8, is a programming error and throws. The depth belongs to the
+  synchronous chain, not to the dispatcher.
+- **Threading is the entry point's concern, not the dispatcher's.** The
+  dispatcher knows nothing of the UI thread. `MainWindow` dispatches from its
+  own event handlers, which run on the UI thread; an entry point that starts
+  on another thread (the activation pipe, later `noto://`) hands its work to the
+  UI thread with `UiWork` before it dispatches, because a window's subscribers
+  would touch XAML.
+- `EventHub` delivers synchronously, in subscription order. A subscriber that
+  throws is reported to the log (`EventSubscriberFailed`, types only) and the
+  others are still told.
+
 ---
 
 ## Data flow: creating a note
@@ -287,14 +310,75 @@ recover.
 
 | Failure | Response |
 | ------- | -------- |
-| Database unreadable | Refuse to start rather than risk the data; clear message pointing at the file |
+| Database unreadable | Refuse to start rather than risk the data; clear message pointing at the file. **Built (#10):** a message per `StorageFailure` names the file on screen; the log records only the reason; exit 5 |
 | Migration fails | Roll back, keep the old database, report; **never** leave a half-migrated store |
 | A window fails to create | Log, continue; do not take the application down |
 | Context resolution throws | Log, treat as "no context", show nothing |
 | Hotkey registration conflicts | Report in settings; the application still works |
-| Unhandled exception | Log, attempt to save open notes, restart cleanly |
+| Unhandled exception | Log, attempt to save open notes, restart cleanly. **Built (#10), without the restart:** recorded once, the open note saved once, Noto ended through its one shutdown transition; exit 4 |
 
 **Logs never contain note content or user file paths** (principle 10).
+
+### Failure handling
+
+#10 builds on the log (#7).
+
+**When Noto cannot start.** A database that cannot be opened or brought up to
+date (`StorageFailure`) stops startup:
+- the user sees a message (`StartupNotice`) saying what went wrong and naming
+  the file;
+- the log records `StartupFailed` with only the reason and the exception's
+  types;
+- what the process holds is released, and it exits with code 5.
+
+**The last-chance boundaries.** Every failure Noto does not handle reaches one
+`FailureBoundary`:
+- `Application.UnhandledException` (XAML callbacks);
+- `AppDomain.UnhandledException` (other threads);
+- `UiWork`, which every callback Noto queues on the UI thread goes through.
+  WinUI routes a queued callback's exception to neither of the others: it ends
+  the process with nothing recorded and nothing saved.
+
+The first failure is recorded, the open note saved once with the editor's own
+save, and Noto ended through its **one shutdown transition**
+(`BeginShutdownOnce`, `ReleaseResources`), with exit code 4. Every later
+failure, on any thread, does nothing. A save that throws is recorded, never
+rethrown or retried. From another thread the save is handed to the UI thread,
+with a bounded wait. Once a failure is claimed, the end does not depend on
+anything else succeeding: a log write that throws is skipped, the shutdown runs
+in a `finally`, and the exit runs even if releasing a resource throws.
+
+An unobserved task is only recorded: .NET does not end the process for it.
+There is no restart, no crash-loop detection and no telemetry.
+
+### Logging
+
+`RollingFileLog` (#7) writes one JSON object per line to `logs\noto-<started>.log`
+in the data root.
+
+- **What it can record is fixed by its types.** It implements typed events
+  (`IStorageLog`) and has no method that takes free text:
+  - a failure is an `ExceptionSummary`: its type chain and HResult, never its
+    message or stack trace;
+  - a location is a `DataRootPath`: relative to the data root, or
+    `<outside>`, never absolute;
+  - a migration is its version number;
+  - a setting is its declared name — a family member by its family, never
+    its scope — and never its value; a declared name is identifier
+    characters only, checked when the key is declared.
+
+  `DiagnosticsContractTests` fails if any event takes a parameter of another
+  type, so a `string` cannot be added back.
+- **Bounded.** A file is closed before it passes 1 MiB, and the newest 10 are
+  kept.
+- **Never the reason Noto fails.** A write that cannot happen is dropped. The
+  logs folder is created by the log, not by startup.
+- **When it starts.** It exists before the database and settings, so their
+  failures reach it.
+- **Level.** It runs at `Information` until settings are read, then follows
+  `diagnostics.log-level`, which also applies when it changes.
+- **Separate from `Trace`.** The `Trace` lines (`Noto.Instance`, `Noto.Tray`,
+  …) are a different channel: the runtime validation harness reads them.
 
 ---
 

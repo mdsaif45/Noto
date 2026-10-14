@@ -2,6 +2,7 @@ using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
@@ -11,7 +12,7 @@ namespace Noto.UseCases.Notes;
 /// <param name="TargetFolderId">
 /// The destination, or <see langword="null"/> for the root scope.
 /// </param>
-public sealed record MoveNoteToFolder(NoteId NoteId, FolderId? TargetFolderId);
+public sealed record MoveNoteToFolder(NoteId NoteId, FolderId? TargetFolderId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="MoveNoteToFolder"/>.

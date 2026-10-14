@@ -1,20 +1,21 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
 /// <summary>Pins a note to the top of its list (design §6, parity B14).</summary>
-public sealed record PinNote(NoteId NoteId);
+public sealed record PinNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>Unpins a note (design §6, parity B14).</summary>
-public sealed record UnpinNote(NoteId NoteId);
+public sealed record UnpinNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>Collapses a note to its first line (design §6, parity B12).</summary>
-public sealed record FoldNote(NoteId NoteId);
+public sealed record FoldNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>Expands a folded note (design §6, parity B12).</summary>
-public sealed record UnfoldNote(NoteId NoteId);
+public sealed record UnfoldNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>
 /// The precondition shared by every single-flag note command.

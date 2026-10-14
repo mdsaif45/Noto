@@ -6,10 +6,18 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Core.Activation;
+using Noto.Core.Commands;
+using Noto.Core.Diagnostics;
+using Noto.Core.Folders;
+using Noto.Core.Notes;
 using Noto.Core.Settings;
+using Noto.Core.Storage;
+using Noto.Infrastructure.Diagnostics;
 using Noto.Infrastructure.Storage;
 using Noto.Platform.Windows;
+using Noto.UseCases.Commands;
 using Noto.UseCases.Folders;
+using Noto.UseCases.Lifetime;
 using Noto.UseCases.Notes;
 using Noto.UseCases.Workspace;
 using Windows.Graphics;
@@ -198,6 +206,18 @@ public partial class App : Application
     /// <summary>A close that will go ahead has begun: no activation starts after it.</summary>
     private volatile bool _closing;
 
+    /// <summary>Exit code after a failure reached a last-chance boundary (#10). 2 and 3 are A17's refusals.</summary>
+    private const int FailedExitCode = 4;
+
+    /// <summary>Exit code when the database could not be opened or brought up to date (#10).</summary>
+    private const int StartupFailedExitCode = 5;
+
+    /// <summary>How long a failure on another thread waits for the UI thread to save the open note.</summary>
+    private static readonly TimeSpan FailureSaveTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>The last-chance boundaries' one handling of a failure (#10).</summary>
+    private FailureBoundary? _failures;
+
     /// <summary>
     /// The notification-area icon (#16 slice 7), or <see langword="null"/> when
     /// Windows refused its window. Removed first when the window closes.
@@ -243,6 +263,37 @@ public partial class App : Application
         // machine fails with "unable to open database file" without this.
         paths.EnsureCreated();
 
+        // #7: the log exists before the database and settings, so their
+        // failures reach it. It writes only typed events (IStorageLog) at
+        // Information until settings are read; creating it does no I/O, so a
+        // second launch that hands off below costs nothing here. The Trace
+        // lines elsewhere are a separate channel: the runtime validation
+        // harness reads them.
+        var log = new RollingFileLog(paths.LogsDirectory);
+
+        // #10: the last-chance boundaries. The first failure is recorded, the
+        // open note saved once and the application ended through its one
+        // shutdown transition; any later one, on any thread, does nothing
+        // (FailureBoundary). Not fatal in .NET, an unobserved task is only
+        // recorded.
+        _failures = new FailureBoundary(log, SaveOnFailure, ExitAfterFailure);
+        UiWork.OnFailure = exception => _failures.Fail(UnhandledSource.UiThread, exception);
+        UnhandledException += (_, e) =>
+        {
+            // Handled here, so WinUI does not tear the process down mid-save:
+            // ExitAfterFailure ends it once the failure is recorded.
+            e.Handled = true;
+            _failures.Fail(UnhandledSource.UiThread, e.Exception);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception exception)
+            {
+                _failures.Fail(UnhandledSource.OtherThread, exception);
+            }
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) => log.UnobservedTaskException(ExceptionSummary.From(e.Exception));
+
         // A17 (ADR-013): decide who owns this data root before anything opens
         // it. A second launch hands its request to the owner and exits here —
         // no database, no window.
@@ -255,10 +306,24 @@ public partial class App : Application
         // startup is taken now and acted on once the window exists.
         StartActivationPipe();
 
-        var database = new NotoDatabase(paths.DatabaseFile);
+        var database = new NotoDatabase(paths.DatabaseFile, log);
 
-        // Creates the file on first run and applies any pending migration.
-        database.Initialize();
+        // Creates the file on first run and applies any pending migration. A
+        // database that cannot be opened or brought up to date is refused with
+        // a message naming the file, never a crash (#10); the log records
+        // only why.
+        try
+        {
+            database.Initialize();
+        }
+        catch (StorageException ex)
+        {
+            log.StartupFailed(ex.Reason, ExceptionSummary.From(ex));
+            StartupNotice.Show(StartupFailureMessage.For(ex.Reason, paths.DatabaseFile));
+            ReleaseResources();
+            Environment.Exit(StartupFailedExitCode);
+            return;
+        }
 
         // Repositories are stateless over the database; each call opens and
         // disposes its own connection (NotoDatabase.OpenConnection), so a
@@ -279,8 +344,17 @@ public partial class App : Application
         //
         // Not passed to MainWindow: none of its surfaces reads a setting. The
         // dock below reads the edge and width through WorkspacePreferences.
-        var settings = new SqliteSettingsStore(database);
+        var settings = new SqliteSettingsStore(database, log);
         settings.Load();
+
+        log.Level = settings.Read(SettingKeys.DiagnosticsLogLevel);
+        settings.SettingChanged += (_, e) =>
+        {
+            if (e.Key == SettingKeys.DiagnosticsLogLevel)
+            {
+                log.Level = settings.Read(SettingKeys.DiagnosticsLogLevel);
+            }
+        };
 
         // Phase 1 (architecture-overview.md §startup): the hotkey is
         // registered before any window exists, on its own message-only
@@ -293,15 +367,23 @@ public partial class App : Application
 
         var preferences = new WorkspacePreferences(settings);
 
+        // #21: every mutation the window makes is dispatched. The registry names each command, its handler and, for
+        // CreateNote, its event; nothing is discovered. A subscriber's failure is logged as types only.
+        var commands = new CommandRegistry()
+            .Register<CreateFolder, CommandResult<FolderId>>(new CreateFolderHandler(folders, clock).Handle)
+            .Register<RenameFolder, CommandResult>(new RenameFolderHandler(folders, clock).Handle)
+            .Register<UpdateNoteContent, CommandResult>(new UpdateNoteContentHandler(notes, clock).Handle)
+            .Register<CreateNote, CommandResult<NoteId>, NoteCreated>(
+                new CreateNoteHandler(notes, clock).Handle,
+                static (command, result) => new NoteCreated(result.Value, command.FolderId))
+            .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle);
+        var events = new EventHub(failure => log.EventSubscriberFailed(failure));
+
         var main = new MainWindow(
             new ListFoldersQuery(folders),
-            new CreateFolderHandler(folders, clock),
-            new RenameFolderHandler(folders, clock),
             new ListNotesInFolderQuery(notes),
             new GetNoteQuery(notes),
-            new UpdateNoteContentHandler(notes, clock),
-            new CreateNoteHandler(notes, clock),
-            new DeleteNoteHandler(notes, clock))
+            new CommandDispatcher(commands, events))
         {
             Escape = preferences.Escape,
         };
@@ -326,19 +408,7 @@ public partial class App : Application
         // Close, the tray's Quit and the session ending all arrive here,
         // through AppWindow.Closing. Raised once, when the window is
         // destroyed; every disposal below is idempotent besides.
-        _window.Closed += (_, _) =>
-        {
-            // The icon first: before the mutex is released, so a successor's
-            // icon never appears beside this one.
-            _tray?.Dispose();
-            _hotkey?.Dispose();
-
-            // The pipe first, then the mutex: a successor waiting on the
-            // mutex must find the pipe's name free when it gets it.
-            Trace.WriteLine($"Noto.Instance released key={_instanceKey?.PathHash}");
-            _activationPipe?.Dispose();
-            _ownership?.Dispose();
-        };
+        _window.Closed += (_, _) => ReleaseResources();
 
         // After MainWindow's own Closing handler, which may cancel the close
         // to keep unsaved text: only a close that goes ahead stops activation.
@@ -351,12 +421,9 @@ public partial class App : Application
         // session's end posts — and must change nothing.
         _window.AppWindow.Closing += (_, e) =>
         {
-            if (!e.Cancel && !_closing)
+            if (!e.Cancel)
             {
-                _closing = true;
-                _activationPipe?.BeginShutdown();
-                _coordinator?.BeginShutdown();
-                Trace.WriteLine($"Noto.Instance shutting-down key={_instanceKey?.PathHash}");
+                BeginShutdownOnce();
             }
         };
 
@@ -396,8 +463,14 @@ public partial class App : Application
         // window. Not a product feature.
         if (commandLine.Contains("--smoke-test"))
         {
-            _ = _window.DispatcherQueue.TryEnqueue(Exit);
+            _ = _window.DispatcherQueue.TryEnqueueGuarded(Exit);
         }
+
+#if DEBUG
+        // Debug builds only (never Release): a fault on demand, so the
+        // failure path (#10) can be checked against the real application.
+        ArmFaultInjection(_window.DispatcherQueue, paths.Root);
+#endif
 
         // Last: hotkey presses made before this point were made while Noto was
         // starting. They are delivered only after OnLaunched returns (measured)
@@ -517,7 +590,7 @@ public partial class App : Application
     /// </summary>
     private ActivationReply OnLaunchRequested(DispatcherQueue ui)
     {
-        if (_pendingLaunch.Offer(Environment.TickCount) && !ui.TryEnqueue(RunPendingLaunch))
+        if (_pendingLaunch.Offer(Environment.TickCount) && !ui.TryEnqueueGuarded(RunPendingLaunch))
         {
             // The dispatcher is shutting down with the process.
             return ActivationReply.ShuttingDown;
@@ -733,6 +806,140 @@ public partial class App : Application
     /// be read even if Noto was minimized. A hidden Noto is never unsaved:
     /// every hide saves first.
     /// </remarks>
+    /// <summary>
+    /// The one shutdown transition (ADR-014), entered once: from a close that
+    /// goes ahead, or from the failure path (#10). From here a later launch is
+    /// told Noto is shutting down, and waits to take over instead of handing
+    /// its request to a closing window.
+    /// </summary>
+    private void BeginShutdownOnce()
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        _closing = true;
+        _activationPipe?.BeginShutdown();
+        _coordinator?.BeginShutdown();
+        Trace.WriteLine($"Noto.Instance shutting-down key={_instanceKey?.PathHash}");
+    }
+
+    /// <summary>
+    /// What the process holds, released when it ends: when the window is
+    /// destroyed, or on the failure and startup-failure paths. Every disposal
+    /// is idempotent.
+    /// </summary>
+    private void ReleaseResources()
+    {
+        // The icon first: before the mutex is released, so a successor's
+        // icon never appears beside this one.
+        _tray?.Dispose();
+        _hotkey?.Dispose();
+
+        // The pipe first, then the mutex: a successor waiting on the
+        // mutex must find the pipe's name free when it gets it.
+        Trace.WriteLine($"Noto.Instance released key={_instanceKey?.PathHash}");
+        _activationPipe?.Dispose();
+        _ownership?.Dispose();
+    }
+
+    /// <summary>
+    /// #10: the editor's own save, once, after a failure. On the UI thread it
+    /// runs directly; from another thread it is handed to the UI thread and
+    /// waited on for a bounded time, so a UI thread that is itself stuck
+    /// cannot hold the process open.
+    /// </summary>
+    private bool SaveOnFailure()
+    {
+        if (_main is not { } main || _window?.DispatcherQueue is not { } ui)
+        {
+            return true;
+        }
+
+        if (ui.HasThreadAccess)
+        {
+            return main.SaveBeforeHide();
+        }
+
+        bool saved = false;
+        using var done = new ManualResetEventSlim();
+
+        bool queued = ui.TryEnqueueGuarded(() =>
+        {
+            try
+            {
+                saved = main.SaveBeforeHide();
+            }
+            finally
+            {
+                done.Set();
+            }
+        });
+
+        return queued && done.Wait(FailureSaveTimeout) && saved;
+    }
+
+    /// <summary>
+    /// #10: the end after a failure: the one shutdown transition, the same
+    /// release the window's Closed runs, then the exit code that says why.
+    /// </summary>
+    private void ExitAfterFailure()
+    {
+        try
+        {
+            BeginShutdownOnce();
+            ReleaseResources();
+        }
+        finally
+        {
+            // The exit is unconditional: a release that throws must not leave a failed process running.
+            Environment.Exit(FailedExitCode);
+        }
+    }
+
+#if DEBUG
+    private static DispatcherTimer? _faultTimer;
+
+    /// <summary>
+    /// Debug builds only. A file named <c>noto-fault-ui</c> or
+    /// <c>noto-fault-thread</c> in the data root throws on the UI thread or on
+    /// another thread, once; the file is deleted first. Not compiled into
+    /// Release.
+    /// </summary>
+    private static void ArmFaultInjection(DispatcherQueue ui, string dataRoot)
+    {
+        // A XAML timer, so a fault thrown in its Tick is a XAML callback's (Application.UnhandledException). Held
+        // in a field: a timer only a local refers to can be collected and stop ticking.
+        var timer = _faultTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        timer.Tick += (_, _) =>
+        {
+            string onThread = Path.Join(dataRoot, "noto-fault-thread");
+            string onQueue = Path.Join(dataRoot, "noto-fault-queue");
+            string onUi = Path.Join(dataRoot, "noto-fault-ui");
+
+            if (File.Exists(onThread))
+            {
+                File.Delete(onThread);
+                new Thread(() => throw new InvalidOperationException("Injected fault on another thread (debug build).")) { IsBackground = true }.Start();
+            }
+
+            if (File.Exists(onQueue))
+            {
+                File.Delete(onQueue);
+                _ = ui.TryEnqueueGuarded(() => throw new InvalidOperationException("Injected fault in a queued callback (debug build)."));
+            }
+
+            if (File.Exists(onUi))
+            {
+                File.Delete(onUi);
+                throw new InvalidOperationException("Injected fault on the UI thread (debug build).");
+            }
+        };
+        timer.Start();
+    }
+#endif
+
     private void Quit()
     {
         if (_windowHandle is null)
@@ -837,7 +1044,7 @@ public partial class App : Application
             int returned = _coordinator.OnAppActivated();
             bool landed = change.Landed;
 
-            _ = _window.DispatcherQueue.TryEnqueue(() =>
+            _ = _window.DispatcherQueue.TryEnqueueGuarded(() =>
             {
                 if (_closing || _coordinator is null)
                 {
@@ -852,7 +1059,7 @@ public partial class App : Application
 
         int generation = _coordinator.OnAppDeactivated();
 
-        _ = _window.DispatcherQueue.TryEnqueue(() =>
+        _ = _window.DispatcherQueue.TryEnqueueGuarded(() =>
         {
             if (_closing || _coordinator is null)
             {

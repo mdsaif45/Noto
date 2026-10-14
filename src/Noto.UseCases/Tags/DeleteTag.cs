@@ -1,12 +1,13 @@
 using Noto.Core.Commands;
 using Noto.Core.Tags;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Tags;
 
 /// <summary>
 /// Deletes a tag (design §6, contract §11 row 21).
 /// </summary>
-public sealed record DeleteTag(TagId TagId);
+public sealed record DeleteTag(TagId TagId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="DeleteTag"/> — the engine's <b>only hard delete</b>.

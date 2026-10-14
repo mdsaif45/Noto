@@ -164,8 +164,10 @@ Noto has five on the parity list.
 ### Testing requirements
 
 - [ ] Each handler unit-tested without UI or platform dependencies
-- [ ] Events raised only after the mutation succeeds, never on failure
-- [ ] An event subscriber that throws does not fail the command
+- [x] Events raised only after the mutation succeeds, never on failure
+  (`CommandDispatcherTests`, `CreateNoteDispatchTests`, #21)
+- [x] An event subscriber that throws does not fail the command
+  (`CommandDispatcherTests`, `CreateNoteDispatchTests`, #21)
 - [ ] No repository write path exists outside a command handler
 
 ---

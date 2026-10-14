@@ -96,12 +96,15 @@ public sealed class NotoStoragePaths
     /// <summary>Logs. Never contain note content or user file paths.</summary>
     public string LogsDirectory => Resolve("logs");
 
-    /// <summary>Creates the directories. Idempotent.</summary>
+    /// <summary>Creates the directories Noto cannot start without. Idempotent.</summary>
+    /// <remarks>
+    /// Not <see cref="LogsDirectory"/>: the log creates it when it first writes, and a logs folder that cannot be
+    /// created must cost the log, never the start (#7).
+    /// </remarks>
     public void EnsureCreated()
     {
         Directory.CreateDirectory(Root);
         Directory.CreateDirectory(AttachmentsDirectory);
         Directory.CreateDirectory(BackupsDirectory);
-        Directory.CreateDirectory(LogsDirectory);
     }
 }

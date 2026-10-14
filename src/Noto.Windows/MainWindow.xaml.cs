@@ -10,6 +10,7 @@ using Noto.Core.Notes;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
 using Noto.Platform.Windows;
+using Noto.UseCases.Commands;
 using Noto.UseCases.Folders;
 using Noto.UseCases.Notes;
 using Windows.System;
@@ -44,13 +45,9 @@ namespace Noto;
 public sealed partial class MainWindow : Window
 {
     private readonly ListFoldersQuery _listFolders;
-    private readonly CreateFolderHandler _createFolder;
-    private readonly RenameFolderHandler _renameFolder;
     private readonly ListNotesInFolderQuery _listNotes;
     private readonly GetNoteQuery _getNote;
-    private readonly UpdateNoteContentHandler _updateNote;
-    private readonly CreateNoteHandler _createNote;
-    private readonly DeleteNoteHandler _deleteNote;
+    private readonly CommandDispatcher _commands;
 
     /// <summary>
     /// The selected folder, by id.
@@ -121,22 +118,15 @@ public sealed partial class MainWindow : Window
 
     public MainWindow(
         ListFoldersQuery listFolders,
-        CreateFolderHandler createFolder,
-        RenameFolderHandler renameFolder,
         ListNotesInFolderQuery listNotes,
         GetNoteQuery getNote,
-        UpdateNoteContentHandler updateNote,
-        CreateNoteHandler createNote,
-        DeleteNoteHandler deleteNote)
+        CommandDispatcher commands)
     {
+        // Queries are read directly; every mutation is dispatched (ADR-010, #21).
         _listFolders = listFolders ?? throw new ArgumentNullException(nameof(listFolders));
-        _createFolder = createFolder ?? throw new ArgumentNullException(nameof(createFolder));
-        _renameFolder = renameFolder ?? throw new ArgumentNullException(nameof(renameFolder));
         _listNotes = listNotes ?? throw new ArgumentNullException(nameof(listNotes));
         _getNote = getNote ?? throw new ArgumentNullException(nameof(getNote));
-        _updateNote = updateNote ?? throw new ArgumentNullException(nameof(updateNote));
-        _createNote = createNote ?? throw new ArgumentNullException(nameof(createNote));
-        _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
+        _commands = commands ?? throw new ArgumentNullException(nameof(commands));
 
         InitializeComponent();
 
@@ -253,7 +243,7 @@ public sealed partial class MainWindow : Window
         // and handed back to the framework before the read begins, matching
         // the initial load. Whether a frame carrying it is actually presented
         // depends on how long the read takes.
-        _ = DispatcherQueue.TryEnqueue(Refresh);
+        _ = DispatcherQueue.TryEnqueueGuarded(Refresh);
     }
 
     /// <summary>
@@ -433,7 +423,7 @@ public sealed partial class MainWindow : Window
         try
         {
             CommandResult<FolderId> result =
-                _createFolder.Handle(new CreateFolder(FolderNameInput.Text));
+                _commands.Dispatch(new CreateFolder(FolderNameInput.Text));
 
             if (!result.IsSuccess)
             {
@@ -568,7 +558,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            CommandResult result = _renameFolder.Handle(new RenameFolder(FolderId.From(id), name));
+            CommandResult result = _commands.Dispatch(new RenameFolder(FolderId.From(id), name));
 
             if (!result.IsSuccess)
             {
@@ -659,7 +649,7 @@ public sealed partial class MainWindow : Window
         // Queued for the same reason as the folder list's first load: the
         // Loading state is applied and handed back to the framework before
         // the read begins.
-        _ = DispatcherQueue.TryEnqueue(RefreshNotes);
+        _ = DispatcherQueue.TryEnqueueGuarded(RefreshNotes);
     }
 
     /// <summary>
@@ -814,7 +804,7 @@ public sealed partial class MainWindow : Window
     private void OnNoteRetryClick(object sender, RoutedEventArgs e)
     {
         EnterNoteLoading();
-        _ = DispatcherQueue.TryEnqueue(RefreshNotes);
+        _ = DispatcherQueue.TryEnqueueGuarded(RefreshNotes);
     }
 
     /// <summary>
@@ -941,7 +931,7 @@ public sealed partial class MainWindow : Window
         NoteList.SelectedItem = item;
         NoteList.ScrollIntoView(item);
 
-        _ = NoteList.DispatcherQueue.TryEnqueue(
+        _ = NoteList.DispatcherQueue.TryEnqueueGuarded(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () =>
             {
@@ -985,7 +975,7 @@ public sealed partial class MainWindow : Window
 
         // Queued for the same reason the other surfaces queue their first
         // read: the state is applied and handed back before the read begins.
-        _ = DispatcherQueue.TryEnqueue(LoadOpenNote);
+        _ = DispatcherQueue.TryEnqueueGuarded(LoadOpenNote);
     }
 
     /// <summary>
@@ -1102,7 +1092,7 @@ public sealed partial class MainWindow : Window
         try
         {
             CommandResult result =
-                _updateNote.Handle(new UpdateNoteContent(NoteId.From(noteId), NoteEditor.Text));
+                _commands.Dispatch(new UpdateNoteContent(NoteId.From(noteId), NoteEditor.Text));
 
             if (result.IsSuccess)
             {
@@ -1280,7 +1270,7 @@ public sealed partial class MainWindow : Window
         try
         {
             CommandResult<NoteId> result =
-                _createNote.Handle(new CreateNote(folderId, string.Empty));
+                _commands.Dispatch(new CreateNote(folderId, string.Empty));
 
             if (!result.IsSuccess)
             {
@@ -1317,7 +1307,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            CommandResult result = _deleteNote.Handle(new DeleteNote(NoteId.From(id)));
+            CommandResult result = _commands.Dispatch(new DeleteNote(NoteId.From(id)));
 
             if (!result.IsSuccess)
             {
@@ -1374,7 +1364,7 @@ public sealed partial class MainWindow : Window
         _editorState = EditorState.Loading;
         ApplyEditorState();
 
-        _ = DispatcherQueue.TryEnqueue(LoadOpenNote);
+        _ = DispatcherQueue.TryEnqueueGuarded(LoadOpenNote);
     }
 
     /// <summary>
@@ -1708,7 +1698,7 @@ public sealed partial class MainWindow : Window
         // Low priority so this runs after the layout pass that realises the
         // container, rather than in the same tick as the command that created
         // it.
-        _ = FolderList.DispatcherQueue.TryEnqueue(
+        _ = FolderList.DispatcherQueue.TryEnqueueGuarded(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () =>
             {

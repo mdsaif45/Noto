@@ -183,6 +183,17 @@ public sealed class PersistenceTests : IDisposable
     }
 
     [Fact]
+    public void A_file_that_is_not_a_database_is_reported_as_corrupt_not_as_unopenable()
+    {
+        // #10: the user is told to restore or move the file, not to close whatever has it open.
+        File.WriteAllText(_temp.DatabasePath, string.Concat(Enumerable.Repeat("not a database ", 400)));
+
+        var error = Assert.Throws<StorageException>(() => new NotoDatabase(_temp.DatabasePath).Initialize());
+
+        Assert.Equal(StorageFailure.Corrupt, error.Reason);
+    }
+
+    [Fact]
     public void Opening_a_nonexistent_directory_fails_with_a_useful_error()
     {
         // A directory that does not exist, under the temp root so the test

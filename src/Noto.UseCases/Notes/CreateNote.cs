@@ -2,6 +2,7 @@ using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Notes;
 
@@ -12,7 +13,15 @@ namespace Noto.UseCases.Notes;
 /// The destination, or <see langword="null"/> for the root scope.
 /// </param>
 /// <param name="Content">Markdown source. Empty is valid — B26 has a placeholder for it.</param>
-public sealed record CreateNote(FolderId? FolderId, string Content);
+public sealed record CreateNote(FolderId? FolderId, string Content) : ICommand<CommandResult<NoteId>>;
+
+/// <summary>
+/// A note was created (ADR-010, #21): the reference event, published by the dispatcher after <see cref="CreateNote"/>
+/// succeeds. Identities only, never the note's content.
+/// </summary>
+/// <param name="NoteId">The new note.</param>
+/// <param name="FolderId">Where it was created, or <see langword="null"/> for the root scope.</param>
+public sealed record NoteCreated(NoteId NoteId, FolderId? FolderId) : IEvent;
 
 /// <summary>
 /// Handles <see cref="CreateNote"/>.
