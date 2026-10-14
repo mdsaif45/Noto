@@ -217,8 +217,10 @@ is a hard budget.
 
 - `CommandRegistry` names each command, its handler's `Handle` and, if it has
   one, its event, in the composition root. Registering a command twice throws.
-  An event must be an `IEvent`, built from the command and its successful
-  result; a command cannot announce anything else.
+  An event must be a sealed `IEvent`, built from the command and its
+  successful result; a command cannot announce anything else. Events are
+  delivered by exact type, so an unsealed event type is refused when it is
+  registered or subscribed to.
 - `CommandDispatcher.Dispatch` runs the handler and, **only on success**,
   publishes the event. A failed result or a throwing handler publishes nothing.
   An unregistered command, or a chain of commands dispatched from subscribers
@@ -228,8 +230,8 @@ is a hard budget.
   dispatcher knows nothing of the UI thread. `MainWindow` dispatches from its
   own event handlers, which run on the UI thread; an entry point that starts
   on another thread (the activation pipe, later `noto://`) hands its work to the
-  UI thread with `UiWork` before it dispatches, because the window's subscribers
-  touch XAML.
+  UI thread with `UiWork` before it dispatches, because a window's subscribers
+  would touch XAML.
 - `EventHub` delivers synchronously, in subscription order. A subscriber that
   throws is reported to the log (`EventSubscriberFailed`, types only) and the
   others are still told.

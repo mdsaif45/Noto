@@ -239,6 +239,22 @@ public sealed class CommandDispatcherTests
         Assert.Equal(CommandDispatcher.MaxDepth, _trail.Count(t => t == "handled Add"));
     }
 
+    [Fact]
+    public void An_event_type_that_is_not_sealed_is_refused_where_it_is_registered_or_subscribed_to()
+    {
+        // Delivery is by exact type: an event published as IEvent or as a base type would reach none of its concrete
+        // type's subscribers. So the type is refused up front, in the composition root, never after a mutation.
+        var registry = new CommandRegistry();
+
+        Assert.Throws<InvalidOperationException>(() => registry.Register<Add, CommandResult<int>, IEvent>(c => CommandResult.Success(c.A + c.B), static (_, r) => new Added(r.Value)));
+        Assert.Throws<InvalidOperationException>(() => registry.Register<Add, CommandResult<int>, Announced>(c => CommandResult.Success(c.A + c.B), static (_, _) => new SpecificallyAnnounced()));
+        Assert.Throws<InvalidOperationException>(() => _events.Subscribe<IEvent>(_ => _trail.Add("told")));
+        Assert.Throws<InvalidOperationException>(() => _events.Subscribe<Announced>(_ => _trail.Add("told")));
+
+        // Nothing was half-registered: the command can still be registered with a sealed event.
+        registry.Register<Add, CommandResult<int>, Added>(c => CommandResult.Success(c.A + c.B), static (_, r) => new Added(r.Value));
+    }
+
     private CommandDispatcher Dispatcher(CommandRegistry registry) => new(registry, _events);
 
     private CommandRegistry Registry() => new CommandRegistry()
@@ -269,4 +285,8 @@ public sealed class CommandDispatcherTests
     private sealed record Explode : ICommand<CommandResult>;
 
     private sealed record Exploded : IEvent;
+
+    private abstract record Announced : IEvent;
+
+    private sealed record SpecificallyAnnounced : Announced;
 }

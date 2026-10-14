@@ -37,6 +37,20 @@ public sealed class CommandDispatchGuardTests
     }
 
     [Fact]
+    public void Every_command_the_window_layer_dispatches_is_registered()
+    {
+        // An unregistered command compiles and fails only when it is first dispatched; here it fails the build. Every
+        // dispatch names its command where it is made, so none escapes the check.
+        string all = string.Join('\n', Directory.EnumerateFiles(AppDirectory, "*.cs").Select(f => WithoutComments(File.ReadAllText(f))));
+        var dispatched = Regex.Matches(all, @"\.Dispatch\(\s*new (\w+)\(").Select(m => m.Groups[1].Value).ToList();
+        var unregistered = dispatched.Distinct().Where(command => !App.Contains($".Register<{command},", StringComparison.Ordinal)).ToList();
+
+        Assert.True(dispatched.Count > 0, "No dispatch found in the window layer.");
+        Assert.Equal(Regex.Count(all, @"\.Dispatch\("), dispatched.Count);
+        Assert.True(unregistered.Count == 0, $"Dispatched but never registered: {string.Join(", ", unregistered)}");
+    }
+
+    [Fact]
     public void Creating_a_note_is_announced_as_NoteCreated()
     {
         Assert.Matches(
