@@ -34,19 +34,20 @@
                and large notes.
     save       Text changed, then the workspace hidden with the hotkey (which saves first). Timed by Noto's own
                "Noto.Save completed" trace, written once the save has returned from the database:
+                 duration   the primary measure: the save alone, measured inside Noto and carried on the trace (ms=);
                  completed  the chord -> that trace (end to end: the hotkey, the hide request, the save);
-                 duration   the save alone, measured inside Noto and carried on the trace (ms=);
-                 observed   the chord -> the row in the database holding the new text, seen by polling it from
-                            here. A correctness check, and the measure before the trace existed: each poll is a
-                            query from this process, so it resolves only to the poll's own cost.
-               -SaveRuns sets how many saves of each note are measured (default: -Runs). The row in
-               the database holding the new text. Short and large notes.
+                 observed   not a latency: a correctness check that the row in the database holds the new text,
+                            polled from here. It was the measure before the trace existed; each poll is a query from
+                            this process, so it resolves only to the poll's own cost.
+               Each hide must trace exactly one save, stamped after the chord and no sooner after it than the save
+               it reports took; anything else stops the run. -SaveRuns sets how many saves of each note are measured
+               (default: -Runs). Short and large notes.
 
   Results are printed and written to <run>\performance.json. No developer-only tool is needed: PowerShell 7 and the
   built Noto.exe.
 
 .EXAMPLE
-  pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <path>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
+  pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <path>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000] [-SaveRuns N]
 #>
 param([Parameter(Mandatory)] [string] $NotoExe, [ValidateRange(2, 50)] [int] $Runs = 5, [ValidateRange(10, 3600)] [int] $IdleSeconds = 60, [ValidateRange(50, 100000)] [int] $NoteCount = 1000, [ValidateRange(0, 200)] [int] $SaveRuns = 0)
 if ($SaveRuns -eq 0) { $SaveRuns = $Runs }
@@ -111,6 +112,28 @@ function Stats([double[]] $Values) {
     [ordered]@{ n = $n; min = $sorted[0]; median = $median; max = $sorted[-1]; values = $sorted }
 }
 if ((Stats @(4, 1)).median -ne 2.5 -or (Stats @(3, 1, 2)).median -ne 2 -or (Stats @(5)).median -ne 5) { throw 'Stats: the median is wrong' }
+function Read-SaveTrace([string] $Line, [datetime] $Chord) {
+    # One "Noto.Save completed ms=12.34" line, stamped "HH:mm:ss.fff" by the reader as it arrives, read against the
+    # chord that caused it. Anything that cannot be that save is refused, never measured: an unreadable line (a decimal
+    # comma included), or a line that arrived sooner after the chord than the save it reports took, which a trace from
+    # an earlier save always does (stamped before the chord, it arrived "negative" ms after). The reader truncates its
+    # stamp to the millisecond.
+    if ($Line -notmatch '^(\d\d:\d\d:\d\d\.\d\d\d) pid=\d+ Noto\.Save completed ms=(\d+\.\d+)$') { throw "unreadable save trace: $Line" }
+    $stamp = $Chord.Date + [timespan]::ParseExact($Matches[1], 'hh\:mm\:ss\.fff', [Globalization.CultureInfo]::InvariantCulture)
+    if (($stamp - $Chord).TotalHours -lt -12) { $stamp = $stamp.AddDays(1) } elseif (($stamp - $Chord).TotalHours -gt 12) { $stamp = $stamp.AddDays(-1) }
+    $completed = ($stamp - $Chord).TotalMilliseconds
+    $duration = [double]::Parse($Matches[2], [Globalization.CultureInfo]::InvariantCulture)
+    if ($completed + 1 -lt $duration) { throw "not this chord's save: traced $([math]::Round($completed)) ms after the chord for a save of $duration ms: $Line" }
+    [pscustomobject]@{ Completed = [math]::Round($completed); Duration = $duration }
+}
+function Refused([scriptblock] $Block) { try { $null = & $Block; $false } catch { $true } }
+$c = [datetime]'2026-01-01T10:00:00.0004'; $m = [datetime]'2026-01-01T23:59:59.990'
+if ((Read-SaveTrace '10:00:00.040 pid=7 Noto.Save completed ms=12.34' $c).Completed -ne 40 -or (Read-SaveTrace '10:00:00.040 pid=7 Noto.Save completed ms=12.34' $c).Duration -ne 12.34 -or
+    (Read-SaveTrace '00:00:00.030 pid=7 Noto.Save completed ms=12.34' $m).Completed -ne 40 -or
+    -not (Refused { Read-SaveTrace '10:00:00.040 pid=7 Noto.Save completed ms=0,25' $c }) -or
+    -not (Refused { Read-SaveTrace '09:59:59.900 pid=7 Noto.Save completed ms=1.00' $c }) -or
+    -not (Refused { Read-SaveTrace '23:59:59.900 pid=7 Noto.Save completed ms=1.00' ([datetime]'2026-01-02T00:00:00.010') }) -or
+    -not (Refused { Read-SaveTrace '10:00:00.010 pid=7 Noto.Save completed ms=30.00' $c })) { throw 'Read-SaveTrace: a save trace is misread' }
 function Since([pscustomobject] $Process, [string] $Pattern, [int] $TimeoutMs = 30000) {
     # Milliseconds from the process's creation to the first line it traces that matches; $null if none in time.
     if (-not (Until { Traced $Process.Pid $Pattern } $TimeoutMs)) { return $null }
@@ -203,15 +226,16 @@ function Save-ByHide([string] $NoteId, [string] $Text, [string] $Suffix) {
     $script:saveLine = $null
     $traced = Until { $lines = @(SaveTraces); if ($lines.Count -gt $seen) { $script:saveLine = $lines[$seen]; $true } } 60000 2
     if (-not $traced) { throw 'the hide completed no save' }
-    if ($script:saveLine -notmatch '^(\d\d:\d\d:\d\d\.\d\d\d) .*Noto\.Save completed ms=([0-9.]+)') { throw "unreadable save trace: $($script:saveLine)" }
-    $completed = [datetime]::ParseExact((Get-Date -Format 'yyyy-MM-dd') + ' ' + $Matches[1], 'yyyy-MM-dd HH:mm:ss.fff', $null)
-    $duration = [double]::Parse($Matches[2], [Globalization.CultureInfo]::InvariantCulture)
+    $save = Read-SaveTrace $script:saveLine $t0
 
     # The database probe stays as the correctness check: the row must hold the new text.
     $persisted = Until { (Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT substr(Content, -length($s)) = $s FROM Notes WHERE Id = $n' -Parameters @{ '$n' = $NoteId; '$s' = $Suffix }) -eq 1 } 60000 5
     $observed = Ms $t0
     if (-not $persisted) { throw 'Noto traced a completed save, but the row does not hold the new text' }
-    [pscustomobject]@{ Completed = [math]::Round(($completed - $t0).TotalMilliseconds); Duration = $duration; Observed = $observed }
+
+    # One hide, one save: a second trace would be a save this sample cannot account for, and could be taken by the next.
+    if (@(SaveTraces).Count -ne $seen + 1) { throw "one hide traced $(@(SaveTraces).Count - $seen) saves" }
+    [pscustomobject]@{ Completed = $save.Completed; Duration = $save.Duration; Observed = $observed }
 }
 function SaveTraces { @($log.Lines($noto.Pid)) | Where-Object { $_ -match 'Noto\.Save completed' } }
 function Idle([string] $Label) {
@@ -343,7 +367,7 @@ try {
                 saveCompletedMs = Stats ($saves.Completed); saveDurationMs = Stats ($saves.Duration); saveObservedMs = Stats ($saves.Observed)
             }
             $results["note_$($case.Name)"] = $note
-            Add-Result $run "note ($($case.Name), $($case.Content.Length) chars): open, load, save on hide" $true ("median editor={0} loaded={1}; save completed={2} duration={3} observed={4} ms (n={5})" -f $note.editorPresentMs.median, $note.textLoadedMs.median, $note.saveCompletedMs.median, $note.saveDurationMs.median, $note.saveObservedMs.median, $SaveRuns)
+            Add-Result $run "note ($($case.Name), $($case.Content.Length) chars): open, load, save on hide" $true ("median editor={0} loaded={1}; save duration={2} completed={3} (row observed={4}) ms (n={5})" -f $note.editorPresentMs.median, $note.textLoadedMs.median, $note.saveDurationMs.median, $note.saveCompletedMs.median, $note.saveObservedMs.median, $SaveRuns)
         }
         Stop-Owner
     }

@@ -52,14 +52,20 @@ lost.
 **What "save latency" means.** Since the save trace (#11), a save is timed by
 Noto's own `Noto.Save completed` line, written in the editor's save path once
 the save has returned from the database (the handler returns after the write
-commits), and never written for a failed save. Three numbers are recorded per
+commits; with `synchronous = NORMAL` that is committed, not yet flushed to
+disk), and never written for a failed save. Three numbers are recorded per
 save:
 
 | Measure | From → to | What it shows |
 | ------- | --------- | ------------- |
+| **duration** (primary) | measured inside Noto, carried on the trace (`ms=`) | the save alone: the command and the database write |
 | **completed** | the hotkey chord → the `Noto.Save completed` trace | the user-visible save on hide: the hotkey, the hide request, the save |
-| **duration** | measured inside Noto, carried on the trace (`ms=`) | the save alone: the command and the database write |
-| **observed** | the hotkey chord → the row seen in the database by the harness | a correctness check that the row really changed. It was the only save measure before the trace. Each poll is a query from the harness's own process, so it resolves only to that query's cost, in steps of tens of milliseconds |
+| **observed** | the hotkey chord → the row seen in the database by the harness | not a latency: a correctness check that the row really changed. It was the only save measure before the trace. Each poll is a query from the harness's own process, so it resolves only to that query's cost, in steps of tens of milliseconds |
+
+Each hide must trace exactly one save, stamped after the chord and no sooner
+after it than the save it reports took, and the row must hold the new text;
+otherwise the run stops. A trace from an earlier save cannot be counted as a
+later one.
 
 **"Usable" means the global hotkey responds**, not that every window is built.
 Three moments are measured, because they are different claims:
