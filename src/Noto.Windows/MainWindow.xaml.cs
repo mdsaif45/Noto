@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Globalization;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -1099,6 +1101,8 @@ public sealed partial class MainWindow : Window
     /// <param name="noticeSuffix">Appended to the failure notice, if any.</param>
     private bool TrySaveOpenNote(string noteId, string noticeSuffix = "")
     {
+        long started = Stopwatch.GetTimestamp();
+
         try
         {
             CommandResult result =
@@ -1107,6 +1111,11 @@ public sealed partial class MainWindow : Window
             if (result.IsSuccess)
             {
                 _openNoteBaseline = NoteEditor.Text;
+
+                // #11: the save is written (the handler returns after the database commits). The performance
+                // harness times saves from this line; validation channel only, never the log, never content. The
+                // number is invariant: a regional decimal comma would be misread as a shorter save.
+                Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Save completed ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
                 return true;
             }
 
