@@ -32,7 +32,14 @@
     idle       Hidden, then shown: CPU over IdleSeconds (ms of CPU, and % of one core), working set and private bytes.
     open/load  A note opened from the list: Enter -> the editor present -> the editor holding the note's text. Short
                and large notes.
-    save       Text changed, then the workspace hidden with the hotkey (which saves first): the chord -> the row in
+    save       Text changed, then the workspace hidden with the hotkey (which saves first). Timed by Noto's own
+               "Noto.Save completed" trace, written once the save has returned from the database:
+                 completed  the chord -> that trace (end to end: the hotkey, the hide request, the save);
+                 duration   the save alone, measured inside Noto and carried on the trace (ms=);
+                 observed   the chord -> the row in the database holding the new text, seen by polling it from
+                            here. A correctness check, and the measure before the trace existed: each poll is a
+                            query from this process, so it resolves only to the poll's own cost.
+               -SaveRuns sets how many saves of each note are measured (default: -Runs). The row in
                the database holding the new text. Short and large notes.
 
   Results are printed and written to <run>\performance.json. No developer-only tool is needed: PowerShell 7 and the
@@ -41,7 +48,8 @@
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <path>\Noto.exe [-Runs 5] [-IdleSeconds 60] [-NoteCount 1000]
 #>
-param([Parameter(Mandatory)] [string] $NotoExe, [ValidateRange(2, 50)] [int] $Runs = 5, [ValidateRange(10, 3600)] [int] $IdleSeconds = 60, [ValidateRange(50, 100000)] [int] $NoteCount = 1000)
+param([Parameter(Mandatory)] [string] $NotoExe, [ValidateRange(2, 50)] [int] $Runs = 5, [ValidateRange(10, 3600)] [int] $IdleSeconds = 60, [ValidateRange(50, 100000)] [int] $NoteCount = 1000, [ValidateRange(0, 200)] [int] $SaveRuns = 0)
+if ($SaveRuns -eq 0) { $SaveRuns = $Runs }
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
@@ -187,13 +195,25 @@ function Save-ByHide([string] $NoteId, [string] $Text, [string] $Suffix) {
     (Element $noto.Hwnd 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text + $Suffix)
     Start-Sleep -Milliseconds 300
     if ((Fg) -ne $noto.Hwnd) { throw 'Noto is not in front to hide' }
+    $seen = @(SaveTraces).Count
     $t0 = Get-Date
     Send-ActivationChord -AllowedForeground $noto.Hwnd -NoWait
-    $saved = Until { (Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT substr(Content, -length($s)) = $s FROM Notes WHERE Id = $n' -Parameters @{ '$n' = $NoteId; '$s' = $Suffix }) -eq 1 } 60000 5
-    $ms = Ms $t0
-    if (-not $saved) { throw 'the hide did not save the note' }
-    $ms
+
+    # Timed by Noto's own signal: the trace written once the save has returned from the database.
+    $script:saveLine = $null
+    $traced = Until { $lines = @(SaveTraces); if ($lines.Count -gt $seen) { $script:saveLine = $lines[$seen]; $true } } 60000 2
+    if (-not $traced) { throw 'the hide completed no save' }
+    if ($script:saveLine -notmatch '^(\d\d:\d\d:\d\d\.\d\d\d) .*Noto\.Save completed ms=([0-9.]+)') { throw "unreadable save trace: $($script:saveLine)" }
+    $completed = [datetime]::ParseExact((Get-Date -Format 'yyyy-MM-dd') + ' ' + $Matches[1], 'yyyy-MM-dd HH:mm:ss.fff', $null)
+    $duration = [double]::Parse($Matches[2], [Globalization.CultureInfo]::InvariantCulture)
+
+    # The database probe stays as the correctness check: the row must hold the new text.
+    $persisted = Until { (Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT substr(Content, -length($s)) = $s FROM Notes WHERE Id = $n' -Parameters @{ '$n' = $NoteId; '$s' = $Suffix }) -eq 1 } 60000 5
+    $observed = Ms $t0
+    if (-not $persisted) { throw 'Noto traced a completed save, but the row does not hold the new text' }
+    [pscustomobject]@{ Completed = [math]::Round(($completed - $t0).TotalMilliseconds); Duration = $duration; Observed = $observed }
 }
+function SaveTraces { @($log.Lines($noto.Pid)) | Where-Object { $_ -match 'Noto\.Save completed' } }
 function Idle([string] $Label) {
     $p = Get-Process -Id $noto.Pid
     Start-Sleep -Seconds 5   # let start-up work settle before the window opens
@@ -311,15 +331,19 @@ try {
         # open, load and save: short and large notes
         foreach ($case in @(@{ Name = 'short'; Id = $SmallId; Content = $Small }, @{ Name = 'large'; Id = $LargeId; Content = $Large })) {
             $opens = @(); $loads = @(); $saves = @()
-            foreach ($i in 1..$Runs) {
+            foreach ($i in 1..$SaveRuns) {
                 $content = Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT Content FROM Notes WHERE Id = $n' -Parameters @{ '$n' = $case.Id }
                 $open = Open-Note $case.Id $content
                 $opens += $open.Editor; $loads += $open.Loaded
                 $saves += Save-ByHide $case.Id $content " edit $i $([guid]::NewGuid().ToString('N').Substring(0, 6))"
                 Start-Sleep -Milliseconds 500
             }
-            $results["note_$($case.Name)"] = [ordered]@{ chars = $case.Content.Length; editorPresentMs = Stats $opens; textLoadedMs = Stats $loads; saveOnHideMs = Stats $saves }
-            Add-Result $run "note ($($case.Name), $($case.Content.Length) chars): open, load, save on hide" $true ("median editor={0} loaded={1} save={2} ms" -f $results["note_$($case.Name)"].editorPresentMs.median, $results["note_$($case.Name)"].textLoadedMs.median, $results["note_$($case.Name)"].saveOnHideMs.median)
+            $note = [ordered]@{
+                chars = $case.Content.Length; editorPresentMs = Stats $opens; textLoadedMs = Stats $loads
+                saveCompletedMs = Stats ($saves.Completed); saveDurationMs = Stats ($saves.Duration); saveObservedMs = Stats ($saves.Observed)
+            }
+            $results["note_$($case.Name)"] = $note
+            Add-Result $run "note ($($case.Name), $($case.Content.Length) chars): open, load, save on hide" $true ("median editor={0} loaded={1}; save completed={2} duration={3} observed={4} ms (n={5})" -f $note.editorPresentMs.median, $note.textLoadedMs.median, $note.saveCompletedMs.median, $note.saveDurationMs.median, $note.saveObservedMs.median, $SaveRuns)
         }
         Stop-Owner
     }
