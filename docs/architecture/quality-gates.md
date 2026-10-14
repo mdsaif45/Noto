@@ -47,7 +47,19 @@ lost.
 | Idle memory | < 150MB working set | hidden 147.6 MB (private 76.7) · shown 161.0 MB (private 87.3) | met hidden, **not met shown** |
 | Large note (100KB) render | < 200ms | 100,636 chars: editor 451 · text loaded 479 ms | **not met** |
 | Hidden start at sign-in (`--login`) | no budget | hotkey registered 297 · first chord served 490 ms, no window | recorded only |
-| Save | no budget | hotkey hide → the row in the database: short 26 · large 27 ms | recorded only |
+| Save | no budget | hotkey hide → the row seen in the database (*observed*, the method before the save trace): short 26 · large 27 ms | recorded only |
+
+**What "save latency" means.** Since the save trace (#11), a save is timed by
+Noto's own `Noto.Save completed` line, written in the editor's save path once
+the save has returned from the database (the handler returns after the write
+commits), and never written for a failed save. Three numbers are recorded per
+save:
+
+| Measure | From → to | What it shows |
+| ------- | --------- | ------------- |
+| **completed** | the hotkey chord → the `Noto.Save completed` trace | the user-visible save on hide: the hotkey, the hide request, the save |
+| **duration** | measured inside Noto, carried on the trace (`ms=`) | the save alone: the command and the database write |
+| **observed** | the hotkey chord → the row seen in the database by the harness | a correctness check that the row really changed. It was the only save measure before the trace. Each poll is a query from the harness's own process, so it resolves only to that query's cost, in steps of tens of milliseconds |
 
 **"Usable" means the global hotkey responds**, not that every window is built.
 Three moments are measured, because they are different claims:
