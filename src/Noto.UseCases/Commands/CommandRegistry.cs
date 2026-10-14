@@ -34,7 +34,10 @@ public sealed class CommandRegistry
     /// <summary>Registers a command whose success is announced as <typeparamref name="TEvent"/>.</summary>
     /// <param name="handle">The handler's <c>Handle</c>.</param>
     /// <param name="describe">Builds the event from the command and its successful result. Never called on failure.</param>
-    /// <exception cref="InvalidOperationException"><typeparamref name="TCommand"/> is already registered.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// <typeparamref name="TCommand"/> is already registered, or <typeparamref name="TEvent"/> is not sealed (an event
+    /// published as <see cref="IEvent"/> or a base type would reach none of its concrete type's subscribers).
+    /// </exception>
     public CommandRegistry Register<TCommand, TResult, TEvent>(Func<TCommand, TResult> handle, Func<TCommand, TResult, TEvent> describe)
         where TCommand : ICommand<TResult>
         where TResult : ICommandResult
@@ -42,6 +45,7 @@ public sealed class CommandRegistry
     {
         ArgumentNullException.ThrowIfNull(handle);
         ArgumentNullException.ThrowIfNull(describe);
+        EventHub.RequireExactType<TEvent>();
 
         return Add(typeof(TCommand), new Handled<TCommand, TResult>(handle, (command, result, events) => events.Publish(describe(command, result))));
     }
