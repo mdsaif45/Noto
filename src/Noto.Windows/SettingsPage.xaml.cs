@@ -72,6 +72,14 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
+    /// <summary>
+    /// The page is one element in UI Automation, SettingsRoot, named Settings, holding its controls. A UserControl has
+    /// no automation peer of its own and a panel never has one, so without this the page's identity is invisible
+    /// (measured on the frozen Release build: the id on the inner grid was absent from the tree).
+    /// </summary>
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationPeer OnCreateAutomationPeer() =>
+        new Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer(this);
+
     /// <summary>Why the show/hide shortcut is not active, or <see langword="null"/> when it is (or is off by choice).</summary>
     internal void ShowHotkeyMessage(string? message)
     {

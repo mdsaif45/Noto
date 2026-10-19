@@ -1,7 +1,9 @@
 <UserControl
     x:Class="Noto.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    AutomationProperties.AutomationId="SettingsRoot"
+    AutomationProperties.Name="Settings">
 
     <!--
         The settings surface (Slice 1, parity J table): the workspace's fourth
@@ -18,7 +20,6 @@
     -->
 
     <Grid x:Name="SettingsLayout"
-          AutomationProperties.AutomationId="SettingsRoot"
           Background="{ThemeResource SurfaceSidebarBrush}"
           Padding="{StaticResource PanePadding}"
           RowSpacing="{StaticResource SpaceS}">
