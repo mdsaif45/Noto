@@ -309,6 +309,33 @@ against. This ADR is what makes that decision coherent.
 - **One list-row template** (`ListRow.xaml`), shared by FolderRow and NoteRow:
   two copies of the same template were a second copy of a component (rule 5).
 
+**2026-10-19 — Slice 1, motion.**
+
+- **The content moves, never the window.** The drawer's window stays at its
+  docked rectangle; its content, over the root's unmoving sidebar colour, slides
+  and fades. No frame of the drawer can appear outside its rectangle.
+- **The roles.** Show: the content starts 24 DIP toward the docked edge and
+  slides in, fading in, over Normal. Hide: after the save, it slides 16 DIP
+  toward the edge, fading out, over Fast, and the window is hidden when it has.
+  A surface entering: 16 DIP, from the right going forward and from the left
+  going back, over Fast. One curve, `0,0,0,1`.
+- **Values by key.** The motion tokens name WinUI's own resources
+  (`ControlNormalAnimationDuration`, `ControlFastAnimationDuration`,
+  `ControlFastOutSlowInKeySpline`); Noto never copies their numbers. The
+  distances are Noto's tokens. A missing resource turns motion off, never
+  guesses a value.
+- **Reduced motion.** Windows' animation effects setting is read at each
+  transition: off, the final state is applied at once and a hide happens at
+  once. No subscription, timer or polling.
+- **On the compositor, never holding input.** Each transition is two keyframe
+  animations; the hide waits on their completion. Focus, hit testing and tab
+  order are never touched, so typing and clicking work throughout.
+- **One state owner.** The hide in motion is `HideTransition`, beside
+  `WorkspaceToggle`, which turns a show during a hide into a reversal. This
+  refines ADR-007's rule that a request mid-transition is dropped: a hide now
+  lasts as long as its exit, and a show within it reverses it rather than being
+  lost; a second hide within it does nothing.
+
 ---
 
 ## Alternatives rejected

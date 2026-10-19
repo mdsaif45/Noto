@@ -310,14 +310,17 @@ public sealed class SettingsSurfaceGuardTests
     [Fact]
     public void Nothing_beyond_the_approved_scope_is_built()
     {
-        // No navigation view, no second window, no motion (PR D), no new activation surface.
+        // No navigation view, no second window, no new activation surface.
         string views = string.Join('\n', Directory.EnumerateFiles(Windows, "*.xaml").Select(File.ReadAllText));
         string code = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
 
         Assert.DoesNotContain("NavigationView", views, StringComparison.Ordinal);
         Assert.Equal(1, Regex.Count(code, @"partial class \w+ : Window\b"));
         Assert.DoesNotContain("Storyboard", views, StringComparison.Ordinal);
-        Assert.DoesNotContain("ElementCompositionPreview", code, StringComparison.Ordinal);
+
+        // Motion (Slice 1.3) runs on the compositor in one place, never through storyboards or anywhere else.
+        var composing = Directory.EnumerateFiles(Windows, "*.cs").Where(f => Code(f).Contains("ElementCompositionPreview", StringComparison.Ordinal)).Select(Path.GetFileName).ToList();
+        Assert.Equal(["ContentMotion.cs"], composing);
     }
 
     // ---------------------------------------------------------------- helpers

@@ -532,7 +532,7 @@ public partial class App : Application
 
         if (_docked is not null)
         {
-            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide)
+            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide, main.Motion)
             {
                 HideOnDeactivation = preferences.HideOnDeactivation,
             };

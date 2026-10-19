@@ -144,6 +144,9 @@ public sealed partial class MainWindow : Window
 
         AppWindow.Closing += OnAppWindowClosing;
 
+        // Slice 1.3: the content's motion; the coordinator runs the drawer's, the navigation below a surface's.
+        Motion = new ContentMotion(WorkspaceContent);
+
         // Ctrl+, opens Settings from every surface (Slice 1), wherever focus is. On the root, as Ctrl+W is. Added
         // here because XAML cannot name the comma key (VK_OEM_COMMA has no VirtualKey member).
         var openSettings = new KeyboardAccelerator { Key = (VirtualKey)0xBC, Modifiers = VirtualKeyModifiers.Control };
@@ -670,6 +673,7 @@ public sealed partial class MainWindow : Window
 
         PaneRoot.Visibility = Visibility.Collapsed;
         NoteRoot.Visibility = Visibility.Visible;
+        Motion.EnterSurface(NoteRoot, forward: true);
 
         EnterNoteLoading();
 
@@ -699,6 +703,7 @@ public sealed partial class MainWindow : Window
 
         NoteRoot.Visibility = Visibility.Collapsed;
         PaneRoot.Visibility = Visibility.Visible;
+        Motion.EnterSurface(PaneRoot, forward: false);
 
         // The folder list was left intact, so its selection is still correct;
         // focus has to be put back explicitly.
@@ -1011,6 +1016,7 @@ public sealed partial class MainWindow : Window
 
         NoteRoot.Visibility = Visibility.Collapsed;
         EditorRoot.Visibility = Visibility.Visible;
+        Motion.EnterSurface(EditorRoot, forward: true);
 
         _editorState = EditorState.Loading;
         ApplyEditorState();
@@ -1106,6 +1112,7 @@ public sealed partial class MainWindow : Window
 
         EditorRoot.Visibility = Visibility.Collapsed;
         NoteRoot.Visibility = Visibility.Visible;
+        Motion.EnterSurface(NoteRoot, forward: false);
 
         if (noteId is not null)
         {
@@ -1233,6 +1240,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public bool SingleClickOpen { get; set; }
 
+    /// <summary>The workspace content's motion (Slice 1.3): the drawer's enter and exit, and a surface entering.</summary>
+    internal ContentMotion Motion { get; }
+
     /// <summary>What the settings surface may change. Set once by the composition root; without it, Settings does not open.</summary>
     internal SettingsContext? Settings { get; set; }
 
@@ -1288,6 +1298,7 @@ public sealed partial class MainWindow : Window
         page.Show(Settings, _hotkeyMessage);
         from.Visibility = Visibility.Collapsed;
         page.Visibility = Visibility.Visible;
+        Motion.EnterSurface(page, forward: true);
 
         // After layout: an element made visible this frame cannot take focus until it has been measured.
         _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, page.FocusFirst);
@@ -1308,6 +1319,7 @@ public sealed partial class MainWindow : Window
         UIElement back = _settingsReturn ?? PaneRoot;
         back.Visibility = Visibility.Visible;
         page.Visibility = Visibility.Collapsed;
+        Motion.EnterSurface(back, forward: false);
 
         // Released: nothing of the settings tree stays alive while it is not on screen, and nothing refers to it.
         ((Panel)page.Parent).Children.Remove(page);

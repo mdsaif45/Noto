@@ -33,6 +33,12 @@ public enum WorkspaceAction
 
     /// <summary>Hide the window, after saving unsaved editor text.</summary>
     Hide,
+
+    /// <summary>
+    /// Undo a hide still in motion (Slice 1.3): the content returns, the window was never hidden. Asked for by a
+    /// show (the hotkey, a launch, activation landing back) while the exit runs, instead of being dropped.
+    /// </summary>
+    Reverse,
 }
 
 /// <summary>Where an activation request came from, which decides whether it may hide.</summary>
@@ -112,7 +118,8 @@ public readonly record struct ActivationContext(
     int? LastTransitionEnd,
     bool HideOnDeactivation = false,
     bool GenerationCurrent = false,
-    bool ActivationLanded = false);
+    bool ActivationLanded = false,
+    bool Hiding = false);
 
 /// <summary>
 /// The workspace's activation generation (#16 slice 6, ADR-007 §4 "The
@@ -219,6 +226,18 @@ public static class WorkspaceToggle
             return WorkspaceAction.None;
         }
 
+        // A hide in motion (Slice 1.3): the window is still shown, its content leaving. Anything that would show it
+        // reverses the exit; anything that would hide it is already happening.
+        if (context.Hiding)
+        {
+            return request switch
+            {
+                WorkspaceRequest.Toggle or WorkspaceRequest.Launch => WorkspaceAction.Reverse,
+                WorkspaceRequest.Activated when context.GenerationCurrent && context.ActivationLanded => WorkspaceAction.Reverse,
+                _ => WorkspaceAction.None,
+            };
+        }
+
         bool duringStartup = IsBefore(context.RequestTime, context.ReadyTime);
 
         return request switch
@@ -256,11 +275,112 @@ public static class WorkspaceToggle
     /// yet decided stale (<see cref="ActivationGeneration.BroughtForward"/>).
     /// </summary>
     public static bool BringsForward(WorkspaceAction action) =>
-        action is WorkspaceAction.Show or WorkspaceAction.Restore or WorkspaceAction.Focus;
+        action is WorkspaceAction.Show or WorkspaceAction.Restore or WorkspaceAction.Focus or WorkspaceAction.Reverse;
 
     /// <summary>
     /// Whether tick <paramref name="time"/> is earlier than <paramref name="reference"/>
     /// on the <see cref="Environment.TickCount"/> clock, which wraps every 49.7 days.
     /// </summary>
     public static bool IsBefore(int time, int reference) => unchecked(time - reference) < 0;
+}
+
+/// <summary>What a step of a hide asks the window to do (Slice 1.3).</summary>
+public enum HideStep
+{
+    /// <summary>Nothing: the save failed, or this step belongs to a hide that has since been reversed or replaced.</summary>
+    Stay,
+
+    /// <summary>Hide the window now.</summary>
+    HideNow,
+
+    /// <summary>Run the content's exit; the window is hidden when it completes.</summary>
+    Animate,
+
+    /// <summary>The exit completed but text typed during it could not be saved: bring the content back, keep it shown.</summary>
+    Restore,
+}
+
+/// <summary>
+/// The workspace's hide in motion (Slice 1.3): shown, then Hiding while the content leaves, then hidden, or back to
+/// shown by a reversal. Owned beside <see cref="WorkspaceToggle"/>, which reads <see cref="Hiding"/> to decide.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Every hide saves first, and the save is the gate.</b> A failed save hides nothing. The exit is visual only:
+/// the window is hidden when it completes, and a second save then covers text typed while it ran.
+/// </para>
+/// <para>
+/// <b>Never stuck.</b> Each hide that animates takes a new generation; its completion acts only if that hide is still
+/// the current one. A reversal ends Hiding at once and makes any pending completion stale, so a late completion can
+/// never hide a workspace the user has just brought back.
+/// </para>
+/// <code>
+///   Shown  --hide, save ok, animations on-->  Hiding  --exit completes, save ok-->  Hidden
+///   Shown  --hide, save ok, animations off-> Hidden
+///   Shown  --hide, save fails-------------->  Shown
+///   Hiding --show (Reverse)---------------->  Shown   (pending completion now stale)
+///   Hiding --exit completes, save fails---->  Shown   (content restored)
+/// </code>
+/// </remarks>
+public sealed class HideTransition
+{
+    private int _generation;
+
+    /// <summary>Whether a hide is in motion: the window shown, its content leaving.</summary>
+    public bool Hiding { get; private set; }
+
+    /// <summary>The current hide's generation; a completion carries the one it was started with.</summary>
+    public int Generation => _generation;
+
+    /// <summary>A hide decided by <see cref="WorkspaceToggle"/>: save, then hide now or animate.</summary>
+    /// <param name="save">Saves unsaved text; whether the window may be hidden.</param>
+    /// <param name="animate">Whether the exit is shown (animations on in Windows, motion available).</param>
+    public HideStep Begin(Func<bool> save, bool animate)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+
+        if (Hiding || !save())
+        {
+            return HideStep.Stay;
+        }
+
+        if (!animate)
+        {
+            return HideStep.HideNow;
+        }
+
+        Hiding = true;
+        _generation = unchecked(_generation + 1);
+        return HideStep.Animate;
+    }
+
+    /// <summary>The exit started as <paramref name="generation"/> completed.</summary>
+    /// <param name="generation">The generation the exit was started with.</param>
+    /// <param name="save">Saves text typed while the exit ran.</param>
+    public HideStep Complete(int generation, Func<bool> save)
+    {
+        ArgumentNullException.ThrowIfNull(save);
+
+        if (!Hiding || generation != _generation)
+        {
+            return HideStep.Stay;
+        }
+
+        Hiding = false;
+        return save() ? HideStep.HideNow : HideStep.Restore;
+    }
+
+    /// <summary>A show while hiding: the hide ends here, and any pending completion becomes stale.</summary>
+    /// <returns>Whether there was a hide to reverse.</returns>
+    public bool Reverse()
+    {
+        if (!Hiding)
+        {
+            return false;
+        }
+
+        Hiding = false;
+        _generation = unchecked(_generation + 1);
+        return true;
+    }
 }
