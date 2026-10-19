@@ -109,6 +109,15 @@ public readonly record struct HotkeyChord
 
     public override string ToString() => Canonical;
 
+    /// <summary>
+    /// Whether this is <c>Ctrl+Alt+&lt;letter&gt;</c> without Win: the shape parity §12a says AltGr can produce, since
+    /// Windows delivers AltGr as <c>Ctrl+Alt</c>. Allowed, never a default, and warned about when chosen (Slice 1).
+    /// </summary>
+    public bool MayBeTypedWithAltGr =>
+        (Modifiers & (HotkeyModifiers.Ctrl | HotkeyModifiers.Alt | HotkeyModifiers.Win)) == (HotkeyModifiers.Ctrl | HotkeyModifiers.Alt)
+        && Key.Length == 1
+        && char.IsAsciiLetterUpper(Key[0]);
+
     /// <summary>Parses setting text; <see langword="false"/> for anything outside the grammar.</summary>
     public static bool TryParse(string? text, out HotkeyChord chord)
     {

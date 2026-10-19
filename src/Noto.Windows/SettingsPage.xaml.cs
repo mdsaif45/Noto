@@ -1,6 +1,9 @@
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Noto.Core.Activation;
 using Noto.Core.Workspace;
 using Noto.Platform.Windows;
 using Noto.UseCases.Workspace;
@@ -15,12 +18,16 @@ namespace Noto;
 /// <param name="SetLogin">Turns Start with Windows on or off through the same registration the tray uses; returns what Windows has after.</param>
 /// <param name="OpenDataFolder">Opens the data folder in Explorer; whether the shell accepted it.</param>
 /// <param name="OpenStartupApps">Opens Windows Settings' Startup apps page; whether the shell accepted it.</param>
+/// <param name="RebindHotkey">Rebinds the show/hide hotkey through its owner, in the safe order; how it ended and what to announce.</param>
+/// <param name="SuspendHotkey">Has the hotkey's owner ignore the chord (true) or act on it again (false) while the recorder listens.</param>
 internal sealed record SettingsContext(
     WorkspacePreferences Preferences,
     Func<LoginStartupState?> LoginState,
     Func<bool, LoginStartupState?> SetLogin,
     Func<bool> OpenDataFolder,
-    Func<bool> OpenStartupApps);
+    Func<bool> OpenStartupApps,
+    Func<HotkeyChord, (HotkeyRebindOutcome Outcome, string Message)> RebindHotkey,
+    Action<bool> SuspendHotkey);
 
 /// <summary>
 /// The settings surface (Slice 1): shows each preference as it is stored, and writes a change through its one path.
@@ -45,6 +52,9 @@ public sealed partial class SettingsPage : UserControl
 
     // True while the page shows stored values, so the change events that raises are not taken as the user's.
     private bool _showing;
+
+    // True while the shortcut recorder listens for a chord.
+    private bool _recording;
 
     public SettingsPage()
     {
@@ -106,7 +116,7 @@ public sealed partial class SettingsPage : UserControl
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
-            HotkeyChordText.Text = preferences.HotkeyBinding;
+            ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
         }
         finally
@@ -184,8 +194,157 @@ public sealed partial class SettingsPage : UserControl
     private void OnSingleClickToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetSingleClickOpen(SingleClickSetting.IsOn));
 
-    private void OnHotkeyEnabledToggled(object sender, RoutedEventArgs e) =>
+    private void OnHotkeyEnabledToggled(object sender, RoutedEventArgs e)
+    {
         Write(p => p.SetHotkeyEnabled(HotkeyEnabledSetting.IsOn));
+
+        if (_context is not null)
+        {
+            ShowShortcut(_context.Preferences);
+        }
+    }
+
+    // The stored chord, on the description line and in the recorder's text and name; the recorder only while the
+    // shortcut is on, since an off shortcut has nothing to rebind.
+    private void ShowShortcut(WorkspacePreferences preferences)
+    {
+        string shown = HotkeyChord.TryParse(preferences.HotkeyBinding, out HotkeyChord chord) ? HotkeyRebinding.Show(chord) : preferences.HotkeyBinding;
+
+        HotkeyChordText.Text = shown;
+        HotkeyRecorder.Content = $"{shown}   Change";
+        HotkeyRecorder.IsEnabled = preferences.HotkeyEnabled;
+        AutomationProperties.SetName(HotkeyRecorder, $"Show and hide shortcut, {shown}. Select to change it.");
+    }
+
+    /// <summary>Stops the recorder if it is listening, as if Escape were pressed: the window lost activation, or Settings closed.</summary>
+    internal void CancelRecording()
+    {
+        if (_recording)
+        {
+            EndRecording("Cancelled. The shortcut is unchanged.");
+        }
+    }
+
+    private void OnRecorderClick(object sender, RoutedEventArgs e)
+    {
+        if (_recording || _context is null || !_context.Preferences.HotkeyEnabled)
+        {
+            return;
+        }
+
+        _recording = true;
+        _context.SuspendHotkey(true);
+        HotkeyRecorder.Content = "Press the new shortcut…";
+        ShowRecorderStatus("Recording. Press the new shortcut, or Escape to cancel.");
+    }
+
+    /// <summary>While recording, every key is the recorder's: nothing else in Noto acts on it.</summary>
+    private void OnRecorderKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (!_recording || _context is null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        HotkeyModifiers held = Held();
+
+        if (e.Key == global::Windows.System.VirtualKey.Escape && held == HotkeyModifiers.None)
+        {
+            EndRecording("Cancelled. The shortcut is unchanged.");
+            return;
+        }
+
+        (RecordedKind kind, HotkeyChord chord) = HotkeyRecording.Read((int)e.Key, held);
+
+        switch (kind)
+        {
+            case RecordedKind.Modifier:
+                HotkeyRecorder.Content = HotkeyRecording.Partial(held);
+                break;
+
+            case RecordedKind.Unsupported:
+                ShowRecorderStatus("That key cannot be part of a shortcut. Use a letter, a digit, F1 to F24 or Space, or Escape to cancel.");
+                break;
+
+            case RecordedKind.NeedsModifier:
+                ShowRecorderStatus("A shortcut needs Ctrl, Alt or Win as well. Try again, or Escape to cancel.");
+                break;
+
+            case RecordedKind.Chord:
+                (HotkeyRebindOutcome _, string message) = _context.RebindHotkey(chord);
+                EndRecording(message);
+                break;
+        }
+    }
+
+    // Leaving the recorder by any route (Tab, a click elsewhere) cancels: the old chord is never left suspended.
+    private void OnRecorderLostFocus(object sender, RoutedEventArgs e) => CancelRecording();
+
+    // Noto's own shortcuts (Ctrl+W, Ctrl+,) are chords the user may be recording: while listening, none of them acts.
+    private void OnRecorderAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
+    {
+        if (_recording)
+        {
+            args.Handled = true;
+        }
+    }
+
+    /// <summary>Stops listening, gives the chord back to its owner, and shows what is stored and what happened.</summary>
+    private void EndRecording(string message)
+    {
+        _recording = false;
+
+        try
+        {
+            if (_context is not null)
+            {
+                ShowShortcut(_context.Preferences);
+            }
+
+            ShowRecorderStatus(message);
+        }
+        finally
+        {
+            _context?.SuspendHotkey(false);
+        }
+    }
+
+    private void ShowRecorderStatus(string message)
+    {
+        HotkeyRecorderStatus.Text = message;
+        HotkeyRecorderStatus.Visibility = Visibility.Visible;
+    }
+
+    private static HotkeyModifiers Held()
+    {
+        static bool Down(global::Windows.System.VirtualKey key) =>
+            InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        HotkeyModifiers held = HotkeyModifiers.None;
+
+        if (Down(global::Windows.System.VirtualKey.Control))
+        {
+            held |= HotkeyModifiers.Ctrl;
+        }
+
+        if (Down(global::Windows.System.VirtualKey.Menu))
+        {
+            held |= HotkeyModifiers.Alt;
+        }
+
+        if (Down(global::Windows.System.VirtualKey.Shift))
+        {
+            held |= HotkeyModifiers.Shift;
+        }
+
+        if (Down(global::Windows.System.VirtualKey.LeftWindows) || Down(global::Windows.System.VirtualKey.RightWindows))
+        {
+            held |= HotkeyModifiers.Win;
+        }
+
+        return held;
+    }
 
     private void OnLaunchAtLoginToggled(object sender, RoutedEventArgs e)
     {

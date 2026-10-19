@@ -204,6 +204,28 @@
                                     Toggled="OnHotkeyEnabledToggled"
                                     AutomationProperties.Name="Show and hide Noto with a shortcut" />
                             </Grid>
+                            <!--
+                                The recorder (Slice 1, parity G50): select it, press the new chord. While it listens it
+                                owns the keyboard, Escape or leaving it cancels, and Noto's own chord is held but
+                                ignored, so pressing it cannot hide this page. The status line announces each step.
+                            -->
+                            <Button
+                                x:Name="HotkeyRecorder"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Style="{StaticResource FolderPaneButtonStyle}"
+                                Click="OnRecorderClick"
+                                PreviewKeyDown="OnRecorderKeyDown"
+                                LostFocus="OnRecorderLostFocus"
+                                ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                AutomationProperties.Name="Change the show and hide shortcut"
+                                AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            <!-- Each step of recording, and how it ended. The text is the name; announced when it changes. -->
+                            <TextBlock
+                                x:Name="HotkeyRecorderStatus"
+                                Style="{StaticResource SettingDescriptionStyle}"
+                                Visibility="Collapsed"
+                                AutomationProperties.LiveSetting="Assertive" />
                             <!-- Why the shortcut is not active. The text is the name; announced when it appears. -->
                             <TextBlock
                                 x:Name="HotkeyMessage"

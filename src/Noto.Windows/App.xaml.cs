@@ -104,6 +104,27 @@ public partial class App : Application
         }
 
         HotkeyChord chord = HotkeyChord.Parse(settings.Read(SettingKeys.HotkeyBinding));
+        (HotkeyRegistration registration, GlobalHotkey? hotkey) = RegisterHotkey(chord);
+
+        if (hotkey is null)
+        {
+            string shown = HotkeyRebinding.Show(chord);
+            refusal = registration.Status == HotkeyRegistrationStatus.Conflict
+                ? $"{shown} is in use by another app, so this shortcut is not working. Noto tries again each time it starts, or when you turn the shortcut off and on."
+                : $"Windows did not accept {shown}, so this shortcut is not working.";
+        }
+
+        return hotkey;
+    }
+
+    /// <summary>
+    /// Registers <paramref name="chord"/> on a new <see cref="GlobalHotkey"/>, wired to the toggle: the one place a
+    /// hotkey registration is made, at start-up and when Settings rebinds (one instance holds one chord, so a rebind
+    /// holds the old one on its instance until the new one is registered on another).
+    /// </summary>
+    /// <returns>The registration, and its owner when it was registered; <see langword="null"/> when refused, with nothing left behind.</returns>
+    private (HotkeyRegistration Registration, GlobalHotkey? Hotkey) RegisterHotkey(HotkeyChord chord)
+    {
         GlobalHotkey? hotkey = null;
 
         try
@@ -114,10 +135,7 @@ public partial class App : Application
             if (!registration.IsRegistered)
             {
                 Debug.WriteLine($"The global hotkey {chord} was not registered: {registration.Status} ({registration.ErrorCode})");
-                refusal = registration.Status == HotkeyRegistrationStatus.Conflict
-                    ? $"{chord} is in use by another app, so this shortcut is not working. Noto tries again each time it starts, or when you turn the shortcut off and on."
-                    : $"Windows did not accept {chord}, so this shortcut is not working.";
-                return null;
+                return (registration, null);
             }
 
             hotkey.Pressed += (_, e) => OnHotkeyPressed(e.MessageTime);
@@ -125,18 +143,66 @@ public partial class App : Application
             // Ownership passes to the caller; the finally below must not dispose it.
             GlobalHotkey registered = hotkey;
             hotkey = null;
-            return registered;
+            return (registration, registered);
         }
         catch (Win32Exception ex)
         {
             Debug.WriteLine($"The global hotkey could not be set up: {ex.NativeErrorCode}");
-            refusal = "The shortcut could not be set up, so it is not working.";
-            return null;
+            return (new HotkeyRegistration(HotkeyRegistrationStatus.Failed, ex.NativeErrorCode), null);
         }
         finally
         {
             hotkey?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Settings' shortcut recorder is listening (Slice 1): a press of the show/hide chord while Noto is in front is
+    /// ignored, so it cannot hide the Settings the user is recording in. The registration itself is kept throughout,
+    /// so no other process can take the chord meanwhile.
+    /// </summary>
+    private bool _hotkeySuspended;
+
+    /// <summary>Starts or ends the recorder's suspension of the hotkey (Slice 1).</summary>
+    private void SuspendHotkey(bool suspended)
+    {
+        _hotkeySuspended = suspended;
+        Trace.WriteLine($"Noto.Hotkey suspended={suspended}");
+    }
+
+    /// <summary>
+    /// Rebinds the show/hide hotkey from Settings' recorder (Slice 1): the new chord registered before the old one is
+    /// released, then stored; refused, the old one stays registered and stored (<see cref="HotkeyRebinding"/>).
+    /// </summary>
+    /// <returns>How it ended, and what Settings announces.</returns>
+    private (HotkeyRebindOutcome Outcome, string Message) RebindHotkey(HotkeyChord candidate, WorkspacePreferences preferences)
+    {
+        HotkeyChord current = HotkeyChord.Parse(preferences.HotkeyBinding);
+
+        if (!preferences.HotkeyEnabled)
+        {
+            return (HotkeyRebindOutcome.Off, HotkeyRebinding.Describe(HotkeyRebindOutcome.Off, HotkeyRegistrationStatus.Failed, candidate, current));
+        }
+
+        HotkeyRebindResult<GlobalHotkey> result = HotkeyRebinding.Rebind(
+            candidate,
+            current,
+            _hotkey,
+            RegisterHotkey,
+            static old => old.Dispose(),
+            preferences.SetHotkeyBinding);
+
+        _hotkey = result.Active;
+
+        // A chord now registered clears "the shortcut is not working"; a refusal leaves whatever was true before.
+        if (_hotkey is not null)
+        {
+            _main?.ShowHotkeyMessage(null);
+        }
+
+        // The chords, never anything typed into a note: evidence for the settings harness.
+        Trace.WriteLine($"Noto.Hotkey rebind outcome={result.Outcome} refusal={result.Refusal} from={current} to={candidate} registered={_hotkey?.IsRegistered ?? false}");
+        return (result.Outcome, HotkeyRebinding.Describe(result.Outcome, result.Refusal, candidate, current));
     }
 
     /// <summary>
@@ -156,6 +222,14 @@ public partial class App : Application
     /// </remarks>
     private void OnHotkeyPressed(int messageTime)
     {
+        // Only while Noto is in front: a hidden or background Noto is never left without its shortcut, whatever
+        // state the recorder is in.
+        if (_hotkeySuspended && _windowHandle is not null && WindowActivation.PresenceOf(_windowHandle) == WorkspacePresence.Foreground)
+        {
+            Trace.WriteLine("Noto.Hotkey pressed ignored=recording");
+            return;
+        }
+
         if (_coordinator is not null)
         {
             _ = _coordinator.OnActivationRequested(WorkspaceRequest.Toggle, messageTime);
@@ -333,7 +407,9 @@ public partial class App : Application
                 () => _login?.State(),
                 SetLoginStartup,
                 () => ShellLaunch.OpenFolder(paths.Root),
-                ShellLaunch.OpenStartupAppsSettings),
+                ShellLaunch.OpenStartupAppsSettings,
+                chord => RebindHotkey(chord, preferences),
+                SuspendHotkey),
         };
 
         // The theme before the first frame, so a chosen theme is never preceded by Windows' own.
