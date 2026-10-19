@@ -1234,6 +1234,12 @@ public sealed partial class MainWindow : Window
     private string? _hotkeyMessage;
 
     /// <summary>
+    /// The settings surface while it is open; <see langword="null"/> otherwise. Created by <see cref="OpenSettings"/>,
+    /// removed and cleared by <see cref="CloseSettings"/>, so at most one exists and none outlives being left.
+    /// </summary>
+    private SettingsPage? SettingsSurface { get; set; }
+
+    /// <summary>
     /// Opens Settings from whichever surface is showing (Slice 1): the header button, <c>Ctrl+,</c>, or the tray.
     /// </summary>
     /// <remarks>
@@ -1247,7 +1253,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (SettingsSurface is { Visibility: Visibility.Visible } open)
+        if (SettingsSurface is { } open)
         {
             open.FocusFirst();
             return;
@@ -1260,11 +1266,14 @@ public sealed partial class MainWindow : Window
         _settingsReturn = from;
         _settingsReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;
 
-        // Realises the deferred surface: created now, released again in CloseSettings.
-        if (WorkspaceRoot.FindName(nameof(SettingsSurface)) is not SettingsPage page)
-        {
-            return;
-        }
+        // Created now, beside the surfaces it replaces, on top of them; removed again in CloseSettings. Deferred
+        // loading (x:Load) cannot do this in a Window (see MainWindow.xaml).
+        var page = new SettingsPage();
+        Grid.SetRow(page, Grid.GetRow(PaneRoot));
+        page.KeyDown += OnSettingsKeyDown;
+        page.BackRequested += OnSettingsBackRequested;
+        ((Panel)PaneRoot.Parent).Children.Add(page);
+        SettingsSurface = page;
 
         page.Show(Settings, _hotkeyMessage);
         from.Visibility = Visibility.Collapsed;
@@ -1287,8 +1296,11 @@ public sealed partial class MainWindow : Window
         back.Visibility = Visibility.Visible;
         page.Visibility = Visibility.Collapsed;
 
-        // Released: nothing of the settings tree stays alive while it is not on screen.
-        Microsoft.UI.Xaml.Markup.XamlMarkupHelper.UnloadObject(page);
+        // Released: nothing of the settings tree stays alive while it is not on screen, and nothing refers to it.
+        ((Panel)page.Parent).Children.Remove(page);
+        page.KeyDown -= OnSettingsKeyDown;
+        page.BackRequested -= OnSettingsBackRequested;
+        SettingsSurface = null;
 
         Control restore = _settingsReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous
             ? previous

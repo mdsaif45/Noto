@@ -134,7 +134,6 @@ public sealed class SettingsSurfaceGuardTests
 
         Assert.Contains("UIElement back = _settingsReturn ?? PaneRoot;", close, StringComparison.Ordinal);
         Assert.Contains("back.Visibility = Visibility.Visible;", close, StringComparison.Ordinal);
-        Assert.Contains("XamlMarkupHelper.UnloadObject(page);", close, StringComparison.Ordinal);
         Assert.Matches(@"_settingsReturnFocus is \{ IsLoaded: true, Visibility: Visibility\.Visible \} previous\s*\? previous", close);
         Assert.Contains("restore.Focus(FocusState.Programmatic)", close, StringComparison.Ordinal);
     }
@@ -160,14 +159,59 @@ public sealed class SettingsSurfaceGuardTests
     }
 
     [Fact]
-    public void Settings_is_built_only_while_it_is_open()
+    public void Settings_is_built_only_while_it_is_open_and_never_through_deferred_loading()
     {
         // Shown memory is already above its provisional budget (quality-gates.md): nothing of Settings exists until it
-        // is opened, and it is released when it is left.
-        XElement host = Named(MainXaml, "SettingsSurface");
+        // is opened, and it is released when it is left. It is created in code: measured on the frozen Release build,
+        // a static x:Load element under a Window is never realised (FindName returned null), and the compiler's bound
+        // x:Load form calls a FindName a Window does not have. Neither may come back.
+        Assert.DoesNotContain(MainXaml.Descendants(), e => e.Name.LocalName == "SettingsPage");
+        Assert.DoesNotContain(MainXaml.Descendants().SelectMany(e => e.Attributes()), a => a.Name == X + "Load");
+        Assert.DoesNotContain("FindName(", Main, StringComparison.Ordinal);
+        Assert.DoesNotContain("XamlMarkupHelper", Main, StringComparison.Ordinal);
+    }
 
-        Assert.Equal("False", (string?)host.Attribute(X + "Load"));
-        Assert.Contains("WorkspaceRoot.FindName(nameof(SettingsSurface))", Main, StringComparison.Ordinal);
+    [Fact]
+    public void Opening_creates_exactly_one_surface_and_a_second_open_reuses_it()
+    {
+        string open = Body(Main, "OpenSettings");
+
+        // Already open: focus moves into it, no second surface.
+        Assert.Matches(@"if \(SettingsSurface is \{ \} open\)\s*\{\s*open\.FocusFirst\(\);\s*return;", open);
+        Assert.True(Index(open, "if (SettingsSurface is { } open)") < Index(open, "new SettingsPage()"));
+
+        // Created once per open, beside the surfaces, wired, and remembered before it is shown.
+        Assert.Equal(1, Regex.Count(string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code)), @"new SettingsPage\(\)"));
+        Assert.Matches(@"var page = new SettingsPage\(\);\s*Grid\.SetRow\(page, Grid\.GetRow\(PaneRoot\)\);\s*page\.KeyDown \+= OnSettingsKeyDown;\s*page\.BackRequested \+= OnSettingsBackRequested;\s*\(\(Panel\)PaneRoot\.Parent\)\.Children\.Add\(page\);\s*SettingsSurface = page;", open);
+        Assert.True(Index(open, "SettingsSurface = page;") < Index(open, "page.Show(Settings, _hotkeyMessage);"));
+    }
+
+    [Fact]
+    public void Closing_removes_the_surface_and_leaves_no_reference_so_the_next_open_starts_fresh()
+    {
+        string close = Body(Main, "CloseSettings");
+
+        Assert.Matches(@"if \(SettingsSurface is not \{ \} page\)\s*\{\s*return;", close);
+        Assert.Matches(@"\(\(Panel\)page\.Parent\)\.Children\.Remove\(page\);\s*page\.KeyDown -= OnSettingsKeyDown;\s*page\.BackRequested -= OnSettingsBackRequested;\s*SettingsSurface = null;", close);
+
+        // Nothing but OpenSettings and CloseSettings sets the reference.
+        Assert.Equal(2, Regex.Count(Main, @"SettingsSurface = "));
+    }
+
+    [Fact]
+    public void The_header_button_ctrl_comma_and_the_tray_converge_on_one_open()
+    {
+        Assert.Contains("private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings();", Main, StringComparison.Ordinal);
+        Assert.Matches(@"OnSettingsAccelerator\([^)]*\)\s*\{\s*args\.Handled = true;\s*OpenSettings\(\);", Main);
+        Assert.Contains("_main?.OpenSettings();", App, StringComparison.Ordinal);
+        Assert.Equal(1, Regex.Count(Main, @"internal void OpenSettings\(\)"));
+    }
+
+    private static int Index(string text, string value)
+    {
+        int index = text.IndexOf(value, StringComparison.Ordinal);
+        Assert.True(index >= 0, $"Not found: {value}");
+        return index;
     }
 
     [Fact]

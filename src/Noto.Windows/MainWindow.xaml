@@ -416,17 +416,13 @@
         </Grid>
 
         <!--
-            Settings (Slice 1): the fourth surface, opened from any of the
-            others and left back to the one it was opened from. Not created
-            until Settings is first opened, and released again when it is
-            left (x:Load), so it costs nothing while it is not on screen.
+            Settings (Slice 1), the fourth surface, is not declared here: it is
+            created in code each time it is opened, beside these surfaces, and
+            removed when it is left (MainWindow.OpenSettings, CloseSettings).
+            Deferred loading (x:Load) is not usable in a Window: measured, the
+            framework never realises a static x:Load element under a Window,
+            and the compiler's bound form calls a FindName a Window lacks.
         -->
-        <local:SettingsPage
-            x:Name="SettingsSurface"
-            x:Load="False"
-            Grid.Row="1"
-            KeyDown="OnSettingsKeyDown"
-            BackRequested="OnSettingsBackRequested" />
     </Grid>
 
 </Window>
