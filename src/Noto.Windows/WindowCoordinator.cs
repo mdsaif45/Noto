@@ -231,6 +231,10 @@ internal sealed class WindowCoordinator(
         if (WorkspaceToggle.BringsForward(action))
         {
             _activation.BroughtForward();
+
+            // Slice 1.3: bringing Noto forward ends any hide still in motion, whatever the action: its completion is
+            // stale from here and can never hide the window just brought back.
+            _ = _hide.Reverse();
         }
 
         try
@@ -261,9 +265,8 @@ internal sealed class WindowCoordinator(
                     break;
 
                 case WorkspaceAction.Reverse:
-                    // A show while the content was leaving: it comes back from wherever it is; the window, never
-                    // hidden, is not moved.
-                    _ = _hide.Reverse();
+                    // A show while the content was leaving (the hide was ended above): it comes back from wherever it
+                    // is; the window, never hidden, is not moved.
                     motion.Enter(docked.Edge, fromCurrent: true);
                     BringForward(redock: false);
                     Trace.WriteLine("Noto.Motion reversed");
@@ -272,6 +275,10 @@ internal sealed class WindowCoordinator(
         }
         finally
         {
+            // The moment this request's decision took effect. Requests made before it were judged against an older
+            // state and are stale. With motion (Slice 1.3) a show or hide keeps animating after this, by design: a
+            // request made during that motion is a new decision on a window still shown (a hide interrupts an
+            // arriving show; a show reverses a leaving hide), never stale.
             _transitioning = false;
             _lastTransitionEnd = Environment.TickCount;
         }
@@ -313,15 +320,25 @@ internal sealed class WindowCoordinator(
     /// The content has left: hide now, unless this hide was reversed meanwhile, or text typed while it left cannot be
     /// saved, which brings the content back and keeps the window shown with the editor's notice.
     /// </summary>
+    /// <remarks>
+    /// It does not move <c>_lastTransitionEnd</c>: the hide was decided when the exit began, so a press made during the
+    /// exit but delivered after it completed is not stale, and shows the window again, as the reversal it was meant to
+    /// be. A close that began meanwhile owns the window: nothing more is done to it, and the close has saved.
+    /// </remarks>
     private void OnExitCompleted(int generation)
     {
+        if (_shuttingDown)
+        {
+            Trace.WriteLine("Noto.Motion done kind=exit step=Closing hidden=False");
+            return;
+        }
+
         HideStep step = _hide.Complete(generation, saveBeforeHide);
 
         switch (step)
         {
             case HideStep.HideNow:
                 window.AppWindow.Hide();
-                _lastTransitionEnd = Environment.TickCount;
                 break;
 
             case HideStep.Restore:

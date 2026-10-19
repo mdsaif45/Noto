@@ -331,10 +331,8 @@ against. This ADR is what makes that decision coherent.
   animations; the hide waits on their completion. Focus, hit testing and tab
   order are never touched, so typing and clicking work throughout.
 - **One state owner.** The hide in motion is `HideTransition`, beside
-  `WorkspaceToggle`, which turns a show during a hide into a reversal. This
-  refines ADR-007's rule that a request mid-transition is dropped: a hide now
-  lasts as long as its exit, and a show within it reverses it rather than being
-  lost; a second hide within it does nothing.
+  `WorkspaceToggle`, which turns a show during a hide into a reversal; ADR-007
+  records the request rules (*Motion*).
 
 ---
 

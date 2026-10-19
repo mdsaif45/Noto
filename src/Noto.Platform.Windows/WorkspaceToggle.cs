@@ -226,9 +226,10 @@ public static class WorkspaceToggle
             return WorkspaceAction.None;
         }
 
-        // A hide in motion (Slice 1.3): the window is still shown, its content leaving. Anything that would show it
-        // reverses the exit; anything that would hide it is already happening.
-        if (context.Hiding)
+        // A hide in motion (Slice 1.3): the window is still shown (or minimized meanwhile), its content leaving.
+        // Anything that would show it reverses the exit; anything that would hide it is already happening. A window
+        // already hidden is decided as hidden: a reversal could not bring it back, a show can.
+        if (context.Hiding && presence != WorkspacePresence.Hidden)
         {
             return request switch
             {
