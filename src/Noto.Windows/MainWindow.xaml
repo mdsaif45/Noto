@@ -50,11 +50,12 @@
             <ToggleButton
                 x:Name="PinToggle"
                 HorizontalAlignment="Right"
+                Style="{StaticResource HeaderToggleButtonStyle}"
                 Checked="OnPinToggled"
                 Unchecked="OnPinToggled"
                 ToolTipService.ToolTip="Keep Noto open"
                 AutomationProperties.Name="Keep Noto open">
-                <FontIcon Glyph="&#xE718;" FontSize="{StaticResource FontSizeBody}" />
+                <FontIcon Glyph="&#xE718;" FontSize="{StaticResource IconSize}" />
             </ToggleButton>
         </Grid>
 
@@ -257,7 +258,7 @@
                 x:Name="BackButton"
                 Grid.Row="0"
                 HorizontalAlignment="Left"
-                Style="{StaticResource FolderPaneButtonStyle}"
+                Style="{StaticResource SubtleButtonStyle}"
                 Click="OnBackClick"
                 AutomationProperties.Name="Back to folders" />
 
@@ -352,7 +353,7 @@
                 x:Name="EditorBackButton"
                 Grid.Row="0"
                 HorizontalAlignment="Left"
-                Style="{StaticResource FolderPaneButtonStyle}"
+                Style="{StaticResource SubtleButtonStyle}"
                 Click="OnEditorBackClick"
                 AutomationProperties.Name="Back to notes" />
 

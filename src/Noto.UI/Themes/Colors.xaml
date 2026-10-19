@@ -3,37 +3,58 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Semantic colour tokens, one complete set per theme.
+        Semantic colours AND the brushes views bind to, one complete set per
+        theme.
 
         ADR-011: "Every colour token is defined for light AND dark. No token may
         exist in only one theme — a missing dark value is a bug, not a
         fallback." Every key below therefore appears in all three dictionaries,
         and WinUI's ThemeDictionaries mechanism selects the set rather than
-        falling through to a default.
+        falling through to a default. A guard test holds the three to the same
+        keys (DesignSystemGuardTests).
+
+        WHY THE BRUSHES ARE HERE TOO (Slice 1). A brush declared outside
+        ThemeDictionaries is ONE object shared by every element, so it cannot
+        follow a theme set on part of the tree at run time: the workspace's own
+        Light/Dark choice sets the theme on the window's content, not on the
+        application, which may only be set at start-up. Declared inside each
+        theme dictionary, a brush is one object per theme and the element's
+        theme picks it. This is the pattern WinUI's own dictionaries use. Each
+        brush names its colour from the SAME dictionary, so the lookup never
+        leaves it (ADR-011 rule 6).
 
         High contrast is first-class, not an afterthought: it maps to the
         SystemColor* resources the OS supplies, so the user's own high-contrast
         choice wins over anything Noto would pick.
 
-        InteractionPressed and TextDisabled instantiate two more roles ADR-011
-        already declares — "Interaction states: ... Pressed ... Disabled" and
-        "Color — text: ... Disabled". A button needs both and no existing token
-        can stand in: Selected means "this row is the current one", not "this
-        control is being held down", and Secondary is a de-emphasis role rather
-        than an unavailable one. Reusing either would be the same semantic
-        mismatch that FolderRowPadding-on-a-TextBox was.
-
-        SurfaceInput and TextDanger are the first instantiations of ADR-011's
-        already-declared "Color — surfaces: Input" and "Color — semantic:
-        Danger" roles. Rule 4 permits them now because M2-1's folder pane has a
-        real text input and a real validation message; they are not added
-        speculatively. An input reads as inset by contrasting with the sidebar
-        rather than by a shadow, which is why light is lighter and dark is
-        darker than the surrounding surface.
-
         These are NOTO DESIGN VALUES. They are not SideNotes measurements —
         SideNotes is macOS-only and could not be observed (see the blocked
         quality-benchmark research). Nothing here claims parity with it.
+
+        Roles, beyond the surfaces and text:
+          Interaction*        Hover, Pressed, Selected, the text on a selected row, and
+                              InteractionText: the text on a hovered or pressed surface.
+                              In Light and Dark it is the primary text; in high contrast it
+                              is HighlightText, because the hover fill there is Highlight and
+                              the OS pairs the two (WinUI's own list does the same).
+          SelectionIndicator  The pill on a selected row: the user's accent, as Windows'
+                              own lists draw it (SystemAccentColorDark1 on light,
+                              SystemAccentColorLight2 on dark). In high contrast,
+                              HighlightText on the Highlight row.
+          BorderFocus,        The two-tone keyboard focus ring Windows 11 draws: a dark
+          BorderFocusInner    outer stroke and a light inner one in Light, the reverse in
+                              Dark, so the ring is visible on every fill, the accent
+                              included. In high contrast, WindowText and Window.
+          SurfaceInput,       First instantiations of ADR-011's declared Input surface and
+          TextDanger          Danger roles (M2-1's text input and validation message).
+          InteractionPressed, Two more declared roles a button needs: Pressed is not
+          TextDisabled        Selected, and Disabled is not Secondary.
+
+        WinUI's TextBox reads its hover, focus and disabled colours from its own
+        TextControl* keys. They are mapped to Noto's roles at the end of each
+        dictionary (lightweight styling): every text input then has Noto's states
+        without a copied template. The focused border is NOT mapped, so a focused
+        input keeps Windows' own accent underline.
     -->
 
     <ResourceDictionary.ThemeDictionaries>
@@ -51,17 +72,52 @@
             <Color x:Key="TextSecondaryColor">#5E5E5E</Color>
 
             <Color x:Key="BorderSubtleColor">#E0E0E0</Color>
-            <Color x:Key="BorderFocusColor">#005FB8</Color>
+            <Color x:Key="BorderFocusColor">#E4000000</Color>
+            <Color x:Key="BorderFocusInnerColor">#B3FFFFFF</Color>
 
             <Color x:Key="InteractionHoverColor">#EAEAEA</Color>
             <Color x:Key="InteractionSelectedColor">#DCE9F7</Color>
             <Color x:Key="InteractionSelectedTextColor">#12395E</Color>
+            <StaticResource x:Key="InteractionTextColor" ResourceKey="TextPrimaryColor" />
 
             <Color x:Key="SurfaceInputColor">#FFFFFF</Color>
             <Color x:Key="TextDangerColor">#B42318</Color>
 
             <Color x:Key="InteractionPressedColor">#DEDEDE</Color>
             <Color x:Key="TextDisabledColor">#9A9A9A</Color>
+
+            <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{StaticResource SurfaceWindowColor}" />
+            <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{StaticResource SurfaceSidebarColor}" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}" />
+            <SolidColorBrush x:Key="BorderFocusBrush" Color="{StaticResource BorderFocusColor}" />
+            <SolidColorBrush x:Key="BorderFocusInnerBrush" Color="{StaticResource BorderFocusInnerColor}" />
+            <SolidColorBrush x:Key="InteractionHoverBrush" Color="{StaticResource InteractionHoverColor}" />
+            <SolidColorBrush x:Key="InteractionSelectedBrush" Color="{StaticResource InteractionSelectedColor}" />
+            <SolidColorBrush x:Key="InteractionSelectedTextBrush" Color="{StaticResource InteractionSelectedTextColor}" />
+            <SolidColorBrush x:Key="InteractionTextBrush" Color="{StaticResource InteractionTextColor}" />
+            <SolidColorBrush x:Key="SelectionIndicatorBrush" Color="{ThemeResource SystemAccentColorDark1}" />
+            <SolidColorBrush x:Key="SurfaceInputBrush" Color="{StaticResource SurfaceInputColor}" />
+            <SolidColorBrush x:Key="TextDangerBrush" Color="{StaticResource TextDangerColor}" />
+            <SolidColorBrush x:Key="InteractionPressedBrush" Color="{StaticResource InteractionPressedColor}" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabledColor}" />
+
+            <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="TextControlForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
         </ResourceDictionary>
 
         <!--
@@ -77,17 +133,52 @@
             <Color x:Key="TextSecondaryColor">#A8A8A8</Color>
 
             <Color x:Key="BorderSubtleColor">#383838</Color>
-            <Color x:Key="BorderFocusColor">#60CDFF</Color>
+            <Color x:Key="BorderFocusColor">#FFFFFF</Color>
+            <Color x:Key="BorderFocusInnerColor">#B3000000</Color>
 
             <Color x:Key="InteractionHoverColor">#333333</Color>
             <Color x:Key="InteractionSelectedColor">#1E3A52</Color>
             <Color x:Key="InteractionSelectedTextColor">#DCE9F7</Color>
+            <StaticResource x:Key="InteractionTextColor" ResourceKey="TextPrimaryColor" />
 
             <Color x:Key="SurfaceInputColor">#2D2D2D</Color>
             <Color x:Key="TextDangerColor">#FF99A4</Color>
 
             <Color x:Key="InteractionPressedColor">#3D3D3D</Color>
             <Color x:Key="TextDisabledColor">#6E6E6E</Color>
+
+            <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{StaticResource SurfaceWindowColor}" />
+            <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{StaticResource SurfaceSidebarColor}" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}" />
+            <SolidColorBrush x:Key="BorderFocusBrush" Color="{StaticResource BorderFocusColor}" />
+            <SolidColorBrush x:Key="BorderFocusInnerBrush" Color="{StaticResource BorderFocusInnerColor}" />
+            <SolidColorBrush x:Key="InteractionHoverBrush" Color="{StaticResource InteractionHoverColor}" />
+            <SolidColorBrush x:Key="InteractionSelectedBrush" Color="{StaticResource InteractionSelectedColor}" />
+            <SolidColorBrush x:Key="InteractionSelectedTextBrush" Color="{StaticResource InteractionSelectedTextColor}" />
+            <SolidColorBrush x:Key="InteractionTextBrush" Color="{StaticResource InteractionTextColor}" />
+            <SolidColorBrush x:Key="SelectionIndicatorBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+            <SolidColorBrush x:Key="SurfaceInputBrush" Color="{StaticResource SurfaceInputColor}" />
+            <SolidColorBrush x:Key="TextDangerBrush" Color="{StaticResource TextDangerColor}" />
+            <SolidColorBrush x:Key="InteractionPressedBrush" Color="{StaticResource InteractionPressedColor}" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabledColor}" />
+
+            <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="TextControlForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
         </ResourceDictionary>
 
         <!--
@@ -103,17 +194,52 @@
             <StaticResource x:Key="TextSecondaryColor" ResourceKey="SystemColorGrayTextColor" />
 
             <StaticResource x:Key="BorderSubtleColor" ResourceKey="SystemColorWindowTextColor" />
-            <StaticResource x:Key="BorderFocusColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="BorderFocusColor" ResourceKey="SystemColorWindowTextColor" />
+            <StaticResource x:Key="BorderFocusInnerColor" ResourceKey="SystemColorWindowColor" />
 
             <StaticResource x:Key="InteractionHoverColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="InteractionSelectedColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="InteractionSelectedTextColor" ResourceKey="SystemColorHighlightTextColor" />
+            <StaticResource x:Key="InteractionTextColor" ResourceKey="SystemColorHighlightTextColor" />
 
             <StaticResource x:Key="SurfaceInputColor" ResourceKey="SystemColorWindowColor" />
             <StaticResource x:Key="TextDangerColor" ResourceKey="SystemColorWindowTextColor" />
 
             <StaticResource x:Key="InteractionPressedColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="TextDisabledColor" ResourceKey="SystemColorGrayTextColor" />
+
+            <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BorderFocusBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BorderFocusInnerBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="InteractionHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="InteractionSelectedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="InteractionSelectedTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="InteractionTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="SelectionIndicatorBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="SurfaceInputBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TextDangerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="InteractionPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="TextDisabledBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
+
+            <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlBackgroundDisabled" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="TextControlForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="BorderFocusBrush" />
+            <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="TextDisabledBrush" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

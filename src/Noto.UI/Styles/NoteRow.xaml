@@ -16,14 +16,13 @@
         — a note row is the surface that later grows folding (B12) and colour
         (B15), neither of which a folder row has. Sharing one style now would
         mean splitting it at exactly the moment the first difference lands.
-        The visual values are identical today and both come from tokens, so
-        they cannot drift by accident.
+        The visual values are identical today and both come from tokens.
 
         Every visual value is a semantic token. There is no literal colour,
         size, spacing or radius in this file (ADR-011 rule 1).
 
-        States: Rest, PointerOver, Selected, Focused. Selection is signalled by
-        background AND weight so it does not depend on colour alone.
+        Its states are the shared list-row template in ListRow.xaml, the same
+        one FolderRow uses: one template, so the two cannot drift by accident.
 
         The dictionaries this style consumes are merged HERE (ADR-011 rule 6):
         a resource reference inside a merged dictionary resolves against that
@@ -32,8 +31,9 @@
     -->
 
     <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Brushes.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Colors.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/ListRow.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <Style x:Key="NoteRowStyle" TargetType="ListViewItem">
@@ -47,87 +47,8 @@
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
         <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}" />
         <Setter Property="UseSystemFocusVisuals" Value="False" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ListViewItem">
-                    <Grid x:Name="Root"
-                          Background="{TemplateBinding Background}"
-                          CornerRadius="{StaticResource RadiusSmall}">
-
-                        <!-- The focus ring. Drawn over the row so it stays
-                             visible on a selected row, where a background-only
-                             cue would be lost. -->
-                        <Border x:Name="FocusRing"
-                                BorderBrush="{ThemeResource BorderFocusBrush}"
-                                BorderThickness="{StaticResource BorderThicknessFocus}"
-                                CornerRadius="{StaticResource RadiusSmall}"
-                                Opacity="0" />
-
-                        <ContentPresenter x:Name="Content"
-                                          Padding="{TemplateBinding Padding}"
-                                          Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                          TextWrapping="NoWrap" />
-
-                        <VisualStateManager.VisualStateGroups>
-
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal" />
-
-                                <VisualState x:Name="PointerOver">
-                                    <VisualState.Setters>
-                                        <Setter Target="Root.Background"
-                                                Value="{ThemeResource InteractionHoverBrush}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-
-                                <VisualState x:Name="Selected">
-                                    <VisualState.Setters>
-                                        <Setter Target="Root.Background"
-                                                Value="{ThemeResource InteractionSelectedBrush}" />
-                                        <Setter Target="Content.Foreground"
-                                                Value="{ThemeResource InteractionSelectedTextBrush}" />
-                                        <!-- Weight as well as colour: selection
-                                             must not depend on hue alone. -->
-                                        <Setter Target="Content.FontWeight"
-                                                Value="{StaticResource FontWeightEmphasis}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-
-                                <VisualState x:Name="PointerOverSelected">
-                                    <VisualState.Setters>
-                                        <Setter Target="Root.Background"
-                                                Value="{ThemeResource InteractionSelectedBrush}" />
-                                        <Setter Target="Content.Foreground"
-                                                Value="{ThemeResource InteractionSelectedTextBrush}" />
-                                        <Setter Target="Content.FontWeight"
-                                                Value="{StaticResource FontWeightEmphasis}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="FocusStates">
-                                <VisualState x:Name="Unfocused" />
-
-                                <!-- Keyboard focus only. A mouse click should
-                                     not paint a focus ring, or every click
-                                     leaves one behind. -->
-                                <VisualState x:Name="Focused">
-                                    <VisualState.Setters>
-                                        <Setter Target="FocusRing.Opacity" Value="1" />
-                                    </VisualState.Setters>
-                                </VisualState>
-
-                                <VisualState x:Name="PointerFocused" />
-                            </VisualStateGroup>
-
-                        </VisualStateManager.VisualStateGroups>
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <!-- The states are the shared list-row template (ListRow.xaml). -->
+        <Setter Property="Template" Value="{StaticResource ListRowTemplate}" />
     </Style>
 
 </ResourceDictionary>

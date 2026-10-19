@@ -1,0 +1,152 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        ListRowTemplate — the one template every list row uses (FolderRow,
+        NoteRow). The two row styles stay separate components that can diverge
+        (ADR-011's library names both); what they share, the states, is written
+        once here, because two copies of the same template were already a second
+        copy of a component (ADR-011 rule 5).
+
+        A template over the stock ListViewItem, not a custom Control: WinUI
+        already implements keyboard navigation, accessibility peers and
+        virtualisation correctly, and this only decides how each state looks.
+
+        States, every one of them in Light, Dark and High Contrast:
+          Normal              transparent
+          PointerOver         hover fill, InteractionText
+          Pressed             pressed fill, InteractionText
+          Selected            selected fill and text, SemiBold, the accent pill
+          PointerOverSelected as Selected
+          PressedSelected     as Selected
+          Disabled            disabled text
+          Focused             the two-tone ring, keyboard focus only
+
+        Selection is the pill, the fill AND the weight, so it never depends on
+        hue alone. In high contrast the hover and selected fills are both
+        Highlight, as in WinUI's own list; the pill and the weight tell them
+        apart, and the text on either is HighlightText.
+
+        Every visual value is a semantic token (ADR-011 rule 1). The
+        dictionaries the template consumes are merged HERE (rule 6): a resource
+        reference inside a merged dictionary resolves against that dictionary
+        and its own merge tree only, and an unresolved one ends the process
+        (0xC0000C04) before any handler could see it.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Colors.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <ControlTemplate x:Key="ListRowTemplate" TargetType="ListViewItem">
+        <Grid x:Name="Root"
+              Background="{TemplateBinding Background}"
+              CornerRadius="{StaticResource RadiusSmall}">
+
+            <ContentPresenter x:Name="Content"
+                              Padding="{TemplateBinding Padding}"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              TextWrapping="NoWrap" />
+
+            <Border x:Name="SelectionIndicator"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Width="{StaticResource SelectionIndicatorWidth}"
+                    Height="{StaticResource SelectionIndicatorHeight}"
+                    CornerRadius="{StaticResource RadiusIndicator}"
+                    Background="{ThemeResource SelectionIndicatorBrush}"
+                    Opacity="0" />
+
+            <!-- Drawn last, over the row, so it stays visible on a selected
+                 row, where a background-only cue would be lost. -->
+            <Border x:Name="FocusRing"
+                    BorderBrush="{ThemeResource BorderFocusBrush}"
+                    BorderThickness="{StaticResource BorderThicknessFocus}"
+                    CornerRadius="{StaticResource RadiusSmall}"
+                    Opacity="0">
+                <Border BorderBrush="{ThemeResource BorderFocusInnerBrush}"
+                        BorderThickness="{StaticResource BorderThicknessFocusInner}"
+                        CornerRadius="{StaticResource RadiusSmall}" />
+            </Border>
+
+            <VisualStateManager.VisualStateGroups>
+
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource InteractionHoverBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource InteractionPressedBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="Selected">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource InteractionSelectedBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
+                            <Setter Target="Content.FontWeight" Value="{StaticResource FontWeightEmphasis}" />
+                            <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="PointerOverSelected">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource InteractionSelectedBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
+                            <Setter Target="Content.FontWeight" Value="{StaticResource FontWeightEmphasis}" />
+                            <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="PressedSelected">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource InteractionSelectedBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
+                            <Setter Target="Content.FontWeight" Value="{StaticResource FontWeightEmphasis}" />
+                            <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+
+                <VisualStateGroup x:Name="DisabledStates">
+                    <VisualState x:Name="Enabled" />
+
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Target="Content.Foreground" Value="{ThemeResource TextDisabledBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+
+                <VisualStateGroup x:Name="FocusStates">
+                    <VisualState x:Name="Unfocused" />
+
+                    <!-- Keyboard focus only. A mouse click should not paint a
+                         focus ring, or every click leaves one behind. -->
+                    <VisualState x:Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Target="FocusRing.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="PointerFocused" />
+                </VisualStateGroup>
+
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+    </ControlTemplate>
+
+</ResourceDictionary>
