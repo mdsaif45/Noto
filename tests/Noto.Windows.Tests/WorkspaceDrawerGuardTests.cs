@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Xunit;
 
 namespace Noto.Windows.Tests;
@@ -34,6 +35,29 @@ public sealed partial class WorkspaceDrawerGuardTests
     {
         Assert.Contains("DismissRequested?.Invoke(", Body(Main, "OnDismissAccelerator"), StringComparison.Ordinal);
         Assert.Contains("DismissRequested?.Invoke(", Body(Main, "OnEscape"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Entering_a_folder_moves_keyboard_focus_onto_the_note_surface_where_Escape_is_heard()
+    {
+        // Collapsing the folder list takes keyboard focus with it, and the framework hands it to a header button,
+        // where Escape does nothing (measured, by Ctrl+Down and on every build before this). Entering moves focus onto
+        // the note surface after the read, as leaving moves it back.
+        string enter = Code(Body(Main, "EnterSelectedFolder"));
+        Assert.True(
+            Index(enter, "DispatcherQueue.TryEnqueueGuarded(RefreshNotes);")
+                < Index(enter, "DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, MoveFocusToNotes);"));
+        Assert.Matches(
+            @"Control destination = _noteState == NoteState\.Loaded && Notes\.Count > 0 \? NoteList : BackButton;\s*_ = destination\.Focus\(FocusState\.Programmatic\);",
+            Code(Body(Main, "MoveFocusToNotes")));
+
+        // Both destinations are inside the note surface, and that surface hears Escape.
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        XElement noteRoot = XDocument.Parse(MainXaml).Descendants().Single(e => (string?)e.Attribute(x + "Name") == "NoteRoot");
+        Assert.Equal("OnNoteRootKeyDown", (string?)noteRoot.Attribute("KeyDown"));
+        Assert.Contains(noteRoot.Descendants(), e => (string?)e.Attribute(x + "Name") == "BackButton");
+        Assert.Contains(noteRoot.Descendants(), e => (string?)e.Attribute(x + "Name") == "NoteList");
+        Assert.Matches(@"e\.Key == VirtualKey\.Escape\)\s*\{\s*OnEscape\(WorkspaceSurface\.NoteList, e\);", Code(Body(Main, "OnNoteRootKeyDown")));
     }
 
     [Fact]
