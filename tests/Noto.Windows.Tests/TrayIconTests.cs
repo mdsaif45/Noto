@@ -72,6 +72,7 @@ public sealed partial class TrayIconTests(ITestOutputHelper output)
         Assert.Null(TrayIcon.Chosen(0, items));                          // dismissed
         Assert.Null(TrayIcon.Chosen((int)TrayCommand.Hide, items));      // disabled
         Assert.Null(TrayIcon.Chosen((int)TrayCommand.KeepOpen, items));  // not offered
+        Assert.Null(TrayIcon.Chosen((int)TrayCommand.Settings, items));  // not offered
         Assert.Null(TrayIcon.Chosen(99, items));
     }
 
@@ -510,5 +511,17 @@ public sealed partial class TrayIconTests(ITestOutputHelper output)
 
         [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16)]
         public static partial nint FindWindow(string className, string? windowName);
+    }
+
+    [Fact]
+    public void Settings_is_appended_so_every_existing_menu_id_is_unchanged()
+    {
+        // The tray harness reads the menu's rows by these ids (MN_GETHMENU); Settings (Slice 1) adds an id, never moves one.
+        Assert.Equal(1, (int)TrayCommand.Show);
+        Assert.Equal(2, (int)TrayCommand.Hide);
+        Assert.Equal(3, (int)TrayCommand.KeepOpen);
+        Assert.Equal(4, (int)TrayCommand.Quit);
+        Assert.Equal(5, (int)TrayCommand.StartWithWindows);
+        Assert.Equal(6, (int)TrayCommand.Settings);
     }
 }

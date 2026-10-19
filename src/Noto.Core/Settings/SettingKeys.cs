@@ -1,6 +1,7 @@
 using Noto.Core.Activation;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
+using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
 
 namespace Noto.Core.Settings;
 
@@ -20,7 +21,9 @@ namespace Noto.Core.Settings;
 /// §startup) and both defaults were decided by the parity specification.
 /// #16 slice 3 adds the edge and the width, which the docked window reads at
 /// launch; slice 6 adds the Escape behaviour and hiding on deactivation.
-/// Hover and tray toggles and the hover delay are still absent: none has a
+/// Slice 1's settings surface adds the theme and single-click opening, and
+/// makes every workspace setting here take effect as it is written. Hover
+/// and tray toggles and the hover delay are still absent: none has a
 /// consumer yet.
 /// </para>
 /// <para>
@@ -86,11 +89,13 @@ public static class SettingKeys
     /// <remarks>
     /// Default <see cref="Edge.Right"/> — parity A2 and J3, "default Right".
     /// Stored by member name and parsed case-sensitively, so <c>left</c> or
-    /// <c>0</c> is not a legal value and reads as the default. Read once, at
-    /// launch (#16 slice 3); nothing in the application writes it yet.
+    /// <c>0</c> is not a legal value and reads as the default; a value that is
+    /// not a member is refused when written. Read at launch (#16 slice 3), and
+    /// changed from the settings surface, which re-docks the workspace at once
+    /// (Slice 1).
     /// </remarks>
     public static readonly SettingKey<Edge> WorkspaceEdge =
-        new("workspace.edge", Edge.Right);
+        new("workspace.edge", Edge.Right, Enum.IsDefined);
 
     /// <summary>
     /// The workspace width last chosen on any display, in DIPs.
@@ -133,11 +138,12 @@ public static class SettingKeys
     /// <remarks>
     /// Default <see cref="EscapeBehavior.LeaveFolderOrHide"/>, SideNotes' own
     /// default (feature inventory A12, CONFIRMED). Stored by member name and
-    /// parsed case-sensitively. Read once, at launch (#16 slice 6); there is no
-    /// settings UI to change it yet.
+    /// parsed case-sensitively; a value that is not a member is refused when
+    /// written. Read at launch (#16 slice 6) and changed from the settings
+    /// surface, taking effect on the next Escape (Slice 1).
     /// </remarks>
     public static readonly SettingKey<EscapeBehavior> WorkspaceEscape =
-        new("workspace.escape", EscapeBehavior.LeaveFolderOrHide);
+        new("workspace.escape", EscapeBehavior.LeaveFolderOrHide, Enum.IsDefined);
 
     /// <summary>
     /// Whether the shown workspace hides when activation moves to another
@@ -155,11 +161,36 @@ public static class SettingKeys
     /// Default <see langword="true"/> (the slice 6 design gate): the workspace
     /// is topmost while shown, so a drawer that stays over the user's work
     /// after they have moved on would cover it. Pin suppresses it for a
-    /// session. Read once, at launch; no settings UI yet.
+    /// session. Read at launch and changed from the settings surface, taking
+    /// effect on the next deactivation (Slice 1).
     /// </para>
     /// </remarks>
     public static readonly SettingKey<bool> WorkspaceHideOnDeactivation =
         new("workspace.hide-on-deactivation", true);
+
+    /// <summary>
+    /// Whether one click opens a folder or a note (parity J7, C4); otherwise a
+    /// double click does.
+    /// </summary>
+    /// <remarks>
+    /// Default <see langword="false"/>: double click, the behaviour Noto has
+    /// always had. A pointer setting only: the keyboard paths (<c>Ctrl+Down</c>,
+    /// <c>Enter</c>) are the same either way.
+    /// </remarks>
+    public static readonly SettingKey<bool> WorkspaceSingleClickOpen =
+        new("workspace.single-click-open", false);
+
+    /// <summary>
+    /// The workspace's theme (parity J21, F1): System, Light or Dark.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="WorkspaceTheme.System"/>, following Windows. High
+    /// contrast is not a value here: Windows applies it over any of the three.
+    /// Stored by member name; a value that is not a member is refused when
+    /// written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<WorkspaceTheme> AppearanceTheme =
+        new("appearance.theme", WorkspaceTheme.System, Enum.IsDefined);
 
     /// <summary>
     /// Every declared key.
@@ -178,6 +209,8 @@ public static class SettingKeys
         WorkspaceWidth,
         WorkspaceEscape,
         WorkspaceHideOnDeactivation,
+        WorkspaceSingleClickOpen,
+        AppearanceTheme,
     ];
 
     /// <summary>

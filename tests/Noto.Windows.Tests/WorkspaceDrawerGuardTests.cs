@@ -144,7 +144,8 @@ public sealed partial class WorkspaceDrawerGuardTests
     [Fact]
     public void Deactivation_may_hide_only_with_the_setting_on_and_not_pinned()
     {
-        Assert.Contains("HideOnDeactivation: hideOnDeactivation && !_pinned", Coordinator, StringComparison.Ordinal);
+        // Read at each deactivation from the stored setting, kept current by the composition root (Slice 1).
+        Assert.Contains("HideOnDeactivation: HideOnDeactivation && !_pinned", Coordinator, StringComparison.Ordinal);
     }
 
     [Fact]

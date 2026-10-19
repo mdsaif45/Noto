@@ -13,6 +13,9 @@ public enum WorkspaceSurface
 
     /// <summary>The note editor.</summary>
     Editor,
+
+    /// <summary>The settings surface (Slice 1), opened from any of the others.</summary>
+    Settings,
 }
 
 /// <summary>What one press of Escape does.</summary>
@@ -29,6 +32,9 @@ public enum EscapeAction
 
     /// <summary>Hide the workspace, through the coordinator, saving unsaved text first.</summary>
     Hide,
+
+    /// <summary>Leave the settings surface for the surface it was opened from.</summary>
+    LeaveSettings,
 }
 
 /// <summary>
@@ -45,12 +51,16 @@ public enum EscapeAction
 /// An inline input — renaming or naming a folder — cancels itself on Escape
 /// before any of this is consulted, in every mode.
 /// </para>
+/// <para>
+/// Settings is a level above whatever it was opened from, so the two "leave"
+/// modes leave it, back to that surface; Hide hides; None does nothing.
+/// </para>
 /// <code>
-///                       editor        note list     folder list
-///   LeaveFolderOrHide   leave editor  leave folder  hide         (default)
-///   LeaveFolder         leave editor  leave folder  nothing
-///   Hide                hide          hide          hide
-///   None                nothing       nothing       nothing
+///                       settings        editor        note list     folder list
+///   LeaveFolderOrHide   leave settings  leave editor  leave folder  hide         (default)
+///   LeaveFolder         leave settings  leave editor  leave folder  nothing
+///   Hide                hide            hide          hide          hide
+///   None                nothing         nothing       nothing       nothing
 /// </code>
 /// </remarks>
 public static class WorkspaceEscape
@@ -62,6 +72,7 @@ public static class WorkspaceEscape
         EscapeBehavior.None => EscapeAction.None,
         EscapeBehavior.LeaveFolder or EscapeBehavior.LeaveFolderOrHide => surface switch
         {
+            WorkspaceSurface.Settings => EscapeAction.LeaveSettings,
             WorkspaceSurface.Editor => EscapeAction.LeaveEditor,
             WorkspaceSurface.NoteList => EscapeAction.LeaveFolder,
             WorkspaceSurface.FolderList when behavior == EscapeBehavior.LeaveFolderOrHide => EscapeAction.Hide,

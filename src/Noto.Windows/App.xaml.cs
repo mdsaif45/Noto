@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Core.Activation;
 using Noto.Core.Settings;
+using Noto.Core.Workspace;
 using Noto.Infrastructure.Storage;
 using Noto.Platform.Windows;
 using Noto.UseCases.Folders;
@@ -77,8 +78,8 @@ public partial class App : Application
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Settings are read once, here; a change takes effect on the next
-    /// launch. The binding is valid by construction: its setting's validity
+    /// Run at launch, and again when Settings turns the hotkey on (Slice 1).
+    /// The binding is valid by construction: its setting's validity
     /// rule is the <see cref="HotkeyChord"/> grammar, so a malformed stored
     /// value has already fallen back to the default.
     /// </para>
@@ -86,13 +87,17 @@ public partial class App : Application
     /// <b>A refused chord never stops startup.</b> Taken by another process,
     /// reserved by Windows, or refused for any other reason: Noto runs without
     /// the hotkey, no other chord is tried, the stored setting is left alone,
-    /// and nothing is retried until the next launch. There is no user-visible
-    /// report yet — that needs a surface (tray or settings) that does not
-    /// exist — so the refusal is a diagnostic only.
+    /// and nothing is retried until the next launch or until Settings turns it
+    /// off and on. The refusal is reported in Settings (Slice 1) as well as
+    /// written as a diagnostic.
     /// </para>
     /// </remarks>
-    private GlobalHotkey? StartHotkey(SqliteSettingsStore settings)
+    /// <param name="settings">The store the hotkey settings are read from.</param>
+    /// <param name="refusal">Why the chord was not registered, for Settings; <see langword="null"/> when it was, or is off.</param>
+    private GlobalHotkey? StartHotkey(SqliteSettingsStore settings, out string? refusal)
     {
+        refusal = null;
+
         if (!settings.Read(SettingKeys.HotkeyEnabled))
         {
             return null;
@@ -109,6 +114,9 @@ public partial class App : Application
             if (!registration.IsRegistered)
             {
                 Debug.WriteLine($"The global hotkey {chord} was not registered: {registration.Status} ({registration.ErrorCode})");
+                refusal = registration.Status == HotkeyRegistrationStatus.Conflict
+                    ? $"{chord} is in use by another app, so this shortcut is not working. Noto tries again each time it starts, or when you turn the shortcut off and on."
+                    : $"Windows did not accept {chord}, so this shortcut is not working.";
                 return null;
             }
 
@@ -122,6 +130,7 @@ public partial class App : Application
         catch (Win32Exception ex)
         {
             Debug.WriteLine($"The global hotkey could not be set up: {ex.NativeErrorCode}");
+            refusal = "The shortcut could not be set up, so it is not working.";
             return null;
         }
         finally
@@ -295,13 +304,17 @@ public partial class App : Application
         // Phase 1 (architecture-overview.md §startup): the hotkey is
         // registered before any window exists, on its own message-only
         // window, so it does not depend on the workspace window's lifetime.
-        _hotkey = StartHotkey(settings);
+        _hotkey = StartHotkey(settings, out string? hotkeyRefusal);
 
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
         IClock clock = SystemClock.Instance;
 
         var preferences = new WorkspacePreferences(settings);
+
+        // Start with Windows (#94): Windows' own registration, read and set by the tray and by Settings alike, so
+        // there is one source of truth and it is Windows'.
+        _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
 
         var main = new MainWindow(
             new ListFoldersQuery(folders),
@@ -314,7 +327,20 @@ public partial class App : Application
             new DeleteNoteHandler(notes, clock))
         {
             Escape = preferences.Escape,
+            SingleClickOpen = preferences.SingleClickOpen,
+            Settings = new SettingsContext(
+                preferences,
+                () => _login?.State(),
+                SetLoginStartup,
+                () => ShellLaunch.OpenFolder(paths.Root),
+                ShellLaunch.OpenStartupAppsSettings),
         };
+
+        // The theme before the first frame, so a chosen theme is never preceded by Windows' own.
+        ApplyTheme(main, preferences.Theme);
+
+        // A chord refused at launch is reported where the user can act on it: in Settings (ADR-007).
+        main.ShowHotkeyMessage(hotkeyRefusal);
 
         // #16 slice 6: the window's own ways of putting itself away go to the
         // coordinator, like every other request; the window never hides
@@ -393,9 +419,16 @@ public partial class App : Application
 
         if (_docked is not null)
         {
-            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide, preferences.HideOnDeactivation);
+            _coordinator = new WindowCoordinator(_window, _windowHandle, _docked, preferences, main.SaveBeforeHide)
+            {
+                HideOnDeactivation = preferences.HideOnDeactivation,
+            };
             _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
         }
+
+        // Slice 1: a preference changed in Settings reaches the part of Noto that owns it, at once. After every owner
+        // exists, so each change finds its owner wired.
+        settings.SettingChanged += (_, e) => OnSettingChanged(e.Key, settings, preferences);
 
         // After the coordinator, so every callback finds the wiring final.
         // Callbacks are dispatched only after OnLaunched returns, so one made
@@ -587,7 +620,6 @@ public partial class App : Application
         }
 
         TrayIcon tray = _tray;
-        _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
         tray.Invoked += (_, e) => OnTrayInvoked(e.ReceivedAt);
         tray.MenuRequested += (_, e) => OnTrayMenuRequested(tray, e);
         tray.SessionEnding += (_, e) => OnSessionEnding(e);
@@ -660,6 +692,7 @@ public partial class App : Application
                     login.TurnedOffInWindows ? "Start Noto with &Windows (turned off in Windows Startup apps)" : "Start Noto with &Windows",
                     login.Enabled && _login is not null,
                     login.Checked),
+                new(TrayCommand.Settings, "S&ettings…", Enabled: true),
                 new(TrayCommand.Quit, "&Quit Noto", Enabled: true, SeparatorBefore: true),
             ],
             OnTrayCommand);
@@ -699,6 +732,12 @@ public partial class App : Application
                 ToggleLoginStartup();
                 break;
 
+            case TrayCommand.Settings:
+                // Shown as a launch would (never hidden), then Settings opened in it.
+                ActivateFromTray(Environment.TickCount, "settings");
+                _main?.OpenSettings();
+                break;
+
             case TrayCommand.Quit:
                 Quit();
                 break;
@@ -730,6 +769,127 @@ public partial class App : Application
         };
 
         Trace.WriteLine($"Noto.Login before={before} after={after}");
+    }
+
+    /// <summary>
+    /// Start Noto with Windows set from Settings (Slice 1): on or off, judged on what Windows has now, through the
+    /// same registration the tray flips. Turned off in Windows' Startup apps stays as it is: Noto never changes that.
+    /// </summary>
+    /// <returns>What Windows has afterwards; <see langword="null"/> when there is no registration to change.</returns>
+    private LoginStartupState? SetLoginStartup(bool on)
+    {
+        if (_login is null)
+        {
+            return null;
+        }
+
+        LoginStartupState before = _login.State();
+        LoginStartupState after = (before, on) switch
+        {
+            (LoginStartupState.Off, true) => _login.Enable(),
+            (LoginStartupState.On, false) => _login.Disable(),
+            _ => before,
+        };
+
+        Trace.WriteLine($"Noto.Login before={before} after={after} source=settings");
+        return after;
+    }
+
+    /// <summary>
+    /// A stored preference changed (Slice 1): its owner applies it now. Every preference Settings writes has exactly
+    /// one owner here; the width, which the dock writes for itself, has none.
+    /// </summary>
+    /// <remarks>
+    /// The store raises the change on the thread that wrote it. Settings writes on the UI thread, which owns every
+    /// owner below; a write from anywhere else is handed to it.
+    /// </remarks>
+    private void OnSettingChanged(SettingKey key, SqliteSettingsStore settings, WorkspacePreferences preferences)
+    {
+        if (_window is null || _closing)
+        {
+            return;
+        }
+
+        if (!_window.DispatcherQueue.HasThreadAccess)
+        {
+            _ = _window.DispatcherQueue.TryEnqueue(() => OnSettingChanged(key, settings, preferences));
+            return;
+        }
+
+        if (key == SettingKeys.AppearanceTheme && _main is not null)
+        {
+            ApplyTheme(_main, preferences.Theme);
+        }
+        else if (key == SettingKeys.WorkspaceEdge)
+        {
+            _coordinator?.ChangeEdge(DockEdges.From(preferences.Edge));
+        }
+        else if (key == SettingKeys.WorkspaceEscape && _main is not null)
+        {
+            _main.Escape = preferences.Escape;
+        }
+        else if (key == SettingKeys.WorkspaceHideOnDeactivation && _coordinator is not null)
+        {
+            _coordinator.HideOnDeactivation = preferences.HideOnDeactivation;
+        }
+        else if (key == SettingKeys.WorkspaceSingleClickOpen && _main is not null)
+        {
+            _main.SingleClickOpen = preferences.SingleClickOpen;
+        }
+        else if (key == SettingKeys.HotkeyEnabled)
+        {
+            ApplyHotkeyEnabled(settings, preferences.HotkeyEnabled);
+        }
+        else
+        {
+            return;
+        }
+
+        // The key, never a value a user typed: evidence for the settings harness.
+        Trace.WriteLine($"Noto.Settings applied key={key.Name}");
+    }
+
+    /// <summary>
+    /// The workspace's theme (Slice 1, parity J21), set on the window's content: every brush is declared per theme
+    /// (ADR-011), so the whole tree, popups included, follows it. High contrast, when on, overrides all three.
+    /// </summary>
+    private static void ApplyTheme(MainWindow window, WorkspaceTheme theme)
+    {
+        if (window.Content is not FrameworkElement root)
+        {
+            return;
+        }
+
+        root.RequestedTheme = theme switch
+        {
+            WorkspaceTheme.Light => ElementTheme.Light,
+            WorkspaceTheme.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default,
+        };
+
+        Trace.WriteLine($"Noto.Settings theme={theme} actual={root.ActualTheme}");
+    }
+
+    /// <summary>
+    /// The show/hide hotkey turned on or off in Settings (Slice 1): registered or released now, through the same
+    /// start-up path. A chord that cannot be registered is reported in Settings; the stored choice stays the user's.
+    /// </summary>
+    private void ApplyHotkeyEnabled(SqliteSettingsStore settings, bool enabled)
+    {
+        string? refusal = null;
+
+        if (!enabled)
+        {
+            _hotkey?.Dispose();
+            _hotkey = null;
+        }
+        else if (_hotkey is null)
+        {
+            _hotkey = StartHotkey(settings, out refusal);
+        }
+
+        _main?.ShowHotkeyMessage(refusal);
+        Trace.WriteLine($"Noto.Hotkey enabled={enabled} registered={_hotkey?.IsRegistered ?? false}");
     }
 
     /// <summary>

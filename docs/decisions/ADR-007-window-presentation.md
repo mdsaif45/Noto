@@ -169,9 +169,13 @@ maximum is at least `min(w, 240)`, which is the effective minimum.
 **Edge.** The setting `workspace.edge` holds a Core value, `WorkspaceEdge`
 (`Left` / `Right`, stored by member name). Default `Right` (parity A2, J3). A
 value that is not exactly a member name — `left`, `2`, blank — reads as
-`Right`, is logged, and its row is left as it was. The edge is read at launch;
-changing it takes effect on the next start. The platform keeps its own
-`DockEdge` and maps the setting onto it.
+`Right`, is logged, and its row is left as it was. The edge is read at launch,
+and (amended 2026-10-19, Slice 1) a change from the settings surface takes
+effect at once: the dock adopts the new edge (`DockedWindow.ChangeEdge`) and a
+shown or behind workspace is re-docked by the same path a show uses; a hidden
+or minimized one moves when it is next shown or restored. A value that is not a
+member is refused when written. The platform keeps its own `DockEdge` and maps
+the setting onto it.
 
 **Remembered width.** Two settings, both in DIPs:
 
@@ -292,8 +296,12 @@ since only one display was available when this was written.
 
 **Settings.** `activation.hotkey.enabled` (default `true`) and
 `activation.hotkey.binding` (default `Ctrl+Alt+Win+Space`, parity G1). Both
-are read once, at launch; a change takes effect on the next start. Nothing in
-the application writes them yet.
+are read at launch. Amended 2026-10-19 (Slice 1): turning the hotkey off in
+Settings releases it at once, and turning it on registers the stored binding
+through the start-up path. A refusal is reported in Settings, as the first
+user-visible surface the refusal paragraph below defers to, and the stored
+choice stays the user's. Changing the binding is not offered yet (Slice 1, PR
+C).
 
 **The binding grammar** — `HotkeyChord` in `Noto.Core`, and nothing wider:
 
@@ -565,18 +573,27 @@ retry is involved. Every rule is decided by the order of events on the UI
 thread, which owns the counter.
 
 **Escape** has SideNotes' four behaviours, stored in `workspace.escape`
-(default leave-folder-or-hide; no settings UI yet). An inline input (renaming
-or naming a folder) cancels itself first, in every mode. Noto's editor is one
-level deeper than SideNotes': leaving it is the same kind of step as leaving a
-folder.
+(default leave-folder-or-hide), chosen in Settings and applied to the next
+press (amended 2026-10-19, Slice 1). An inline input (renaming or naming a
+folder) cancels itself first, in every mode. Noto's editor is one level deeper
+than SideNotes': leaving it is the same kind of step as leaving a folder.
+Settings is a level above whichever surface opened it, so the two "leave" modes
+return there.
 
 ```
-                       editor        note list     folder list
-  LeaveFolderOrHide    leave editor  leave folder  hide         (default)
-  LeaveFolder          leave editor  leave folder  nothing
-  Hide                 hide          hide          hide
-  None                 nothing       nothing       nothing
+                       settings        editor        note list     folder list
+  LeaveFolderOrHide    leave settings  leave editor  leave folder  hide         (default)
+  LeaveFolder          leave settings  leave editor  leave folder  nothing
+  Hide                 hide            hide          hide          hide
+  None                 nothing         nothing       nothing       nothing
 ```
+
+**Settings applied as they change** (Slice 1). The edge, Escape, hiding on
+deactivation, single-click opening, the theme and the hotkey's on/off are each
+applied by one owner when the store announces the change: the coordinator
+(edge, deactivation), the window (Escape, single click, the theme on its
+content) and the hotkey. Hiding on deactivation is read at each deactivation,
+so a change governs the next one.
 
 **Pin** (A9) is a toggle in the workspace header, reachable by Tab and Space;
 there is no global chord (G6 is unbound by default). While pinned, losing

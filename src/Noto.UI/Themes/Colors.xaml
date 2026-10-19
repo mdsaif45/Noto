@@ -50,11 +50,17 @@
           InteractionPressed, Two more declared roles a button needs: Pressed is not
           TextDisabled        Selected, and Disabled is not Secondary.
 
-        WinUI's TextBox reads its hover, focus and disabled colours from its own
-        TextControl* keys. They are mapped to Noto's roles at the end of each
-        dictionary (lightweight styling): every text input then has Noto's states
-        without a copied template. The focused border is NOT mapped, so a focused
-        input keeps Windows' own accent underline.
+        WinUI's own controls read their state colours from their own keys:
+        TextControl* (TextBox), ComboBox*, ToggleSwitch*, and
+        SystemControlFocusVisual* for the focus ring every native control draws.
+        They are mapped to Noto's roles at the end of each dictionary
+        (lightweight styling): every native control then has Noto's states
+        without a copied template, and the focus ring has one source. Left as
+        Windows draws them: a focused input's accent underline, a switch that
+        is on (the accent), a list item's selection pill (the accent). In high
+        contrast, a control with no "text on hover" key of its own shows hover
+        as a Highlight border on the window colour, never as a Highlight fill
+        under window text.
     -->
 
     <ResourceDictionary.ThemeDictionaries>
@@ -118,6 +124,53 @@
             <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderSubtleBrush" />
             <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TextSecondaryBrush" />
             <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="SystemControlFocusVisualPrimaryBrush" ResourceKey="BorderFocusBrush" />
+            <StaticResource x:Key="SystemControlFocusVisualSecondaryBrush" ResourceKey="BorderFocusInnerBrush" />
+            <StaticResource x:Key="ComboBoxBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="ComboBoxForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ComboBoxForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxDropDownBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxDropDownGlyphForeground" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxDropDownGlyphForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundPointerOver" ResourceKey="InteractionTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundPressed" ResourceKey="InteractionTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelected" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedPointerOver" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedPressed" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedUnfocused" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelected" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedPointerOver" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedPressed" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedUnfocused" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ToggleSwitchContentForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchContentForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchHeaderForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchHeaderForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOff" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
         </ResourceDictionary>
 
         <!--
@@ -179,6 +232,53 @@
             <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderSubtleBrush" />
             <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TextSecondaryBrush" />
             <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="SystemControlFocusVisualPrimaryBrush" ResourceKey="BorderFocusBrush" />
+            <StaticResource x:Key="SystemControlFocusVisualSecondaryBrush" ResourceKey="BorderFocusInnerBrush" />
+            <StaticResource x:Key="ComboBoxBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="ComboBoxForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ComboBoxForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxDropDownBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxDropDownGlyphForeground" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxDropDownGlyphForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundPointerOver" ResourceKey="InteractionTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundPressed" ResourceKey="InteractionTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelected" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedPointerOver" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedPressed" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedUnfocused" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelected" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedPointerOver" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedPressed" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedUnfocused" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ToggleSwitchContentForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchContentForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchHeaderForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchHeaderForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOff" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
         </ResourceDictionary>
 
         <!--
@@ -240,6 +340,53 @@
             <StaticResource x:Key="TextControlBorderBrush" ResourceKey="BorderSubtleBrush" />
             <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="BorderFocusBrush" />
             <StaticResource x:Key="TextControlBorderBrushDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="SystemControlFocusVisualPrimaryBrush" ResourceKey="BorderFocusBrush" />
+            <StaticResource x:Key="SystemControlFocusVisualSecondaryBrush" ResourceKey="BorderFocusInnerBrush" />
+            <StaticResource x:Key="ComboBoxBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundDisabled" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ComboBoxForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushDisabled" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ComboBoxDropDownBorderBrush" ResourceKey="BorderSubtleBrush" />
+            <StaticResource x:Key="ComboBoxDropDownGlyphForeground" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ComboBoxDropDownGlyphForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundPointerOver" ResourceKey="InteractionTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundPressed" ResourceKey="InteractionTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelected" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedPointerOver" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedPressed" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedUnfocused" ResourceKey="InteractionSelectedTextBrush" />
+            <StaticResource x:Key="ComboBoxItemForegroundSelectedDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundPressed" ResourceKey="InteractionPressedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelected" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedPointerOver" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedPressed" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ComboBoxItemBackgroundSelectedUnfocused" ResourceKey="InteractionSelectedBrush" />
+            <StaticResource x:Key="ToggleSwitchContentForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchContentForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchHeaderForeground" ResourceKey="TextPrimaryBrush" />
+            <StaticResource x:Key="ToggleSwitchHeaderForegroundDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOff" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="TextSecondaryBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="InteractionHoverBrush" />
+            <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

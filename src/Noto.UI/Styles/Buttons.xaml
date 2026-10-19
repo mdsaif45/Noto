@@ -3,8 +3,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        The buttons: ADR-011's Button, its subtle variant, and the icon toggle
-        in the workspace header.
+        The buttons: ADR-011's Button, its subtle variant, and the icon button
+        and icon toggle in the workspace header.
 
         A stock WinUI Button inside a tokenised surface carries a foreign visual
         identity, the one thing the design system exists to prevent, so each has
@@ -134,6 +134,16 @@
     <Style x:Key="SubtleButtonStyle" TargetType="Button" BasedOn="{StaticResource FolderPaneButtonStyle}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <!--
+        The header's icon button (Settings): a 16px glyph in a 32px square, the
+        same footprint as the toggle beside it, and the subtle button's states.
+    -->
+    <Style x:Key="HeaderButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+        <Setter Property="Width" Value="{StaticResource ControlHeightCompact}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightCompact}" />
+        <Setter Property="Padding" Value="0" />
     </Style>
 
     <!--

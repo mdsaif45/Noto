@@ -52,8 +52,7 @@ internal sealed class WindowCoordinator(
     WindowHandle handle,
     DockedWindow docked,
     WorkspacePreferences preferences,
-    Func<bool> saveBeforeHide,
-    bool hideOnDeactivation)
+    Func<bool> saveBeforeHide)
 {
     private int _readyTime = Environment.TickCount;
     private int? _lastTransitionEnd;
@@ -83,6 +82,32 @@ internal sealed class WindowCoordinator(
     /// every path that ends shown. ADR-007 §1: the managed presenter property,
     /// never <c>SetWindowPos(HWND_TOPMOST)</c>.
     /// </summary>
+    /// <summary>
+    /// Whether losing activation hides the shown workspace (parity A13), as stored. Set by the composition root at
+    /// launch and whenever the setting changes (Slice 1); read at each deactivation, so a change governs the next one.
+    /// </summary>
+    public bool HideOnDeactivation { get; set; } = true;
+
+    /// <summary>
+    /// Docks to <paramref name="edge"/> from now on (Slice 1: the side, changed in settings). A shown or behind
+    /// workspace moves now, through the same re-dock a show uses; a hidden or minimized one moves when it is next shown
+    /// or restored, which re-docks anyway.
+    /// </summary>
+    public void ChangeEdge(DockEdge edge)
+    {
+        docked.ChangeEdge(edge);
+
+        WorkspacePresence presence = WindowActivation.PresenceOf(handle);
+        bool now = presence is WorkspacePresence.Foreground or WorkspacePresence.Background;
+
+        if (now)
+        {
+            Redock();
+        }
+
+        Trace.WriteLine($"Noto.Workspace edge={edge} redocked={now}");
+    }
+
     public static void EnsureTopmost(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
@@ -179,7 +204,7 @@ internal sealed class WindowCoordinator(
                 requestTime,
                 _readyTime,
                 _lastTransitionEnd,
-                HideOnDeactivation: hideOnDeactivation && !_pinned,
+                HideOnDeactivation: HideOnDeactivation && !_pinned,
                 GenerationCurrent: generationCurrent,
                 ActivationLanded: activationLanded));
 

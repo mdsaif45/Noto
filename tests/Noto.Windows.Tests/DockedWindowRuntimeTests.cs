@@ -525,6 +525,37 @@ public sealed partial class PlatformRuntimeTests
             : Native.ShowWindow(window.Handle, Native.SW_RESTORE);
     }
 
+    [Fact]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    public void A_changed_edge_governs_the_dock_from_then_on()
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // Slice 1: the side changed in Settings. The dock adopts the new edge, the owner re-docks with its own move,
+        // and from then on an external move is sent back to the NEW edge, not the old one.
+        using var window = DockedTestWindow(DockEdge.Right, out DockedWindow docked, out PixelRect right);
+        PixelRect left = WindowDocking.OuterBoundsFor(window.Native, DockEdge.Left, 360);
+
+        docked.ChangeEdge(DockEdge.Left);
+        docked.MoveOwn(() => Assert.True(Native.SetWindowPos(window.Handle, 0, left.Left, left.Top, left.Width, left.Height, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE)));
+        PixelRect docked1 = Independent.WindowRect(window.Handle);
+
+        Assert.True(Native.SetWindowPos(window.Handle, 0, 100, 100, 800, 600, Native.SWP_NOZORDER | Native.SWP_NOACTIVATE));
+        PixelRect after = Independent.WindowRect(window.Handle);
+
+        output.WriteLine($"right {right}, left {docked1}, after external SetWindowPos {after}");
+
+        Assert.Equal(DockEdge.Left, docked.Edge);
+        Assert.NotEqual(right, docked1);
+        Assert.Equal(docked1, after);
+        Assert.Throws<ArgumentOutOfRangeException>(() => docked.ChangeEdge((DockEdge)7));
+        Assert.Equal(DockEdge.Left, docked.Edge);
+    }
+
     /// <summary>A real overlapped window at its docked position, with the dock installed.</summary>
     private static TestWindow DockedTestWindow(DockEdge edge, out DockedWindow docked, out PixelRect dockedOuter)
     {

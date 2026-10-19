@@ -23,6 +23,10 @@ public sealed class WorkspaceEscapeTests
     [InlineData(EscapeBehavior.None, WorkspaceSurface.Editor, EscapeAction.None)]
     [InlineData(EscapeBehavior.None, WorkspaceSurface.NoteList, EscapeAction.None)]
     [InlineData(EscapeBehavior.None, WorkspaceSurface.FolderList, EscapeAction.None)]
+    [InlineData(EscapeBehavior.LeaveFolderOrHide, WorkspaceSurface.Settings, EscapeAction.LeaveSettings)]
+    [InlineData(EscapeBehavior.LeaveFolder, WorkspaceSurface.Settings, EscapeAction.LeaveSettings)]
+    [InlineData(EscapeBehavior.Hide, WorkspaceSurface.Settings, EscapeAction.Hide)]
+    [InlineData(EscapeBehavior.None, WorkspaceSurface.Settings, EscapeAction.None)]
     public void Each_behaviour_on_each_surface(EscapeBehavior behavior, WorkspaceSurface surface, EscapeAction expected)
     {
         Assert.Equal(expected, WorkspaceEscape.Resolve(behavior, surface));
@@ -39,6 +43,20 @@ public sealed class WorkspaceEscapeTests
         Assert.Equal(EscapeBehavior.LeaveFolderOrHide, defaultBehavior);
         Assert.Equal(EscapeAction.LeaveFolder, WorkspaceEscape.Resolve(defaultBehavior, WorkspaceSurface.NoteList));
         Assert.Equal(EscapeAction.Hide, WorkspaceEscape.Resolve(defaultBehavior, WorkspaceSurface.FolderList));
+    }
+
+    [Fact]
+    public void Only_settings_is_ever_left_for_where_it_was_opened_from()
+    {
+        // Settings is a level above any surface (Slice 1): the two "leave" modes leave it, and nothing else does.
+        foreach (EscapeBehavior behavior in Enum.GetValues<EscapeBehavior>())
+        {
+            foreach (WorkspaceSurface surface in Enum.GetValues<WorkspaceSurface>())
+            {
+                bool leaves = WorkspaceEscape.Resolve(behavior, surface) == EscapeAction.LeaveSettings;
+                Assert.Equal(surface == WorkspaceSurface.Settings && behavior is EscapeBehavior.LeaveFolder or EscapeBehavior.LeaveFolderOrHide, leaves);
+            }
+        }
     }
 
     [Fact]
