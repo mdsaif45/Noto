@@ -58,12 +58,25 @@ public sealed class MotionGuardTests
     }
 
     [Fact]
-    public void A_reversal_ends_the_hide_and_brings_the_content_back_from_where_it_is()
+    public void Bringing_noto_forward_ends_any_pending_hide_and_a_reversal_brings_the_content_back_from_where_it_is()
     {
-        string reverse = Case(Coordinator, "WorkspaceAction.Reverse");
-
-        Assert.True(Index(reverse, "_hide.Reverse();") < Index(reverse, "motion.Enter(docked.Edge, fromCurrent: true);"));
+        // Every bring-forward action (show, restore, focus, reverse) ends a hide in motion before acting.
+        Assert.Matches(@"if \(WorkspaceToggle\.BringsForward\(action\)\)\s*\{\s*_activation\.BroughtForward\(\);\s*_ = _hide\.Reverse\(\);", Coordinator);
+        Assert.Contains("motion.Enter(docked.Edge, fromCurrent: true);", Case(Coordinator, "WorkspaceAction.Reverse"), StringComparison.Ordinal);
         Assert.Contains("Hiding: _hide.Hiding", Coordinator, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_exits_completion_never_restamps_the_transition_and_never_touches_a_closing_window()
+    {
+        string completed = Body(Coordinator, "OnExitCompleted");
+
+        // The hide was decided when the exit began: a press during the exit, delivered after it, is not stale.
+        Assert.DoesNotContain("_lastTransitionEnd", completed, StringComparison.Ordinal);
+        Assert.Equal(1, Regex.Count(Coordinator, @"_lastTransitionEnd = Environment\.TickCount;"));
+
+        // A close that began meanwhile owns the window: no hide, no second save.
+        Assert.Matches(@"^\{\s*if \(_shuttingDown\)\s*\{[^}]*return;\s*\}\s*HideStep step = _hide\.Complete", completed);
     }
 
     [Fact]
@@ -73,7 +86,7 @@ public sealed class MotionGuardTests
 
         Assert.Matches(@"case HideStep\.Animate:[\s\S]*motion\.Exit\(docked\.Edge, \(\) => OnExitCompleted\(generation\)\)", hide);
         Assert.DoesNotMatch(@"case HideStep\.Animate:[^;]*AppWindow\.Hide", hide);
-        Assert.Matches(@"case HideStep\.HideNow:\s*window\.AppWindow\.Hide\(\);\s*_lastTransitionEnd = Environment\.TickCount;", Body(Coordinator, "OnExitCompleted"));
+        Assert.Matches(@"case HideStep\.HideNow:\s*window\.AppWindow\.Hide\(\);\s*break;", Body(Coordinator, "OnExitCompleted"));
         Assert.Matches(@"case HideStep\.Restore:\s*motion\.Enter\(docked\.Edge, fromCurrent: true\);", Body(Coordinator, "OnExitCompleted"));
     }
 

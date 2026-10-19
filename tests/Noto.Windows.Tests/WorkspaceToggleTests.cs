@@ -172,6 +172,54 @@ public sealed class WorkspaceToggleTests
         Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, WorkspacePresence.Foreground, After(Ready + 500, lastTransitionEnd: Ready + 600) with { Hiding = true }));
     }
 
+    [Fact]
+    public void Every_request_presence_and_hiding_combination_keeps_the_motion_invariants()
+    {
+        // Exhaustive over request x presence x hiding x the activation flags (Slice 1.3 audit): never hide twice,
+        // never reverse what is not hiding, never reverse a window already hidden (it would stay lost), and a show
+        // while hiding is never dropped.
+        foreach (WorkspaceRequest request in Enum.GetValues<WorkspaceRequest>())
+        {
+            foreach (WorkspacePresence presence in Enum.GetValues<WorkspacePresence>())
+            {
+                foreach (bool hiding in new[] { false, true })
+                {
+                    foreach (bool current in new[] { false, true })
+                    {
+                        foreach (bool landed in new[] { false, true })
+                        {
+                            ActivationContext context = After(Ready + 500) with
+                            {
+                                Hiding = hiding,
+                                GenerationCurrent = current,
+                                ActivationLanded = landed,
+                                HideOnDeactivation = true,
+                            };
+                            WorkspaceAction action = WorkspaceToggle.Decide(request, presence, context);
+                            string at = $"{request} {presence} hiding={hiding} current={current} landed={landed}: {action}";
+
+                            bool inMotion = hiding && presence != WorkspacePresence.Hidden;
+
+                            Assert.True(!(inMotion && action == WorkspaceAction.Hide), at);                       // never a second hide
+                            Assert.True(action != WorkspaceAction.Reverse || inMotion, at);                        // only a hide in motion reverses
+                            Assert.True(!(presence == WorkspacePresence.Hidden && action == WorkspaceAction.Hide), at);
+
+                            if (inMotion && request is WorkspaceRequest.Toggle or WorkspaceRequest.Launch)
+                            {
+                                Assert.True(action == WorkspaceAction.Reverse, at);                               // never dropped
+                            }
+
+                            if (hiding && presence == WorkspacePresence.Hidden)
+                            {
+                                Assert.Equal(WorkspaceToggle.Decide(request, presence, context with { Hiding = false }), action);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static ActivationContext Ready_(bool hideOnDeactivation, bool current = true, bool landed = true) =>
         After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation, GenerationCurrent = current, ActivationLanded = landed };
 

@@ -427,10 +427,14 @@ display (the settings chain in *Edge, resize and remembered width*), then
 brought to the foreground. Nothing is taken from before it was hidden. It
 always ends normal, docked and focused.
 
-**Unsaved editor text** is saved once before hiding, through the same explicit
+**Unsaved editor text** is saved before hiding, through the same explicit
 save as leaving the editor. It is not autosave (parity B19 stays M3's). If the
 save fails, the window is not hidden: the text stays and the editor's notice
-says why. Hiding is not leaving, so the editor stays open.
+says why. Hiding is not leaving, so the editor stays open. With motion (Slice
+1.3, below) the same save runs once more when the content has left, so text
+typed during the exit is kept too; it writes only if the text changed. That
+save failing brings the content back and keeps the window shown, with the
+notice. There is no third save.
 
 **Close** is unchanged by this slice: closing quits. Unsaved text gets one
 save; a failure cancels the close, and a second close with the same text
@@ -438,15 +442,39 @@ discards it (#86). The tray (#16 slice 7) kept this: Alt+F4 and the taskbar's
 Close still quit, and the tray's Quit is the same close — see ADR-014.
 
 **Requests are serialized and never queued.** They arrive one at a time on the
-UI thread from the hotkey's message, and are carried out synchronously. Dropped:
+UI thread from the hotkey's message, and each is decided and carried out
+synchronously; with motion (Slice 1.3) a show's or hide's content keeps moving
+on the compositor after its request has been carried out. Dropped:
 
 ```
   while the window is closing              (a close that goes ahead)
   while the user is resizing               (WM_HOTKEY is delivered inside the size loop)
-  while a show or hide is already running
-  made before the last show or hide ended  (stale; the press's message time is known)
+  while a show or hide is being carried out (the synchronous part)
+  made before the last show or hide was carried out (stale; the press's message time is known)
   made during startup and the window is in front   (startup presses never hide)
 ```
+
+**Motion** (amended 2026-10-19, Slice 1.3; the design is ADR-011's). The
+window never moves; only its content does, inside the docked rectangle.
+
+- *A show* is carried out as before (shown, docked, in front), then its content
+  arrives. Requests during the arrival are decided as for a shown window: a
+  hide interrupts it, a launch does nothing.
+- *A hide* saves first (above); its content then leaves, and the window is
+  hidden when it has. While it leaves the window is still shown, and the hide
+  is **Hiding**: the hotkey, a launch, or activation landing back on Noto
+  **reverses** it (the content returns, the window was never hidden), never
+  dropped; Escape, `Ctrl+W`, the tray's Hide and deactivation do nothing, the
+  hide being already under way. A window minimized meanwhile is restored by a
+  reversal.
+- The exit's completion hides the window only if it is still the current hide:
+  a reversal, or anything that brings Noto forward, makes it stale. It does not
+  restamp the last transition: the hide was decided when the exit began, so a
+  press made during the exit but delivered after it completed shows the window
+  again, as the reversal it was meant to be. If a close began meanwhile, the
+  completion does nothing; the close owns the window.
+- With Windows' animation effects off there is no motion: a show and a hide
+  complete within their request, exactly as before.
 
 A burst of presses made during startup therefore brings the window forward
 once; the rest are older than that transition and dropped.
