@@ -240,7 +240,6 @@ public sealed class SettingsSurfaceGuardTests
 
         var missing = ids.Where(id => !names.Contains(id)).ToList();
         Assert.True(missing.Count == 0, "Missing ids: " + string.Join(", ", missing));
-        Assert.Single(PageXaml.Descendants(), e => (string?)e.Attribute("AutomationProperties.AutomationId") == "SettingsRoot");
         Assert.NotNull(Named(MainXaml, "SettingsButton"));
 
         var headings = PageXaml.Descendants().Where(e => e.Attribute("AutomationProperties.HeadingLevel") is not null).ToList();
@@ -254,6 +253,29 @@ public sealed class SettingsSurfaceGuardTests
             Assert.Equal("Assertive", (string?)element.Attribute("AutomationProperties.LiveSetting"));
             Assert.Null(element.Attribute("AutomationProperties.Name"));
         }
+    }
+
+    [Fact]
+    public void The_page_itself_is_the_settings_root_ui_automation_can_see()
+    {
+        // Measured on the frozen Release build: SettingsRoot on the page's inner grid never reached UI Automation; a
+        // panel has no automation peer, and neither has a UserControl. The page carries the id and the name and creates
+        // its own peer, so the id names an element that exists. What UI Automation then shows, through each entry and
+        // after each close, is Invoke-Settings.ps1 case 1's to prove.
+        XElement root = PageXaml.Root!;
+
+        Assert.Equal("SettingsRoot", (string?)root.Attribute("AutomationProperties.AutomationId"));
+        Assert.Equal("Settings", (string?)root.Attribute("AutomationProperties.Name"));
+        Assert.Matches(@"override [\w.]*AutomationPeer OnCreateAutomationPeer\(\) =>\s*new [\w.]*AutomationPeer\(this\);", Page);
+
+        // No id anywhere in the window is set where UI Automation cannot see it.
+        string[] peerless = ["Grid", "StackPanel", "Canvas", "RelativePanel", "VariableSizedWrapGrid", "Border", "Viewbox"];
+        var hidden = Directory.EnumerateFiles(Windows, "*.xaml")
+            .SelectMany(f => XDocument.Load(f).Descendants())
+            .Where(e => e.Attribute("AutomationProperties.AutomationId") is not null && peerless.Contains(e.Name.LocalName))
+            .Select(e => $"{e.Name.LocalName} {(string?)e.Attribute("AutomationProperties.AutomationId")}")
+            .ToList();
+        Assert.True(hidden.Count == 0, "AutomationId on an element with no automation peer: " + string.Join(", ", hidden));
     }
 
     [Fact]

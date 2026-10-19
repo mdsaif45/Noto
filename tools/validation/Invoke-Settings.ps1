@@ -15,7 +15,9 @@
 
     1  entry: Ctrl+, from the folder list opens Settings with focus inside it; Escape (default) goes back, focus
        restored; the header button opens it and Back closes it; from the note list and from the editor it returns to
-       the same surface, the editor's unsaved text intact
+       the same surface, the editor's unsaved text intact; through each entry, twice, UI Automation has one
+       SettingsRoot named Settings holding each control once, focus on Back, and after each close none of it, the
+       held element offscreen, the next open a new element
     2  keyboard only: Tab visits every control in visual order and cycles back; Space toggles; Alt+Down, Down,
        Enter changes a ComboBox; Escape leaves
     3  theme: Dark, Light, then System, each applied at once (the framework's ActualTheme), stored by name;
@@ -83,6 +85,18 @@ function Find-ById([string] $Id, [int] $Seconds = 10) {
 function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
+function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton')
+function Settings-Wrong {
+    <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
+    $window = $AE::FromHandle($noto.Hwnd)
+    $roots = Count-In $window 'SettingsRoot'
+    if ($roots -ne 1) { return "SettingsRoot x$roots" }
+    $root = Element 'SettingsRoot'
+    if ($root.Current.Name -ne 'Settings') { return "SettingsRoot named '$($root.Current.Name)'" }
+    @($SettingsControls | Where-Object { (Count-In $window $_) -ne 1 -or (Count-In $root $_) -ne 1 } | ForEach-Object { "$_ not once inside" }) -join ', '
+}
+function Settings-Left { @(@('SettingsRoot') + $SettingsControls | Where-Object { (Count-In $AE::FromHandle($noto.Hwnd) $_) -ne 0 }) -join ', ' }
 function Focused { $f = $AE::FocusedElement; "$($f.Current.ControlType.ProgrammaticName)|id=$($f.Current.AutomationId)|name=$($f.Current.Name)" }
 function Focused-Id { $AE::FocusedElement.Current.AutomationId }
 function Is-On([string] $Id) { (Find-ById $Id).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On' }
@@ -215,6 +229,22 @@ try {
             Add-Result $run '1  the header Settings button opens it' (Visible-Id 'SettingsRoot') ''
             Close-Settings-ByBack
             Add-Result $run '1  Back closes it, back to the folder list' ((Visible-Id 'FolderList') -and -not (Visible-Id 'SettingsRoot')) ''
+
+            # The page itself is the element UI Automation and a screen reader find (measured: an id on its inner grid
+            # never reached the tree). Each open builds a new page and each close removes all of it.
+            $previous = $null
+            foreach ($entry in 'Ctrl+,', 'header', 'Ctrl+,', 'header') {
+                if ($entry -eq 'header') { Open-Settings-ByButton } else { Open-Settings-ByKeys }
+                $root = Element 'SettingsRoot'
+                $wrong = Settings-Wrong
+                $fresh = $null -eq $previous -or -not [System.Windows.Automation.Automation]::Compare($root, $previous)
+                $focus = Until { (Focused-Id) -eq 'SettingsBackButton' }
+                Add-Result $run "1  $entry opens one SettingsRoot named Settings, each control once inside it, a new element, focus on Back" (-not $wrong -and $fresh -and $focus) "wrong=[$wrong] fresh=$fresh focus=$(Focused)"
+                Send-ToNoto @() 0x1B
+                $gone = Until { -not (Settings-Left) }
+                Add-Result $run '1  closing removes the page and every control from UI Automation; the held element is offscreen' ($gone -and $root.Current.IsOffscreen -and (Visible-Id 'FolderList')) "left=[$(Settings-Left)]"
+                $previous = $root
+            }
 
             $row = (Items 'FolderList')[0]; $row.SetFocus(); Start-Sleep -Milliseconds 200
             Send-ToNoto @(0x11) 0x28   # Ctrl+Down: enter the folder
