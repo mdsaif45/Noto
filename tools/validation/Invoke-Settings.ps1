@@ -207,25 +207,28 @@ function Login-Expected {
 }
 # Rebinding (case 14): chords sent and probed by virtual key, Ctrl+Alt+Win held (MOD_CONTROL|MOD_ALT|MOD_WIN).
 $VkSpace = 0x20; $VkNew = 0x78; $VkHeld = 0x79   # Space (the default), F9 (the new chord), F10 (held by another process)
-function Chord-Free([uint32] $Vk) {
-    <# Can this process register Ctrl+Alt+Win+<Vk> right now: true means nothing holds it, Noto included. #>
-    $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5651, 0x400B, $Vk)
+# Parameters here are $Key, never $Vk: PowerShell names are case-insensitive, and a $Vk parameter hides the module's
+# $VK key table inside the function (measured: case 14's chord went out as a bare Space, no Ctrl, Alt or Win).
+function Chord-Free([uint32] $Key) {
+    <# Can this process register Ctrl+Alt+Win+<Key> right now: true means nothing holds it, Noto included. #>
+    $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5651, 0x400B, $Key)
     if ($ok) { [void][NotoVal.Win32]::UnregisterHotKey([IntPtr]::Zero, 0x5651) }
     $ok
 }
-function Send-Chord([IntPtr] $Allowed, [int] $Vk) {
-    <# Ctrl+Alt+Win+<Vk>, only while the window it is meant for is in front. #>
+function Send-Chord([IntPtr] $Allowed, [int] $Key) {
+    <# Ctrl+Alt+Win+<Key>, only while the window it is meant for is in front, and only when the modifiers really are Ctrl, Alt and Win. #>
     if ((Fg) -ne $Allowed) { throw 'refusing to send a chord: the foreground window is not the intended one' }
     $down = @($VK.CTRL, $VK.ALT, $VK.LWIN) | ForEach-Object { [NotoVal.Win32]::Vk($_, $false) }
     $up = @($VK.LWIN, $VK.ALT, $VK.CTRL) | ForEach-Object { [NotoVal.Win32]::Vk($_, $true) }
-    [NotoVal.Win32]::Keys(@($down) + @([NotoVal.Win32]::Vk($Vk, $false), [NotoVal.Win32]::Vk($Vk, $true)) + @($up))
+    if ((@($down | ForEach-Object { $_.wVk }) -join ',') -ne '17,18,91' -or (@($up | ForEach-Object { $_.wVk }) -join ',') -ne '91,18,17') { throw "refusing to send a chord: its modifiers are not Ctrl, Alt and Win ($(@($down | ForEach-Object { $_.wVk }) -join ','))" }
+    [NotoVal.Win32]::Keys(@($down) + @([NotoVal.Win32]::Vk($Key, $false), [NotoVal.Win32]::Vk($Key, $true)) + @($up))
     Start-Sleep -Milliseconds 1000
 }
-function Shown-By([int] $Vk, [string] $Label) {
+function Shown-By([int] $Key, [string] $Label) {
     <# From the target app in front, the chord brings Noto in front: the chord works. #>
     $null = Set-ForegroundByKeyboard $target
     Ctrl "$Label before" $noto.Hwnd
-    Send-Chord $target.Hwnd $Vk
+    Send-Chord $target.Hwnd $Key
     $ok = Until { (Fg) -eq $noto.Hwnd } 5
     if ($ok) { Ctrl "$Label after" $target.Hwnd }
     $ok
@@ -237,10 +240,10 @@ function Recorder-Start {
     Send-ToNoto @() 0x20   # Space selects the recorder
     if (-not (Until { (Recorder-Status) -match '^Recording' })) { throw "the recorder did not start: '$(Recorder-Status)'" }
 }
-function Start-ChordHolder([uint32] $Vk) {
-    <# Another process legitimately holding Ctrl+Alt+Win+<Vk> (helpers/hotkey-holder.ps1). #>
-    $ready = Join-Path $run.Root "holder-$Vk-ready.txt"; $stop = Join-Path $run.Root "holder-$Vk.stop"
-    $null = Start-ViaShell $run -File 'pwsh.exe' -Arguments "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'helpers/hotkey-holder.ps1')`" -ReadyFile `"$ready`" -StopFile `"$stop`" -VirtualKey $Vk" -Marker $ready -Show 0
+function Start-ChordHolder([uint32] $Key) {
+    <# Another process legitimately holding Ctrl+Alt+Win+<Key> (helpers/hotkey-holder.ps1). #>
+    $ready = Join-Path $run.Root "holder-$Key-ready.txt"; $stop = Join-Path $run.Root "holder-$Key.stop"
+    $null = Start-ViaShell $run -File 'pwsh.exe' -Arguments "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'helpers/hotkey-holder.ps1')`" -ReadyFile `"$ready`" -StopFile `"$stop`" -VirtualKey $Key" -Marker $ready -Show 0
     if (-not (Until { Test-Path $ready } 30)) { throw 'the chord holder did not start' }
     if ((Get-Content $ready -Raw) -notmatch 'held=True') { throw "the chord holder could not take the chord: $(Get-Content $ready -Raw)" }
     [pscustomobject]@{ Ready = $ready; Stop = $stop }
@@ -348,7 +351,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)
