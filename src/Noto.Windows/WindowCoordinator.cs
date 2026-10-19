@@ -52,7 +52,8 @@ internal sealed class WindowCoordinator(
     WindowHandle handle,
     DockedWindow docked,
     WorkspacePreferences preferences,
-    Func<bool> saveBeforeHide)
+    Func<bool> saveBeforeHide,
+    ContentMotion motion)
 {
     private int _readyTime = Environment.TickCount;
     private int? _lastTransitionEnd;
@@ -60,6 +61,9 @@ internal sealed class WindowCoordinator(
     private bool _shuttingDown;
     private bool _pinned;
     private readonly ActivationGeneration _activation = new();
+
+    // Slice 1.3: a hide whose content is still leaving. Its state is HideTransition's; WorkspaceToggle reads it.
+    private readonly HideTransition _hide = new();
 
     /// <summary>
     /// Pinned open for this session (parity A9): losing activation no longer
@@ -206,7 +210,8 @@ internal sealed class WindowCoordinator(
                 _lastTransitionEnd,
                 HideOnDeactivation: HideOnDeactivation && !_pinned,
                 GenerationCurrent: generationCurrent,
-                ActivationLanded: activationLanded));
+                ActivationLanded: activationLanded,
+                Hiding: _hide.Hiding));
 
         // The request and what it decided, never content: evidence for the
         // runtime harness, read through the debug-output channel.
@@ -237,16 +242,31 @@ internal sealed class WindowCoordinator(
                     break;
 
                 case WorkspaceAction.Show:
+                    // The content at its starting place before the first frame; it moves only once the window is
+                    // docked, so the whole transition runs inside the docked rectangle.
+                    motion.PrepareEnter(docked.Edge);
                     window.AppWindow.Show(activateWindow: false);
                     BringForward(redock: true);
+                    motion.Enter(docked.Edge, fromCurrent: false);
                     break;
 
                 case WorkspaceAction.Restore:
+                    motion.Settle();
                     BringForward(redock: true);
                     break;
 
                 case WorkspaceAction.Focus:
+                    motion.Settle();
                     BringForward(redock: false);
+                    break;
+
+                case WorkspaceAction.Reverse:
+                    // A show while the content was leaving: it comes back from wherever it is; the window, never
+                    // hidden, is not moved.
+                    _ = _hide.Reverse();
+                    motion.Enter(docked.Edge, fromCurrent: true);
+                    BringForward(redock: false);
+                    Trace.WriteLine("Noto.Motion reversed");
                     break;
             }
         }
@@ -264,14 +284,52 @@ internal sealed class WindowCoordinator(
     /// save keeps the window shown with the editor's notice, so nothing is
     /// hidden that has not been kept.
     /// </summary>
+    /// <remarks>
+    /// Slice 1.3: after the save, the content leaves (unless animations are off) and the window is hidden only when
+    /// it has. A show meanwhile reverses it (<see cref="WorkspaceAction.Reverse"/>).
+    /// </remarks>
     private void Hide()
     {
-        if (!saveBeforeHide())
+        switch (_hide.Begin(saveBeforeHide, motion.Enabled))
         {
-            return;
+            case HideStep.HideNow:
+                window.AppWindow.Hide();
+                break;
+
+            case HideStep.Animate:
+                int generation = _hide.Generation;
+
+                if (!motion.Exit(docked.Edge, () => OnExitCompleted(generation)))
+                {
+                    // Animations were turned off between the two reads: hide as if they had been off.
+                    OnExitCompleted(generation);
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The content has left: hide now, unless this hide was reversed meanwhile, or text typed while it left cannot be
+    /// saved, which brings the content back and keeps the window shown with the editor's notice.
+    /// </summary>
+    private void OnExitCompleted(int generation)
+    {
+        HideStep step = _hide.Complete(generation, saveBeforeHide);
+
+        switch (step)
+        {
+            case HideStep.HideNow:
+                window.AppWindow.Hide();
+                _lastTransitionEnd = Environment.TickCount;
+                break;
+
+            case HideStep.Restore:
+                motion.Enter(docked.Edge, fromCurrent: true);
+                break;
         }
 
-        window.AppWindow.Hide();
+        Trace.WriteLine($"Noto.Motion done kind=exit step={step} hidden={step == HideStep.HideNow}");
     }
 
     /// <summary>

@@ -50,6 +50,18 @@ lost.
 **"Usable" means the global hotkey responds**, not that every window is built.
 Startup is staged deliberately (architecture-overview.md).
 
+**Motion and the budgets (Slice 1.3).** The drawer's content animates for
+250 ms on show and 167 ms on hide, on the compositor. "Sidebar open" is
+measured to the window visible and in front, which the animation does not
+delay; the content finishes arriving after that. A hide becomes invisible
+167 ms later than before; the save before it is unchanged. Expected cost: no
+start-up work (one motion object reads seven resources when the window is
+built), no idle CPU (no timer or subscription), no work per frame in Noto's
+code. To compare before and after, measure warm start, hotkey show and idle
+memory with `Invoke-Performance.ps1` on the build before motion and the build
+with it, and read each transition's start and end from the `Noto.Motion` trace
+(`Invoke-Motion.ps1`).
+
 ### Provisional means provisional
 
 These numbers are informed estimates, not measurements. Issue #11 establishes

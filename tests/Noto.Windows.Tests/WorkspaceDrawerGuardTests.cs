@@ -136,9 +136,13 @@ public sealed partial class WorkspaceDrawerGuardTests
     [Fact]
     public void Every_hide_saves_first()
     {
+        // Slice 1.3: the save is HideTransition's gate (Begin, and Complete for text typed while the content left;
+        // both tested in HideTransitionTests). Every AppWindow.Hide() is in a HideNow branch, which only a save reaches.
         string hide = Body(Coordinator, "Hide");
 
-        Assert.True(Index(hide, "saveBeforeHide()") < Index(hide, "AppWindow.Hide()"));
+        Assert.True(Index(hide, "_hide.Begin(saveBeforeHide, motion.Enabled)") < Index(hide, "AppWindow.Hide()"));
+        Assert.Contains("_hide.Complete(generation, saveBeforeHide)", Body(Coordinator, "OnExitCompleted"), StringComparison.Ordinal);
+        Assert.Equal(Regex.Count(Coordinator, @"AppWindow\.Hide\(\)"), Regex.Count(Coordinator, @"case HideStep\.HideNow:\s*window\.AppWindow\.Hide\(\);"));
     }
 
     [Fact]

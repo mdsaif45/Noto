@@ -127,6 +127,51 @@ public sealed class WorkspaceToggleTests
 
     // ---------------------------------------- putting it away (slice 6)
 
+    // ---------------------------------------------------------------- Slice 1.3: a hide in motion
+
+    [Theory]
+    [InlineData(WorkspaceRequest.Toggle)]
+    [InlineData(WorkspaceRequest.Launch)]
+    public void A_show_while_the_content_is_leaving_reverses_it_instead_of_being_dropped(WorkspaceRequest request)
+    {
+        // The window is still shown (foreground or behind) while it hides; a show is not dropped and not a second hide.
+        foreach (WorkspacePresence presence in new[] { WorkspacePresence.Foreground, WorkspacePresence.Background })
+        {
+            Assert.Equal(WorkspaceAction.Reverse, WorkspaceToggle.Decide(request, presence, After(Ready + 500) with { Hiding = true }));
+        }
+    }
+
+    [Fact]
+    public void Activation_landing_back_while_hiding_reverses_too_and_a_stale_one_does_not()
+    {
+        ActivationContext hiding = After(Ready + 500) with { Hiding = true, GenerationCurrent = true, ActivationLanded = true };
+
+        Assert.Equal(WorkspaceAction.Reverse, WorkspaceToggle.Decide(WorkspaceRequest.Activated, WorkspacePresence.Foreground, hiding));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Activated, WorkspacePresence.Foreground, hiding with { GenerationCurrent = false }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Activated, WorkspacePresence.Foreground, hiding with { ActivationLanded = false }));
+    }
+
+    [Theory]
+    [InlineData(WorkspaceRequest.Dismiss)]
+    [InlineData(WorkspaceRequest.Deactivated)]
+    public void A_hide_while_already_hiding_does_nothing(WorkspaceRequest request)
+    {
+        ActivationContext hiding = After(Ready + 500) with { Hiding = true, GenerationCurrent = true, HideOnDeactivation = true };
+
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(request, WorkspacePresence.Foreground, hiding));
+    }
+
+    [Fact]
+    public void A_reversal_brings_noto_forward_and_still_obeys_closing_resizing_and_stale_requests()
+    {
+        ActivationContext hiding = After(Ready + 500) with { Hiding = true };
+
+        Assert.True(WorkspaceToggle.BringsForward(WorkspaceAction.Reverse));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, WorkspacePresence.Foreground, hiding with { ShuttingDown = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, WorkspacePresence.Foreground, hiding with { Resizing = true }));
+        Assert.Equal(WorkspaceAction.None, WorkspaceToggle.Decide(WorkspaceRequest.Toggle, WorkspacePresence.Foreground, After(Ready + 500, lastTransitionEnd: Ready + 600) with { Hiding = true }));
+    }
+
     private static ActivationContext Ready_(bool hideOnDeactivation, bool current = true, bool landed = true) =>
         After(Ready + 500) with { HideOnDeactivation = hideOnDeactivation, GenerationCurrent = current, ActivationLanded = landed };
 
