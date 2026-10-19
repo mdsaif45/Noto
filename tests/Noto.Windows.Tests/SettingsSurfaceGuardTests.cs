@@ -207,6 +207,32 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Equal(1, Regex.Count(Main, @"internal void OpenSettings\(\)"));
     }
 
+    [Fact]
+    public void Ctrl_comma_inside_the_editor_is_handed_to_the_same_accelerator_and_nothing_else_is()
+    {
+        // Measured: the editor's TextBox marks Ctrl+, handled in its own KeyDown, so with focus in it the root's
+        // accelerator never ran. The editor's accelerator pass, which runs before that KeyDown, hands exactly that
+        // chord to the root's accelerators: no second shortcut, no second way into OpenSettings, no other key taken
+        // from the editor. What it does at run time is Invoke-Settings.ps1 case 1's to prove.
+        Match accelerator = Regex.Match(Main, @"new KeyboardAccelerator \{ Key = (?<key>\(VirtualKey\)0x[0-9A-F]+), Modifiers = (?<modifiers>VirtualKeyModifiers\.\w+) \};\s*openSettings\.Invoked \+= OnSettingsAccelerator;\s*WorkspaceRoot\.KeyboardAccelerators\.Add\(openSettings\);");
+        Assert.True(accelerator.Success, "The root's Settings accelerator is not where it was.");
+
+        string key = Regex.Escape(accelerator.Groups["key"].Value);
+        string modifiers = Regex.Escape(accelerator.Groups["modifiers"].Value);
+        Assert.Matches(
+            $@"^\{{\s*if \(args\.Key == {key} && args\.Modifiers == {modifiers}\)\s*\{{\s*WorkspaceRoot\.TryInvokeKeyboardAccelerator\(args\);\s*\}}\s*\}}$",
+            Body(Main, "OnNoteEditorProcessKeyboardAccelerators"));
+
+        // Wired once, in the constructor, to the editor itself; nothing else redirects or invokes accelerators.
+        string code = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
+        Assert.Matches(@"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= OnNoteEditorProcessKeyboardAccelerators;", Main);
+        Assert.Equal(1, Regex.Count(code, @"\.ProcessKeyboardAccelerators \+="));
+        Assert.Equal(1, Regex.Count(code, @"TryInvokeKeyboardAccelerator\("));
+
+        // Still one way in: the header button's click and the root accelerator's handler; the tray calls it from App.
+        Assert.Equal(2, Regex.Count(Main, @"\bOpenSettings\(\);"));
+    }
+
     private static int Index(string text, string value)
     {
         int index = text.IndexOf(value, StringComparison.Ordinal);

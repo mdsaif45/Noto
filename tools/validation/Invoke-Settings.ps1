@@ -15,7 +15,8 @@
 
     1  entry: Ctrl+, from the folder list opens Settings with focus inside it; Escape (default) goes back, focus
        restored; the header button opens it and Back closes it; from the note list and from the editor it returns to
-       the same surface, the editor's unsaved text intact; through each entry, twice, UI Automation has one
+       the same surface, the editor's unsaved text intact (Ctrl+, from inside the editor's text opens it once, and
+       the editor's typing, selection and Ctrl+W are unchanged); through each entry, twice, UI Automation has one
        SettingsRoot named Settings holding each control once, focus on Back, and after each close none of it, the
        held element offscreen, the next open a new element
     2  keyboard only: Tab visits every control in visual order and cycles back; Space toggles; Alt+Down, Down,
@@ -257,9 +258,28 @@ try {
             $editor = Find-ById 'NoteEditor'
             $text = "unsaved $([guid]::NewGuid().ToString('N').Substring(0, 6))"
             $editor.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($text); $editor.SetFocus(); Start-Sleep -Milliseconds 300
-            Open-Settings-ByKeys; Send-ToNoto @() 0x1B
+            # Inside the TextBox, which consumes Ctrl+, itself (measured): the editor hands it to the root's accelerator.
+            $inEditor = (Focused-Id) -eq 'NoteEditor'
+            $m = Trace-Mark; Send-ToNoto @(0x11) 0xBC
+            $shown = Until { Visible-Id 'SettingsRoot' }
+            $opens = ([regex]::Matches((Trace-Since $m), 'Noto\.Settings opened')).Count
+            $wrong = Settings-Wrong
+            $focus = Until { (Focused-Id) -eq 'SettingsBackButton' }
+            Add-Result $run '1  Ctrl+, with focus in the editor opens Settings once: one page, focus on Back' ($inEditor -and $shown -and $opens -eq 1 -and -not $wrong -and $focus -and -not (Visible-Id 'NoteEditor')) "inEditor=$inEditor opens=$opens wrong=[$wrong] focus=$(Focused); trace: $(Trace-Since $m)"
+            if ($shown) { Send-ToNoto @() 0x1B }
             $kept = (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
             Add-Result $run '1  from the editor, Settings returns to the editor, text intact, focus in it' ((Until { (Focused-Id) -eq 'NoteEditor' }) -and $kept -eq $text) "focus=$(Focused) intact=$($kept -eq $text)"
+
+            # The editor's own keys are its own: typing, a Shift selection replaced by typing, Backspace.
+            Send-ToNoto @(0x11) 0x23; Send-ToNoto @() 0x41; Send-ToNoto @() 0x42; Send-ToNoto @(0x10) 0x25; Send-ToNoto @() 0x43; Send-ToNoto @() 0x08
+            $typed = (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+            Add-Result $run '1  typing, selecting and deleting in the editor are unchanged' ($typed -eq "${text}a" -and -not (Visible-Id 'SettingsRoot')) "value=[$typed]"
+
+            # Ctrl+W from the editor still hides Noto, by the root's accelerator.
+            $m = Trace-Mark; Send-ToNoto @(0x11) 0x57
+            $hid = Until { -not (Ev).WsVisible }
+            Add-Result $run '1  Ctrl+W with focus in the editor still hides Noto' ($hid -and (Trace-Since $m) -match 'Noto\.Workspace request=Dismiss action=Hide' -and (Trace-Since $m) -notmatch 'Noto\.Settings opened') "trace: $(Trace-Since $m)"
+            Noto-Front '1 after Ctrl+W'
             To-FolderList   # leaving the editor saves the text
         }
 
