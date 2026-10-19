@@ -97,6 +97,17 @@ function Settings-Wrong {
     if ($root.Current.Name -ne 'Settings') { return "SettingsRoot named '$($root.Current.Name)'" }
     @($SettingsControls | Where-Object { (Count-In $window $_) -ne 1 -or (Count-In $root $_) -ne 1 } | ForEach-Object { "$_ not once inside" }) -join ', '
 }
+function Settings-Focusable {
+    <# Every control on the open page a keyboard can reach, by id, as UI Automation reports it: what the Tab sequence must name. #>
+    $condition = [System.Windows.Automation.PropertyCondition]::new($AE::IsKeyboardFocusableProperty, $true)
+    @((Element 'SettingsRoot').FindAll($Scope::Descendants, $condition) | ForEach-Object { $_.Current.AutomationId } | Where-Object { $_ } | Sort-Object -Unique)
+}
+function Explorer-Windows([string] $Uri, [switch] $Close) {
+    <# The Explorer windows on $Uri, counted (and closed) by a child process, never through this process's COM (helpers/explorer-windows.ps1). #>
+    $out = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'helpers/explorer-windows.ps1') -Uri $Uri @(if ($Close) { '-Close' })
+    if ($LASTEXITCODE -ne 0) { throw "explorer-windows.ps1 failed: $out" }
+    [int]@($out)[-1]
+}
 function Settings-Left { @(@('SettingsRoot') + $SettingsControls | Where-Object { (Count-In $AE::FromHandle($noto.Hwnd) $_) -ne 0 }) -join ', ' }
 function Focused { $f = $AE::FocusedElement; "$($f.Current.ControlType.ProgrammaticName)|id=$($f.Current.AutomationId)|name=$($f.Current.Name)" }
 function Focused-Id { $AE::FocusedElement.Current.AutomationId }
@@ -292,6 +303,13 @@ try {
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
                 @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+            # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
+            # being added here fails by name instead of as a sequence that merely ends early.
+            $page = @($expected | Where-Object { $_ -notin 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)
+            $reachable = Settings-Focusable
+            $unnamed = @($reachable | Where-Object { $_ -notin $page }); $absent = @($page | Where-Object { $_ -notin $reachable })
+            Add-Result $run '2  the expected Tab sequence names every keyboard-reachable control on the page' ($unnamed.Count -eq 0 -and $absent.Count -eq 0) "not in the sequence=[$($unnamed -join ',')] not reachable=[$($absent -join ',')]"
+            # One press per step: the last returns to the first control, which is the cycle.
             $seen = @(Focused-Id)
             for ($i = 1; $i -lt $expected.Count; $i++) { Send-ToNoto @() 0x09; $seen += Focused-Id }
             Add-Result $run '2  Tab visits every control in visual order and cycles back' ((($seen -join ',') -eq ($expected -join ','))) "seen=$($seen -join ','); expected=$($expected -join ',')"
@@ -454,13 +472,15 @@ try {
             Noto-Front '10'
             if (-not (Visible-Id 'SettingsRoot')) { Open-Settings-ByButton }
             $uri = ([Uri]::new($data)).AbsoluteUri.TrimEnd('/')
-            $shell = New-Object -ComObject Shell.Application
-            $existing = @($shell.Windows() | Where-Object { "$($_.LocationURL)".TrimEnd('/') -eq $uri }).Count
+            $existing = Explorer-Windows $uri
             (Find-ById 'RevealDataFolderButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-            $opened = Until { @($shell.Windows() | Where-Object { "$($_.LocationURL)".TrimEnd('/') -eq $uri }).Count -gt $existing } 10
+            $opened = Until { (Explorer-Windows $uri) -gt $existing } 15
             Add-Result $run '10 Open in Explorer opens the isolated data root' $opened "uri=$uri"
-            @($shell.Windows() | Where-Object { "$($_.LocationURL)".TrimEnd('/') -eq $uri }) | ForEach-Object { $_.Quit() }
+            $null = Explorer-Windows $uri -Close
             Start-Sleep -Milliseconds 800
+            # Explorer was automated from another process, so this one can still launch through the shell (case 11 restarts).
+            $launch = try { [bool][NotoVal.ShellLaunch]::DesktopViewDispatch() } catch { $false }
+            Add-Result $run '10 the shell launch path still works after Explorer was automated' $launch ''
             Noto-Front '10 back'
         }
 
