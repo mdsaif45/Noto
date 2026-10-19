@@ -8,8 +8,8 @@
         implementation detail it never has to know about.
 
         Order does NOT matter here, and must not be made to. Each dictionary
-        merges whatever it consumes itself (FolderRow pulls in Brushes and
-        Tokens; Brushes pulls in Colors), because a resource reference inside a
+        merges whatever it consumes itself (FolderRow pulls in Colors, Tokens
+        and the ListRow template), because a resource reference inside a
         merged dictionary cannot see a sibling merged beside it in the parent.
         Listing the leaves in dependency order would only disguise that.
     -->
@@ -17,10 +17,10 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Colors.xaml" />
-        <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Brushes.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/FolderRow.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/NoteRow.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/FolderPane.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/Buttons.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

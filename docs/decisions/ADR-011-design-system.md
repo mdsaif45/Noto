@@ -80,8 +80,11 @@ this does *not* work, however carefully ordered:
 ```
 
 Each dictionary must merge its own dependencies instead: `FolderRow.xaml` merges
-Brushes and Tokens, `Brushes.xaml` merges Colors. The entry point then lists the
-leaves in any order, because order carries no meaning.
+Colors, Tokens and the `ListRow` template it uses. The entry point then lists the
+leaves in any order, because order carries no meaning. `DesignSystemGuardTests`
+holds every dictionary to this: each reference must resolve in its own merge
+tree, a `StaticResource` must be defined before it is used, and a reference
+inside a theme dictionary must resolve in that theme.
 
 **`StaticResource` and `ThemeResource` fail differently, and that is the trap.**
 `StaticResource` is resolved as the dictionary is parsed, so a sibling reference
@@ -109,7 +112,7 @@ wired correctly — only that no deferred reference has been rendered yet.
 | **Color — note palette** | `note1`…`note6` — the six user-selectable note colours, defined **as palette keys** so they adapt to theme. The data model stores the key, never a hex value. Enumerated below. |
 | **Borders** | Subtle, Default, Strong, Focus |
 | **Elevation** | Flat, Raised, Floating, Overlay |
-| **Motion** | Instant, Fast (~120ms), Normal (~200ms), Slow (~320ms), plus easing curves |
+| **Motion** | WinUI's own: Faster 83 ms, Fast 167 ms, Normal 250 ms, curve `0,0,0,1` (amended 2026-10-19; see *Amendments*) |
 | **Interaction states** | Rest, Hover, Pressed, Selected, Disabled, **Focused** |
 
 ### The note palette
@@ -162,10 +165,23 @@ is a bug, not a fallback.
 High contrast is a first-class theme, not an afterthought, because parity
 includes accessibility and retrofitting it is expensive.
 
+**Brushes are declared per theme** (amended 2026-10-19). Each theme dictionary
+holds its colours *and* the brushes views bind to, each brush naming a colour
+from the same dictionary, as WinUI declares its own. A brush declared outside
+the theme dictionaries is one object shared by every theme, so it cannot follow
+a theme set on the window's content at run time, which is how Noto's own
+Light/Dark choice is applied (the application's theme can only be set at
+start-up).
+
 ### Focus is mandatory
 
 Principle 7 makes Noto keyboard-first. That requires a **visible focus state on
 every interactive component**, defined as a token and applied uniformly.
+
+The ring is **two-tone**, as Windows 11 draws it (amended 2026-10-19): a 2px
+outer stroke (`BorderFocus`) and a 1px inner stroke of the opposite tone
+(`BorderFocusInner`), so it is visible on every fill, the accent included. It
+shows for keyboard focus only: a click leaves no ring behind.
 
 A keyboard-first product where the user cannot see what has focus is not
 keyboard-first. This is called out explicitly because it is the most commonly
@@ -194,7 +210,9 @@ replaces macOS mechanisms with Windows ones:
   SideNotes (macOS)          Noto (Windows)
   ───────────────────        ──────────────────────────
   menu bar item              system tray
-  macOS vibrancy             Mica
+  macOS vibrancy             Mica (decided 2026-10-19: solid surfaces for now;
+                             Mica only after a measured run shows it within
+                             the memory and CPU budgets)
   macOS system font          Windows system font
   iCloud                     local-first (ADR-002)
   AppleScript                URI protocol, CLI, PowerShell
@@ -253,8 +271,12 @@ against. This ADR is what makes that decision coherent.
 
 ### Testing requirements
 
-- [ ] A check that flags hardcoded colour and spacing literals in XAML
-- [ ] Every semantic token resolves in light, dark and high contrast
+- [x] A check that flags hardcoded colour and spacing literals in XAML
+      (`DesignSystemGuardTests`, 2026-10-19)
+- [ ] Every semantic token resolves in light, dark and high contrast. The static
+      half is held by the build: every theme has the same keys, and every
+      reference resolves in its own merge tree (`DesignSystemGuardTests`). The
+      rendered half needs the running application
 - [ ] Component gallery page rendering every component in every state, in each
       theme — the cheapest possible visual regression surface
 - [ ] Keyboard focus is visible on every interactive component
@@ -262,6 +284,30 @@ against. This ADR is what makes that decision coherent.
       that merely resolves has not been tested. A `ControlTemplate`'s resource
       references are evaluated only when a control actually materialises, so a
       list with no items proves nothing.
+
+### Amendments
+
+**2026-10-19 — Slice 1, interaction foundation.**
+
+- **Brushes per theme.** `Brushes.xaml` is folded into `Colors.xaml`, so the
+  workspace's theme can be set on its content at run time (*Theming*).
+- **Two-tone focus**, keyboard only (*Focus is mandatory*).
+- **Accent.** The selection indicator is the user's system accent:
+  `SystemAccentColorDark1` on light, `SystemAccentColorLight2` on dark, as
+  Windows' own lists draw it. In high contrast it is HighlightText. No Noto
+  accent colour exists.
+- **High contrast.** Hover, press and selection fill with Highlight, as WinUI's
+  own list does. The text on that fill is always HighlightText
+  (`InteractionText`), and selection is told apart by the pill and the weight.
+- **Text inputs** take their hover, focus and disabled colours from WinUI's
+  `TextControl*` keys, mapped to Noto's roles in each theme. This is
+  lightweight styling, so there is no copied template. A focused input keeps
+  Windows' accent underline.
+- **Motion** uses WinUI's durations, not the approximate values first written
+  here. The tokens arrive with the first surface that animates (Slice 1, motion
+  step), by rule 4.
+- **One list-row template** (`ListRow.xaml`), shared by FolderRow and NoteRow:
+  two copies of the same template were a second copy of a component (rule 5).
 
 ---
 

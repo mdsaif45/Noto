@@ -9,11 +9,15 @@
         Themes/*.xaml, one complete set each. ADR-011: "a missing dark value is
         a bug, not a fallback."
 
-        Only what M2-1's folder pane consumes is defined. ADR-011 rule 4: "New
-        tokens are added when a surface needs one — not speculatively." The
-        remaining groups (Display/Heading/Code, Card/Floating/Overlay/Dialog,
-        accent, semantic colour, elevation, motion, note1…note6) have no M2-1
-        consumer and are deliberately absent.
+        Only what a surface consumes is defined. ADR-011 rule 4: "New tokens
+        are added when a surface needs one — not speculatively." Slice 1's
+        interaction foundation added the icon, compact control, selection
+        indicator and inner focus tokens below, each with a consumer in the
+        same change. Heading and BodyStrong type, the 24 spacing step and the
+        Medium radius arrive with the settings surface that uses them; motion
+        with the motion step. The remaining groups (Display/Code,
+        Card/Floating/Overlay/Dialog, semantic colour, elevation, note1…note6)
+        have no consumer and are deliberately absent.
     -->
 
     <!--
@@ -83,8 +87,31 @@
     <!--
         BORDER WIDTHS — the focus ring is 2px because a 1px ring is easy to
         lose against a selected background, and "focus is mandatory" (ADR-011).
+        Inside it, a 1px inner stroke of the opposite tone: the two-tone ring
+        Windows 11 draws, visible on any fill, the accent included.
     -->
     <Thickness x:Key="BorderThicknessSubtle">1</Thickness>
     <Thickness x:Key="BorderThicknessFocus">2</Thickness>
+    <Thickness x:Key="BorderThicknessFocusInner">1</Thickness>
+
+    <!--
+        ICONS AND COMPACT CONTROLS — a 16px glyph in a 32px square: the size
+        Windows 11 uses for its own icon buttons, and a pointer target large
+        enough at 100% scaling. The glyph font is WinUI's own symbol font
+        (Segoe Fluent Icons, Segoe MDL2 Assets on Windows 10), not a token.
+    -->
+    <x:Double x:Key="IconSize">16</x:Double>
+    <x:Double x:Key="ControlHeightCompact">32</x:Double>
+
+    <!--
+        SELECTION INDICATOR — the pill on the leading edge of a selected row,
+        3 by 16 with rounded ends, as Windows' own lists draw it. Selection is
+        then shown by the pill, the fill AND the weight, so it never depends on
+        colour alone, and in high contrast, where hover and selection share the
+        Highlight fill, the pill is what tells them apart.
+    -->
+    <x:Double x:Key="SelectionIndicatorWidth">3</x:Double>
+    <x:Double x:Key="SelectionIndicatorHeight">16</x:Double>
+    <CornerRadius x:Key="RadiusIndicator">1.5</CornerRadius>
 
 </ResourceDictionary>
