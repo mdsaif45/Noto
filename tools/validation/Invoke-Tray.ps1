@@ -35,6 +35,7 @@
        has exactly one icon
     15 startup: the icon clicked the moment it appears never hides Noto
     16 a killed Noto: what remains in the overflow is recorded (measured, not asserted)
+    18 menu Settings... while hidden (Slice 1) -> shown in front with Settings open; Escape returns to the folder list
     17 (-ExplorerRestart, run last) a real Explorer restart -> the icon comes back once; Noto's pid, presence and pin
        are unchanged; no workspace request is made
   Throughout: while the workspace is hidden, no Noto window may be the foreground window or hold keyboard focus.
@@ -586,6 +587,21 @@ try {
             Add-Result $run '15 the icon clicked as soon as it appears -> Noto shown, never hidden by it' ($e.WsVisible -and (Trace-Of $p.Pid) -notmatch 'Noto\.Tray invoked action=Hide') "$(Show-State $e); trace: $(Trace-Of $p.Pid)"
             $script:noto | Add-Member -NotePropertyName Start -NotePropertyValue ((Get-Process -Id $p.Pid).StartTime.ToFileTime()) -Force
             $script:noto | Add-Member -NotePropertyName DataRoot -NotePropertyValue $data -Force
+        }
+
+        if (Want 18) {
+            Close-Flyout
+            Hide-Noto; Target-Front
+            Ctrl '18 settings-hidden before' $noto.Hwnd
+            $m = Trace-Mark; $null = Open-Menu; Choose 'E'   # S&ettings...: its access key, S being Show's
+            $e = Wait-For { param($e) $e.IsForeground }
+            $open = $false; $deadline = (Get-Date).AddSeconds(5); while ((Get-Date) -lt $deadline -and -not $open) { $open = Visible-Id 'SettingsRoot'; Start-Sleep -Milliseconds 100 }
+            Add-Result $run '18 menu Settings... while hidden -> shown in front with Settings open' ((Is-Front $e) -and $open -and (Trace-Since $m) -match 'Noto\.Tray command=Settings' -and (Trace-Since $m) -match 'request=Launch action=Show' -and (Trace-Since $m) -match 'Noto\.Settings opened') "$(Show-State $e); trace: $(Trace-Since $m)"
+            Ctrl '18 settings-hidden after' $target.Hwnd
+            Send-ToNoto @() 0x1B
+            $back = $false; $deadline = (Get-Date).AddSeconds(5); while ((Get-Date) -lt $deadline -and -not $back) { $back = (Visible-Id 'FolderList') -and -not (Visible-Id 'SettingsRoot'); Start-Sleep -Milliseconds 100 }
+            Add-Result $run '18 Escape leaves Settings for the folder list' $back ''
+            Close-Flyout
         }
 
         if (Want 16) {

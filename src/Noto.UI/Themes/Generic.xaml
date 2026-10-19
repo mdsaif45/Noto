@@ -21,6 +21,7 @@
         <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/NoteRow.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/FolderPane.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/Buttons.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/Settings.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

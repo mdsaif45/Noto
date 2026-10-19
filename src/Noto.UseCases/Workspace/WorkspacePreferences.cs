@@ -5,7 +5,8 @@ using Noto.Core.Workspace;
 namespace Noto.UseCases.Workspace;
 
 /// <summary>
-/// The docked workspace's remembered edge and width (#16 slice 3).
+/// The workspace's preferences: its edge and width (#16 slice 3), and every
+/// setting the settings surface changes (Slice 1).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -13,6 +14,14 @@ namespace Noto.UseCases.Workspace;
 /// (<see cref="ISettingsStore"/>), so this reads and writes the store
 /// directly rather than dispatching a command (ADR-010's commands are for
 /// notes, folders and their kin).
+/// </para>
+/// <para>
+/// <b>The one way the settings surface writes.</b> Each setter writes one key
+/// through the store, which raises <see cref="ISettingsStore.SettingChanged"/>;
+/// whatever owns that preference at run time (the window, the dock, the
+/// hotkey) applies it from there. A setter returns whether the value was
+/// kept: a value the key refuses, or a storage failure, returns
+/// <see langword="false"/> and changes nothing.
 /// </para>
 /// <para>
 /// <b>Widths here are what the user chose, not what fits.</b> Clamping to a
@@ -30,18 +39,53 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
 {
     private readonly ISettingsStore _settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-    /// <summary>The edge to dock to. Read at launch; restart-only in this slice.</summary>
+    /// <summary>The edge to dock to (parity A2, J3).</summary>
     public WorkspaceEdge Edge => _settings.Read(SettingKeys.WorkspaceEdge);
 
-    /// <summary>What Escape does (parity A12). Read at launch; restart-only.</summary>
+    /// <summary>What Escape does (parity A12).</summary>
     public EscapeBehavior Escape => _settings.Read(SettingKeys.WorkspaceEscape);
 
     /// <summary>
     /// Whether the shown workspace hides when activation moves to another
-    /// application (parity A13, "close on outside click"). Read at launch;
-    /// restart-only.
+    /// application (parity A13, "close on outside click").
     /// </summary>
     public bool HideOnDeactivation => _settings.Read(SettingKeys.WorkspaceHideOnDeactivation);
+
+    /// <summary>Whether one click opens a folder or a note (parity J7, C4).</summary>
+    public bool SingleClickOpen => _settings.Read(SettingKeys.WorkspaceSingleClickOpen);
+
+    /// <summary>The workspace's theme (parity J21).</summary>
+    public WorkspaceTheme Theme => _settings.Read(SettingKeys.AppearanceTheme);
+
+    /// <summary>Whether the global show/hide hotkey is registered (parity A7).</summary>
+    public bool HotkeyEnabled => _settings.Read(SettingKeys.HotkeyEnabled);
+
+    /// <summary>The show/hide chord, as text (parity G1). Changing it is not offered here yet.</summary>
+    public string HotkeyBinding => _settings.Read(SettingKeys.HotkeyBinding);
+
+    /// <summary>Sets the edge to dock to.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetEdge(WorkspaceEdge edge) => TryWrite(SettingKeys.WorkspaceEdge, edge);
+
+    /// <summary>Sets what Escape does.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetEscape(EscapeBehavior escape) => TryWrite(SettingKeys.WorkspaceEscape, escape);
+
+    /// <summary>Sets whether the workspace hides when another application is activated.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetHideOnDeactivation(bool hide) => TryWrite(SettingKeys.WorkspaceHideOnDeactivation, hide);
+
+    /// <summary>Sets whether one click opens a folder or a note.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetSingleClickOpen(bool singleClick) => TryWrite(SettingKeys.WorkspaceSingleClickOpen, singleClick);
+
+    /// <summary>Sets the workspace's theme.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetTheme(WorkspaceTheme theme) => TryWrite(SettingKeys.AppearanceTheme, theme);
+
+    /// <summary>Sets whether the global show/hide hotkey is registered.</summary>
+    /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
+    public bool SetHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.HotkeyEnabled, enabled);
 
     /// <summary>
     /// The width to open with on one display, before it is fitted to that
@@ -104,7 +148,7 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
         return ownSaved && globalSaved;
     }
 
-    private bool TryWrite(SettingKey<double> key, double value)
+    private bool TryWrite<T>(SettingKey<T> key, T value)
     {
         try
         {

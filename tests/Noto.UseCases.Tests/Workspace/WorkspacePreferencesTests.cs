@@ -7,7 +7,8 @@ using Xunit;
 namespace Noto.UseCases.Tests.Workspace;
 
 /// <summary>
-/// The docked workspace's edge and width resolution (#16 slice 3).
+/// The docked workspace's edge and width resolution (#16 slice 3), and the
+/// typed reads and writes behind the settings surface (Slice 1).
 /// </summary>
 /// <remarks>
 /// Against an in-memory <see cref="ISettingsStore"/> that honours the store's
@@ -249,6 +250,114 @@ public sealed class WorkspacePreferencesTests
                 break;
         }
     }
+
+    // ------------------------------------- the settings surface (Slice 1)
+
+    [Fact]
+    public void With_nothing_stored_the_settings_surface_shows_the_documented_defaults()
+    {
+        var preferences = new WorkspacePreferences(new FakeSettings());
+
+        Assert.Equal(WorkspaceTheme.System, preferences.Theme);
+        Assert.False(preferences.SingleClickOpen);
+        Assert.True(preferences.HideOnDeactivation);
+        Assert.True(preferences.HotkeyEnabled);
+        Assert.Equal("Ctrl+Alt+Win+Space", preferences.HotkeyBinding);
+        Assert.Equal(WorkspaceEdge.Right, preferences.Edge);
+        Assert.Equal(EscapeBehavior.LeaveFolderOrHide, preferences.Escape);
+    }
+
+    public static TheoryData<string, string, object> Setters => new()
+    {
+        { "SetEdge", SettingKeys.WorkspaceEdge.Name, WorkspaceEdge.Left },
+        { "SetEscape", SettingKeys.WorkspaceEscape.Name, EscapeBehavior.None },
+        { "SetHideOnDeactivation", SettingKeys.WorkspaceHideOnDeactivation.Name, false },
+        { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
+        { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
+        { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
+    };
+
+    [Theory]
+    [MemberData(nameof(Setters))]
+    public void Each_setter_writes_its_own_key_once_announces_it_and_reads_back(string setter, string key, object value)
+    {
+        var store = new FakeSettings();
+        var announced = new List<string>();
+        store.SettingChanged += (_, e) => announced.Add(e.Key.Name);
+        var preferences = new WorkspacePreferences(store);
+
+        Assert.True(Set(preferences, setter, value));
+
+        // One write, of that key only, announced once: the owner is told exactly what changed.
+        Assert.Equal([key], store.Writes);
+        Assert.Equal([key], announced);
+        Assert.Equal(value, store.Raw(key));
+        Assert.Equal(value, Get(new WorkspacePreferences(store), setter));
+    }
+
+    [Theory]
+    [InlineData("SetEdge", 7)]
+    [InlineData("SetEscape", 9)]
+    [InlineData("SetTheme", 5)]
+    public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
+    {
+        var store = new FakeSettings();
+        var preferences = new WorkspacePreferences(store);
+        object value = setter switch
+        {
+            "SetEdge" => (WorkspaceEdge)undefined,
+            "SetEscape" => (EscapeBehavior)undefined,
+            _ => (WorkspaceTheme)undefined,
+        };
+
+        Assert.False(Set(preferences, setter, value));
+        Assert.Empty(store.Writes);
+    }
+
+    [Theory]
+    [MemberData(nameof(Setters))]
+    public void A_storage_failure_is_reported_as_not_kept_and_never_thrown(string setter, string key, object value)
+    {
+        var store = new FakeSettings { FailWritesTo = key };
+
+        Assert.False(Set(new WorkspacePreferences(store), setter, value));
+        Assert.Null(store.Raw(key));
+    }
+
+    [Fact]
+    public void A_stored_theme_or_click_setting_of_the_wrong_kind_reads_as_its_default()
+    {
+        var store = new FakeSettings();
+        store.Seed(SettingKeys.AppearanceTheme.Name, "Purple");
+        store.Seed(SettingKeys.WorkspaceSingleClickOpen.Name, "yes");
+
+        var preferences = new WorkspacePreferences(store);
+
+        Assert.Equal(WorkspaceTheme.System, preferences.Theme);
+        Assert.False(preferences.SingleClickOpen);
+    }
+
+    private static bool Set(WorkspacePreferences preferences, string setter, object value) => setter switch
+    {
+        "SetEdge" => preferences.SetEdge((WorkspaceEdge)value),
+        "SetEscape" => preferences.SetEscape((EscapeBehavior)value),
+        "SetHideOnDeactivation" => preferences.SetHideOnDeactivation((bool)value),
+        "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
+        "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
+        "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
+        _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
+    };
+
+    private static object Get(WorkspacePreferences preferences, string setter) => setter switch
+    {
+        "SetEdge" => preferences.Edge,
+        "SetEscape" => preferences.Escape,
+        "SetHideOnDeactivation" => preferences.HideOnDeactivation,
+        "SetSingleClickOpen" => preferences.SingleClickOpen,
+        "SetTheme" => preferences.Theme,
+        "SetHotkeyEnabled" => preferences.HotkeyEnabled,
+        _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
+    };
 
     /// <summary>
     /// The store's contract in memory: present means right type and valid.

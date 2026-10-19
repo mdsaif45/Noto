@@ -21,6 +21,11 @@ public sealed class DesignSystemGuardTests
     private static readonly string MainWindowPath = SourcePath("src", "Noto.Windows", "MainWindow.xaml");
     private static readonly string AppPath = SourcePath("src", "Noto.Windows", "App.xaml.cs");
 
+    // Every view: the window and the surfaces it hosts (Slice 1 adds Settings). App.xaml only merges the system.
+    private static readonly string[] Views = Directory.EnumerateFiles(Path.GetDirectoryName(MainWindowPath)!, "*.xaml")
+        .Where(f => !f.EndsWith("App.xaml", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
     // The OS supplies these to every dictionary: high contrast's palette and the user's accent.
     private static readonly Regex SystemKey = new(@"^System(Color\w+Color|AccentColor((Light|Dark)[123])?)$");
 
@@ -176,6 +181,24 @@ public sealed class DesignSystemGuardTests
         Assert.Equal("#DCE9F7", ThemeDictionary("Dark").Elements().Single(e => KeyOf(e) == "InteractionSelectedTextColor").Value.Trim());
     }
 
+    [Fact]
+    public void In_high_contrast_a_native_control_with_no_hover_text_key_never_fills_with_highlight()
+    {
+        // A Highlight fill must carry HighlightText. The ComboBox's face and the switch's track have no key for the
+        // text or knob drawn over them on hover, so in high contrast they show hover as a Highlight border instead.
+        var hc = ThemeDictionary("HighContrast");
+        string[] highlightFills = ["InteractionHoverBrush", "InteractionPressedBrush", "InteractionSelectedBrush"];
+        string[] noTextKey =
+        [
+            "ComboBoxBackgroundPointerOver", "ComboBoxBackgroundPressed", "ComboBoxBackgroundDisabled",
+            "ToggleSwitchFillOffPointerOver", "ToggleSwitchFillOffPressed", "ToggleSwitchFillOffDisabled",
+        ];
+
+        var filled = noTextKey.Where(k => highlightFills.Contains((string?)hc.Elements().Single(e => KeyOf(e) == k).Attribute("ResourceKey"))).ToList();
+
+        Assert.True(filled.Count == 0, "Highlight fill under window text: " + string.Join(", ", filled));
+    }
+
     // ---------------------------------------------------------------- resolution
 
     [Fact]
@@ -224,7 +247,8 @@ public sealed class DesignSystemGuardTests
         // Views consume Noto's semantic tokens and components, never WinUI's or a primitive (ADR-011), and every one it
         // names exists in the dictionary the application merges.
         var available = Closure(Path.Join(DesignSystem, "Themes", "Generic.xaml")).SelectMany(f => KeysOf(Load(f))).ToHashSet();
-        var missing = References(Load(MainWindowPath)).Select(r => r.Key).Where(k => !available.Contains(k)).Distinct().ToList();
+        Assert.Contains(Views, v => v.EndsWith("SettingsPage.xaml", StringComparison.Ordinal));
+        var missing = Views.SelectMany(v => References(Load(v))).Select(r => r.Key).Where(k => !available.Contains(k)).Distinct().ToList();
 
         Assert.True(missing.Count == 0, "Not in the design system: " + string.Join(", ", missing));
     }
@@ -243,7 +267,7 @@ public sealed class DesignSystemGuardTests
             "MaxWidth", "MaxHeight", "Spacing", "RowSpacing", "ColumnSpacing", "LineHeight", "Opacity", "Duration",
         ];
 
-        var files = Directory.EnumerateFiles(Path.Join(DesignSystem, "Styles"), "*.xaml").Append(MainWindowPath);
+        var files = Directory.EnumerateFiles(Path.Join(DesignSystem, "Styles"), "*.xaml").Concat(Views);
         var literals = new List<string>();
 
         foreach (string file in files)
@@ -371,9 +395,9 @@ public sealed class DesignSystemGuardTests
     {
         // A screen reader announces each control by its name; tab order is the document order, which is the visual
         // order, so nothing may reorder it.
-        var window = Load(MainWindowPath);
+        var window = new XElement("Views", Views.Select(v => Load(v).Root));
         var unnamed = window.Descendants()
-            .Where(e => e.Name.LocalName is "Button" or "ToggleButton" or "TextBox" or "ListView")
+            .Where(e => e.Name.LocalName is "Button" or "ToggleButton" or "TextBox" or "ListView" or "ToggleSwitch" or "ComboBox")
             .Where(e => e.Attribute("AutomationProperties.Name") is null)
             .Select(e => (string?)e.Attribute(X + "Name") ?? e.Name.LocalName)
             .ToList();
@@ -392,7 +416,10 @@ public sealed class DesignSystemGuardTests
         // The runtime harness finds elements by their x:Name (their UI Automation id). Renaming one breaks every
         // script that uses it, silently, until the next desktop run.
         string[] contract = ["FolderList", "NoteList", "NoteEditor", "EditorNoticeText", "FolderNameInput", "BackButton", "EditorBackButton", "PinToggle"];
-        var names = Load(MainWindowPath).Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
+        var names = Views.SelectMany(v => Load(v).Descendants())
+            .SelectMany(e => new[] { (string?)e.Attribute(X + "Name"), (string?)e.Attribute("AutomationProperties.AutomationId") })
+            .OfType<string>()
+            .ToHashSet();
         string scripts = string.Join('\n', Directory.EnumerateFiles(Path.Join(Path.GetDirectoryName(Path.GetDirectoryName(DesignSystem))!, "tools", "validation"), "*.ps1").Select(File.ReadAllText));
 
         var lookedUp = Regex.Matches(scripts, @"(?<![\w-])(?:Find-ById|Items|Visible-Id|FirstItem|Element)\s+(?:\$[\w.]+\s+)?['""](\w+)['""]")

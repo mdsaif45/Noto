@@ -21,6 +21,9 @@ public enum TrayCommand
 
     /// <summary>Start Noto with Windows: flips the sign-in registration (#94, ADR-015).</summary>
     StartWithWindows,
+
+    /// <summary>Show Noto with its settings open (Slice 1). Appended: the ids above are the harness's.</summary>
+    Settings,
 }
 
 /// <summary>One row of the menu.</summary>

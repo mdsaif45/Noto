@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -141,6 +142,12 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         AppWindow.Closing += OnAppWindowClosing;
+
+        // Ctrl+, opens Settings from every surface (Slice 1), wherever focus is. On the root, as Ctrl+W is. Added
+        // here because XAML cannot name the comma key (VK_OEM_COMMA has no VirtualKey member).
+        var openSettings = new KeyboardAccelerator { Key = (VirtualKey)0xBC, Modifiers = VirtualKeyModifiers.Control };
+        openSettings.Invoked += OnSettingsAccelerator;
+        WorkspaceRoot.KeyboardAccelerators.Add(openSettings);
 
         // Loading is a real state with a real transition, entered before any
         // query runs and left only when one finishes.
@@ -865,7 +872,22 @@ public sealed partial class MainWindow : Window
     private void OnNoteListDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         e.Handled = true;
-        OpenSelectedNote();
+
+        // With single-click opening, the first click has already opened the note; the second is not a new request.
+        if (!SingleClickOpen)
+        {
+            OpenSelectedNote();
+        }
+    }
+
+    /// <summary>One click on a note opens it, when single-click opening is on (parity J7).</summary>
+    private void OnNoteListTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (SingleClickOpen && IsOnRow<NoteListItem>(e))
+        {
+            e.Handled = true;
+            OpenSelectedNote();
+        }
     }
 
     /// <summary>
@@ -1188,10 +1210,126 @@ public sealed partial class MainWindow : Window
     private const string CloseAgainToDiscard = " Close the window again to discard the changes and exit.";
 
     /// <summary>
-    /// What Escape does (#16 slice 6; parity A12). Set once by the
-    /// composition root from the stored setting; the default is SideNotes'.
+    /// What Escape does (#16 slice 6; parity A12). Set by the composition root
+    /// from the stored setting, at launch and whenever it changes; the default
+    /// is SideNotes'.
     /// </summary>
     public EscapeBehavior Escape { get; set; } = EscapeBehavior.LeaveFolderOrHide;
+
+    /// <summary>
+    /// Whether one click opens a folder or a note (parity J7, C4). Set by the
+    /// composition root from the stored setting, at launch and whenever it
+    /// changes. Pointer only: the keyboard paths are the same either way.
+    /// </summary>
+    public bool SingleClickOpen { get; set; }
+
+    /// <summary>What the settings surface may change. Set once by the composition root; without it, Settings does not open.</summary>
+    internal SettingsContext? Settings { get; set; }
+
+    // The surface Settings was opened from, and what had focus there: where leaving Settings goes back to.
+    private UIElement? _settingsReturn;
+    private Control? _settingsReturnFocus;
+
+    // Why the show/hide shortcut is not active, kept so a Settings opened later shows it too.
+    private string? _hotkeyMessage;
+
+    /// <summary>
+    /// Opens Settings from whichever surface is showing (Slice 1): the header button, <c>Ctrl+,</c>, or the tray.
+    /// </summary>
+    /// <remarks>
+    /// The surface it replaces keeps its state (an open note keeps its text, unsaved or not, and hiding still saves
+    /// it), and leaving Settings returns to it with focus where it was. Already open: focus moves into it.
+    /// </remarks>
+    internal void OpenSettings()
+    {
+        if (Settings is null)
+        {
+            return;
+        }
+
+        if (SettingsSurface is { Visibility: Visibility.Visible } open)
+        {
+            open.FocusFirst();
+            return;
+        }
+
+        UIElement from = EditorRoot.Visibility == Visibility.Visible ? EditorRoot
+            : NoteRoot.Visibility == Visibility.Visible ? NoteRoot
+            : PaneRoot;
+
+        _settingsReturn = from;
+        _settingsReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;
+
+        // Realises the deferred surface: created now, released again in CloseSettings.
+        if (WorkspaceRoot.FindName(nameof(SettingsSurface)) is not SettingsPage page)
+        {
+            return;
+        }
+
+        page.Show(Settings, _hotkeyMessage);
+        from.Visibility = Visibility.Collapsed;
+        page.Visibility = Visibility.Visible;
+
+        // After layout: an element made visible this frame cannot take focus until it has been measured.
+        _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, page.FocusFirst);
+        Trace.WriteLine("Noto.Settings opened");
+    }
+
+    /// <summary>Leaves Settings for the surface it was opened from, with focus back where it was.</summary>
+    private void CloseSettings()
+    {
+        if (SettingsSurface is not { } page)
+        {
+            return;
+        }
+
+        UIElement back = _settingsReturn ?? PaneRoot;
+        back.Visibility = Visibility.Visible;
+        page.Visibility = Visibility.Collapsed;
+
+        // Released: nothing of the settings tree stays alive while it is not on screen.
+        Microsoft.UI.Xaml.Markup.XamlMarkupHelper.UnloadObject(page);
+
+        Control restore = _settingsReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous
+            ? previous
+            : back == EditorRoot ? NoteEditor
+            : back == NoteRoot ? NoteList
+            : FolderList;
+
+        _settingsReturn = null;
+        _settingsReturnFocus = null;
+        _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => restore.Focus(FocusState.Programmatic));
+        Trace.WriteLine("Noto.Settings closed");
+    }
+
+    /// <summary>
+    /// Why the show/hide shortcut is not active, from the hotkey's owner; <see langword="null"/> when it is, or is off
+    /// by choice. Shown in Settings now, if open, and whenever it is opened.
+    /// </summary>
+    internal void ShowHotkeyMessage(string? message)
+    {
+        _hotkeyMessage = message;
+        SettingsSurface?.ShowHotkeyMessage(message);
+    }
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings();
+
+    private void OnSettingsAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        OpenSettings();
+    }
+
+    private void OnSettingsBackRequested(object? sender, EventArgs e) => CloseSettings();
+
+    /// <summary>Escape in Settings follows the stored behaviour: by default it goes back (Slice 1, ADR-007).</summary>
+    private void OnSettingsKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            OnEscape(WorkspaceSurface.Settings, e);
+        }
+    }
 
     /// <summary>
     /// The user asked to put the workspace away — <c>Ctrl+W</c>, or Escape
@@ -1234,6 +1372,11 @@ public sealed partial class MainWindow : Window
             case EscapeAction.Hide:
                 e.Handled = true;
                 DismissRequested?.Invoke(this, EventArgs.Empty);
+                break;
+
+            case EscapeAction.LeaveSettings:
+                e.Handled = true;
+                CloseSettings();
                 break;
         }
     }
@@ -1531,8 +1674,30 @@ public sealed partial class MainWindow : Window
     private void OnFolderListDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         e.Handled = true;
-        EnterSelectedFolder();
+
+        // With single-click opening, the first click has already entered the folder, and the second lands on the note
+        // list that replaced it: acting on it would open a note nobody chose.
+        if (!SingleClickOpen)
+        {
+            EnterSelectedFolder();
+        }
     }
+
+    /// <summary>One click on a folder enters it, when single-click opening is on (parity J7, C4).</summary>
+    private void OnFolderListTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (SingleClickOpen && IsOnRow<FolderListItem>(e))
+        {
+            e.Handled = true;
+            EnterSelectedFolder();
+        }
+    }
+
+    /// <summary>
+    /// Whether a click landed on a row, not on the list's empty space: a click there must not open whatever happens
+    /// to be selected.
+    /// </summary>
+    private static bool IsOnRow<TItem>(TappedRoutedEventArgs e) => (e.OriginalSource as FrameworkElement)?.DataContext is TItem;
 
     /// <summary>
     /// Esc on the note surface (parity C5, A12): by default it leaves the folder.

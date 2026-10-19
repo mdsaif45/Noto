@@ -1,0 +1,240 @@
+<UserControl
+    x:Class="Noto.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        The settings surface (Slice 1, parity J table): the workspace's fourth
+        surface, inside the drawer, opened from the header, Ctrl+, or the tray.
+        One scrolling page, five sections; no navigation view, no second window.
+
+        Every control is WinUI's own (ToggleSwitch, ComboBox, Button), styled by
+        the design system, so each has Noto's states in Light, Dark and High
+        Contrast and the same focus ring. Every visual value is a token. Tab
+        order is document order, which is the visual order.
+
+        Created only when Settings is first opened, and released when it is
+        left: the tree costs nothing while it is not on screen.
+    -->
+
+    <Grid x:Name="SettingsLayout"
+          AutomationProperties.AutomationId="SettingsRoot"
+          Background="{ThemeResource SurfaceSidebarBrush}"
+          Padding="{StaticResource PanePadding}"
+          RowSpacing="{StaticResource SpaceS}">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="{StaticResource SpaceXS}">
+            <Button
+                x:Name="SettingsBackButton"
+                Style="{StaticResource HeaderButtonStyle}"
+                Click="OnBackClick"
+                ToolTipService.ToolTip="Back"
+                AutomationProperties.Name="Back">
+                <FontIcon Glyph="&#xE72B;" FontSize="{StaticResource IconSize}" />
+            </Button>
+            <TextBlock
+                Text="Settings"
+                Style="{StaticResource SettingsTitleStyle}"
+                AutomationProperties.HeadingLevel="Level1" />
+        </StackPanel>
+
+        <!-- A setting that could not be saved. The text is the name; announced when it appears. -->
+        <TextBlock
+            x:Name="SettingsNoticeText"
+            Grid.Row="1"
+            Style="{StaticResource FolderPaneNoticeStyle}"
+            Visibility="Collapsed"
+            AutomationProperties.LiveSetting="Assertive" />
+
+        <ScrollViewer x:Name="SettingsScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="{StaticResource SpaceXL}">
+
+                <!-- GENERAL -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="General" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Start Noto with Windows" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="LaunchAtLoginNote"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed" />
+                                    <Button
+                                        x:Name="OpenStartupAppsButton"
+                                        Style="{StaticResource SubtleButtonStyle}"
+                                        Content="Open Startup apps"
+                                        Visibility="Collapsed"
+                                        Click="OnOpenStartupAppsClick"
+                                        AutomationProperties.Name="Open Startup apps in Windows Settings" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="LaunchAtLoginSetting"
+                                    Grid.Column="1"
+                                    Toggled="OnLaunchAtLoginToggled"
+                                    AutomationProperties.Name="Start Noto with Windows"
+                                    AutomationProperties.HelpText="Starts Noto hidden when you sign in." />
+                            </Grid>
+
+                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Hide when I click elsewhere" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Unless Keep Noto open is on." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="HideOnDeactivationSetting"
+                                    Grid.Column="1"
+                                    Toggled="OnHideOnDeactivationToggled"
+                                    AutomationProperties.Name="Hide when I click elsewhere"
+                                    AutomationProperties.HelpText="Unless Keep Noto open is on." />
+                            </Grid>
+
+                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Open with a single click" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Folders and notes. Otherwise, double-click." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="SingleClickSetting"
+                                    Grid.Column="1"
+                                    Toggled="OnSingleClickToggled"
+                                    AutomationProperties.Name="Open with a single click"
+                                    AutomationProperties.HelpText="Folders and notes. Otherwise, double-click." />
+                            </Grid>
+
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- SIDEBAR -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Sidebar" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <StackPanel Spacing="{StaticResource SpaceXS}">
+                                <TextBlock Text="Side" Style="{StaticResource SettingLabelStyle}" />
+                                <ComboBox
+                                    x:Name="SideSetting"
+                                    HorizontalAlignment="Stretch"
+                                    SelectionChanged="OnSideChanged"
+                                    AutomationProperties.Name="Side">
+                                    <ComboBoxItem Content="Right" Tag="Right" />
+                                    <ComboBoxItem Content="Left" Tag="Left" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Spacing="{StaticResource SpaceXS}">
+                                <TextBlock Text="Escape key" Style="{StaticResource SettingLabelStyle}" />
+                                <ComboBox
+                                    x:Name="EscapeSetting"
+                                    HorizontalAlignment="Stretch"
+                                    SelectionChanged="OnEscapeChanged"
+                                    AutomationProperties.Name="Escape key">
+                                    <ComboBoxItem Content="Go back, then hide" Tag="LeaveFolderOrHide" />
+                                    <ComboBoxItem Content="Go back only" Tag="LeaveFolder" />
+                                    <ComboBoxItem Content="Hide Noto" Tag="Hide" />
+                                    <ComboBoxItem Content="Do nothing" Tag="None" />
+                                </ComboBox>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- APPEARANCE -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Appearance" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceXS}">
+                            <TextBlock Text="Theme" Style="{StaticResource SettingLabelStyle}" />
+                            <TextBlock Text="High contrast, when on in Windows, is used instead." Style="{StaticResource SettingDescriptionStyle}" />
+                            <ComboBox
+                                x:Name="ThemeSetting"
+                                HorizontalAlignment="Stretch"
+                                SelectionChanged="OnThemeChanged"
+                                AutomationProperties.Name="Theme"
+                                AutomationProperties.HelpText="High contrast, when on in Windows, is used instead.">
+                                <ComboBoxItem Content="Use Windows setting" Tag="System" />
+                                <ComboBoxItem Content="Light" Tag="Light" />
+                                <ComboBoxItem Content="Dark" Tag="Dark" />
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- SHORTCUTS -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Shortcuts" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceXS}">
+                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Show and hide Noto" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock x:Name="HotkeyChordText" Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="HotkeyEnabledSetting"
+                                    Grid.Column="1"
+                                    Toggled="OnHotkeyEnabledToggled"
+                                    AutomationProperties.Name="Show and hide Noto with a shortcut" />
+                            </Grid>
+                            <!-- Why the shortcut is not active. The text is the name; announced when it appears. -->
+                            <TextBlock
+                                x:Name="HotkeyMessage"
+                                Style="{StaticResource FolderPaneNoticeStyle}"
+                                Visibility="Collapsed"
+                                AutomationProperties.LiveSetting="Assertive" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- DATA -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Data" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceS}">
+                            <StackPanel Spacing="{StaticResource SpaceXS}">
+                                <TextBlock Text="Data folder" Style="{StaticResource SettingLabelStyle}" />
+                                <TextBlock Text="Where Noto keeps your notes and settings." Style="{StaticResource SettingDescriptionStyle}" />
+                            </StackPanel>
+                            <Button
+                                x:Name="RevealDataFolderButton"
+                                HorizontalAlignment="Left"
+                                Style="{StaticResource FolderPaneButtonStyle}"
+                                Content="Open in Explorer"
+                                Click="OnRevealDataFolderClick"
+                                AutomationProperties.Name="Open the data folder in Explorer" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+
+</UserControl>

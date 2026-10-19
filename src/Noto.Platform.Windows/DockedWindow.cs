@@ -129,7 +129,29 @@ public sealed unsafe class DockedWindow
     public event EventHandler<AppActivationEventArgs>? AppActivationChanged;
 
     /// <summary>The edge the window is kept docked to.</summary>
-    public DockEdge Edge { get; }
+    /// <remarks>
+    /// Read on every message the dock handles, so a change from
+    /// <see cref="ChangeEdge"/> governs the next hit test, sizing step and
+    /// guarded move at once. Only the UI thread, which owns the window, reads
+    /// or changes it.
+    /// </remarks>
+    public DockEdge Edge { get; private set; }
+
+    /// <summary>
+    /// Docks to <paramref name="edge"/> from now on (Slice 1: the side, changed
+    /// in settings). The window is not moved here: the caller re-docks it,
+    /// with <see cref="MoveOwn"/>, as a show does.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="edge"/> is not a dock edge.</exception>
+    public void ChangeEdge(DockEdge edge)
+    {
+        if (edge is not (DockEdge.Left or DockEdge.Right))
+        {
+            throw new ArgumentOutOfRangeException(nameof(edge), edge, "Not a dock edge.");
+        }
+
+        Edge = edge;
+    }
 
     /// <summary>Whether the subclass is still installed. Cleared on <c>WM_NCDESTROY</c>.</summary>
     internal bool IsAttached { get; private set; }

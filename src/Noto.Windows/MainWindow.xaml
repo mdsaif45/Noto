@@ -37,26 +37,40 @@
         </Grid.RowDefinitions>
 
         <!--
-            The workspace header, shared by every surface. Pin (parity A9)
-            keeps the workspace open while another application has the
-            keyboard. A toggle reachable by Tab, with no global chord: G6, the
-            global pin shortcut, is unbound by default. Session-only.
+            The workspace header, shared by every surface. Settings (Slice 1)
+            opens the settings surface, as Ctrl+, and the tray's Settings… do.
+            Pin (parity A9) keeps the workspace open while another application
+            has the keyboard. A toggle reachable by Tab, with no global chord:
+            G6, the global pin shortcut, is unbound by default. Session-only.
         -->
         <Grid
             x:Name="WorkspaceHeader"
             Grid.Row="0"
             Background="{ThemeResource SurfaceSidebarBrush}"
             Padding="{StaticResource PanePadding}">
-            <ToggleButton
-                x:Name="PinToggle"
+            <StackPanel
                 HorizontalAlignment="Right"
-                Style="{StaticResource HeaderToggleButtonStyle}"
-                Checked="OnPinToggled"
-                Unchecked="OnPinToggled"
-                ToolTipService.ToolTip="Keep Noto open"
-                AutomationProperties.Name="Keep Noto open">
-                <FontIcon Glyph="&#xE718;" FontSize="{StaticResource IconSize}" />
-            </ToggleButton>
+                Orientation="Horizontal"
+                Spacing="{StaticResource SpaceXS}">
+                <Button
+                    x:Name="SettingsButton"
+                    Style="{StaticResource HeaderButtonStyle}"
+                    Click="OnSettingsClick"
+                    ToolTipService.ToolTip="Settings (Ctrl+,)"
+                    AutomationProperties.Name="Settings"
+                    AutomationProperties.AcceleratorKey="Control+Comma">
+                    <FontIcon Glyph="&#xE713;" FontSize="{StaticResource IconSize}" />
+                </Button>
+                <ToggleButton
+                    x:Name="PinToggle"
+                    Style="{StaticResource HeaderToggleButtonStyle}"
+                    Checked="OnPinToggled"
+                    Unchecked="OnPinToggled"
+                    ToolTipService.ToolTip="Keep Noto open"
+                    AutomationProperties.Name="Keep Noto open">
+                    <FontIcon Glyph="&#xE718;" FontSize="{StaticResource IconSize}" />
+                </ToggleButton>
+            </StackPanel>
         </Grid>
 
         <Grid x:Name="PaneRoot"
@@ -177,6 +191,7 @@
                 SelectionMode="Single"
                 SelectionChanged="OnFolderSelectionChanged"
                 KeyDown="OnFolderListKeyDown"
+                Tapped="OnFolderListTapped"
                 DoubleTapped="OnFolderListDoubleTapped"
                 PreviewKeyDown="OnFolderListPreviewKeyDown"
                 AutomationProperties.Name="Folders">
@@ -298,6 +313,7 @@
                 SelectionMode="Single"
                 SelectionChanged="OnNoteSelectionChanged"
                 PreviewKeyDown="OnNoteListPreviewKeyDown"
+                Tapped="OnNoteListTapped"
                 DoubleTapped="OnNoteListDoubleTapped"
                 AutomationProperties.Name="Notes">
                 <ListView.ItemTemplate>
@@ -398,6 +414,19 @@
                 TextChanged="OnNoteEditorTextChanged"
                 AutomationProperties.Name="Note content" />
         </Grid>
+
+        <!--
+            Settings (Slice 1): the fourth surface, opened from any of the
+            others and left back to the one it was opened from. Not created
+            until Settings is first opened, and released again when it is
+            left (x:Load), so it costs nothing while it is not on screen.
+        -->
+        <local:SettingsPage
+            x:Name="SettingsSurface"
+            x:Load="False"
+            Grid.Row="1"
+            KeyDown="OnSettingsKeyDown"
+            BackRequested="OnSettingsBackRequested" />
     </Grid>
 
 </Window>

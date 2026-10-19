@@ -1,6 +1,7 @@
 using System.Globalization;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
+using Noto.Core.Workspace;
 using Noto.Infrastructure.Storage;
 using Xunit;
 
@@ -530,16 +531,86 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.True(File.Exists(_context.DatabasePath));
     }
 
+    // ------------------------------------------- Slice 1's settings, on SQLite
+
+    [Fact]
+    public void The_theme_and_single_click_settings_default_and_round_trip_through_a_restart()
+    {
+        var store = _context.LoadedStore();
+
+        Assert.Equal(WorkspaceTheme.System, store.Read(SettingKeys.AppearanceTheme));
+        Assert.False(store.Read(SettingKeys.WorkspaceSingleClickOpen));
+
+        Assert.True(store.Write(SettingKeys.AppearanceTheme, WorkspaceTheme.Dark));
+        Assert.True(store.Write(SettingKeys.WorkspaceSingleClickOpen, true));
+
+        // A fresh load is a restart: the values come back from the database, by name.
+        var restarted = _context.LoadedStore();
+        Assert.Equal(WorkspaceTheme.Dark, restarted.Read(SettingKeys.AppearanceTheme));
+        Assert.True(restarted.Read(SettingKeys.WorkspaceSingleClickOpen));
+        Assert.Equal("Dark", _context.RawValueOf("appearance.theme"));
+    }
+
+    [Fact]
+    public void Every_settings_surface_key_survives_a_restart()
+    {
+        var store = _context.LoadedStore();
+
+        Assert.True(store.Write(SettingKeys.WorkspaceEdge, WorkspaceEdge.Left));
+        Assert.True(store.Write(SettingKeys.WorkspaceEscape, EscapeBehavior.None));
+        Assert.True(store.Write(SettingKeys.WorkspaceHideOnDeactivation, false));
+        Assert.True(store.Write(SettingKeys.HotkeyEnabled, false));
+
+        var restarted = _context.LoadedStore();
+        Assert.Equal(WorkspaceEdge.Left, restarted.Read(SettingKeys.WorkspaceEdge));
+        Assert.Equal(EscapeBehavior.None, restarted.Read(SettingKeys.WorkspaceEscape));
+        Assert.False(restarted.Read(SettingKeys.WorkspaceHideOnDeactivation));
+        Assert.False(restarted.Read(SettingKeys.HotkeyEnabled));
+    }
+
+    [Fact]
+    public void A_value_that_is_not_a_member_is_refused_by_the_real_store_and_never_reaches_the_table()
+    {
+        // Before Slice 1 an undefined member was written as its number ("7") and read back as the default: a write
+        // that claimed success and kept nothing. Each enum key now refuses it.
+        var store = _context.LoadedStore();
+
+        Assert.False(store.Write(SettingKeys.WorkspaceEdge, (WorkspaceEdge)7));
+        Assert.False(store.Write(SettingKeys.WorkspaceEscape, (EscapeBehavior)9));
+        Assert.False(store.Write(SettingKeys.AppearanceTheme, (WorkspaceTheme)5));
+
+        Assert.Null(_context.RawValueOf("workspace.edge"));
+        Assert.Null(_context.RawValueOf("workspace.escape"));
+        Assert.Null(_context.RawValueOf("appearance.theme"));
+    }
+
+    [Theory]
+    [InlineData("appearance.theme", "Purple")]
+    [InlineData("appearance.theme", "dark")]
+    [InlineData("appearance.theme", "9")]
+    [InlineData("workspace.single-click-open", "perhaps")]
+    public void A_corrupt_slice_1_row_reads_as_its_default_and_is_left_alone(string key, string stored)
+    {
+        _context.SeedRaw(key, stored);
+
+        var store = _context.LoadedStore();
+
+        Assert.Equal(WorkspaceTheme.System, store.Read(SettingKeys.AppearanceTheme));
+        Assert.False(store.Read(SettingKeys.WorkspaceSingleClickOpen));
+        Assert.Equal(stored, _context.RawValueOf(key));
+    }
+
     [Fact]
     public void The_registry_lists_exactly_the_declared_settings()
     {
         // Guards the scope boundary: #9's two hotkey keys, #16 slice 3's edge
         // and global width, and slice 6's Escape behaviour and hiding on
-        // deactivation. Hover and tray toggles belong to later #16 slices and
-        // must not appear here by accident. The per-display width is a family
-        // (SettingKeys.Families), not a key.
+        // deactivation, and Slice 1's single-click opening and theme (the
+        // only two keys its approved design adds). Hover and tray toggles
+        // belong to later #16 slices and must not appear here by accident.
+        // The per-display width is a family (SettingKeys.Families), not a key.
         Assert.Equal(
-            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation"],
+            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme"],
             SettingKeys.All.Select(k => k.Name));
     }
 }

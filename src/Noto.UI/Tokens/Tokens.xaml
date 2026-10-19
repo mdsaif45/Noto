@@ -13,8 +13,9 @@
         are added when a surface needs one — not speculatively." Slice 1's
         interaction foundation added the icon, compact control, selection
         indicator and inner focus tokens below, each with a consumer in the
-        same change. Heading and BodyStrong type, the 24 spacing step and the
-        Medium radius arrive with the settings surface that uses them; motion
+        same change. The settings surface added Heading type, the 24 spacing
+        step, the Medium radius and the group padding; BodyStrong is Body at
+        the emphasis weight, so it needs no size of its own. Motion arrives
         with the motion step. The remaining groups (Display/Code,
         Card/Floating/Overlay/Dialog, semantic colour, elevation, note1…note6)
         have no consumer and are deliberately absent.
@@ -29,6 +30,7 @@
     <x:Double x:Key="SpaceS">8</x:Double>
     <x:Double x:Key="SpaceM">12</x:Double>
     <x:Double x:Key="SpaceL">16</x:Double>
+    <x:Double x:Key="SpaceXL">24</x:Double>
 
     <!--
         The padding of a list row, named for the role rather than for one
@@ -58,7 +60,13 @@
     <Thickness x:Key="InputPadding">12,8,12,8</Thickness>
 
     <!--
-        TYPOGRAPHY — Body and Caption only.
+        The inside of a group of settings: one step of the scale on every side,
+        so a group's rows line up with each other and away from its border.
+    -->
+    <Thickness x:Key="GroupPadding">12</Thickness>
+
+    <!--
+        TYPOGRAPHY — Body, Caption and Heading.
 
         14px body matches the Windows shell default, so Noto reads as a native
         application rather than a web page; 12px caption is the smallest size
@@ -75,14 +83,23 @@
     <x:Double x:Key="FontSizeCaption">12</x:Double>
     <x:Double x:Key="LineHeightCaption">16</x:Double>
 
+    <!--
+        Heading: 20/28, Windows 11's subtitle size, for a page title (the
+        settings surface). One step above body is enough in a 360 DIP column.
+    -->
+    <x:Double x:Key="FontSizeHeading">20</x:Double>
+    <x:Double x:Key="LineHeightHeading">28</x:Double>
+
     <FontWeight x:Key="FontWeightRegular">Normal</FontWeight>
     <FontWeight x:Key="FontWeightEmphasis">SemiBold</FontWeight>
 
     <!--
-        RADIUS — one role. ADR-011 names four (Small, Medium, Large, Pill);
-        the folder pane needs only the smallest, so only it is declared.
+        RADIUS — ADR-011 names four (Small, Medium, Large, Pill); only the two
+        a surface uses are declared.
     -->
     <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
+    <!-- A group of settings: a container, a step rounder than the controls inside it. -->
+    <CornerRadius x:Key="RadiusMedium">8</CornerRadius>
 
     <!--
         BORDER WIDTHS — the focus ring is 2px because a 1px ring is easy to

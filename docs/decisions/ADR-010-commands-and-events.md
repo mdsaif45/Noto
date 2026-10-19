@@ -69,7 +69,13 @@ A command is a record describing an intent. A handler executes it.
 Rules:
 
 - **every mutation goes through a command.** No entry point calls a repository
-  to change state.
+  to change state. "Mutation" here means the product's data: notes, folders,
+  tags and their lifecycle (create, change, move, order, delete, restore). It
+  does not cover application preferences, which are typed configuration
+  written through `ISettingsStore` (#9) by `WorkspacePreferences`: they are not
+  entities, have no repository, and announce their own changes. That is the
+  whole exception; anything that changes a note, folder or tag is a command.
+  *(Clarified 2026-10-19, Slice 1.)*
 - **queries do not.** Reading is a direct service or repository call. Wrapping
   reads in command ceremony buys nothing.
 - **dispatch is explicit** — a registry mapping command type to handler, wired
