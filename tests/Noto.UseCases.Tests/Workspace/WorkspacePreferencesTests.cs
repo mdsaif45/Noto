@@ -275,6 +275,7 @@ public sealed class WorkspacePreferencesTests
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
+        { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
     };
 
     [Theory]
@@ -345,6 +346,7 @@ public sealed class WorkspacePreferencesTests
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
+        "SetHotkeyBinding" => preferences.SetHotkeyBinding(Noto.Core.Activation.HotkeyChord.Parse((string)value)),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 
@@ -356,6 +358,7 @@ public sealed class WorkspacePreferencesTests
         "SetSingleClickOpen" => preferences.SingleClickOpen,
         "SetTheme" => preferences.Theme,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
+        "SetHotkeyBinding" => preferences.HotkeyBinding,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 

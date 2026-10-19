@@ -37,6 +37,11 @@
     11 restart: every changed setting survives a restart and is in effect from the first frame
     12 corrupt rows: an unreadable theme and click setting read as their defaults and are left as they were
     13 the isolated database holds no setting key Noto does not declare
+    14 rebinding (Slice 1.2b): the current chord works; the recorder starts and suspends it (a press is ignored, the
+       page stays); a new chord registers, the old is released, and it is stored; the new chord shows Noto; a chord
+       another process legitimately holds is refused, announced, nothing changes, and the current chord still works;
+       Escape and losing activation cancel and give the chord back; a restart keeps the new binding; the default is
+       restored through the recorder
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -200,6 +205,47 @@ function Login-Expected {
     if ($approved['Noto'] -match '^Binary\|02[0-9A-F]{22}$') { return 'On' }
     'WindowsDisabled'
 }
+# Rebinding (case 14): chords sent and probed by virtual key, Ctrl+Alt+Win held (MOD_CONTROL|MOD_ALT|MOD_WIN).
+$VkSpace = 0x20; $VkNew = 0x78; $VkHeld = 0x79   # Space (the default), F9 (the new chord), F10 (held by another process)
+function Chord-Free([uint32] $Vk) {
+    <# Can this process register Ctrl+Alt+Win+<Vk> right now: true means nothing holds it, Noto included. #>
+    $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5651, 0x400B, $Vk)
+    if ($ok) { [void][NotoVal.Win32]::UnregisterHotKey([IntPtr]::Zero, 0x5651) }
+    $ok
+}
+function Send-Chord([IntPtr] $Allowed, [int] $Vk) {
+    <# Ctrl+Alt+Win+<Vk>, only while the window it is meant for is in front. #>
+    if ((Fg) -ne $Allowed) { throw 'refusing to send a chord: the foreground window is not the intended one' }
+    $down = @($VK.CTRL, $VK.ALT, $VK.LWIN) | ForEach-Object { [NotoVal.Win32]::Vk($_, $false) }
+    $up = @($VK.LWIN, $VK.ALT, $VK.CTRL) | ForEach-Object { [NotoVal.Win32]::Vk($_, $true) }
+    [NotoVal.Win32]::Keys(@($down) + @([NotoVal.Win32]::Vk($Vk, $false), [NotoVal.Win32]::Vk($Vk, $true)) + @($up))
+    Start-Sleep -Milliseconds 1000
+}
+function Shown-By([int] $Vk, [string] $Label) {
+    <# From the target app in front, the chord brings Noto in front: the chord works. #>
+    $null = Set-ForegroundByKeyboard $target
+    Ctrl "$Label before" $noto.Hwnd
+    Send-Chord $target.Hwnd $Vk
+    $ok = Until { (Fg) -eq $noto.Hwnd } 5
+    if ($ok) { Ctrl "$Label after" $target.Hwnd }
+    $ok
+}
+function Recorder-Status { $e = Element 'HotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
+function Recorder-Start {
+    if (-not (Visible-Id 'SettingsRoot')) { Open-Settings-ByButton }
+    (Find-ById 'HotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
+    Send-ToNoto @() 0x20   # Space selects the recorder
+    if (-not (Until { (Recorder-Status) -match '^Recording' })) { throw "the recorder did not start: '$(Recorder-Status)'" }
+}
+function Start-ChordHolder([uint32] $Vk) {
+    <# Another process legitimately holding Ctrl+Alt+Win+<Vk> (helpers/hotkey-holder.ps1). #>
+    $ready = Join-Path $run.Root "holder-$Vk-ready.txt"; $stop = Join-Path $run.Root "holder-$Vk.stop"
+    $null = Start-ViaShell $run -File 'pwsh.exe' -Arguments "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $PSScriptRoot 'helpers/hotkey-holder.ps1')`" -ReadyFile `"$ready`" -StopFile `"$stop`" -VirtualKey $Vk" -Marker $ready -Show 0
+    if (-not (Until { Test-Path $ready } 30)) { throw 'the chord holder did not start' }
+    if ((Get-Content $ready -Raw) -notmatch 'held=True') { throw "the chord holder could not take the chord: $(Get-Content $ready -Raw)" }
+    [pscustomobject]@{ Ready = $ready; Stop = $stop }
+}
+
 function Restart-Noto {
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly before a restart' }
     $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
@@ -516,6 +562,51 @@ try {
             Choose 'ThemeSetting' 'Light'; Choose 'ThemeSetting' 'Use Windows setting'
             Set-Toggle 'SingleClickSetting' $true; Set-Toggle 'SingleClickSetting' $false
             Add-Result $run '12 choosing a value replaces the unreadable row' ((Stored 'appearance.theme') -eq 'System' -and (Stored 'workspace.single-click-open') -eq 'False') ''
+        }
+
+        # ------------------------------------------------ 14 rebinding
+        if (Want 14) {
+            if (-not (Chord-Free $VkNew) -or -not (Chord-Free $VkHeld)) { Add-Invalid $run '14 Ctrl+Alt+Win+F9 or F10 is already held on this machine'; return }
+            Noto-Front '14'
+            Add-Result $run '14 the current chord works' ((Shown-By $VkSpace '14 current') -and -not (Chord-Free $VkSpace)) ''
+
+            Open-Settings-ByButton
+            $m = Trace-Mark; Recorder-Start
+            Send-ActivationChord -AllowedForeground $noto.Hwnd
+            $ignored = (Wait-Trace $m 'Noto\.Hotkey pressed ignored=recording') -and (Ev).WsVisible -and (Fg) -eq $noto.Hwnd -and (Recorder-Status) -match '^Recording'
+            Add-Result $run '14 recording suspends the current chord: a press is ignored, Settings stays' ($ignored -and (Trace-Since $m) -match 'Noto\.Hotkey suspended=True') "status='$(Recorder-Status)'; trace: $(Trace-Since $m)"
+
+            Send-ToNoto @($VK.CTRL, $VK.ALT, $VK.LWIN) $VkNew
+            $rebound = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Rebound .*to=Ctrl\+Alt\+Win\+F9 registered=True'
+            Add-Result $run '14 a new chord registers, the old is released, the new is stored and shown' ($rebound -and (Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F9' -and -not (Chord-Free $VkNew) -and (Chord-Free $VkSpace) -and (Recorder-Status) -match 'now Ctrl\+Alt\+Win\+F9' -and (Trace-Since $m) -match 'suspended=False') "status='$(Recorder-Status)'; trace: $(Trace-Since $m)"
+            Add-Result $run '14 the new chord shows Noto' (Shown-By $VkNew '14 new') ''
+
+            $holder = Start-ChordHolder $VkHeld
+            try {
+                $m = Trace-Mark; Recorder-Start
+                Send-ToNoto @($VK.CTRL, $VK.ALT, $VK.LWIN) $VkHeld
+                $refused = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Refused refusal=Conflict .*registered=True'
+                Add-Result $run '14 a chord another process holds is refused and announced; nothing changes' ($refused -and (Recorder-Status) -match 'in use by another app' -and (Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F9' -and -not (Chord-Free $VkNew)) "status='$(Recorder-Status)'; trace: $(Trace-Since $m)"
+                Add-Result $run '14 after the refusal the current chord still works' (Shown-By $VkNew '14 after refusal') ''
+            }
+            finally { $null = Stop-HotkeyHolder $holder }
+
+            Noto-Front '14 cancel'
+            $m = Trace-Mark; Recorder-Start
+            Send-ToNoto @() 0x1B
+            Add-Result $run '14 Escape cancels and gives the chord back' ((Recorder-Status) -match '^Cancelled' -and (Wait-Trace $m 'suspended=False') -and (Shown-By $VkNew '14 after Escape')) "trace: $(Trace-Since $m)"
+
+            Noto-Front '14 focus'
+            $m = Trace-Mark; Recorder-Start
+            $null = Set-ForegroundByKeyboard $target
+            Add-Result $run '14 losing activation cancels and gives the chord back' ((Wait-Trace $m 'suspended=False') -and (Shown-By $VkNew '14 after focus loss')) "trace: $(Trace-Since $m)"
+
+            Restart-Noto
+            Add-Result $run '14 a restart keeps the new binding' ((Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F9' -and -not (Chord-Free $VkNew) -and (Shown-By $VkNew '14 after restart')) ''
+
+            $m = Trace-Mark; Recorder-Start
+            Send-ToNoto @($VK.CTRL, $VK.ALT, $VK.LWIN) $VkSpace
+            Add-Result $run '14 the default is restored through the recorder' ((Wait-Trace $m 'outcome=Rebound .*to=Ctrl\+Alt\+Win\+SPACE registered=True') -and -not (Chord-Free $VkSpace) -and (Chord-Free $VkNew)) "trace: $(Trace-Since $m)"
         }
 
         # ------------------------------------------------ 13 integrity

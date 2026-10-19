@@ -1,3 +1,4 @@
+using Noto.Core.Activation;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -60,7 +61,7 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether the global show/hide hotkey is registered (parity A7).</summary>
     public bool HotkeyEnabled => _settings.Read(SettingKeys.HotkeyEnabled);
 
-    /// <summary>The show/hide chord, as text (parity G1). Changing it is not offered here yet.</summary>
+    /// <summary>The show/hide chord, as text (parity G1).</summary>
     public string HotkeyBinding => _settings.Read(SettingKeys.HotkeyBinding);
 
     /// <summary>Sets the edge to dock to.</summary>
@@ -82,6 +83,13 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the workspace's theme.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTheme(WorkspaceTheme theme) => TryWrite(SettingKeys.AppearanceTheme, theme);
+
+    /// <summary>
+    /// Stores the show/hide chord (parity G50). Only the rebind calls this, and only once the chord is registered: the
+    /// stored chord is the one that works.
+    /// </summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetHotkeyBinding(HotkeyChord chord) => TryWrite(SettingKeys.HotkeyBinding, chord.Canonical);
 
     /// <summary>Sets whether the global show/hide hotkey is registered.</summary>
     /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>

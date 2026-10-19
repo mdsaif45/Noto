@@ -44,7 +44,10 @@ public sealed class SettingsSurfaceGuardTests
         var written = Regex.Matches(Preferences, @"public bool Set\w+\([^)]*\) => TryWrite\(SettingKeys\.(\w+),").Select(m => m.Groups[1].Value).ToHashSet();
         string apply = Body(App, "OnSettingChanged");
 
-        Assert.Equal(owners.Select(o => o.Key).ToHashSet(), written);
+        // The binding is the exception, by design (Slice 1.2b): it is registered BEFORE it is written, by the rebind,
+        // so the store's announcement must not apply it a second time.
+        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").ToHashSet(), written);
+        Assert.DoesNotContain("SettingKeys.HotkeyBinding", apply, StringComparison.Ordinal);
 
         foreach (var (key, owner) in owners)
         {
@@ -307,13 +310,12 @@ public sealed class SettingsSurfaceGuardTests
     [Fact]
     public void Nothing_beyond_the_approved_scope_is_built()
     {
-        // No navigation view, no second window, no recorder (PR C), no motion (PR D), no new activation surface (#16).
+        // No navigation view, no second window, no motion (PR D), no new activation surface.
         string views = string.Join('\n', Directory.EnumerateFiles(Windows, "*.xaml").Select(File.ReadAllText));
         string code = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
 
         Assert.DoesNotContain("NavigationView", views, StringComparison.Ordinal);
         Assert.Equal(1, Regex.Count(code, @"partial class \w+ : Window\b"));
-        Assert.DoesNotContain("HotkeyRecorder", views, StringComparison.Ordinal);
         Assert.DoesNotContain("Storyboard", views, StringComparison.Ordinal);
         Assert.DoesNotContain("ElementCompositionPreview", code, StringComparison.Ordinal);
     }

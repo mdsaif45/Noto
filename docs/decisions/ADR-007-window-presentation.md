@@ -300,8 +300,34 @@ are read at launch. Amended 2026-10-19 (Slice 1): turning the hotkey off in
 Settings releases it at once, and turning it on registers the stored binding
 through the start-up path. A refusal is reported in Settings, as the first
 user-visible surface the refusal paragraph below defers to, and the stored
-choice stays the user's. Changing the binding is not offered yet (Slice 1, PR
-C).
+choice stays the user's.
+
+**Rebinding** (Slice 1.2b, parity G50). Settings' recorder takes a chord by
+the grammar below; `HotkeyChord` decides what is valid, and `Ctrl+Alt+<letter>`
+is allowed with a warning about AltGr (§12a). The old chord stays registered
+until the new one is:
+
+```
+  same chord, registered           -> unchanged
+  register new (its own instance)
+    refused                        -> old registered and stored, announced
+    registered -> release old -> store new
+      stored                       -> rebound
+      not stored -> register old again
+        registered -> release new  -> back to old, announced
+        refused                    -> new kept for the session, old used next
+                                      start, announced (never silent)
+```
+
+While the recorder listens, the chord stays registered (so no other process
+can take it) and a press of it while Noto is in front is ignored, so it
+cannot hide the page being recorded in. Escape, leaving the recorder, Noto
+losing activation, and closing Settings all cancel and give the chord back.
+The procedure is `HotkeyRebinding` (platform, tested without Windows); the
+registrations are `GlobalHotkey`'s, made in one place in the composition root;
+the store is the typed preferences'. The stored binding is written only by the
+rebind, after registering, so the store's change notification does not apply
+it a second time.
 
 **The binding grammar** — `HotkeyChord` in `Noto.Core`, and nothing wider:
 

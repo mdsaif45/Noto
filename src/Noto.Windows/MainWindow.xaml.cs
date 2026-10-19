@@ -150,6 +150,15 @@ public sealed partial class MainWindow : Window
         openSettings.Invoked += OnSettingsAccelerator;
         WorkspaceRoot.KeyboardAccelerators.Add(openSettings);
 
+        // The shortcut recorder never listens while Noto is not in front: losing activation cancels it (Slice 1).
+        Activated += (_, e) =>
+        {
+            if (e.WindowActivationState == WindowActivationState.Deactivated)
+            {
+                SettingsSurface?.CancelRecording();
+            }
+        };
+
         // Loading is a real state with a real transition, entered before any
         // query runs and left only when one finishes.
         //
@@ -1292,6 +1301,9 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
+
+        // A recorder still listening gives the chord back before the page goes.
+        page.CancelRecording();
 
         UIElement back = _settingsReturn ?? PaneRoot;
         back.Visibility = Visibility.Visible;

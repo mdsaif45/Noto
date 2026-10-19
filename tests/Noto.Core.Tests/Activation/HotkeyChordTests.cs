@@ -256,4 +256,21 @@ public sealed class HotkeyChordTests
         Assert.False(binding.IsValid("Q"));
         Assert.False(binding.IsValid(" "));
     }
+
+    [Theory]
+    [InlineData("Ctrl+Alt+K", true)]
+    [InlineData("Ctrl+Alt+Shift+K", true)]
+    [InlineData("Alt+Ctrl+Q", true)]
+    [InlineData("Ctrl+Alt+Win+K", false)]
+    [InlineData("Ctrl+Alt+5", false)]
+    [InlineData("Ctrl+Alt+F5", false)]
+    [InlineData("Ctrl+Alt+Space", false)]
+    [InlineData("Ctrl+K", false)]
+    [InlineData("Alt+K", false)]
+    [InlineData("Ctrl+Alt+Win+Space", false)]
+    public void Only_ctrl_alt_letter_without_win_is_the_altgr_shape(string text, bool altGr)
+    {
+        // Parity 12a: AltGr arrives as Ctrl+Alt, so Ctrl+Alt+<letter> can be what a non-US layout types. Allowed, warned.
+        Assert.Equal(altGr, HotkeyChord.Parse(text).MayBeTypedWithAltGr);
+    }
 }
