@@ -140,6 +140,7 @@ public sealed partial class MainWindow : Window
         _deleteNote = deleteNote ?? throw new ArgumentNullException(nameof(deleteNote));
 
         InitializeComponent();
+        NoteEditor.ProcessKeyboardAccelerators += OnNoteEditorProcessKeyboardAccelerators;
 
         AppWindow.Closing += OnAppWindowClosing;
 
@@ -1330,6 +1331,21 @@ public sealed partial class MainWindow : Window
     {
         args.Handled = true;
         OpenSettings();
+    }
+
+    /// <summary>
+    /// Ctrl+, with focus in the editor reaches the root's Settings accelerator. Measured: the TextBox marks Ctrl+,
+    /// handled in its own KeyDown, and a handled key reaches no ancestor's accelerators, so it never ran there (Ctrl+W,
+    /// which a TextBox leaves alone, does). The editor's accelerator pass runs before that KeyDown, so the chord is
+    /// handed to the root's accelerators from here: the same accelerator, the same OpenSettings. Nothing else the
+    /// editor receives is touched.
+    /// </summary>
+    private void OnNoteEditorProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
+    {
+        if (args.Key == (VirtualKey)0xBC && args.Modifiers == VirtualKeyModifiers.Control)
+        {
+            WorkspaceRoot.TryInvokeKeyboardAccelerator(args);
+        }
     }
 
     private void OnSettingsBackRequested(object? sender, EventArgs e) => CloseSettings();
