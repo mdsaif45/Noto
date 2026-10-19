@@ -672,6 +672,14 @@ public sealed partial class MainWindow : Window
         // Loading state is applied and handed back to the framework before
         // the read begins.
         _ = DispatcherQueue.TryEnqueueGuarded(RefreshNotes);
+
+        // Collapsing the folder list took keyboard focus with it, and the
+        // framework handed it to the first focusable element left, a header
+        // button, where Escape does nothing (measured with UI Automation).
+        // Focus is moved onto this surface instead, as LeaveFolder moves it
+        // back: low priority, after the read and the layout pass that realises
+        // the rows, for the reason FocusRow gives.
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, MoveFocusToNotes);
     }
 
     /// <summary>
@@ -946,6 +954,18 @@ public sealed partial class MainWindow : Window
     {
         NoteGuidanceText.Text = string.Empty;
         NoteGuidanceText.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Puts keyboard focus on the note surface: the list when it has notes to
+    /// focus, its Back button when it has none, so Escape and the keyboard
+    /// keep working on it.
+    /// </summary>
+    private void MoveFocusToNotes()
+    {
+        Control destination = _noteState == NoteState.Loaded && Notes.Count > 0 ? NoteList : BackButton;
+
+        _ = destination.Focus(FocusState.Programmatic);
     }
 
     /// <summary>

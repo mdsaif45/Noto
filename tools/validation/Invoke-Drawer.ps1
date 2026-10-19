@@ -21,7 +21,9 @@
        external application activation hides Noto; the hotkey then shows Noto above it, in front
     5  hide-on-deactivation OFF in the store -> a click elsewhere leaves Noto shown, above the other app
     6  Escape, each of the 4 behaviours, on the editor, the note list and the folder list -> the A12 table;
-       Escape in an inline input cancels the input and never hides
+       Escape in an inline input cancels the input and never hides; entering a folder by Ctrl+Down (with a note, and
+       empty) puts keyboard focus on the note surface (a row in the note list, or Back when it is empty), so Escape
+       goes back to the folder list
     7  Ctrl+W on each surface -> hidden; unsaved text saved once first; a failed save keeps Noto shown
     8  losing activation with unsaved text -> saved, then hidden; a failed save keeps Noto shown, focus not taken back
     9  an inner-edge resize dragged across another window -> not a deactivation; still shown, docked, wider
@@ -176,6 +178,13 @@ function First-Item([string] $ListId) {
     while ((Get-Date) -lt $deadline) { $i = $list.FindFirst($Scope::Descendants, $cond); if ($i) { return $i }; Start-Sleep -Milliseconds 200 }
     throw "list '$ListId' has no item"
 }
+function Focus-Within([string] $Id) {
+    <# Whether keyboard focus is on the element $Id or inside it, walking up from the focused element. #>
+    $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+    for ($e = $AE::FocusedElement; $e; $e = $walker.GetParent($e)) { if ($e.Current.AutomationId -eq $Id) { return $true }; if ($e.Current.NativeWindowHandle -eq [int]$noto.Hwnd) { break } }
+    $false
+}
+function Focused-Desc { $f = $AE::FocusedElement; "$($f.Current.ControlType.ProgrammaticName)|$($f.Current.AutomationId)|$($f.Current.Name)" }
 function Select-AndFocus($Item) { $Item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $Item.SetFocus(); Start-Sleep -Milliseconds 300 }
 function Editor-Value { (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value }
 function Set-Editor([string] $Text) { (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text); Start-Sleep -Milliseconds 300 }
@@ -528,6 +537,25 @@ try {
         $e = Ev $noto
         $left = if ($e.WsVisible) { (Find-ById 'FolderNameInput').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '(Noto hidden)' }
         Add-Result $run '6  Escape in the new-folder box -> the input is cancelled (cleared), Noto stays shown' ($e.WsVisible -and $left -eq '') "input='$left' $(Show-State $e)"
+
+        # 6c - entering a folder by Ctrl+Down leaves keyboard focus on the note surface, where Escape goes back. Before
+        # the fix it landed on a header button, where Escape did nothing. A second, empty folder is added for this case,
+        # after the first in the list order every other case uses.
+        $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Empty', 2, `$t, `$t)" -Parameters @{ '$f' = '01J0000000000000000000F007'; '$t' = [DateTimeOffset]::UtcNow.ToString('O') }
+        Restart-Noto @{ 'workspace.escape' = 'LeaveFolderOrHide' }
+        foreach ($which in 'with a note', 'empty') {
+            To-Surface 'FolderList'
+            $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
+            Select-AndFocus $rows[$(if ($which -eq 'empty') { 1 } else { 0 })]
+            Send-ToNoto @(0x11) 0x28
+            $null = Find-ById 'NoteList'
+            $want = if ($which -eq 'empty') { 'BackButton' } else { 'NoteList' }
+            $onNotes = $false; $deadline = (Get-Date).AddSeconds(3); while (-not $onNotes -and (Get-Date) -lt $deadline) { $onNotes = Focus-Within $want; if (-not $onNotes) { Start-Sleep -Milliseconds 100 } }
+            Add-Result $run "6  entering a folder ($which) by Ctrl+Down -> keyboard focus on the note surface ($want)" ($onNotes -and -not (Focus-Within 'PinToggle')) "focus=$(Focused-Desc)"
+            Send-ToNoto @() 0x1B
+            $e = Ev $noto
+            Add-Result $run "6  ... then Escape goes back to the folder list" ($e.WsVisible -and (Surface) -eq 'FolderList') "on $(Surface); $(Show-State $e)"
+        }
 
         # 18 - another application launched over a shown, unpinned Noto takes the foreground -> hidden, every
         # round. The race PR #92 found: the deactivation used to be judged by reading the foreground a few
