@@ -84,7 +84,9 @@ public sealed class CreateNoteDispatchTests : IDisposable
     {
         using var subscription = _events.Subscribe<NoteCreated>(_ => throw new InvalidOperationException());
 
-        CommandResult<NoteId> result = _dispatcher.Dispatch(new CreateNote(null, "Kept"));
+        FolderId folder = new CreateFolderHandler(_folders, _clock).Handle(new CreateFolder("Inbox")).Value;
+
+        CommandResult<NoteId> result = _dispatcher.Dispatch(new CreateNote(folder, "Kept"));
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Kept", _notes.FindActive(result.Value)!.Content);

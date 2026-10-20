@@ -117,7 +117,7 @@ public interface INoteRepository
     /// target scope inside the same transaction.
     /// </para>
     /// </remarks>
-    void Move(NoteId id, FolderId? targetFolderId, NotePlacement placement, DateTimeOffset updatedAt);
+    void Move(NoteId id, FolderId targetFolderId, NotePlacement placement, DateTimeOffset updatedAt);
 
     /// <summary>
     /// Repositions a note within its current scope, in <b>one transaction</b>.
@@ -199,10 +199,10 @@ public interface INoteRepository
     /// </remarks>
     /// <returns>
     /// <see langword="false"/>, changing nothing, when there is no deleted note
-    /// with that id or when its folder is itself in the recycle bin: restoring
-    /// it there would leave an active note no surface reaches (I7,
-    /// deletion-semantics §13, which closes Case C's restore path). Decided in
-    /// the same statement as the write.
+    /// with that id, or when it has no live folder to return to (its folder is
+    /// in the recycle bin, or it has none): restoring it would leave an active
+    /// note no surface reaches (I7, deletion-semantics §13, which closes Case
+    /// C's restore path). Decided in the same statement as the write.
     /// </returns>
     bool Restore(NoteId id, DateTimeOffset updatedAt);
 

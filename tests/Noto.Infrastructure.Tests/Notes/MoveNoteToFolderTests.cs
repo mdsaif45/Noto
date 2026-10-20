@@ -33,16 +33,21 @@ public sealed class MoveNoteToFolderTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
-    private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
 
-    private CommandResult Move(NoteId id, FolderId? target) =>
+    private FolderId Home => _home ??= InsertFolder("Home");
+
+    private NoteId Create(string content, FolderId? folder = null) =>
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
+
+    private CommandResult Move(NoteId id, FolderId target) =>
         new MoveNoteToFolderHandler(_notes, _clock).Handle(new MoveNoteToFolder(id, target));
 
     // ---- the three directions --------------------------------------------
 
     [Fact]
-    public void Root_to_folder()
+    public void One_folder_to_another()
     {
         FolderId folder = InsertFolder("Work");
         var id = Create("note");
@@ -53,14 +58,16 @@ public sealed class MoveNoteToFolderTests : IDisposable
     }
 
     [Fact]
-    public void Folder_to_root()
+    public void The_database_refuses_to_leave_an_active_note_without_a_folder()
     {
+        // I7 (migration 3): the command cannot name "no folder", and the
+        // repository's own write is refused by the database if anything tries.
         FolderId folder = InsertFolder("Work");
         var id = Create("note", folder);
 
-        Assert.True(Move(id, null).IsSuccess);
+        Assert.ThrowsAny<Exception>(() => Execute("UPDATE Notes SET FolderId = NULL WHERE Id = $id;", id.Value));
 
-        Assert.Null(_notes.FindActive(id)!.FolderId);
+        Assert.Equal(folder, _notes.FindActive(id)!.FolderId);
     }
 
     [Fact]
@@ -119,7 +126,7 @@ public sealed class MoveNoteToFolderTests : IDisposable
         var b = Create("b", folder);
         var c = Create("c", folder);
 
-        Move(b, null);
+        Move(b, InsertFolder("Elsewhere"));
 
         Assert.Equal([a, c], OrderedIds(folder));
     }
@@ -188,16 +195,17 @@ public sealed class MoveNoteToFolderTests : IDisposable
     [Fact]
     public void An_active_note_in_a_deleted_source_folder_can_be_moved_out()
     {
-        // Case C: the folder is deleted but the note is active. Only the
-        // DESTINATION is validated — this is precisely how a user rescues a
-        // note from a deleted folder.
+        // Legacy Case C data: the folder is deleted but the note is active.
+        // Only the DESTINATION is validated, which is how such a note is
+        // brought out to a live folder.
         FolderId deletedFolder = InsertFolder("Archive");
         var id = Create("rescue me", deletedFolder);
         SoftDeleteFolder(deletedFolder);
+        FolderId live = InsertFolder("Live");
 
-        Assert.True(Move(id, null).IsSuccess);
+        Assert.True(Move(id, live).IsSuccess);
 
-        Assert.Null(_notes.FindActive(id)!.FolderId);
+        Assert.Equal(live, _notes.FindActive(id)!.FolderId);
     }
 
     // ---- state preservation ----------------------------------------------

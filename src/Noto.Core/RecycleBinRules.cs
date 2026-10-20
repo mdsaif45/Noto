@@ -10,9 +10,10 @@ namespace Noto.Core;
 /// <remarks>
 /// <para>
 /// <b>I7: no active note is left where no surface reaches it.</b> The workspace shows notes only inside a live folder
-/// (C1, ADR-016), so an active note whose folder is in the bin is invisible: it cannot be opened, moved or deleted
-/// from the screen. <see cref="Reaches"/> states that once; every rule below that admits a note into a folder, or lets
-/// a folder go, keeps it.
+/// (C1, ADR-016), so an active note whose folder is in the bin, or that has no folder, is invisible: it cannot be
+/// opened, moved or deleted from the screen. <see cref="Reaches"/> states that once; every rule below that admits a
+/// note into a folder, or lets a folder go, keeps it. Commands cannot name "no folder" at all (<c>CreateNote</c> and
+/// <c>MoveNoteToFolder</c> take a folder), and the database refuses an active note without one (migration 3).
 /// </para>
 /// <para>
 /// Each <c>Refuse…</c> method returns the failure a command must report, or <see langword="null"/> when the transition
@@ -73,9 +74,10 @@ public static class RecycleBinRules
     }
 
     /// <summary>
-    /// Restoring a binned note where it was, when that folder is itself in the bin (I7). Case C used to allow it; the
-    /// note would come back invisible. The user restores the folder (Case D) or restores the note into another folder.
+    /// Restoring a binned note where it was, when it has no live folder there (I7): its folder is itself in the bin, or
+    /// it has none. Case C used to allow the first; the note would come back invisible. The user restores the folder
+    /// (Case D) or restores the note into a folder they choose.
     /// </summary>
     public static CommandFailure FolderInBin(NoteId note) =>
-        CommandFailure.InvalidState($"Note '{note}' was in a folder that is in the recycle bin; restore the folder or restore the note into another folder.");
+        CommandFailure.InvalidState($"Note '{note}' has no live folder to return to; restore its folder, or restore the note into another folder.");
 }

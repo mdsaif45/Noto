@@ -72,6 +72,29 @@ public sealed class TagTestContext : IDisposable
         return id;
     }
 
+    /// <summary>The folder a seeded note goes to when the test names none: every active note has one (I7, migration 3).</summary>
+    public FolderId Home => _home ??= SeedHome();
+
+    private FolderId? _home;
+
+    private FolderId SeedHome()
+    {
+        var id = FolderId.New();
+
+        using var connection = Database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt)
+            VALUES ($id, 'Home', 0, $now, $now);
+            """;
+        command.Parameters.AddWithValue("$id", id.Value);
+        command.Parameters.AddWithValue("$now", Clock.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
+
+        return id;
+    }
+
     /// <summary>Inserts a note directly, bypassing the command layer.</summary>
     public NoteId SeedNote(FolderId? folderId = null, DateTimeOffset? deletedAt = null)
     {
@@ -88,7 +111,7 @@ public sealed class TagTestContext : IDisposable
                 ($id, $folderId, 'note', NULL, 0, 0, 0, $now, $now, $deletedAt);
             """;
         command.Parameters.AddWithValue("$id", id.Value);
-        command.Parameters.AddWithValue("$folderId", folderId is { } f ? f.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$folderId", (folderId ?? Home).Value);
         command.Parameters.AddWithValue("$now", Clock.UtcNow.ToString("O"));
         command.Parameters.AddWithValue(
             "$deletedAt", deletedAt is { } d ? d.ToString("O") : DBNull.Value);

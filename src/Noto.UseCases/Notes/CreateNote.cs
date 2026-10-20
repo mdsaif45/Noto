@@ -10,18 +10,19 @@ namespace Noto.UseCases.Notes;
 /// Creates a note (design §6, parity B1).
 /// </summary>
 /// <param name="FolderId">
-/// The destination, or <see langword="null"/> for the root scope.
+/// The destination: always a folder. An active note with no folder is reachable from no surface (I7,
+/// deletion-semantics §13), so the command cannot express one.
 /// </param>
 /// <param name="Content">Markdown source. Empty is valid — B26 has a placeholder for it.</param>
-public sealed record CreateNote(FolderId? FolderId, string Content) : ICommand<CommandResult<NoteId>>;
+public sealed record CreateNote(FolderId FolderId, string Content) : ICommand<CommandResult<NoteId>>;
 
 /// <summary>
 /// A note was created (ADR-010, #21): the reference event, published by the dispatcher after <see cref="CreateNote"/>
 /// succeeds. Identities only, never the note's content.
 /// </summary>
 /// <param name="NoteId">The new note.</param>
-/// <param name="FolderId">Where it was created, or <see langword="null"/> for the root scope.</param>
-public sealed record NoteCreated(NoteId NoteId, FolderId? FolderId) : IEvent;
+/// <param name="FolderId">Where it was created.</param>
+public sealed record NoteCreated(NoteId NoteId, FolderId FolderId) : IEvent;
 
 /// <summary>
 /// Handles <see cref="CreateNote"/>.
@@ -69,26 +70,24 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
             throw new ArgumentException("Content must not be null.", nameof(command));
         }
 
-        if (command.FolderId is { } folderId)
+        // Two distinct outcomes, as the contract's CreateNote row requires:
+        // a folder that never existed is NotFound, while one in the recycle
+        // bin is InvalidState — it exists but is inert (invariant I5).
+        FolderId folderId = command.FolderId;
+        switch (_notes.GetFolderState(folderId))
         {
-            // Two distinct outcomes, as the contract's CreateNote row requires:
-            // a folder that never existed is NotFound, while one in the recycle
-            // bin is InvalidState — it exists but is inert (invariant I5).
-            switch (_notes.GetFolderState(folderId))
-            {
-                case FolderState.Missing:
-                    return CommandResult.Failed<NoteId>(
-                        CommandFailure.NotFound($"No folder '{folderId}'."));
+            case FolderState.Missing:
+                return CommandResult.Failed<NoteId>(
+                    CommandFailure.NotFound($"No folder '{folderId}'."));
 
-                case FolderState.Deleted:
-                    return CommandResult.Failed<NoteId>(
-                        CommandFailure.InvalidState(
-                            $"Folder '{folderId}' is deleted and cannot receive a note."));
+            case FolderState.Deleted:
+                return CommandResult.Failed<NoteId>(
+                    CommandFailure.InvalidState(
+                        $"Folder '{folderId}' is deleted and cannot receive a note."));
 
-                case FolderState.Active:
-                default:
-                    break;
-            }
+            case FolderState.Active:
+            default:
+                break;
         }
 
         // One timestamp, used for both fields: a note that reports being
@@ -98,8 +97,8 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
 
         // O3: a new note goes at the END of its scope, which is max + 1. An
         // empty scope starts at the documented base rather than at max+1 of
-        // nothing. Ordering is scoped per folder, and root is its own scope
-        // (O1), so the scope is read from the note's destination.
+        // nothing. Ordering is scoped per folder (O1), so the scope is read
+        // from the note's destination.
         double? highest = _notes.MaxSortOrder(command.FolderId);
         double sortOrder = highest is { } max ? max + 1 : InitialSortOrder;
 

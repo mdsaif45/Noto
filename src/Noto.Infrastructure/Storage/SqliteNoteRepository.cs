@@ -237,7 +237,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    public void Move(NoteId id, FolderId? targetFolderId, NotePlacement placement, DateTimeOffset updatedAt)
+    public void Move(NoteId id, FolderId targetFolderId, NotePlacement placement, DateTimeOffset updatedAt)
     {
         try
         {
@@ -264,9 +264,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                     SET FolderId = $folderId, SortOrder = $sortOrder, UpdatedAt = $updatedAt
                     WHERE Id = $id AND DeletedAt IS NULL;
                     """;
-                command.Parameters.AddWithValue(
-                    "$folderId",
-                    targetFolderId is { } folder ? folder.Value : DBNull.Value);
+                command.Parameters.AddWithValue("$folderId", targetFolderId.Value);
                 command.Parameters.AddWithValue("$sortOrder", sortOrder);
                 command.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
                 command.Parameters.AddWithValue("$id", id.Value);
@@ -422,18 +420,17 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             // field survive untouched, so the note comes back as it was rather
             // than being reconstructed (I6).
             //
-            // I7: not into a folder that is itself in the bin, where no surface
-            // would show it (deletion-semantics §13 closes Case C's restore
-            // path). The condition is part of the write, so it cannot go stale
-            // between a check and the update. A note at the root has no folder
-            // to test and is restored as before.
+            // I7: only into a live folder. Not into one that is itself in the
+            // bin (deletion-semantics §13 closes Case C's restore path), and not
+            // into no folder at all: a note with none comes back only through
+            // RestoreInto, into a folder the user chooses. The condition is part
+            // of the write, so it cannot go stale between a check and the update.
             command.CommandText =
                 """
                 UPDATE Notes
                 SET DeletedAt = NULL, UpdatedAt = $now
                 WHERE Id = $id AND DeletedAt IS NOT NULL
-                  AND (FolderId IS NULL
-                       OR EXISTS (SELECT 1 FROM Folders f WHERE f.Id = Notes.FolderId AND f.DeletedAt IS NULL));
+                  AND EXISTS (SELECT 1 FROM Folders f WHERE f.Id = Notes.FolderId AND f.DeletedAt IS NULL);
                 """;
             command.Parameters.AddWithValue("$now", Format(updatedAt));
             command.Parameters.AddWithValue("$id", id.Value);

@@ -137,7 +137,7 @@ union return. **No generic union query. No `bool includeDeleted`** (I2).
   ├── Id          NoteId    ULID                ├── Id          FolderId  ULID
   ├── Content     string    markdown SOURCE     ├── Name        string    non-empty
   ├── Title       COMPUTED  §3                  ├── ColorKey    ColorKey?
-  ├── FolderId    FolderId? null = root         ├── IsPinned    bool
+  ├── FolderId    FolderId? null only in the bin├── IsPinned    bool
   ├── ColorKey    ColorKey?                     ├── IsCollapsed bool
   ├── IsPinned    bool                          ├── SortOrder   double
   ├── IsFolded    bool                          ├── CreatedAt   DateTimeOffset
@@ -246,7 +246,7 @@ first.
 
 | # | Rule |
 |---|---|
-| **O1** | Scoped per folder; root (`FolderId IS NULL`) is its own scope |
+| **O1** | Scoped per folder. (The root scope, `FolderId IS NULL`, holds no active note since P1.1: I7, migration 3.) |
 | **O2** | `ORDER BY IsPinned DESC, SortOrder ASC, Id ASC` — total, ULIDs are creation-ordered (ADR-012) |
 | **O3** | Insert at an end uses min−1 / max+1. No renumbering |
 | **O4** | Moving between folders assigns a new `SortOrder` in the target scope, one transaction |
@@ -608,13 +608,13 @@ Every public operation. **Failure** lists business reasons only —
 
 | # | Operation | Source | Obligation | Result | Failure | Atomic | Tests |
 |---|---|---|---|---|---|---|---|
-| 1 | `CreateNote` | §6, B1 | insert; ULID; `CreatedAt`=`UpdatedAt`; `SortOrder` per O3 | `NoteId` | `NotFound` (folder), `InvalidState` (folder deleted) | no | round-trip; placement at end |
+| 1 | `CreateNote` | §6, B1 | insert **into a folder** (the command takes a `FolderId`; I7, migration 3); ULID; `CreatedAt`=`UpdatedAt`; `SortOrder` per O3 | `NoteId` | `NotFound` (folder), `InvalidState` (folder deleted) | no | round-trip; placement at end; the database refuses an active note without a folder |
 | 2 | `UpdateNoteContent` | §6, B19 | replace `Content`; stamp | — | `NotFound`, `InvalidState` | no | content verbatim incl. newlines/unicode; title re-derives |
 | 3 | `DeleteNote` | §6, B23 | `DeletedAt` = now; stamp | — | `NotFound`, `InvalidState` | no | excluded from all lists (I1); present in bin (I2) |
-| 4 | `RestoreNote` | §6, B23 | `DeletedAt` = null; stamp; **refused when its folder is in the bin** (I7, deletion-semantics §13) | — | `NotFound`, `InvalidState` (not deleted, or folder in the bin) | no | Case C refused since P1.1; a root note restores |
+| 4 | `RestoreNote` | §6, B23 | `DeletedAt` = null; stamp; **refused when its folder is in the bin** (I7, deletion-semantics §13) | — | `NotFound`, `InvalidState` (not deleted, or no live folder to return to) | no | Case C refused since P1.1; a folderless note comes back only through `RestoreNoteToFolder` |
 | 4a | `RestoreNoteToFolder` | deletion-semantics §13 | binned note → live folder; own folder keeps `SortOrder` (I6), another lands last (O4) | — | `NotFound` (note, folder), `InvalidState` (note active, folder binned) | **yes** | I7; rollback on failure |
 | 4b | `PurgeNote` | deletion-semantics §13, case E | remove a binned note; `NoteTags` cascade (I4) | — | `NotFound`, `InvalidState` (active) | no | an active note is never removed |
-| 5 | `MoveNoteToFolder` | §6, B11 | `FolderId` + new `SortOrder` in target scope | — | `NotFound`, `InvalidState` | **yes** | scope change + order together; rollback on failure |
+| 5 | `MoveNoteToFolder` | §6, B11 | `FolderId` + new `SortOrder` in target scope; **always a folder** (I7) | — | `NotFound`, `InvalidState` | **yes** | scope change + order together; rollback on failure |
 | 6 | `ReorderNote` | §6, B8/B10 | `SortOrder` per O3/O6; scope from `FolderId` | — | `NotFound`, `InvalidInput`, `InvalidState` | **yes** | one row written; ~60 same-spot inserts; same-position no-op writes nothing |
 | 7 | `PinNote` | §6, B14 | `IsPinned` = true; stamp | — | `NotFound`, `InvalidState` | no | pinned sort above unpinned (O2) |
 | 8 | `UnpinNote` | §6, B14 | `IsPinned` = false; stamp | — | `NotFound`, `InvalidState` | no | returns to `SortOrder` position |
@@ -651,7 +651,7 @@ Every public operation. **Failure** lists business reasons only —
 | # | Query | Source | Obligation | Result | Failure | Tests |
 |---|---|---|---|---|---|---|
 | Q1 | `GetNote` | §6, U8 | by id; I1 | the note | `NotFound` | never returns null as a failure channel |
-| Q2 | `ListNotesInFolder` | §6, **§5a** | scope + **O2 in full**; I1, I6 | ordered list; **empty if none** | — | root is its own scope; deleted excluded; **pinned first** |
+| Q2 | `ListNotesInFolder` | §6, **§5a** | scope + **O2 in full**; I1, I6 | ordered list; **empty if none** | — | one folder's notes only; no active note without a folder (I7); deleted excluded; **pinned first** |
 | Q3 | `ListFolders` | §6, **§5a** | **O2 in full**; I1 | ordered list | — | pinned first |
 | Q4 | `ListTags` | §6, **§5a**, **U13a** | **`Name COLLATE NOCASE ASC`** | ordered list | — | case-insensitive alphabetical; total order (names are unique) |
 | Q5 | `ListNotesForTag` | §6, **§5a**, **U13b** | join via `NoteTags`; **`UpdatedAt DESC`**; I1 | ordered list | — | deleted notes excluded; **not** ordered by `SortOrder` — scopes differ (O1) |
