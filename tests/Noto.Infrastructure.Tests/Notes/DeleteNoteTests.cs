@@ -345,19 +345,35 @@ public sealed class DeleteNoteTests : IDisposable
     }
 
     [Fact]
-    public void An_active_note_in_a_deleted_folder_survives_the_round_trip()
+    public void A_note_is_not_restored_into_a_folder_that_is_in_the_bin()
     {
-        // Case C: a restored note keeps a FolderId that still points at a
-        // deleted folder. That state is legal and is how a user rescues one
-        // note from a binned folder.
+        // I7 (deletion-semantics §13) closes Case C's restore path: the note
+        // would come back active inside a binned folder, where no surface shows
+        // it. It stays in the bin, unchanged; the user restores the folder or
+        // restores the note into another folder (RestoreNoteToFolder).
         FolderId folder = InsertFolder("Archive");
         var id = Create("rescue me", folder);
         SoftDeleteFolder(folder);
-
         Delete(id);
-        Assert.True(Restore(id).IsSuccess);
 
-        Assert.Equal(folder, _notes.FindActive(id)!.FolderId);
+        var result = Restore(id);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CommandFailureReason.InvalidState, result.Failure!.Reason);
+        Assert.Null(_notes.FindActive(id));
+        Assert.Equal(NoteLifecycle.Deleted, _notes.GetLifecycle(id));
+        Assert.Contains(_notes.ListDeleted(), n => n.Id == id && n.FolderId == folder);
+    }
+
+    [Fact]
+    public void A_note_at_the_root_is_still_restored()
+    {
+        // No folder to test: the root keeps its old behaviour.
+        var id = Create("at root");
+        Delete(id);
+
+        Assert.True(Restore(id).IsSuccess);
+        Assert.Null(_notes.FindActive(id)!.FolderId);
     }
 
     [Fact]
