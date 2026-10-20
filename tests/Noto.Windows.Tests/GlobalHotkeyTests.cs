@@ -225,8 +225,15 @@ public sealed partial class GlobalHotkeyTests(ITestOutputHelper output)
         Assert.True(Native.IsWindow(hotkey.Hwnd));
         Assert.False(Native.IsWindowVisible(hotkey.Hwnd));
         // FindWindowEx with HWND_MESSAGE as the parent searches message-only
-        // windows only.
-        Assert.Equal(hotkey.Hwnd, Native.FindWindowEx(-3, 0, "STATIC", "Noto hotkey"));
+        // windows only. Other test classes run in parallel and create their
+        // own "Noto hotkey" windows, so walk the matches until ours turns up.
+        nint found = 0;
+        do
+        {
+            found = Native.FindWindowEx(-3, found, "STATIC", "Noto hotkey");
+        }
+        while (found != 0 && found != hotkey.Hwnd);
+        Assert.Equal(hotkey.Hwnd, found);
     }
 
     // --------------------------------------------------- delivery (runtime)
