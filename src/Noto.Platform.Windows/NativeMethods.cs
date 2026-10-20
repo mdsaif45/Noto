@@ -377,9 +377,6 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     internal static partial int GetSystemMetrics(int nIndex);
 
-    [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    internal static partial nint GetModuleHandle(string? lpModuleName);
-
     /// <summary><c>NOTIFYICONDATAW</c>, the Vista-and-later layout, with fixed buffers so it stays blittable.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct NOTIFYICONDATAW
