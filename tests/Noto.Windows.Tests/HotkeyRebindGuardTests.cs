@@ -125,6 +125,36 @@ public sealed class HotkeyRebindGuardTests
     }
 
     [Fact]
+    public void The_recorder_hook_swallows_no_failure_Noto_treats_as_fatal()
+    {
+        // Noto's rule for a catch-all: it never swallows running out of memory or stack. The hook's callback catches
+        // so that nothing crosses the native boundary, and it keeps that rule; the next hook is still called after it.
+        string hook = Code(SourcePath("src", "Noto.Platform.Windows", "RecorderKeyboard.cs"));
+        string onKey = hook[hook.IndexOf("private static nint OnKey(", StringComparison.Ordinal)..];
+
+        Assert.Single(Regex.Matches(onKey, @"catch \(Exception"));
+        Assert.Matches(@"catch \(Exception ex\) when \(ex is not \(OutOfMemoryException or StackOverflowException\)\)", onKey);
+        Assert.True(
+            onKey.IndexOf("return NativeMethods.CallNextHookEx(0, code, message, data);", StringComparison.Ordinal)
+                > onKey.IndexOf("catch (Exception", StringComparison.Ordinal),
+            "The next hook must be called after the report, whether or not it failed.");
+    }
+
+    [Fact]
+    public void Every_catch_all_in_the_platform_layer_is_filtered()
+    {
+        // Every `catch (Exception` in Noto.Platform.Windows names what it handles, or excludes what it must not
+        // (OutOfMemoryException, StackOverflowException): none is a bare catch-all.
+        string platform = Path.GetDirectoryName(SourcePath("src", "Noto.Platform.Windows", "RecorderKeyboard.cs"))!;
+        var bare = Directory.EnumerateFiles(platform, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .SelectMany(f => Regex.Matches(Code(f), @"catch \(Exception(?: \w+)?\)(?!\s*when)").Select(_ => Path.GetFileName(f)))
+            .ToList();
+
+        Assert.True(bare.Count == 0, "Bare catch-alls in: " + string.Join(", ", bare));
+    }
+
+    [Fact]
     public void A_successful_rebind_shows_the_new_chord_at_once()
     {
         // The recorder reads back what is stored, which after a rebind is the chord now registered.
