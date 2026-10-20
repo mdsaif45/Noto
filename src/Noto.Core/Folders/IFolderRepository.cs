@@ -160,6 +160,25 @@ public interface IFolderRepository
     /// after the existing ones. Only active folders count: deleted rows keep
     /// their <c>SortOrder</c> but never participate in ordering (I6).
     /// </remarks>
+    /// <summary>
+    /// Permanently removes a folder that is in the recycle bin, with its
+    /// still-deleted notes (case F), in one transaction.
+    /// </summary>
+    /// <remarks>
+    /// Refused, changing nothing, while an active note still lives in the
+    /// folder: removing the folder would leave that note in no folder, where no
+    /// surface shows it (I7, deletion-semantics §13). The refusal is decided
+    /// inside the transaction that would remove it.
+    /// </remarks>
+    FolderPurge Purge(FolderId id);
+
+    /// <summary>
+    /// Empties the recycle bin in one transaction: every deleted note, then every
+    /// deleted folder no active note lives in (§13). A folder an active note
+    /// still lives in is kept and reported (I7). Active content is never touched.
+    /// </summary>
+    RecycleBinPurge EmptyRecycleBin();
+
     double? MaxSortOrder();
 
     /// <summary>
@@ -218,3 +237,22 @@ public enum FolderLifecycle
     /// <summary>The folder exists but is in the recycle bin — inert (I5).</summary>
     Deleted,
 }
+
+/// <summary>What <see cref="IFolderRepository.Purge"/> did.</summary>
+public enum FolderPurge
+{
+    /// <summary>No deleted folder has that id; nothing changed.</summary>
+    NotInBin = 0,
+
+    /// <summary>The folder and its deleted notes are gone.</summary>
+    Purged,
+
+    /// <summary>An active note still lives in the folder (I7); nothing changed.</summary>
+    ActiveNotesRemain,
+}
+
+/// <summary>What <see cref="IFolderRepository.EmptyRecycleBin"/> removed, and the folders it kept (I7).</summary>
+/// <param name="NotesPurged">Deleted notes removed.</param>
+/// <param name="FoldersPurged">Deleted folders removed.</param>
+/// <param name="FoldersKept">Deleted folders kept because an active note still lives in them, ordered by id.</param>
+public sealed record RecycleBinPurge(int NotesPurged, int FoldersPurged, IReadOnlyList<FolderId> FoldersKept);
