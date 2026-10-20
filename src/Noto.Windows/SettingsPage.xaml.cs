@@ -20,6 +20,7 @@ namespace Noto;
 /// <param name="OpenStartupApps">Opens Windows Settings' Startup apps page; whether the shell accepted it.</param>
 /// <param name="RebindHotkey">Rebinds the show/hide hotkey through its owner, in the safe order; how it ended and what to announce.</param>
 /// <param name="SuspendHotkey">Has the hotkey's owner ignore the chord (true) or act on it again (false) while the recorder listens.</param>
+/// <param name="ObserveRecorderKeys">Reports, until disposed, each chord pressed while Noto is in front that another application holds, which never reaches the page; <see langword="null"/> when that is unavailable.</param>
 internal sealed record SettingsContext(
     WorkspacePreferences Preferences,
     Func<LoginStartupState?> LoginState,
@@ -27,7 +28,8 @@ internal sealed record SettingsContext(
     Func<bool> OpenDataFolder,
     Func<bool> OpenStartupApps,
     Func<HotkeyChord, (HotkeyRebindOutcome Outcome, string Message)> RebindHotkey,
-    Action<bool> SuspendHotkey);
+    Action<bool> SuspendHotkey,
+    Func<Action<int, HotkeyModifiers>, IDisposable?> ObserveRecorderKeys);
 
 /// <summary>
 /// The settings surface (Slice 1): shows each preference as it is stored, and writes a change through its one path.
@@ -55,6 +57,9 @@ public sealed partial class SettingsPage : UserControl
 
     // True while the shortcut recorder listens for a chord.
     private bool _recording;
+
+    // The chords observed below every application's shortcuts while recording; null when not recording, or unavailable.
+    private IDisposable? _recorderKeys;
 
     public SettingsPage()
     {
@@ -236,6 +241,11 @@ public sealed partial class SettingsPage : UserControl
         _context.SuspendHotkey(true);
         HotkeyRecorder.Content = "Press the new shortcut…";
         ShowRecorderStatus("Recording. Press the new shortcut, or Escape to cancel.");
+
+        // A chord another application holds is delivered to it and never reaches this page (measured), so it could not
+        // be tried and refused. While listening, such a chord is observed below every application's shortcuts, for this
+        // recording only, and queued here; every other key reaches this page and is read as it always was.
+        _recorderKeys = _context.ObserveRecorderKeys((key, held) => _ = DispatcherQueue.TryEnqueue(() => Record(key, held)));
     }
 
     /// <summary>While recording, every key is the recorder's: nothing else in Noto acts on it.</summary>
@@ -247,15 +257,24 @@ public sealed partial class SettingsPage : UserControl
         }
 
         e.Handled = true;
-        HotkeyModifiers held = Held();
+        Record((int)e.Key, Held());
+    }
 
-        if (e.Key == global::Windows.System.VirtualKey.Escape && held == HotkeyModifiers.None)
+    /// <summary>One key press while recording: a modifier, a key that cannot be used, Escape, or a chord to try.</summary>
+    private void Record(int key, HotkeyModifiers held)
+    {
+        if (!_recording || _context is null)
+        {
+            return;
+        }
+
+        if (key == (int)global::Windows.System.VirtualKey.Escape && held == HotkeyModifiers.None)
         {
             EndRecording("Cancelled. The shortcut is unchanged.");
             return;
         }
 
-        (RecordedKind kind, HotkeyChord chord) = HotkeyRecording.Read((int)e.Key, held);
+        (RecordedKind kind, HotkeyChord chord) = HotkeyRecording.Read(key, held);
 
         switch (kind)
         {
@@ -272,8 +291,19 @@ public sealed partial class SettingsPage : UserControl
                 break;
 
             case RecordedKind.Chord:
-                (HotkeyRebindOutcome _, string message) = _context.RebindHotkey(chord);
-                EndRecording(message);
+                // Tried in the safe order; refused (another application holds it), the old chord stays and is announced.
+                // Recording ends whatever happens, so the observation never outlives an exception.
+                string message = "Cancelled. The shortcut is unchanged.";
+
+                try
+                {
+                    (HotkeyRebindOutcome _, message) = _context.RebindHotkey(chord);
+                }
+                finally
+                {
+                    EndRecording(message);
+                }
+
                 break;
         }
     }
@@ -306,7 +336,18 @@ public sealed partial class SettingsPage : UserControl
         }
         finally
         {
-            _context?.SuspendHotkey(false);
+            // The observation ends with the recording, by every route, before the chord is given back.
+            IDisposable? keys = _recorderKeys;
+            _recorderKeys = null;
+
+            try
+            {
+                keys?.Dispose();
+            }
+            finally
+            {
+                _context?.SuspendHotkey(false);
+            }
         }
     }
 

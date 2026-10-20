@@ -171,6 +171,42 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// The chords the recorder cannot receive, observed below every application's shortcuts for one recording
+    /// (Slice 1.2b): a chord another application holds is delivered to it, never to Noto's window, so it is passed to
+    /// the recorder from here, to be tried and refused like any other.
+    /// </summary>
+    /// <remarks>
+    /// Only those: a chord that can be registered now reaches the window, and every key that is not a chord does too,
+    /// so each is read once, by the page, as it always was. A press of the chord Noto holds stays the hotkey's, ignored
+    /// while recording (the rebind's own "same chord, registered" rule, <see cref="HotkeyRebinding"/>).
+    /// </remarks>
+    /// <returns>The observation, to dispose when recording ends; <see langword="null"/> when there is none.</returns>
+    private RecorderKeyboard? ObserveRecorderKeys(Action<int, HotkeyModifiers> pressed, WorkspacePreferences preferences)
+    {
+        if (_windowHandle is null)
+        {
+            return null;
+        }
+
+        return RecorderKeyboard.Start(_windowHandle, (key, held) =>
+        {
+            if (HotkeyRecording.Read(key, held) is not (RecordedKind.Chord, HotkeyChord chord))
+            {
+                return;
+            }
+
+            bool own = _hotkey is { IsRegistered: true }
+                && HotkeyChord.TryParse(preferences.HotkeyBinding, out HotkeyChord current)
+                && chord == current;
+
+            if (!own && !GlobalHotkey.IsFree(chord))
+            {
+                pressed(key, held);
+            }
+        });
+    }
+
+    /// <summary>
     /// Rebinds the show/hide hotkey from Settings' recorder (Slice 1): the new chord registered before the old one is
     /// released, then stored; refused, the old one stays registered and stored (<see cref="HotkeyRebinding"/>).
     /// </summary>
@@ -409,7 +445,8 @@ public partial class App : Application
                 () => ShellLaunch.OpenFolder(paths.Root),
                 ShellLaunch.OpenStartupAppsSettings,
                 chord => RebindHotkey(chord, preferences),
-                SuspendHotkey),
+                SuspendHotkey,
+                pressed => ObserveRecorderKeys(pressed, preferences)),
         };
 
         // The theme before the first frame, so a chosen theme is never preceded by Windows' own.

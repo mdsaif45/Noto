@@ -69,12 +69,19 @@ public sealed class HotkeyRebindGuardTests
         Assert.Matches(@"_recording = true;\s*_context\.SuspendHotkey\(true\);", Body(Page, "OnRecorderClick"));
 
         // The one way out, and the chord given back in a finally, so even a failing rebind restores it.
-        Assert.Matches(@"_recording = false;\s*try\s*\{[\s\S]*\}\s*finally\s*\{\s*_context\?\.SuspendHotkey\(false\);", Body(Page, "EndRecording"));
+        Assert.Matches(@"_recording = false;\s*try\s*\{[\s\S]*\}\s*finally\s*\{[\s\S]*finally\s*\{\s*_context\?\.SuspendHotkey\(false\);", Body(Page, "EndRecording"));
 
         string keys = Body(Page, "OnRecorderKeyDown");
-        Assert.Matches(@"e\.Key == global::Windows\.System\.VirtualKey\.Escape && held == HotkeyModifiers\.None\)\s*\{\s*EndRecording\(", keys);
         Assert.Contains("e.Handled = true;", keys, StringComparison.Ordinal);
-        Assert.Matches(@"case RecordedKind\.Chord:\s*\(HotkeyRebindOutcome _, string message\) = _context\.RebindHotkey\(chord\);\s*EndRecording\(message\);", keys);
+
+        // Every key that reaches the page is read here, as it always was.
+        Assert.Matches(@"e\.Handled = true;\s*Record\(\(int\)e\.Key, Held\(\)\);\s*\}$", keys);
+
+        string record = Body(Page, "Record");
+        Assert.Matches(@"key == \(int\)global::Windows\.System\.VirtualKey\.Escape && held == HotkeyModifiers\.None\)\s*\{\s*EndRecording\(", record);
+
+        // A chord is tried, and recording ends whatever happens: refused, announced, or thrown.
+        Assert.Matches(@"case RecordedKind\.Chord:[\s\S]*?try\s*\{\s*\(HotkeyRebindOutcome _, message\) = _context\.RebindHotkey\(chord\);\s*\}\s*finally\s*\{\s*EndRecording\(message\);\s*\}", record);
 
         Assert.Contains("private void OnRecorderLostFocus(object sender, RoutedEventArgs e) => CancelRecording();", Page, StringComparison.Ordinal);
         Assert.Matches(@"if \(_recording\)\s*\{\s*EndRecording\(", Body(Page, "CancelRecording"));
@@ -83,6 +90,38 @@ public sealed class HotkeyRebindGuardTests
         // Losing activation and closing Settings cancel too.
         Assert.Matches(@"WindowActivationState\.Deactivated\)\s*\{\s*SettingsSurface\?\.CancelRecording\(\);", Main);
         Assert.Contains("page.CancelRecording();", Body(Main, "CloseSettings"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_held_chord_is_observed_below_every_applications_shortcuts_for_one_recording_only()
+    {
+        // Measured: a chord another application holds is delivered to it, never to this page. While the recorder listens,
+        // the keys are observed below the applications' shortcuts and read once, on the UI thread.
+        Assert.Matches(
+            @"_recording = true;\s*_context\.SuspendHotkey\(true\);[\s\S]*_recorderKeys = _context\.ObserveRecorderKeys\(\(key, held\) => _ = DispatcherQueue\.TryEnqueue\(\(\) => Record\(key, held\)\)\);\s*\}$",
+            Body(Page, "OnRecorderClick"));
+
+        // Ended with the recording, on every route (Escape, a chord, focus lost, deactivation, Settings closed all reach
+        // EndRecording), before the chord is given back, and even if ending throws.
+        Assert.Matches(
+            @"finally\s*\{\s*IDisposable\? keys = _recorderKeys;\s*_recorderKeys = null;\s*try\s*\{\s*keys\?\.Dispose\(\);\s*\}\s*finally\s*\{\s*_context\?\.SuspendHotkey\(false\);",
+            Body(Page, "EndRecording"));
+        Assert.Equal(2, Regex.Count(Page, @"_recorderKeys = "));
+
+        // One place starts it: the composition root, for the settings context, with the workspace window as its owner.
+        string allWindows = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
+        Assert.Equal(1, Regex.Count(allWindows, @"RecorderKeyboard\.Start\("));
+        Assert.Contains("pressed => ObserveRecorderKeys(pressed, preferences)", App, StringComparison.Ordinal);
+
+        // Only a chord the window will never receive is passed on: one that cannot be registered now. Every other key
+        // reaches the page and is read there once; Noto's own registered chord stays the hotkey's, ignored while
+        // recording, as the rebind's "same chord, registered" rule has it.
+        string observe = Body(App, "ObserveRecorderKeys");
+        Assert.Matches(@"return RecorderKeyboard\.Start\(_windowHandle, \(key, held\) =>", observe);
+        Assert.Matches(
+            @"if \(HotkeyRecording\.Read\(key, held\) is not \(RecordedKind\.Chord, HotkeyChord chord\)\)\s*\{\s*return;\s*\}\s*bool own = _hotkey is \{ IsRegistered: true \}\s*&& HotkeyChord\.TryParse\(preferences\.HotkeyBinding, out HotkeyChord current\)\s*&& chord == current;\s*if \(!own && !GlobalHotkey\.IsFree\(chord\)\)\s*\{\s*pressed\(key, held\);\s*\}",
+            observe);
+        Assert.Equal(1, Regex.Count(allWindows, @"GlobalHotkey\.IsFree\("));
     }
 
     [Fact]

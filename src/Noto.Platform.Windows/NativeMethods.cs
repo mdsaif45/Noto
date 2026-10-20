@@ -457,4 +457,36 @@ internal static unsafe partial class NativeMethods
     /// </remarks>
     [LibraryImport("comctl32.dll")]
     internal static partial nint DefSubclassProc(nint hWnd, uint uMsg, nint wParam, nint lParam);
+
+    // The shortcut recorder's keyboard observation (Slice 1.2b): a low-level keyboard hook, for one recording only.
+    internal const int WH_KEYBOARD_LL = 13;
+    internal const nint WM_KEYDOWN = 0x0100;
+    internal const nint WM_SYSKEYDOWN = 0x0104;
+
+    /// <summary><c>KBDLLHOOKSTRUCT</c>: the key a low-level keyboard hook is told about.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct KBDLLHOOKSTRUCT
+    {
+        public uint vkCode;
+        public uint scanCode;
+        public uint flags;
+        public uint time;
+        public nuint dwExtraInfo;
+    }
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW", SetLastError = true)]
+    internal static partial nint SetWindowsHookEx(int idHook, delegate* unmanaged<int, nint, nint, nint> lpfn, nint hmod, uint dwThreadId);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool UnhookWindowsHookEx(nint hhk);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nint CallNextHookEx(nint hhk, int nCode, nint wParam, nint lParam);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial short GetAsyncKeyState(int vKey);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint GetModuleHandle(string? lpModuleName);
 }
