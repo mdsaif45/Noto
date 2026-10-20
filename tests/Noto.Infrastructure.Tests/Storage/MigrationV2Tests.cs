@@ -113,13 +113,13 @@ public sealed class MigrationV2Tests : IDisposable
     // ---- schema shape --------------------------------------------------
 
     [Fact]
-    public void Fresh_database_reaches_v2()
+    public void Fresh_database_reaches_the_latest_version_through_v2()
     {
         UpgradeToLatest();
 
         using var connection = new NotoDatabase(_temp.DatabasePath).OpenConnection();
-        Assert.Equal(2, MigrationRunner.GetSchemaVersion(connection));
-        Assert.Equal(2, MigrationRunner.LatestVersion);
+        Assert.Equal(MigrationRunner.LatestVersion, MigrationRunner.GetSchemaVersion(connection));
+        Assert.Contains(MigrationRunner.Migrations, m => m.Version == 2);
     }
 
     [Fact]
@@ -567,7 +567,7 @@ public sealed class MigrationV2Tests : IDisposable
 
         // Not transformed twice.
         Assert.Equal("# Shopping List\n\nMilk", ContentOf(second, id));
-        Assert.Equal(2, MigrationRunner.GetSchemaVersion(second));
+        Assert.Equal(MigrationRunner.LatestVersion, MigrationRunner.GetSchemaVersion(second));
     }
 
     [Fact]

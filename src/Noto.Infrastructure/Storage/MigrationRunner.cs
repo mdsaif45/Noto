@@ -99,6 +99,8 @@ public sealed class MigrationRunner
         new(1, "Initial schema: folders, notes, tags", SchemaV1.Sql),
         new(2, "Align with parity: drop Notes.Title, add Folders.IsPinned and DeletedAt",
             SchemaV2.Sql, RequiresForeignKeysDisabled: true, TransformsUserData: true),
+        new(3, "Every active note has a folder (I7): repair to the recycle bin, then refuse",
+            SchemaV3.Sql, TransformsUserData: true),
     ];
 
     /// <summary>The version a fully migrated database reports.</summary>

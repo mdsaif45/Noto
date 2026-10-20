@@ -347,6 +347,7 @@ public sealed class FolderAdversarialTests : IDisposable
         // a single scope. Interleaving both must not disturb either.
         var folderA = _context.SeedFolder("A", sortOrder: 1);
         var folderB = _context.SeedFolder("B", sortOrder: 2);
+        var folderC = _context.SeedFolder("C", sortOrder: 3);
 
         var createNote = new CreateNoteHandler(_context.Notes, _context.Clock);
 
@@ -356,8 +357,8 @@ public sealed class FolderAdversarialTests : IDisposable
         var inB = Enumerable.Range(0, 3)
             .Select(i => createNote.Handle(new CreateNote(folderB, $"b{i}")).Value)
             .ToList();
-        var atRoot = Enumerable.Range(0, 3)
-            .Select(i => createNote.Handle(new CreateNote(null, $"r{i}")).Value)
+        var inC = Enumerable.Range(0, 3)
+            .Select(i => createNote.Handle(new CreateNote(folderC, $"c{i}")).Value)
             .ToList();
 
         // Reorder the folders around the notes.
@@ -367,7 +368,7 @@ public sealed class FolderAdversarialTests : IDisposable
         // Each note scope is still independent and still ordered.
         Assert.Equal(inA, NoteOrderIn(folderA));
         Assert.Equal(inB, NoteOrderIn(folderB));
-        Assert.Equal(atRoot, NoteOrderIn(null));
+        Assert.Equal(inC, NoteOrderIn(folderC));
     }
 
     [Fact]

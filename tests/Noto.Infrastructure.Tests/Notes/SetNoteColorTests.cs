@@ -34,8 +34,13 @@ public sealed class SetNoteColorTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
 
     private CommandResult SetColor(NoteId id, string? key) =>
         new SetNoteColorHandler(_notes, _clock).Handle(new SetNoteColor(id, key));

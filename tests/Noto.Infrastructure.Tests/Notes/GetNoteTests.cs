@@ -1,5 +1,6 @@
 using Noto.Core;
 using Noto.Core.Commands;
+using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Infrastructure.Storage;
 using Noto.Infrastructure.Tests.Storage;
@@ -27,8 +28,26 @@ public sealed class GetNoteTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3).
+    private FolderId? _home;
+
     private NoteId Create(string content) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(null, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(_home ??= InsertFolder(), content)).Value;
+
+    private FolderId InsertFolder()
+    {
+        var id = FolderId.New();
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt)
+            VALUES ($id, 'Home', 0, '2026-01-01T00:00:00.0000000+00:00', '2026-01-01T00:00:00.0000000+00:00');
+            """;
+        command.Parameters.AddWithValue("$id", id.Value);
+        command.ExecuteNonQuery();
+        return id;
+    }
 
     private GetNoteQuery Query() => new(_notes);
 
@@ -53,7 +72,7 @@ public sealed class GetNoteTests : IDisposable
         Note note = Query().Execute(id).Value;
 
         Assert.Equal(id, note.Id);
-        Assert.Null(note.FolderId);
+        Assert.Equal(_home, note.FolderId);
         Assert.Null(note.ColorKey);
         Assert.False(note.IsPinned);
         Assert.False(note.IsFolded);

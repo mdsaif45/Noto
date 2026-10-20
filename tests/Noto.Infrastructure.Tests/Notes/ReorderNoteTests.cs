@@ -29,8 +29,13 @@ public sealed class ReorderNoteTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
 
     private CommandResult Reorder(NoteId note, NoteId? after) =>
         new ReorderNoteHandler(_notes, _clock).Handle(new ReorderNote(note, after));
@@ -142,7 +147,7 @@ public sealed class ReorderNoteTests : IDisposable
     // ---- scope (O1) -------------------------------------------------------
 
     [Fact]
-    public void Root_and_folder_are_separate_ordering_scopes()
+    public void Two_folders_are_separate_ordering_scopes()
     {
         FolderId folder = InsertFolder("Work");
 
@@ -594,6 +599,7 @@ public sealed class ReorderNoteTests : IDisposable
 
     private List<NoteId> OrderedIds(FolderId? folder)
     {
+        folder ??= Home;
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
 
@@ -630,9 +636,10 @@ public sealed class ReorderNoteTests : IDisposable
         command.CommandText =
             """
             SELECT UpdatedAt FROM Notes
-            WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $excluded;
+            WHERE FolderId = $home AND DeletedAt IS NULL AND Id <> $excluded;
             """;
         command.Parameters.AddWithValue("$excluded", excluded.Value);
+        command.Parameters.AddWithValue("$home", Home.Value);
 
         var stamps = new List<DateTimeOffset>();
         using var reader = command.ExecuteReader();
@@ -654,9 +661,10 @@ public sealed class ReorderNoteTests : IDisposable
         command.CommandText =
             """
             SELECT SortOrder FROM Notes
-            WHERE FolderId IS NULL AND DeletedAt IS NULL AND Id <> $excluded;
+            WHERE FolderId = $home AND DeletedAt IS NULL AND Id <> $excluded;
             """;
         command.Parameters.AddWithValue("$excluded", excluded.Value);
+        command.Parameters.AddWithValue("$home", Home.Value);
 
         var values = new List<double>();
         using var reader = command.ExecuteReader();
@@ -670,6 +678,7 @@ public sealed class ReorderNoteTests : IDisposable
 
     private List<double> AllSortOrders(FolderId? folder)
     {
+        folder ??= Home;
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = folder is null

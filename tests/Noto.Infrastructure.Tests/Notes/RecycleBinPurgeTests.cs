@@ -488,18 +488,18 @@ public sealed class RecycleBinPurgeTests : IDisposable
     // ---- helpers ---------------------------------------------------------------
 
     /// <summary>
-    /// I7 on the whole database: no active note lives in a folder that is binned or missing. A note at the root has
-    /// no folder to test (its surface is a P1.4 question), and is not counted here.
+    /// I7 on the whole database: every active note lives in a live folder. Not in a binned one, not in a missing one,
+    /// and not in none.
     /// </summary>
     private void AssertI7()
     {
         long stranded = Scalar(
             """
             SELECT COUNT(*) FROM Notes n
-            WHERE n.DeletedAt IS NULL AND n.FolderId IS NOT NULL
+            WHERE n.DeletedAt IS NULL
               AND NOT EXISTS (SELECT 1 FROM Folders f WHERE f.Id = n.FolderId AND f.DeletedAt IS NULL);
             """);
-        Assert.True(stranded == 0, $"I7 broken: {stranded} active note(s) in a binned or missing folder.");
+        Assert.True(stranded == 0, $"I7 broken: {stranded} active note(s) with no live folder.");
     }
 
     /// <summary>Every row of both tables, so "changes nothing" is checked on the database, not on one field.</summary>

@@ -48,6 +48,11 @@ public sealed class QueryTestContext : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    /// <summary>The folder a seeded note goes to when the test names none: every active note has one (I7, migration 3).</summary>
+    public FolderId Home => _home ??= SeedFolder("Home");
+
+    private FolderId? _home;
+
     public FolderId SeedFolder(
         string name = "folder",
         double sortOrder = 0,
@@ -105,7 +110,7 @@ public sealed class QueryTestContext : IDisposable
                  $sortOrder, $created, $updated, $deletedAt);
             """;
         command.Parameters.AddWithValue("$id", id.Value);
-        command.Parameters.AddWithValue("$folderId", folderId is { } f ? f.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$folderId", (folderId ?? Home).Value);
         command.Parameters.AddWithValue("$content", content);
         command.Parameters.AddWithValue("$isPinned", pinned ? 1 : 0);
         command.Parameters.AddWithValue("$sortOrder", sortOrder);
@@ -165,7 +170,7 @@ public sealed class QueryTestContext : IDisposable
                  $sortOrder, $now, $now, NULL);
             """;
         command.Parameters.AddWithValue("$id", id.Value);
-        command.Parameters.AddWithValue("$folderId", folderId is { } f ? f.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$folderId", (folderId ?? Home).Value);
         command.Parameters.AddWithValue("$isPinned", pinned ? 1 : 0);
         command.Parameters.AddWithValue("$sortOrder", sortOrder);
         command.Parameters.AddWithValue("$now", Clock.UtcNow.ToString("O"));
