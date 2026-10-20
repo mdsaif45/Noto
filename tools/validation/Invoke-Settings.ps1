@@ -39,8 +39,11 @@
     13 the isolated database holds no setting key Noto does not declare
     14 rebinding (Slice 1.2b): the current chord works; the recorder starts and suspends it (a press is ignored, the
        page stays); a new chord registers, the old is released, and it is stored; the new chord shows Noto; a chord
-       another process legitimately holds is refused, announced, nothing changes, and the current chord still works;
-       Escape and losing activation cancel and give the chord back; a restart keeps the new binding; the default is
+       another process legitimately holds reaches the recorder all the same (observed below every application's
+       shortcuts while recording), is refused, announced, nothing changes, the recorder is idle again and the current
+       chord still works; a different, free chord then records and registers while the other process still holds
+       its own; Escape, losing activation and closing Settings cancel and give the chord back; every recording
+       installs the keyboard observation once and removes it once; a restart keeps the new binding; the default is
        restored through the recorder
 
 .EXAMPLE
@@ -206,7 +209,7 @@ function Login-Expected {
     'WindowsDisabled'
 }
 # Rebinding (case 14): chords sent and probed by virtual key, Ctrl+Alt+Win held (MOD_CONTROL|MOD_ALT|MOD_WIN).
-$VkSpace = 0x20; $VkNew = 0x78; $VkHeld = 0x79   # Space (the default), F9 (the new chord), F10 (held by another process)
+$VkSpace = 0x20; $VkNew = 0x78; $VkHeld = 0x79; $VkFree = 0x7A   # Space (the default), F9 (the new chord), F10 (held by another process), F11 (free, recorded after a refusal)
 # Parameters here are $Key, never $Vk: PowerShell names are case-insensitive, and a $Vk parameter hides the module's
 # $VK key table inside the function (measured: case 14's chord went out as a bare Space, no Ctrl, Alt or Win).
 function Chord-Free([uint32] $Key) {
@@ -569,8 +572,9 @@ try {
 
         # ------------------------------------------------ 14 rebinding
         if (Want 14) {
-            if (-not (Chord-Free $VkNew) -or -not (Chord-Free $VkHeld)) { Add-Invalid $run '14 Ctrl+Alt+Win+F9 or F10 is already held on this machine'; return }
+            if (-not (Chord-Free $VkNew) -or -not (Chord-Free $VkHeld) -or -not (Chord-Free $VkFree)) { Add-Invalid $run '14 Ctrl+Alt+Win+F9, F10 or F11 is already held on this machine'; return }
             Noto-Front '14'
+            $observed = Trace-Mark   # every recording below installs the keyboard observation once and removes it once
             Add-Result $run '14 the current chord works' ((Shown-By $VkSpace '14 current') -and -not (Chord-Free $VkSpace)) ''
 
             Open-Settings-ByButton
@@ -589,27 +593,47 @@ try {
                 $m = Trace-Mark; Recorder-Start
                 Send-ToNoto @($VK.CTRL, $VK.ALT, $VK.LWIN) $VkHeld
                 $refused = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Refused refusal=Conflict .*registered=True'
-                Add-Result $run '14 a chord another process holds is refused and announced; nothing changes' ($refused -and (Recorder-Status) -match 'in use by another app' -and (Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F9' -and -not (Chord-Free $VkNew)) "status='$(Recorder-Status)'; trace: $(Trace-Since $m)"
+                # The evidence is Noto's own: its rebind trace and its recorder, never the other process's press.
+                Add-Result $run '14 a chord another process holds is refused and announced; nothing changes' ($refused -and (Recorder-Status) -match 'in use by another app' -and (Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F9' -and -not (Chord-Free $VkNew) -and -not (Chord-Free $VkHeld)) "status='$(Recorder-Status)'; trace: $(Trace-Since $m)"
+                Add-Result $run '14 after the refusal the recorder is idle again' ((Recorder-Status) -notmatch '^Recording' -and (Trace-Since $m) -match 'suspended=False' -and (Trace-Since $m) -match 'recorder-keys removed') "status='$(Recorder-Status)'"
                 Add-Result $run '14 after the refusal the current chord still works' (Shown-By $VkNew '14 after refusal') ''
+
+                # The adversarial order: refused, then a different, free chord, while the other process still holds its own.
+                Noto-Front '14 free'
+                $m = Trace-Mark; Recorder-Start
+                Send-ToNoto @($VK.CTRL, $VK.ALT, $VK.LWIN) $VkFree
+                $rebound = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Rebound .*to=Ctrl\+Alt\+Win\+F11 registered=True'
+                Add-Result $run '14 after a refusal, a free chord records and registers; the old is released' ($rebound -and (Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F11' -and -not (Chord-Free $VkFree) -and (Chord-Free $VkNew) -and (Recorder-Status) -match 'now Ctrl\+Alt\+Win\+F11') "status='$(Recorder-Status)'; trace: $(Trace-Since $m)"
+                Add-Result $run '14 the free chord shows Noto' (Shown-By $VkFree '14 free') ''
             }
             finally { $null = Stop-HotkeyHolder $holder }
 
             Noto-Front '14 cancel'
             $m = Trace-Mark; Recorder-Start
             Send-ToNoto @() 0x1B
-            Add-Result $run '14 Escape cancels and gives the chord back' ((Recorder-Status) -match '^Cancelled' -and (Wait-Trace $m 'suspended=False') -and (Shown-By $VkNew '14 after Escape')) "trace: $(Trace-Since $m)"
+            Add-Result $run '14 Escape cancels and gives the chord back' ((Recorder-Status) -match '^Cancelled' -and (Wait-Trace $m 'suspended=False') -and (Trace-Since $m) -match 'recorder-keys removed' -and (Shown-By $VkFree '14 after Escape')) "trace: $(Trace-Since $m)"
 
             Noto-Front '14 focus'
             $m = Trace-Mark; Recorder-Start
             $null = Set-ForegroundByKeyboard $target
-            Add-Result $run '14 losing activation cancels and gives the chord back' ((Wait-Trace $m 'suspended=False') -and (Shown-By $VkNew '14 after focus loss')) "trace: $(Trace-Since $m)"
+            Add-Result $run '14 losing activation cancels and gives the chord back' ((Wait-Trace $m 'suspended=False') -and (Trace-Since $m) -match 'recorder-keys removed' -and (Shown-By $VkFree '14 after focus loss')) "trace: $(Trace-Since $m)"
+
+            Noto-Front '14 close'
+            $m = Trace-Mark; Recorder-Start
+            (Find-ById 'SettingsBackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+            Add-Result $run '14 closing Settings while recording cancels and gives the chord back' ((Wait-Trace $m 'Noto\.Settings closed') -and (Wait-Trace $m 'suspended=False') -and (Trace-Since $m) -match 'recorder-keys removed' -and (Shown-By $VkFree '14 after close')) "trace: $(Trace-Since $m)"
+
+            # Six recordings in this process: each installed the observation once and removed it once, none left behind.
+            $lines = @($log.Lines($noto.Pid) | Select-Object -Skip $observed)
+            $installed = @($lines -match 'recorder-keys installed=True').Count; $removed = @($lines -match 'recorder-keys removed').Count
+            Add-Result $run '14 every recording installed the keyboard observation once and removed it once' ($installed -eq 6 -and $removed -eq 6 -and @($lines -match 'recorder-keys installed=False').Count -eq 0 -and ($lines -match 'recorder-keys')[-1] -match 'removed') "installed=$installed removed=$removed"
 
             Restart-Noto
-            Add-Result $run '14 a restart keeps the new binding' ((Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F9' -and -not (Chord-Free $VkNew) -and (Shown-By $VkNew '14 after restart')) ''
+            Add-Result $run '14 a restart keeps the new binding' ((Stored 'activation.hotkey.binding') -eq 'Ctrl+Alt+Win+F11' -and -not (Chord-Free $VkFree) -and (Shown-By $VkFree '14 after restart')) ''
 
             $m = Trace-Mark; Recorder-Start
             Send-ToNoto @($VK.CTRL, $VK.ALT, $VK.LWIN) $VkSpace
-            Add-Result $run '14 the default is restored through the recorder' ((Wait-Trace $m 'outcome=Rebound .*to=Ctrl\+Alt\+Win\+SPACE registered=True') -and -not (Chord-Free $VkSpace) -and (Chord-Free $VkNew)) "trace: $(Trace-Since $m)"
+            Add-Result $run '14 the default is restored through the recorder' ((Wait-Trace $m 'outcome=Rebound .*to=Ctrl\+Alt\+Win\+SPACE registered=True') -and -not (Chord-Free $VkSpace) -and (Chord-Free $VkFree) -and (Trace-Since $m) -match 'recorder-keys removed') "trace: $(Trace-Since $m)"
         }
 
         # ------------------------------------------------ 13 integrity

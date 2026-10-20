@@ -68,6 +68,9 @@ public sealed unsafe class GlobalHotkey : IDisposable
     /// <summary>The id the chord is registered under. Any other id is not ours.</summary>
     internal const int HotkeyId = 0x4E4F;
 
+    /// <summary>The id <see cref="IsFree"/> registers under, for an instant, on the calling thread.</summary>
+    internal const int ProbeId = 0x4E50;
+
     private const nuint SubclassId = 2;
 
     private readonly nint _hwnd;
@@ -116,6 +119,23 @@ public sealed unsafe class GlobalHotkey : IDisposable
 
         hotkey.IsAttached = true;
         return hotkey;
+    }
+
+    /// <summary>
+    /// Whether no process holds <paramref name="chord"/> now, this one included: registered for an instant on the
+    /// calling thread, and released at once (Slice 1.2b, the recorder telling a held chord from a free one).
+    /// </summary>
+    public static bool IsFree(HotkeyChord chord)
+    {
+        (uint modifiers, uint vk) = HotkeyNative.ToNative(chord);
+
+        if (!NativeMethods.RegisterHotKey(0, ProbeId, modifiers, vk))
+        {
+            return false;
+        }
+
+        _ = NativeMethods.UnregisterHotKey(0, ProbeId);
+        return true;
     }
 
     /// <summary>Registers a chord globally.</summary>
