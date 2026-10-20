@@ -986,7 +986,7 @@ public partial class App : Application
 
         if (!_window.DispatcherQueue.HasThreadAccess)
         {
-            _ = _window.DispatcherQueue.TryEnqueue(() => OnSettingChanged(key, settings, preferences));
+            _ = _window.DispatcherQueue.TryEnqueueGuarded(() => OnSettingChanged(key, settings, preferences));
             return;
         }
 

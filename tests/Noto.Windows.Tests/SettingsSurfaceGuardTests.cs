@@ -67,7 +67,7 @@ public sealed class SettingsSurfaceGuardTests
     {
         string apply = Body(App, "OnSettingChanged");
 
-        Assert.Matches(@"if \(!_window\.DispatcherQueue\.HasThreadAccess\)\s*\{\s*_ = _window\.DispatcherQueue\.TryEnqueue\(\(\) => OnSettingChanged\(key, settings, preferences\)\);\s*return;", apply);
+        Assert.Matches(@"if \(!_window\.DispatcherQueue\.HasThreadAccess\)\s*\{\s*_ = _window\.DispatcherQueue\.TryEnqueueGuarded\(\(\) => OnSettingChanged\(key, settings, preferences\)\);\s*return;", apply);
     }
 
     [Fact]
