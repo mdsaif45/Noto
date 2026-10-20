@@ -413,7 +413,7 @@ C1 is a two-level model (folders → notes). There is no surface for notes at th
    - `EmptyRecycleBin` keeps that folder and reports it.
    - The user restores the folder, or moves the note.
 2. **Restoring into a folder in the bin is refused, by the engine** (P1.1). This closes Case C's restore path; the original text below said Case C stays legal in the engine.
-   - `RestoreNote` of a note whose folder is in the bin fails with `InvalidState` and changes nothing. A note at the root has no folder to test, and is restored as before.
+   - `RestoreNote` of a note with no live folder to return to (its folder is in the bin, or it has none) fails with `InvalidState` and changes nothing.
    - `RestoreNoteToFolder` refuses a target in the bin.
    - The bin therefore offers two routes. **Restore folder** (case D) brings back the folder with its notes. **Restore into…** (`RestoreNoteToFolder`) brings the note into a live folder.
    - An active note inside a binned folder now exists only in data written before P1.1. The engine still lets commands act on such a note (move, pin, edit, reorder), so it can be moved out. `PurgeFolder` and `EmptyRecycleBin` never strand it.
@@ -438,9 +438,27 @@ Events are published only after the transaction commits, by the registry, and ne
 - `NotePurged`, `NoteRestored`, `FolderPurged`, `RecycleBinEmptied`;
 - they carry identities and counts, never content.
 
-### Still open: notes at the root
+### No active note without a folder (closed in P1.1)
 
-`CreateNote` and `MoveNoteToFolder` accept no folder (the root scope), which no surface shows. The UI never uses it. P1.4 decides whether the root gets a surface or is refused; I7's check here counts only notes in a folder.
+C1 is a two-level model (folders → notes) and SideNotes has no notes outside a folder: its global create asks for one. No Noto surface ever created a note at the root. So the root is not a place an active note can be.
+
+- **Commands cannot name it.** `CreateNote` and `MoveNoteToFolder` take a `FolderId`, not a nullable one: no entry point (window, tray, a future CLI) can express "no folder".
+- **The database refuses it.** Migration 3 adds two triggers that abort any insert or update leaving an active note without a folder. That includes the foreign key's `ON DELETE SET NULL` when a folder row is removed under an active note; the persistence test proves the action is refused.
+- **Existing ones are repaired explicitly.** Migration 3 moves any active note that already has no folder to the recycle bin, stamped at the upgrade, behind the pre-migration safety copy. Nothing is lost, nothing is hidden, and no folder is invented. It comes back only through `RestoreNoteToFolder`, into a folder the user chooses; a plain `RestoreNote` refuses it, having no live folder to return to.
+- **A deleted note may still have no folder.** That is how the repaired notes wait in the bin.
+
+I7's test oracle is now strict: every active note lives in a live folder.
+
+### Follow-up: the refusal message under a race (correctness hardening, not a contract change)
+
+`RestoreNote` checks the note's lifecycle, then writes. If another writer restored the note between the two, the repository refuses the write and the command reports "no live folder to return to" rather than "not deleted". The outcome is right: a refusal, nothing changed, no event. Only the wording is wrong.
+
+It is not observable through any current entry point:
+- every command is dispatched on the UI thread;
+- one process owns a data root (ADR-013);
+- the planned CLI routes through that owner (implementation plan R12).
+
+When a second writer becomes possible, the repository should report why it refused, and the handler should map that.
 
 ### Purge and later content
 

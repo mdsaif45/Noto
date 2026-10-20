@@ -7,12 +7,13 @@ using Noto.UseCases.Commands;
 namespace Noto.UseCases.Notes;
 
 /// <summary>
-/// Moves a note to another folder, or to root (design §6, parity B11).
+/// Moves a note to another folder (design §6, parity B11).
 /// </summary>
 /// <param name="TargetFolderId">
-/// The destination, or <see langword="null"/> for the root scope.
+/// The destination: always a folder. A note moved to no folder would be
+/// reachable from no surface (I7, deletion-semantics §13).
 /// </param>
-public sealed record MoveNoteToFolder(NoteId NoteId, FolderId? TargetFolderId) : ICommand<CommandResult>;
+public sealed record MoveNoteToFolder(NoteId NoteId, FolderId TargetFolderId) : ICommand<CommandResult>;
 
 /// <summary>
 /// Handles <see cref="MoveNoteToFolder"/>.
@@ -54,23 +55,21 @@ public sealed class MoveNoteToFolderHandler(INoteRepository notes, IClock clock)
         // CURRENT folder may be deleted and the move still proceeds (Case C —
         // an active note may live in a deleted folder). Only the DESTINATION
         // is validated.
-        if (command.TargetFolderId is { } target)
+        FolderId target = command.TargetFolderId;
+        switch (_notes.GetFolderState(target))
         {
-            switch (_notes.GetFolderState(target))
-            {
-                case FolderState.Missing:
-                    return CommandResult.Failed(
-                        CommandFailure.NotFound($"No folder '{target}'."));
+            case FolderState.Missing:
+                return CommandResult.Failed(
+                    CommandFailure.NotFound($"No folder '{target}'."));
 
-                case FolderState.Deleted:
-                    return CommandResult.Failed(
-                        CommandFailure.InvalidState(
-                            $"Folder '{target}' is deleted and cannot receive a note."));
+            case FolderState.Deleted:
+                return CommandResult.Failed(
+                    CommandFailure.InvalidState(
+                        $"Folder '{target}' is deleted and cannot receive a note."));
 
-                case FolderState.Active:
-                default:
-                    break;
-            }
+            case FolderState.Active:
+            default:
+                break;
         }
 
         // O4: a new SortOrder in the target scope, in the same transaction as

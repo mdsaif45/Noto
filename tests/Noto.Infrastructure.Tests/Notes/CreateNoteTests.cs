@@ -37,10 +37,15 @@ public sealed class CreateNoteTests : IDisposable
 
     private CreateNoteHandler Handler() => new(_notes, _clock);
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     [Fact]
-    public void Creates_a_note_at_root_and_returns_its_id()
+    public void Creates_a_note_and_returns_its_id()
     {
-        var result = Handler().Handle(new CreateNote(null, "First note"));
+        var result = Handler().Handle(new CreateNote(Home, "First note"));
 
         Assert.True(result.IsSuccess);
         Assert.True(Ulid.IsValid(result.Value.Value));
@@ -53,7 +58,7 @@ public sealed class CreateNoteTests : IDisposable
         // must survive byte for byte, or the storage format is not a contract.
         const string content = "# Heading\r\n\r\n- [ ] task\n\nUnicode: 日本語 🗒️";
 
-        var id = Handler().Handle(new CreateNote(null, content)).Value;
+        var id = Handler().Handle(new CreateNote(Home, content)).Value;
 
         Assert.Equal(content, _notes.FindActive(id)!.Content);
     }
@@ -64,7 +69,7 @@ public sealed class CreateNoteTests : IDisposable
         // Migration 002 removed Notes.Title (parity B16, conflict C1). The
         // title must come from content on every read, so there is exactly one
         // source of truth.
-        var id = Handler().Handle(new CreateNote(null, "# Derived\n\nbody")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "# Derived\n\nbody")).Value;
 
         Assert.Equal("Derived", _notes.FindActive(id)!.Title);
 
@@ -81,7 +86,7 @@ public sealed class CreateNoteTests : IDisposable
         // Contract §4: one timestamp captured once. A note reporting that it
         // was modified after it was created would be a lie under "sort by
         // modified" (parity C10).
-        var id = Handler().Handle(new CreateNote(null, "x")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "x")).Value;
 
         Note note = _notes.FindActive(id)!;
 
@@ -93,11 +98,11 @@ public sealed class CreateNoteTests : IDisposable
     [Fact]
     public void Applies_the_documented_defaults()
     {
-        var id = Handler().Handle(new CreateNote(null, "x")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "x")).Value;
 
         Note note = _notes.FindActive(id)!;
 
-        Assert.Null(note.FolderId);      // root scope
+        Assert.Equal(Home, note.FolderId);
         Assert.Null(note.ColorKey);
         Assert.False(note.IsPinned);
         Assert.False(note.IsFolded);
@@ -120,7 +125,7 @@ public sealed class CreateNoteTests : IDisposable
     {
         // Parity B26 has a placeholder for empty notes, so emptiness is a
         // supported state rather than an error.
-        var result = Handler().Handle(new CreateNote(null, string.Empty));
+        var result = Handler().Handle(new CreateNote(Home, string.Empty));
 
         Assert.True(result.IsSuccess);
 
@@ -177,7 +182,7 @@ public sealed class CreateNoteTests : IDisposable
     [Fact]
     public void The_note_survives_closing_and_reopening()
     {
-        var id = Handler().Handle(new CreateNote(null, "durable")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "durable")).Value;
 
         _temp.ReleaseOwnPools();
 
@@ -190,16 +195,32 @@ public sealed class CreateNoteTests : IDisposable
     // ---- the FolderId parameter reaches the column correctly -------------
 
     [Fact]
-    public void A_root_note_persists_a_null_folder_column()
+    public void The_database_refuses_an_active_note_without_a_folder()
     {
-        // The absent folder must become SQL NULL, not the empty string and not
-        // a literal "DBNull" — otherwise root notes would not match the
-        // "FolderId IS NULL" scope query that ordering and listing rely on.
-        var id = Handler().Handle(new CreateNote(null, "at root")).Value;
+        // I7 (migration 3): no command can name "no folder", and the database
+        // refuses one too, so no other path (a future import, a raw write) can
+        // leave an active note that no surface reaches.
+        var note = new Note
+        {
+            Id = NoteId.New(),
+            Content = "nowhere",
+            FolderId = null,
+            SortOrder = 0,
+            CreatedAt = _clock.UtcNow,
+            UpdatedAt = _clock.UtcNow,
+        };
 
-        Assert.Equal(1L, CountNotes(
-            "SELECT COUNT(*) FROM Notes WHERE Id = $id AND FolderId IS NULL;",
-            ("$id", id.Value)));
+        Assert.ThrowsAny<Exception>(() => _notes.Add(note));
+        Assert.Equal(0L, ScalarLong("SELECT COUNT(*) FROM Notes;"));
+    }
+
+    [Fact]
+    public void A_deleted_note_may_still_have_no_folder()
+    {
+        // How the notes migration 3 repaired wait in the bin.
+        InsertNoteWithSortOrder(sortOrder: 0, deleted: true, withoutFolder: true);
+
+        Assert.Equal(1L, ScalarLong("SELECT COUNT(*) FROM Notes WHERE FolderId IS NULL AND DeletedAt IS NOT NULL;"));
     }
 
     [Fact]
@@ -217,20 +238,12 @@ public sealed class CreateNoteTests : IDisposable
     // ---- O3: a new note is placed at the END of its scope ----------------
 
     [Fact]
-    public void The_first_note_in_an_empty_root_scope_starts_the_order()
-    {
-        var id = Handler().Handle(new CreateNote(null, "first")).Value;
-
-        Assert.Equal(0d, _notes.FindActive(id)!.SortOrder);
-    }
-
-    [Fact]
-    public void A_second_root_note_is_placed_after_the_first()
+    public void A_second_note_is_placed_after_the_first()
     {
         // O3: insert at an end uses max + 1, so ordering does not depend on the
         // Id tiebreak.
-        var first = Handler().Handle(new CreateNote(null, "a")).Value;
-        var second = Handler().Handle(new CreateNote(null, "b")).Value;
+        var first = Handler().Handle(new CreateNote(Home, "a")).Value;
+        var second = Handler().Handle(new CreateNote(Home, "b")).Value;
 
         double firstOrder = _notes.FindActive(first)!.SortOrder;
         double secondOrder = _notes.FindActive(second)!.SortOrder;
@@ -263,15 +276,15 @@ public sealed class CreateNoteTests : IDisposable
     }
 
     [Fact]
-    public void Root_and_folder_scopes_are_ordered_independently()
+    public void Folder_scopes_are_ordered_independently()
     {
-        // O1: ordering is scoped per folder, and root is its own scope. A note
-        // added to a folder must not be pushed along by root's contents.
+        // O1: ordering is scoped per folder. A note added to one folder must
+        // not be pushed along by another folder's contents.
         FolderId folder = InsertFolder("Work");
 
-        Handler().Handle(new CreateNote(null, "root a"));
-        Handler().Handle(new CreateNote(null, "root b"));
-        Handler().Handle(new CreateNote(null, "root c"));
+        Handler().Handle(new CreateNote(Home, "other a"));
+        Handler().Handle(new CreateNote(Home, "other b"));
+        Handler().Handle(new CreateNote(Home, "other c"));
 
         var inFolder = Handler().Handle(new CreateNote(folder, "folder a")).Value;
 
@@ -285,7 +298,7 @@ public sealed class CreateNoteTests : IDisposable
         // happens to be — the rule is max + 1, not "count of notes".
         InsertNoteWithSortOrder(sortOrder: 41.5);
 
-        var id = Handler().Handle(new CreateNote(null, "after")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "after")).Value;
 
         Assert.Equal(42.5, _notes.FindActive(id)!.SortOrder);
     }
@@ -296,7 +309,7 @@ public sealed class CreateNoteTests : IDisposable
         // O3's other end is min - 1, so negative values are ordinary.
         InsertNoteWithSortOrder(sortOrder: -3);
 
-        var id = Handler().Handle(new CreateNote(null, "after")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "after")).Value;
 
         Assert.Equal(-2d, _notes.FindActive(id)!.SortOrder);
     }
@@ -309,7 +322,7 @@ public sealed class CreateNoteTests : IDisposable
         // notes past it.
         InsertNoteWithSortOrder(sortOrder: 1000, deleted: true);
 
-        var id = Handler().Handle(new CreateNote(null, "first live note")).Value;
+        var id = Handler().Handle(new CreateNote(Home, "first live note")).Value;
 
         Assert.Equal(0d, _notes.FindActive(id)!.SortOrder);
     }
@@ -342,16 +355,18 @@ public sealed class CreateNoteTests : IDisposable
         return (long)command.ExecuteScalar()!;
     }
 
-    private void InsertNoteWithSortOrder(double sortOrder, bool deleted = false)
+    private void InsertNoteWithSortOrder(double sortOrder, bool deleted = false, bool withoutFolder = false)
     {
+        FolderId? folder = withoutFolder ? null : Home;
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO Notes (Id, Content, SortOrder, CreatedAt, UpdatedAt, DeletedAt)
-            VALUES ($id, 'existing', $sortOrder, $now, $now, $deletedAt);
+            INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+            VALUES ($id, $folderId, 'existing', $sortOrder, $now, $now, $deletedAt);
             """;
         command.Parameters.AddWithValue("$id", NoteId.New().Value);
+        command.Parameters.AddWithValue("$folderId", folder is { } f ? f.Value : DBNull.Value);
         command.Parameters.AddWithValue("$sortOrder", sortOrder);
         command.Parameters.AddWithValue("$now", _clock.UtcNow.ToString("O"));
         command.Parameters.AddWithValue(

@@ -113,16 +113,17 @@ public sealed class DeleteFolderTests : IDisposable
     }
 
     [Fact]
-    public void Does_not_touch_notes_at_root()
+    public void Never_reaches_past_its_own_scope()
     {
-        // Root is its own scope (O1) and is never a catch-all. A note with
-        // FolderId NULL must not match `FolderId = @folderId`.
+        // A folder is its own scope (O1) and is never a catch-all: deleting one
+        // must not reach a note that lives elsewhere.
         var folder = _context.SeedFolder();
-        var rootNote = _context.SeedNote(null);
+        var other = _context.SeedFolder("Other");
+        var elsewhere = _context.SeedNote(other);
 
         Handler().Handle(new DeleteFolder(folder));
 
-        Assert.Null(_context.DeletedAtOf(rootNote));
+        Assert.Null(_context.DeletedAtOf(elsewhere));
     }
 
     [Fact]

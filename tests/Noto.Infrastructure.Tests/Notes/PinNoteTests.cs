@@ -35,8 +35,13 @@ public sealed class PinNoteTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
 
     private CommandResult Pin(NoteId id) =>
         new PinNoteHandler(_notes, _clock).Handle(new PinNote(id));
@@ -337,9 +342,10 @@ public sealed class PinNoteTests : IDisposable
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id FROM Notes WHERE FolderId IS NULL AND DeletedAt IS NULL
+            SELECT Id FROM Notes WHERE FolderId = $home AND DeletedAt IS NULL
             ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
             """;
+        command.Parameters.AddWithValue("$home", Home.Value);
 
         var ids = new List<NoteId>();
         using var reader = command.ExecuteReader();

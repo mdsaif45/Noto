@@ -36,8 +36,13 @@ public sealed class RecycleBinTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
 
     private void Delete(NoteId id) =>
         new DeleteNoteHandler(_notes, _clock).Handle(new DeleteNote(id));
@@ -165,7 +170,7 @@ public sealed class RecycleBinTests : IDisposable
         var b = Create("b");
         Delete(b);
 
-        double? max = _notes.MaxSortOrder(null);
+        double? max = _notes.MaxSortOrder(Home);
 
         Assert.Equal(_notes.FindActive(a)!.SortOrder, max);
 

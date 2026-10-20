@@ -90,7 +90,7 @@ public sealed class RecycleBinRaceTests
 
         public void UpdateContent(NoteId id, string content, DateTimeOffset updatedAt) => throw new NotSupportedException();
 
-        public void Move(NoteId id, FolderId? targetFolderId, NotePlacement placement, DateTimeOffset updatedAt) => throw new NotSupportedException();
+        public void Move(NoteId id, FolderId targetFolderId, NotePlacement placement, DateTimeOffset updatedAt) => throw new NotSupportedException();
 
         public bool Reorder(NoteId id, NotePlacement placement, DateTimeOffset updatedAt) => throw new NotSupportedException();
 

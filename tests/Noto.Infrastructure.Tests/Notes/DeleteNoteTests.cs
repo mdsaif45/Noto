@@ -35,8 +35,13 @@ public sealed class DeleteNoteTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
 
     private CommandResult Delete(NoteId id) =>
         new DeleteNoteHandler(_notes, _clock).Handle(new DeleteNote(id));
@@ -366,14 +371,25 @@ public sealed class DeleteNoteTests : IDisposable
     }
 
     [Fact]
-    public void A_note_at_the_root_is_still_restored()
+    public void A_binned_note_with_no_folder_is_not_restored_where_it_was()
     {
-        // No folder to test: the root keeps its old behaviour.
-        var id = Create("at root");
-        Delete(id);
+        // Such a note exists only where migration 3 repaired one into the bin.
+        // It has no folder to return to (I7): it stays in the bin, and comes
+        // back only into a folder the user chooses (RestoreNoteToFolder).
+        NoteId id = NoteId.New();
+        Execute(
+            """
+            INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+            VALUES ($id, NULL, 'repaired', 0, '2026-01-01T00:00:00.0000000+00:00', '2026-01-01T00:00:00.0000000+00:00', '2026-01-01T00:00:00.0000000+00:00');
+            """,
+            id.Value);
 
-        Assert.True(Restore(id).IsSuccess);
-        Assert.Null(_notes.FindActive(id)!.FolderId);
+        var result = Restore(id);
+
+        Assert.Equal(CommandFailureReason.InvalidState, result.Failure!.Reason);
+        Assert.Equal(NoteLifecycle.Deleted, _notes.GetLifecycle(id));
+        Assert.True(new RestoreNoteToFolderHandler(_notes, _clock).Handle(new RestoreNoteToFolder(id, Home)).IsSuccess);
+        Assert.Equal(Home, _notes.FindActive(id)!.FolderId);
     }
 
     [Fact]
@@ -412,9 +428,10 @@ public sealed class DeleteNoteTests : IDisposable
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id FROM Notes WHERE FolderId IS NULL AND DeletedAt IS NULL
+            SELECT Id FROM Notes WHERE FolderId = $home AND DeletedAt IS NULL
             ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
             """;
+        command.Parameters.AddWithValue("$home", Home.Value);
 
         var ids = new List<NoteId>();
         using var reader = command.ExecuteReader();
@@ -461,6 +478,15 @@ public sealed class DeleteNoteTests : IDisposable
         command.CommandText = "UPDATE Folders SET DeletedAt = $now WHERE Id = $id;";
         command.Parameters.AddWithValue("$now", _clock.UtcNow.ToString("O"));
         command.Parameters.AddWithValue("$id", id.Value);
+        command.ExecuteNonQuery();
+    }
+
+    private void Execute(string sql, string id)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
     }
 

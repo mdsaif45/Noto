@@ -29,10 +29,11 @@ public sealed class PersistenceTests : IDisposable
             using var insert = connection.CreateCommand();
             insert.CommandText =
                 """
-                INSERT INTO Notes (Id, Content, CreatedAt, UpdatedAt)
-                VALUES ($id, $content, $now, $now);
+                INSERT INTO Notes (Id, FolderId, Content, CreatedAt, UpdatedAt)
+                VALUES ($id, $folder, $content, $now, $now);
                 """;
             insert.Parameters.AddWithValue("$id", id);
+            insert.Parameters.AddWithValue("$folder", SeedFolder(connection));
             insert.Parameters.AddWithValue("$content", "# heading\n\n- [ ] a task");
             insert.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
             insert.ExecuteNonQuery();
@@ -81,10 +82,14 @@ public sealed class PersistenceTests : IDisposable
     }
 
     [Fact]
-    public void Deleting_a_folder_detaches_its_notes_rather_than_deleting_them()
+    public void Removing_a_folder_row_detaches_its_deleted_notes_and_never_strands_an_active_one()
     {
-        // ON DELETE SET NULL, deliberately. Deleting a folder must never
-        // silently destroy the notes inside it.
+        // ON DELETE SET NULL, deliberately: removing a folder must never
+        // silently destroy the notes inside it. Since migration 3 (I7) the
+        // database also refuses to leave an ACTIVE note without a folder, so
+        // the foreign key's own action is refused for one; a deleted note is
+        // detached as before. This is the proof that the trigger covers the
+        // foreign key's action, not only explicit writes.
         var database = new NotoDatabase(_temp.DatabasePath);
         database.Initialize();
 
@@ -105,6 +110,11 @@ public sealed class PersistenceTests : IDisposable
             """,
             ("$id", noteId), ("$folder", folderId), ("$now", now));
 
+        Assert.ThrowsAny<SqliteException>(() =>
+            Execute(connection, "DELETE FROM Folders WHERE Id = $id;", ("$id", folderId)));
+        Assert.Equal(1, ScalarCount(connection, "SELECT COUNT(*) FROM Folders;"));
+
+        Execute(connection, "UPDATE Notes SET DeletedAt = $now WHERE Id = $id;", ("$id", noteId), ("$now", now));
         Execute(connection, "DELETE FROM Folders WHERE Id = $id;", ("$id", folderId));
 
         using var select = connection.CreateCommand();
@@ -129,8 +139,8 @@ public sealed class PersistenceTests : IDisposable
         using var connection = database.OpenConnection();
 
         Execute(connection,
-            "INSERT INTO Notes (Id, Content, CreatedAt, UpdatedAt) VALUES ($id, '', $now, $now);",
-            ("$id", noteId), ("$now", now));
+            "INSERT INTO Notes (Id, FolderId, Content, CreatedAt, UpdatedAt) VALUES ($id, $folder, '', $now, $now);",
+            ("$id", noteId), ("$folder", SeedFolder(connection)), ("$now", now));
 
         Execute(connection,
             "INSERT INTO Tags (Id, Name, CreatedAt) VALUES ($id, 'work', $now);",
@@ -226,8 +236,9 @@ public sealed class PersistenceTests : IDisposable
             using var insert = connection.CreateCommand();
             insert.Transaction = transaction;
             insert.CommandText =
-                "INSERT INTO Notes (Id, Content, CreatedAt, UpdatedAt) VALUES ($id, 'rolled back', $now, $now);";
+                "INSERT INTO Notes (Id, FolderId, Content, CreatedAt, UpdatedAt) VALUES ($id, $folder, 'rolled back', $now, $now);";
             insert.Parameters.AddWithValue("$id", Ulid.NewId());
+            insert.Parameters.AddWithValue("$folder", SeedFolder(connection, transaction));
             insert.Parameters.AddWithValue("$now", now);
             insert.ExecuteNonQuery();
 
@@ -235,6 +246,19 @@ public sealed class PersistenceTests : IDisposable
         }
 
         Assert.Equal(0, ScalarCount(connection, "SELECT COUNT(*) FROM Notes;"));
+    }
+
+    // Every active note lives in a folder (I7, migration 3).
+    private static string SeedFolder(SqliteConnection connection, SqliteTransaction? transaction = null)
+    {
+        string id = Ulid.NewId();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "INSERT INTO Folders (Id, Name, CreatedAt, UpdatedAt) VALUES ($id, 'Home', $now, $now);";
+        command.Parameters.AddWithValue("$id", id);
+        command.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
+        return id;
     }
 
     private static void Execute(
