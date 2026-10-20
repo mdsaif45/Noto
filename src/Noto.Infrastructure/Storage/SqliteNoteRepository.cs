@@ -449,6 +449,114 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
+    public bool RestoreInto(NoteId id, FolderId folderId, DateTimeOffset updatedAt)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            // Both preconditions are read inside the transaction that writes:
+            // the note is in the bin, and the target is live (I7).
+            FolderId? from;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText =
+                    """
+                    SELECT n.FolderId
+                    FROM Notes n
+                    WHERE n.Id = $id AND n.DeletedAt IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM Folders f WHERE f.Id = $folderId AND f.DeletedAt IS NULL);
+                    """;
+                command.Parameters.AddWithValue("$id", id.Value);
+                command.Parameters.AddWithValue("$folderId", folderId.Value);
+                using var reader = command.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return false;
+                }
+
+                from = reader.IsDBNull(0) ? null : FolderId.From(reader.GetString(0));
+            }
+
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+
+                if (from == folderId)
+                {
+                    // Back where it was: its SortOrder was kept for exactly this (I6).
+                    command.CommandText =
+                        """
+                        UPDATE Notes
+                        SET DeletedAt = NULL, UpdatedAt = $updatedAt
+                        WHERE Id = $id;
+                        """;
+                }
+                else
+                {
+                    // Into another folder: at the end, as a move files it (O4), in
+                    // the same transaction as the folder change.
+                    double sortOrder = SortOrderEngine.ResolvePosition(
+                        connection,
+                        transaction,
+                        ScopeFor(folderId),
+                        ToEnginePlacement(NotePlacement.Last),
+                        id.Value,
+                        updatedAt);
+
+                    command.CommandText =
+                        """
+                        UPDATE Notes
+                        SET DeletedAt = NULL, FolderId = $folderId, SortOrder = $sortOrder, UpdatedAt = $updatedAt
+                        WHERE Id = $id;
+                        """;
+                    command.Parameters.AddWithValue("$folderId", folderId.Value);
+                    command.Parameters.AddWithValue("$sortOrder", sortOrder);
+                }
+
+                command.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
+                command.Parameters.AddWithValue("$id", id.Value);
+                command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not restore note '{id}' into folder '{folderId}'.",
+                ex);
+        }
+    }
+
+    public bool Purge(NoteId id)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // `DeletedAt IS NOT NULL` is the whole safety of this statement: an
+            // active note is never removed by a purge (I5), whatever id it is
+            // given. NoteTags rows go with it by the schema's cascade (I4).
+            command.CommandText = "DELETE FROM Notes WHERE Id = $id AND DeletedAt IS NOT NULL;";
+            command.Parameters.AddWithValue("$id", id.Value);
+
+            return command.ExecuteNonQuery() == 1;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not permanently delete note '{id}'.",
+                ex);
+        }
+    }
+
     public IReadOnlyList<Note> ListDeleted()
     {
         try

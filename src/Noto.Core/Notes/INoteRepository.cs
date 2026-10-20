@@ -206,6 +206,30 @@ public interface INoteRepository
     /// </returns>
     bool Restore(NoteId id, DateTimeOffset updatedAt);
 
+    /// <summary>
+    /// Brings a note back out of the recycle bin into <paramref name="folderId"/>,
+    /// which must be live: one transaction.
+    /// </summary>
+    /// <remarks>
+    /// Into the folder it was in, the note keeps its <c>SortOrder</c> (I6). Into
+    /// another folder, it lands at the end of that folder (O4), as a move does.
+    /// </remarks>
+    /// <returns>
+    /// <see langword="false"/>, changing nothing, when there is no deleted note
+    /// with that id or the folder is not live (I7). Decided inside the
+    /// transaction that writes.
+    /// </returns>
+    bool RestoreInto(NoteId id, FolderId folderId, DateTimeOffset updatedAt);
+
+    /// <summary>
+    /// Permanently removes a note that is in the recycle bin (case E): the row
+    /// and, by the schema's cascade, its tag links (I4).
+    /// </summary>
+    /// <returns>
+    /// <see langword="false"/>, changing nothing, when there is no deleted note
+    /// with that id. An active note is never removed by this method.
+    /// </returns>
+    bool Purge(NoteId id);
 
     /// <summary>
     /// Every note in the recycle bin.

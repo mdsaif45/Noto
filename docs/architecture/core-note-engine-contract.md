@@ -95,6 +95,15 @@ keyboard path. ADR-010 also lists `PinNote` and `UnpinNote` separately.
 | 22 | `AssignTagToNote` | design §6 |
 | 23 | `RemoveTagFromNote` | design §6 |
 
+**P1.1 adds four** (deletion-semantics §13), making 27:
+
+| # | Command | Source |
+|---|---------|--------|
+| 24 | `PurgeNote` | deletion-semantics §13 (case E) |
+| 25 | `RestoreNoteToFolder` | deletion-semantics §13 (I7) |
+| 26 | `PurgeFolder` | deletion-semantics §13 (case F, I7) |
+| 27 | `EmptyRecycleBin` | deletion-semantics §13 |
+
 ### The 7 queries
 
 | # | Query | Source |
@@ -266,7 +275,7 @@ inside the engine, where §7 and §9 put it.
 | Target not an active sibling in scope | `InvalidInput` (§6) |
 | Target is deleted | rejected — I5, I6 |
 | Note is deleted | rejected — I5 |
-| Note is active inside a **deleted folder** | **allowed** — Case C; the folder's state is not a precondition |
+| Note is active inside a **deleted folder** | **allowed** — such a note (legacy data since P1.1 closed Case C's restore path) can still be reordered; the folder's state is not a precondition |
 | Note-onto-note drag | **not a domain rule** — B10 is a drag-source constraint, unrepresentable in this signature |
 
 ### Renormalisation (U5 — RESOLVED, no specification change)
@@ -602,7 +611,9 @@ Every public operation. **Failure** lists business reasons only —
 | 1 | `CreateNote` | §6, B1 | insert; ULID; `CreatedAt`=`UpdatedAt`; `SortOrder` per O3 | `NoteId` | `NotFound` (folder), `InvalidState` (folder deleted) | no | round-trip; placement at end |
 | 2 | `UpdateNoteContent` | §6, B19 | replace `Content`; stamp | — | `NotFound`, `InvalidState` | no | content verbatim incl. newlines/unicode; title re-derives |
 | 3 | `DeleteNote` | §6, B23 | `DeletedAt` = now; stamp | — | `NotFound`, `InvalidState` | no | excluded from all lists (I1); present in bin (I2) |
-| 4 | `RestoreNote` | §6, B23 | `DeletedAt` = null; stamp | — | `NotFound`, `InvalidState` (not deleted) | no | Case C — restores into a deleted folder |
+| 4 | `RestoreNote` | §6, B23 | `DeletedAt` = null; stamp; **refused when its folder is in the bin** (I7, deletion-semantics §13) | — | `NotFound`, `InvalidState` (not deleted, or folder in the bin) | no | Case C refused since P1.1; a root note restores |
+| 4a | `RestoreNoteToFolder` | deletion-semantics §13 | binned note → live folder; own folder keeps `SortOrder` (I6), another lands last (O4) | — | `NotFound` (note, folder), `InvalidState` (note active, folder binned) | **yes** | I7; rollback on failure |
+| 4b | `PurgeNote` | deletion-semantics §13, case E | remove a binned note; `NoteTags` cascade (I4) | — | `NotFound`, `InvalidState` (active) | no | an active note is never removed |
 | 5 | `MoveNoteToFolder` | §6, B11 | `FolderId` + new `SortOrder` in target scope | — | `NotFound`, `InvalidState` | **yes** | scope change + order together; rollback on failure |
 | 6 | `ReorderNote` | §6, B8/B10 | `SortOrder` per O3/O6; scope from `FolderId` | — | `NotFound`, `InvalidInput`, `InvalidState` | **yes** | one row written; ~60 same-spot inserts; same-position no-op writes nothing |
 | 7 | `PinNote` | §6, B14 | `IsPinned` = true; stamp | — | `NotFound`, `InvalidState` | no | pinned sort above unpinned (O2) |
@@ -618,6 +629,8 @@ Every public operation. **Failure** lists business reasons only —
 | 12 | `CreateFolder` | §6, C2 | insert; ULID; timestamps | `FolderId` | `InvalidInput` (empty name) | no | **empty folder name rejected** (§14) |
 | 13 | `RenameFolder` | §6, C13 | replace `Name`; stamp | — | `NotFound`, `InvalidInput`, `InvalidState` | no | duplicate names allowed (Case G) |
 | 14 | `DeleteFolder` | §6, C11 | folder + its **active** notes → deleted; one timestamp | — | `NotFound`, `InvalidState` | **yes** | Case A; **Case B** — already-deleted untouched; rollback |
+| 15a | `PurgeFolder` | deletion-semantics §13, case F | remove a binned folder and its binned notes; **refused while an active note lives in it** (I7) | — | `NotFound`, `InvalidState` (active, or active notes remain) | **yes** | rollback on failure |
+| 15b | `EmptyRecycleBin` | deletion-semantics §13 | remove every binned note, then every binned folder no active note lives in; report the kept ones | counts + kept folder ids | — | **yes** | twice is harmless; rollback on failure |
 | 15 | `RestoreFolder` | §6, **Case D** | folder + **every still-deleted note with matching `FolderId`** → active | — | `NotFound`, `InvalidState` (not deleted) | **yes** | **Case D incl. a note deleted individually beforehand**; Case G |
 | 16 | `PinFolder` | §6, C8 | `IsPinned` = true; stamp | — | `NotFound`, `InvalidState` | no | pinned folders sort first |
 | 17 | `UnpinFolder` | §6, C8 | `IsPinned` = false; stamp | — | `NotFound`, `InvalidState` | no | — |
