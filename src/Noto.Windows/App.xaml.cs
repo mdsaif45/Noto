@@ -214,7 +214,17 @@ public partial class App : Application
     /// </summary>
     private LoginRegistration? _login;
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+
+        // High contrast (ADR-011): the design system gives every text and fill its own system colour in the
+        // HighContrast theme, and a selected row is HighlightText on Highlight. Left on, the framework's automatic
+        // adjustment redraws text over a backplate in the window colour, so that row's text came out white on black
+        // inside the Highlight fill (measured). Set before any window exists; every element defers to it
+        // (ElementHighContrastAdjustment.Application, its default), the settings page created later included.
+        HighContrastAdjustment = ApplicationHighContrastAdjustment.None;
+    }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
