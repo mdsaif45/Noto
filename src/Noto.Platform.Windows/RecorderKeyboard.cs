@@ -31,7 +31,9 @@ namespace Noto.Platform.Windows;
 /// </remarks>
 public sealed unsafe class RecorderKeyboard : IDisposable
 {
-    // The installed one: the hook callback is static, as an unmanaged callback must be. UI thread only.
+    // The installed one: the hook callback is static, as an unmanaged callback must be, so it finds the recording that
+    // owns the hook through this field. There is one hook at a time (Start refuses a second), and only static members
+    // change this field: Start installs, Release clears. UI thread only.
     private static RecorderKeyboard? _installed;
 
     private readonly nint _owner;
@@ -88,13 +90,18 @@ public sealed unsafe class RecorderKeyboard : IDisposable
 
         _ = NativeMethods.UnhookWindowsHookEx(_hook);
         _hook = 0;
+        Release(this);
 
-        if (ReferenceEquals(_installed, this))
+        Trace.WriteLine("Noto.Hotkey recorder-keys removed");
+    }
+
+    /// <summary>Forgets <paramref name="keyboard"/> as the installed one, and only it: a stale instance never clears its successor.</summary>
+    private static void Release(RecorderKeyboard keyboard)
+    {
+        if (ReferenceEquals(_installed, keyboard))
         {
             _installed = null;
         }
-
-        Trace.WriteLine("Noto.Hotkey recorder-keys removed");
     }
 
     /// <summary>Whether a hook message is a key press to report: a key going down, while Noto is in front.</summary>
@@ -144,9 +151,11 @@ public sealed unsafe class RecorderKeyboard : IDisposable
             {
                 keyboard._pressed(key, Held(key, static k => NativeMethods.GetAsyncKeyState(k) < 0));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException))
             {
-                // Never across the native boundary, where an exception ends the process.
+                // Never across the native boundary, where an exception ends the process. Noto's rule for every
+                // catch-all (as GlobalHotkey's, TrayIcon's and DockedWindow's callbacks): running out of memory or
+                // stack is not swallowed; it ends the process, as it would anywhere else.
                 Trace.WriteLine($"Noto.Hotkey recorder-keys report failed error={ex.GetType().Name}");
             }
         }
