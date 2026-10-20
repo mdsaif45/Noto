@@ -45,11 +45,14 @@ public sealed class RestoreNoteHandler(INoteRepository notes, IClock clock)
                 break;
         }
 
-        // Case C: the note's FolderId is left exactly as it is, even when that
-        // folder is itself still deleted. That state is legal by design, and
-        // it is how a user pulls one note back out of a binned folder.
-        _notes.Restore(command.NoteId, _clock.UtcNow);
-
-        return CommandResult.Success();
+        // I7 (deletion-semantics §13): not into a folder that is itself in the
+        // bin, where the note would come back invisible. The repository decides
+        // it in the same statement as the write; the note is still in the bin,
+        // so the only reason it can refuse is its folder. The user restores the
+        // folder (Case D) or restores the note into another folder
+        // (RestoreNoteToFolder).
+        return _notes.Restore(command.NoteId, _clock.UtcNow)
+            ? CommandResult.Success()
+            : CommandResult.Failed(RecycleBinRules.FolderInBin(command.NoteId));
     }
 }
