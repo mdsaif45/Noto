@@ -195,11 +195,17 @@ public interface INoteRepository
     /// <remarks>
     /// Touches those two columns only. The note's <c>SortOrder</c> was never
     /// disturbed, so it returns to roughly its old position without any
-    /// placement logic (I6). Its <c>FolderId</c> is untouched too — Case C
-    /// deliberately allows a restored note to point at a folder that is itself
-    /// still deleted.
+    /// placement logic (I6). Its <c>FolderId</c> is untouched too.
     /// </remarks>
-    void Restore(NoteId id, DateTimeOffset updatedAt);
+    /// <returns>
+    /// <see langword="false"/>, changing nothing, when there is no deleted note
+    /// with that id or when its folder is itself in the recycle bin: restoring
+    /// it there would leave an active note no surface reaches (I7,
+    /// deletion-semantics §13, which closes Case C's restore path). Decided in
+    /// the same statement as the write.
+    /// </returns>
+    bool Restore(NoteId id, DateTimeOffset updatedAt);
+
 
     /// <summary>
     /// Every note in the recycle bin.

@@ -411,7 +411,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    public void Restore(NoteId id, DateTimeOffset updatedAt)
+    public bool Restore(NoteId id, DateTimeOffset updatedAt)
     {
         try
         {
@@ -420,18 +420,25 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
 
             // DeletedAt and UpdatedAt only. SortOrder, FolderId and every other
             // field survive untouched, so the note comes back as it was rather
-            // than being reconstructed — including a FolderId that may still
-            // point at a deleted folder (Case C).
+            // than being reconstructed (I6).
+            //
+            // I7: not into a folder that is itself in the bin, where no surface
+            // would show it (deletion-semantics §13 closes Case C's restore
+            // path). The condition is part of the write, so it cannot go stale
+            // between a check and the update. A note at the root has no folder
+            // to test and is restored as before.
             command.CommandText =
                 """
                 UPDATE Notes
                 SET DeletedAt = NULL, UpdatedAt = $now
-                WHERE Id = $id AND DeletedAt IS NOT NULL;
+                WHERE Id = $id AND DeletedAt IS NOT NULL
+                  AND (FolderId IS NULL
+                       OR EXISTS (SELECT 1 FROM Folders f WHERE f.Id = Notes.FolderId AND f.DeletedAt IS NULL));
                 """;
             command.Parameters.AddWithValue("$now", Format(updatedAt));
             command.Parameters.AddWithValue("$id", id.Value);
 
-            command.ExecuteNonQuery();
+            return command.ExecuteNonQuery() == 1;
         }
         catch (SqliteException ex)
         {
