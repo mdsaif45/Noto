@@ -160,13 +160,13 @@
             <StaticResource x:Key="ToggleSwitchHeaderForeground" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchHeaderForegroundDisabled" ResourceKey="TextDisabledBrush" />
             <StaticResource x:Key="ToggleSwitchFillOff" ResourceKey="SurfaceInputBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="InteractionPressedBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="InteractionHoverColor" />
+            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="InteractionPressedColor" />
+            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceSidebarColor" />
             <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="TextSecondaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="TextPrimaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="TextPrimaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="TextPrimaryColor" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="TextPrimaryColor" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledColor" />
             <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="TextSecondaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
@@ -268,13 +268,13 @@
             <StaticResource x:Key="ToggleSwitchHeaderForeground" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchHeaderForegroundDisabled" ResourceKey="TextDisabledBrush" />
             <StaticResource x:Key="ToggleSwitchFillOff" ResourceKey="SurfaceInputBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="InteractionPressedBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceSidebarBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="InteractionHoverColor" />
+            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="InteractionPressedColor" />
+            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceSidebarColor" />
             <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="TextSecondaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="TextPrimaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="TextPrimaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="TextPrimaryColor" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="TextPrimaryColor" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledColor" />
             <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="TextSecondaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
@@ -376,13 +376,13 @@
             <StaticResource x:Key="ToggleSwitchHeaderForeground" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchHeaderForegroundDisabled" ResourceKey="TextDisabledBrush" />
             <StaticResource x:Key="ToggleSwitchFillOff" ResourceKey="SurfaceInputBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="SurfaceInputBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="SurfaceInputBrush" />
-            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceInputBrush" />
+            <StaticResource x:Key="ToggleSwitchFillOffPointerOver" ResourceKey="SurfaceInputColor" />
+            <StaticResource x:Key="ToggleSwitchFillOffPressed" ResourceKey="SurfaceInputColor" />
+            <StaticResource x:Key="ToggleSwitchFillOffDisabled" ResourceKey="SurfaceInputColor" />
             <StaticResource x:Key="ToggleSwitchStrokeOff" ResourceKey="TextSecondaryBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="InteractionHoverBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="InteractionHoverBrush" />
-            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledBrush" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPointerOver" ResourceKey="InteractionHoverColor" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffPressed" ResourceKey="InteractionHoverColor" />
+            <StaticResource x:Key="ToggleSwitchStrokeOffDisabled" ResourceKey="TextDisabledColor" />
             <StaticResource x:Key="ToggleSwitchKnobFillOff" ResourceKey="TextSecondaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="InteractionHoverBrush" />
