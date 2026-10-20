@@ -187,7 +187,13 @@ public sealed class DesignSystemGuardTests
         // A Highlight fill must carry HighlightText. The ComboBox's face and the switch's track have no key for the
         // text or knob drawn over them on hover, so in high contrast they show hover as a Highlight border instead.
         var hc = ThemeDictionary("HighContrast");
-        string[] highlightFills = ["InteractionHoverBrush", "InteractionPressedBrush", "InteractionSelectedBrush"];
+
+        // By role, whether a key names the brush or, where a template animates it as a colour, the colour.
+        string[] highlightFills =
+        [
+            "InteractionHoverBrush", "InteractionPressedBrush", "InteractionSelectedBrush",
+            "InteractionHoverColor", "InteractionPressedColor", "InteractionSelectedColor",
+        ];
         string[] noTextKey =
         [
             "ComboBoxBackgroundPointerOver", "ComboBoxBackgroundPressed", "ComboBoxBackgroundDisabled",
@@ -197,6 +203,103 @@ public sealed class DesignSystemGuardTests
         var filled = noTextKey.Where(k => highlightFills.Contains((string?)hc.Elements().Single(e => KeyOf(e) == k).Attribute("ResourceKey"))).ToList();
 
         Assert.True(filled.Count == 0, "Highlight fill under window text: " + string.Join(", ", filled));
+    }
+
+    [Fact]
+    public void Every_key_a_native_template_animates_as_a_colour_is_given_a_colour_in_every_theme()
+    {
+        // WinUI's templates set some states through a colour animation (a ColorKeyFrame's Value is a Color), for
+        // example the switch's track stroke and fill on hover, press and disable. Given a brush there, the animation has
+        // no colour to run to and the stroke is not drawn (measured: in high contrast a hovered off switch lost its
+        // outline, leaving only its knob). Read from the framework's own templates, so a key added later is held too.
+        HashSet<string> animatedAsColour = WinUiColourAnimatedKeys();
+        string[] switchStates =
+        [
+            "ToggleSwitchStrokeOffPointerOver", "ToggleSwitchFillOffPointerOver", "ToggleSwitchStrokeOffPressed",
+            "ToggleSwitchFillOffPressed", "ToggleSwitchStrokeOffDisabled", "ToggleSwitchFillOffDisabled",
+        ];
+        Assert.All(switchStates, k => Assert.Contains(k, animatedAsColour));
+
+        var brushes = new List<string>();
+        foreach (string theme in Themes)
+        {
+            XElement dictionary = ThemeDictionary(theme);
+            foreach (XElement element in dictionary.Elements().Where(e => KeyOf(e) is { } key && animatedAsColour.Contains(key)))
+            {
+                if (ResolvedKind(dictionary, element) != "Color")
+                {
+                    brushes.Add($"{theme}: {KeyOf(element)}");
+                }
+            }
+        }
+
+        Assert.True(brushes.Count == 0, "A colour-animated key given a brush: " + string.Join(", ", brushes));
+
+        // The roles are unchanged: in high contrast a hovered off switch is a Highlight border on the window colour,
+        // and in Light and Dark its border is the primary text colour, as before.
+        var hc = ThemeDictionary("HighContrast");
+        Assert.Equal("SystemColorHighlightColor", Target(hc, Target(hc, "ToggleSwitchStrokeOffPointerOver")));
+        Assert.Equal("SystemColorWindowColor", Target(hc, Target(hc, "ToggleSwitchFillOffPointerOver")));
+        foreach (string theme in new[] { "Light", "Dark" })
+        {
+            Assert.Equal("TextPrimaryColor", Target(ThemeDictionary(theme), "ToggleSwitchStrokeOffPointerOver"));
+            Assert.Equal("InteractionHoverColor", Target(ThemeDictionary(theme), "ToggleSwitchFillOffPointerOver"));
+        }
+
+        // At rest the template takes brushes, unchanged: the off switch's outline is still the secondary text.
+        Assert.All(Themes, t => Assert.Equal("TextSecondaryBrush", Target(ThemeDictionary(t), "ToggleSwitchStrokeOff")));
+
+        // Noto restyles only the off switch's colours and text: the on switch, and the switch's shape (its outline's
+        // thickness among it), stay WinUI's own in every theme.
+        string[] restyled =
+        [
+            "ToggleSwitchContentForeground", "ToggleSwitchContentForegroundDisabled", "ToggleSwitchHeaderForeground",
+            "ToggleSwitchHeaderForegroundDisabled", "ToggleSwitchFillOff", "ToggleSwitchStrokeOff", "ToggleSwitchKnobFillOff",
+            "ToggleSwitchKnobFillOffPointerOver", "ToggleSwitchKnobFillOffPressed", "ToggleSwitchKnobFillOffDisabled", .. switchStates,
+        ];
+        Assert.All(Themes, t => Assert.Equal(
+            restyled.Order(StringComparer.Ordinal),
+            ThemeDictionary(t).Elements().Select(KeyOf).OfType<string>().Where(k => k.StartsWith("ToggleSwitch", StringComparison.Ordinal)).Order(StringComparer.Ordinal)));
+    }
+
+    /// <summary>Every theme key WinUI's own templates use as a ColorKeyFrame's value, read from the restored package.</summary>
+    private static HashSet<string> WinUiColourAnimatedKeys()
+    {
+        string assets = SourcePath("src", "Noto.Windows", "obj", "project.assets.json");
+        using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(assets));
+        string library = json.RootElement.GetProperty("libraries").EnumerateObject()
+            .Single(l => l.Name.StartsWith("Microsoft.WindowsAppSDK.WinUI/", StringComparison.OrdinalIgnoreCase)).Value.GetProperty("path").GetString()!;
+        string generic = json.RootElement.GetProperty("packageFolders").EnumerateObject()
+            .Select(f => Path.Join(f.Name, library))
+            .Where(Directory.Exists)
+            .SelectMany(d => Directory.EnumerateFiles(d, "generic.xaml", SearchOption.AllDirectories))
+            .First();
+
+        return Regex.Matches(File.ReadAllText(generic), @"<(?:Linear|Discrete|Easing|Spline)ColorKeyFrame[^>]*Value=""\{ThemeResource (\w+)\}""")
+            .Select(m => m.Groups[1].Value)
+            .ToHashSet();
+    }
+
+    /// <summary>What a theme entry finally is: a Color, a SolidColorBrush, or a system colour, following aliases.</summary>
+    private static string ResolvedKind(XElement theme, XElement element)
+    {
+        for (int depth = 0; depth < 8; depth++)
+        {
+            if (element.Name.LocalName is "Color" or "SolidColorBrush")
+            {
+                return element.Name.LocalName;
+            }
+
+            string target = (string?)element.Attribute("ResourceKey") ?? string.Empty;
+            if (SystemKey.IsMatch(target))
+            {
+                return target.EndsWith("Color", StringComparison.Ordinal) ? "Color" : "SolidColorBrush";
+            }
+
+            element = theme.Elements().Single(e => KeyOf(e) == target);
+        }
+
+        return "unresolved";
     }
 
     // ---------------------------------------------------------------- resolution
