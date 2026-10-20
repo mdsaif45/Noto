@@ -1301,7 +1301,7 @@ public sealed partial class MainWindow : Window
         Motion.EnterSurface(page, forward: true);
 
         // After layout: an element made visible this frame cannot take focus until it has been measured.
-        _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, page.FocusFirst);
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, page.FocusFirst);
         Trace.WriteLine("Noto.Settings opened");
     }
 
@@ -1335,7 +1335,7 @@ public sealed partial class MainWindow : Window
 
         _settingsReturn = null;
         _settingsReturnFocus = null;
-        _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => restore.Focus(FocusState.Programmatic));
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => restore.Focus(FocusState.Programmatic));
         Trace.WriteLine("Noto.Settings closed");
     }
 

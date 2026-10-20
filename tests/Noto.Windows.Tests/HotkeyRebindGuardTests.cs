@@ -98,7 +98,7 @@ public sealed class HotkeyRebindGuardTests
         // Measured: a chord another application holds is delivered to it, never to this page. While the recorder listens,
         // the keys are observed below the applications' shortcuts and read once, on the UI thread.
         Assert.Matches(
-            @"_recording = true;\s*_context\.SuspendHotkey\(true\);[\s\S]*_recorderKeys = _context\.ObserveRecorderKeys\(\(key, held\) => _ = DispatcherQueue\.TryEnqueue\(\(\) => Record\(key, held\)\)\);\s*\}$",
+            @"_recording = true;\s*_context\.SuspendHotkey\(true\);[\s\S]*_recorderKeys = _context\.ObserveRecorderKeys\(\(key, held\) => _ = DispatcherQueue\.TryEnqueueGuarded\(\(\) => Record\(key, held\)\)\);\s*\}$",
             Body(Page, "OnRecorderClick"));
 
         // Ended with the recording, on every route (Escape, a chord, focus lost, deactivation, Settings closed all reach

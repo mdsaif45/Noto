@@ -245,7 +245,7 @@ public sealed partial class SettingsPage : UserControl
         // A chord another application holds is delivered to it and never reaches this page (measured), so it could not
         // be tried and refused. While listening, such a chord is observed below every application's shortcuts, for this
         // recording only, and queued here; every other key reaches this page and is read as it always was.
-        _recorderKeys = _context.ObserveRecorderKeys((key, held) => _ = DispatcherQueue.TryEnqueue(() => Record(key, held)));
+        _recorderKeys = _context.ObserveRecorderKeys((key, held) => _ = DispatcherQueue.TryEnqueueGuarded(() => Record(key, held)));
     }
 
     /// <summary>While recording, every key is the recorder's: nothing else in Noto acts on it.</summary>
