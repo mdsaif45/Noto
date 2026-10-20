@@ -55,9 +55,11 @@ public sealed class SettingsSurfaceGuardTests
             Assert.Matches($@"key == SettingKeys\.{key}\b[^{{]*\{{\s*{owner};", apply);
         }
 
-        // Subscribed once, after every owner exists.
-        Assert.Equal(1, Regex.Count(App, @"settings\.SettingChanged \+= \(_, e\) => OnSettingChanged\(e\.Key, settings, preferences\);"));
-        Assert.True(App.IndexOf("settings.SettingChanged +=", StringComparison.Ordinal) > App.IndexOf("_coordinator = new WindowCoordinator(", StringComparison.Ordinal));
+        // Subscribed once, after every owner exists. (The log's own level subscription, #7, comes earlier by design: the
+        // log must follow its level from before the window exists.)
+        const string subscription = "settings.SettingChanged += (_, e) => OnSettingChanged(e.Key, settings, preferences);";
+        Assert.Equal(1, Regex.Count(App, Regex.Escape(subscription)));
+        Assert.True(App.IndexOf(subscription, StringComparison.Ordinal) > App.IndexOf("_coordinator = new WindowCoordinator(", StringComparison.Ordinal));
     }
 
     [Fact]
