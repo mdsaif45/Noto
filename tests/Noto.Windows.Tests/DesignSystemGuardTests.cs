@@ -19,6 +19,7 @@ public sealed class DesignSystemGuardTests
 
     private static readonly string DesignSystem = Path.GetDirectoryName(Path.GetDirectoryName(SourcePath("src", "Noto.UI", "Themes", "Generic.xaml")))!;
     private static readonly string MainWindowPath = SourcePath("src", "Noto.Windows", "MainWindow.xaml");
+    private static readonly string AppPath = SourcePath("src", "Noto.Windows", "App.xaml.cs");
 
     // The OS supplies these to every dictionary: high contrast's palette and the user's accent.
     private static readonly Regex SystemKey = new(@"^System(Color\w+Color|AccentColor((Light|Dark)[123])?)$");
@@ -116,6 +117,63 @@ public sealed class DesignSystemGuardTests
 
         // Nothing in high contrast is a colour Noto chose.
         Assert.Empty(hc.Elements(Xaml + "Color"));
+    }
+
+    [Fact]
+    public void High_contrast_draws_the_design_systems_own_colours_and_the_framework_adds_no_backplate()
+    {
+        // Measured on the frozen Release build: with the framework's automatic high-contrast adjustment left on, a
+        // selected row's text came out white over a black backplate inside the Highlight fill, not HighlightText. Noto
+        // turns it off for the application, which every element defers to by default (ElementHighContrastAdjustment.
+        // Application), so the design system's high-contrast brushes are what is drawn.
+        string app = File.ReadAllText(AppPath);
+        Assert.Matches(@"public App\(\)\s*\{\s*InitializeComponent\(\);[^}]*\bHighContrastAdjustment = ApplicationHighContrastAdjustment\.None;\s*\}", app);
+
+        // Nothing turns it back on: one assignment, no Auto anywhere, and no element of Noto's own overriding its default.
+        string code = string.Join('\n', Directory.EnumerateFiles(Path.GetDirectoryName(AppPath)!, "*.cs").Select(f => Regex.Replace(File.ReadAllText(f), @"//.*", string.Empty)));
+        Assert.Equal(1, Regex.Count(code, @"\bHighContrastAdjustment\s*="));
+        Assert.DoesNotMatch(@"(Application|Element)HighContrastAdjustment\.(Auto|Application)", code);
+        var overridden = DesignSystemFiles().Append(MainWindowPath).Concat(Directory.EnumerateFiles(Path.GetDirectoryName(AppPath)!, "*.xaml"))
+            .Where(f => Load(f).Descendants().Any(e => e.Attributes().Any(a => a.Name.LocalName.EndsWith("HighContrastAdjustment", StringComparison.Ordinal))))
+            .Select(Path.GetFileName)
+            .ToList();
+        Assert.True(overridden.Count == 0, "Overrides the application's high-contrast adjustment: " + string.Join(", ", overridden));
+
+        // A selected row, in all three of its states, is the selected fill with the selected text on it ...
+        var template = Load(Path.Join(DesignSystem, "Styles", "ListRow.xaml")).Descendants(Xaml + "ControlTemplate").Single();
+        foreach (string state in new[] { "Selected", "PointerOverSelected", "PressedSelected" })
+        {
+            var setters = Setters(State(template, state));
+            Assert.Contains(("Root.Background", "{ThemeResource InteractionSelectedBrush}"), setters);
+            Assert.Contains(("Content.Foreground", "{ThemeResource InteractionSelectedTextBrush}"), setters);
+        }
+
+        // ... which in high contrast are Highlight and HighlightText ...
+        var hc = ThemeDictionary("HighContrast");
+        Assert.Equal("SystemColorHighlightColor", Target(hc, "InteractionSelectedBrush"));
+        Assert.Equal("SystemColorHighlightTextColor", Target(hc, "InteractionSelectedTextBrush"));
+
+        // ... and everything in the row takes that text: in both lists neither the bound title nor the pin marker sets a
+        // colour of its own. Measured: a marker in TextSecondary was GrayText on Highlight in high contrast, 1.37:1.
+        XDocument window = Load(MainWindowPath);
+        foreach (string list in new[] { "FolderList", "NoteList" })
+        {
+            XElement view = window.Descendants().Single(e => (string?)e.Attribute(X + "Name") == list);
+            var texts = view.Descendants(Xaml + "TextBlock").ToList();
+            Assert.Single(texts, t => ((string?)t.Attribute("Text"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true);
+            Assert.Single(texts, t => (string?)t.Attribute("Text") == "●" && (string?)t.Attribute("Visibility") == "{x:Bind PinnedMarkerVisibility}");
+            Assert.All(texts, t => Assert.Null(t.Attribute("Foreground")));
+        }
+
+        // Secondary text elsewhere keeps its brush: it is still a token in every theme, used by the design system.
+        Assert.All(Themes, theme => Assert.Single(ThemeDictionary(theme).Elements(), e => KeyOf(e) == "TextSecondaryBrush"));
+        Assert.Contains(DesignSystemFiles(), f => File.ReadAllText(f).Contains("{ThemeResource TextSecondaryBrush}", StringComparison.Ordinal));
+
+        // Light and Dark are unchanged by it: their selection is still Noto's own colours.
+        Assert.Equal("#DCE9F7", ThemeDictionary("Light").Elements().Single(e => KeyOf(e) == "InteractionSelectedColor").Value.Trim());
+        Assert.Equal("#12395E", ThemeDictionary("Light").Elements().Single(e => KeyOf(e) == "InteractionSelectedTextColor").Value.Trim());
+        Assert.Equal("#1E3A52", ThemeDictionary("Dark").Elements().Single(e => KeyOf(e) == "InteractionSelectedColor").Value.Trim());
+        Assert.Equal("#DCE9F7", ThemeDictionary("Dark").Elements().Single(e => KeyOf(e) == "InteractionSelectedTextColor").Value.Trim());
     }
 
     // ---------------------------------------------------------------- resolution

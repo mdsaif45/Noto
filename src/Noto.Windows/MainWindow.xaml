@@ -202,7 +202,6 @@
                             <TextBlock
                                 Grid.Column="0"
                                 Text="●"
-                                Foreground="{ThemeResource TextSecondaryBrush}"
                                 FontSize="{StaticResource FontSizeCaption}"
                                 VerticalAlignment="Center"
                                 Visibility="{x:Bind PinnedMarkerVisibility}"
@@ -312,7 +311,6 @@
                             <TextBlock
                                 Grid.Column="0"
                                 Text="●"
-                                Foreground="{ThemeResource TextSecondaryBrush}"
                                 FontSize="{StaticResource FontSizeCaption}"
                                 VerticalAlignment="Center"
                                 Visibility="{x:Bind PinnedMarkerVisibility}"
