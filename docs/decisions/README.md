@@ -30,6 +30,7 @@ These records are the defense against that.
 | [ADR-013](ADR-013-single-instance-and-activation-handoff.md) | Single instance and activation handoff | Accepted |
 | [ADR-014](ADR-014-tray-and-application-lifetime.md) | The notification-area icon and the application's lifetime | Accepted |
 | [ADR-015](ADR-015-run-at-login.md) | Run at login | Accepted |
+| [ADR-016](ADR-016-card-stack-workspace.md) | The card-stack workspace | Accepted |
 
 ### Why two are Proposed
 
