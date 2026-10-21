@@ -384,3 +384,39 @@ Purge / empty bin, bin UI, retention limits, and restoring into a purged
 folder. **#13 implements delete and restore for notes and folders**, with the
 §6 invariants. The bin is reachable through repository queries; surfacing it is
 M2.
+
+---
+
+## 13. P1 amendment: purge, empty, and nothing unreachable (2026-10-20)
+
+The deferred rows in §11 are now decided, for P1.1 (engine) and P1.3 (Recycle Bin UI). §3–§6 are unchanged; this section only adds.
+
+### Retention
+
+**None automatic in v1.** Nothing leaves the bin unless the user purges it. A silent age or count limit would be data loss the user did not ask for. The bin's size is a P10 scale case, not a reason to delete.
+
+### New commands
+
+| Command | Precondition | Effect | Failure |
+|---|---|---|---|
+| `PurgeNote(NoteId)` | the note is deleted | the row is removed; `NoteTags` cascade (I4) | `NotFound`; `InvalidState` if active |
+| `PurgeFolder(FolderId)` | the folder is deleted, **and no active note references it** | the folder and its still-deleted notes are removed in one transaction (case F) | `NotFound`; `InvalidState` if active, or if an active note still references it |
+| `EmptyRecycleBin` | - | every deleted note, and every deleted folder that no active note references, removed in one transaction; returns what was removed and what was kept | none (an empty bin succeeds) |
+| `RestoreNoteToFolder(NoteId, FolderId)` | the note is deleted; the target folder is active | restore and move, **one transaction** | `NotFound`; `InvalidState` |
+
+### I7: no active note is left where no surface reaches it
+
+C1 is a two-level model (folders → notes). There is no surface for notes at the root, nor for active notes inside a deleted folder. Two rules follow:
+
+1. **Case F changes.** A deleted folder that an active note still references is **not purged**. Purging it would move that note to the root (I4), where no surface shows it.
+   - `PurgeFolder` refuses (`InvalidState`).
+   - `EmptyRecycleBin` keeps that folder and reports it.
+   - The user restores the folder, or moves the note.
+   - Case C is the only way to reach this state and stays legal in the engine, but the UI never creates it (rule 2).
+2. **The UI never issues a bare `RestoreNote` for a note whose folder is deleted.** The bin offers:
+   - **Restore folder**: case D, which brings back the folder with its notes;
+   - **Restore into…**: `RestoreNoteToFolder`, into an active folder.
+
+### Purge and later content
+
+Attachments (P3) are removed by the same purge transactions: the P3.0 design extends this table, never a second purge path.
