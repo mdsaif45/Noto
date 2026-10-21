@@ -8,8 +8,11 @@ namespace Noto.UseCases.Folders;
 /// <summary>
 /// Creates a folder (design §6, parity C2).
 /// </summary>
-/// <param name="Name">The folder name. Must not be empty or whitespace.</param>
+/// <param name="Name">The folder name, normalised before it is stored (<see cref="FolderName"/>). Must not be empty.</param>
 public sealed record CreateFolder(string Name) : ICommand<CommandResult<FolderId>>;
+
+/// <summary>A folder was created (create-and-rename §2.4). Raised only after the row is written.</summary>
+public sealed record FolderCreated(FolderId FolderId) : IEvent;
 
 /// <summary>
 /// Handles <see cref="CreateFolder"/>.
@@ -47,11 +50,11 @@ public sealed class CreateFolderHandler(IFolderRepository folders, IClock clock)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        // Design §14: an empty folder name is rejected. Whitespace counts as
-        // empty — a folder named " " is indistinguishable from an unnamed one
-        // in the list, so accepting it would create a row the user cannot
-        // identify.
-        if (string.IsNullOrWhiteSpace(command.Name))
+        // Design §14: an empty folder name is rejected. The name is normalised
+        // first (create-and-rename §2.1): trimmed, and its line breaks and tabs
+        // made spaces, so whitespace alone is empty too — a folder named " "
+        // is indistinguishable from an unnamed one in the list.
+        if (FolderName.Normalise(command.Name) is not { } name)
         {
             return CommandResult.Failed<FolderId>(
                 CommandFailure.InvalidInput("A folder name must not be empty."));
@@ -76,7 +79,7 @@ public sealed class CreateFolderHandler(IFolderRepository folders, IClock clock)
         var folder = new Folder
         {
             Id = FolderId.New(),
-            Name = command.Name,
+            Name = name,
             SortOrder = sortOrder,
             CreatedAt = now,
             UpdatedAt = now,

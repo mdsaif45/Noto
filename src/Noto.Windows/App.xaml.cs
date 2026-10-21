@@ -504,10 +504,15 @@ public partial class App : Application
         _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
 
         // #21: every mutation the window makes is dispatched. The registry names each command, its handler and, for
-        // CreateNote, its event; nothing is discovered. A subscriber's failure is logged as types only.
+        // CreateNote, CreateFolder and RenameFolder (P1.2), its event; nothing is discovered. A subscriber's failure
+        // is logged as types only.
         var commands = new CommandRegistry()
-            .Register<CreateFolder, CommandResult<FolderId>>(new CreateFolderHandler(folders, clock).Handle)
-            .Register<RenameFolder, CommandResult>(new RenameFolderHandler(folders, clock).Handle)
+            .Register<CreateFolder, CommandResult<FolderId>, FolderCreated>(
+                new CreateFolderHandler(folders, clock).Handle,
+                static (_, result) => new FolderCreated(result.Value))
+            .Register<RenameFolder, CommandResult, FolderRenamed>(
+                new RenameFolderHandler(folders, clock).Handle,
+                static (command, _) => new FolderRenamed(command.FolderId))
             .Register<UpdateNoteContent, CommandResult>(new UpdateNoteContentHandler(notes, clock).Handle)
             .Register<CreateNote, CommandResult<NoteId>, NoteCreated>(
                 new CreateNoteHandler(notes, clock).Handle,
