@@ -10,6 +10,9 @@ namespace Noto.UseCases.Folders;
 /// </summary>
 public sealed record RenameFolder(FolderId FolderId, string Name) : ICommand<CommandResult>;
 
+/// <summary>A folder was renamed (create-and-rename §2.4). Raised only after the new name is written.</summary>
+public sealed record FolderRenamed(FolderId FolderId) : IEvent;
+
 /// <summary>
 /// Handles <see cref="RenameFolder"/>.
 /// </summary>
@@ -36,7 +39,8 @@ public sealed class RenameFolderHandler(IFolderRepository folders, IClock clock)
             return failure;
         }
 
-        if (string.IsNullOrWhiteSpace(command.Name))
+        // Normalised as on create (create-and-rename §2.1); empty after that is refused.
+        if (FolderName.Normalise(command.Name) is not { } name)
         {
             return CommandResult.Failed(
                 CommandFailure.InvalidInput("A folder name must not be empty."));
@@ -48,7 +52,7 @@ public sealed class RenameFolderHandler(IFolderRepository folders, IClock clock)
         // The repository writes Name and UpdatedAt only, so CreatedAt,
         // SortOrder and IsPinned are preserved by construction rather than by
         // this handler remembering to preserve them.
-        _folders.Rename(command.FolderId, command.Name, _clock.UtcNow);
+        _folders.Rename(command.FolderId, name, _clock.UtcNow);
 
         return CommandResult.Success();
     }
