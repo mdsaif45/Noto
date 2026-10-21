@@ -93,6 +93,17 @@ Noto.Windows (composition root) --> UseCases --> Core <-- Infrastructure
 | P10 | Reliability | Adversarial storage, environment and scale suites; no silent data loss | NFR |
 | P11 | Release | Packaging, signing, updates, backup before upgrade, SBOM, licences, privacy, reproducibility | NFR |
 
+### 1.0 Identifier reconciliation (recorded 2026-10-21)
+
+The P1 work is executed in the owner's priority order (decision of 2026-10-20: data semantics first), which differs from this table's numbering. One item has an implementation so far:
+
+| Work | Roadmap identifier (this table) | Design-gate identifier | Implementation identifier | Canonical from now on |
+|---|---|---|---|---|
+| Create and rename (folders, notes, placement) | P1.4 | P1.2 (`create-and-rename.md`) | branch `p1/2-create-rename-tmp`; its PR will be titled P1.2 | **P1.2** |
+| Recycle bin, purge, restore into a folder | P1.1 (semantics) + P1.3 (UI) | P1.1 (deletion-semantics §13) | P1.1 | **P1.1** (engine); the UI keeps its table row |
+
+Every other row keeps this table's identifier until it is started. It is then reconciled here in the same way, with one row and one canonical name, rather than renumbering the table.
+
 ### 1.1 Master table: one line per target PR (`*` = new row, section 2.3)
 
 | Phase | Capability | Existing parity rows | Current status | Dependencies | Target PR(s) |
