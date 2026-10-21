@@ -1,5 +1,6 @@
 using Noto.Core.Activation;
 using Noto.Core.Diagnostics;
+using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
 using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
@@ -194,6 +195,16 @@ public static class SettingKeys
         new("appearance.theme", WorkspaceTheme.System, Enum.IsDefined);
 
     /// <summary>
+    /// Where a new note goes in its folder (parity B5, J8): Bottom, Top, AboveSelected or BelowSelected.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="NewNotePlacement.Bottom"/>, Noto's behaviour before the setting existed. Stored by member
+    /// name; a value that is not a member is refused when written and reads as the default. No settings UI yet.
+    /// </remarks>
+    public static readonly SettingKey<NewNotePlacement> NotesNewPlacement =
+        new("notes.new-placement", NewNotePlacement.Bottom, Enum.IsDefined);
+
+    /// <summary>
     /// How much Noto writes to its log (#7).
     /// </summary>
     /// <remarks>
@@ -224,6 +235,7 @@ public static class SettingKeys
         WorkspaceHideOnDeactivation,
         WorkspaceSingleClickOpen,
         AppearanceTheme,
+        NotesNewPlacement,
         DiagnosticsLogLevel,
     ];
 

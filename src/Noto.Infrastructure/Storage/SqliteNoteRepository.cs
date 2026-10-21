@@ -85,6 +85,73 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
+    public void AddAt(Note note, NotePlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(note);
+
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            SortOrderScope scope = ScopeFor(note.FolderId);
+
+            // A sibling that is no longer an active note of this folder (moved,
+            // deleted) cannot anchor the note: it goes to the end instead, read
+            // in this same transaction.
+            if (placement.AfterSibling is { } sibling && !IsActiveSibling(connection, transaction, sibling, note.FolderId))
+            {
+                placement = NotePlacement.Last;
+            }
+
+            double sortOrder = placement.AtEnd
+                ? (SortOrderEngine.MaxSortOrder(connection, scope, transaction) is { } max ? max + 1 : 0)
+                : SortOrderEngine.ResolvePosition(connection, transaction, scope, ToEnginePlacement(placement), note.Id.Value, note.UpdatedAt);
+
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText =
+                    """
+                    INSERT INTO Notes
+                        (Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
+                         SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+                    VALUES
+                        ($id, $folderId, $content, $colorKey, $isPinned, $isFolded,
+                         $sortOrder, $createdAt, $updatedAt, NULL);
+                    """;
+                command.Parameters.AddWithValue("$id", note.Id.Value);
+                command.Parameters.AddWithValue("$folderId", note.FolderId is { } folder ? folder.Value : DBNull.Value);
+                command.Parameters.AddWithValue("$content", note.Content);
+                command.Parameters.AddWithValue("$colorKey", (object?)note.ColorKey ?? DBNull.Value);
+                command.Parameters.AddWithValue("$isPinned", note.IsPinned ? 1 : 0);
+                command.Parameters.AddWithValue("$isFolded", note.IsFolded ? 1 : 0);
+                command.Parameters.AddWithValue("$sortOrder", sortOrder);
+                command.Parameters.AddWithValue("$createdAt", Format(note.CreatedAt));
+                command.Parameters.AddWithValue("$updatedAt", Format(note.UpdatedAt));
+                command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not create note '{note.Id}'.",
+                ex);
+        }
+    }
+
+    private static bool IsActiveSibling(SqliteConnection connection, SqliteTransaction transaction, NoteId id, FolderId? folderId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT EXISTS (SELECT 1 FROM Notes WHERE Id = $id AND DeletedAt IS NULL AND FolderId = $folderId);";
+        command.Parameters.AddWithValue("$id", id.Value);
+        command.Parameters.AddWithValue("$folderId", folderId is { } folder ? folder.Value : DBNull.Value);
+        return (long)command.ExecuteScalar()! == 1;
+    }
+
     public Note? FindActive(NoteId id)
     {
         try
