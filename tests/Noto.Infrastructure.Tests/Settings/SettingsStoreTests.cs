@@ -606,12 +606,12 @@ public sealed class SettingsStoreTests : IDisposable
     {
         // Guards the scope boundary: #9's two hotkey keys, #16 slice 3's edge
         // and global width, and slice 6's Escape behaviour and hiding on
-        // deactivation, Slice 1's single-click opening and theme, and #7's log
-        // level. Hover and tray toggles belong to later #16 slices and must not
+        // deactivation, Slice 1's single-click opening and theme, P1.2's new-note
+        // placement, and #7's log level. Hover and tray toggles belong to later #16 slices and must not
         // appear here by accident. The per-display width is a family
         // (SettingKeys.Families), not a key.
         Assert.Equal(
-            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme", "diagnostics.log-level"],
+            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme", "notes.new-placement", "diagnostics.log-level"],
             SettingKeys.All.Select(k => k.Name));
     }
 }

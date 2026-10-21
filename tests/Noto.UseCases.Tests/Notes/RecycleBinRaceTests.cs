@@ -84,6 +84,8 @@ public sealed class RecycleBinRaceTests
 
         public void Add(Note note) => throw new NotSupportedException();
 
+        public void AddAt(Note note, NotePlacement placement) => throw new NotSupportedException();
+
         public Note? FindActive(NoteId id) => throw new NotSupportedException();
 
         public double? MaxSortOrder(FolderId? folderId) => throw new NotSupportedException();
