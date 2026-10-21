@@ -35,8 +35,13 @@ public sealed class DeleteNoteTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
+    // Every active note lives in a folder (I7, migration 3); a test that does not name one uses this.
+    private FolderId? _home;
+
+    private FolderId Home => _home ??= InsertFolder("Home");
+
     private NoteId Create(string content, FolderId? folder = null) =>
-        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder, content)).Value;
+        new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? Home, content)).Value;
 
     private CommandResult Delete(NoteId id) =>
         new DeleteNoteHandler(_notes, _clock).Handle(new DeleteNote(id));
@@ -345,19 +350,46 @@ public sealed class DeleteNoteTests : IDisposable
     }
 
     [Fact]
-    public void An_active_note_in_a_deleted_folder_survives_the_round_trip()
+    public void A_note_is_not_restored_into_a_folder_that_is_in_the_bin()
     {
-        // Case C: a restored note keeps a FolderId that still points at a
-        // deleted folder. That state is legal and is how a user rescues one
-        // note from a binned folder.
+        // I7 (deletion-semantics §13) closes Case C's restore path: the note
+        // would come back active inside a binned folder, where no surface shows
+        // it. It stays in the bin, unchanged; the user restores the folder or
+        // restores the note into another folder (RestoreNoteToFolder).
         FolderId folder = InsertFolder("Archive");
         var id = Create("rescue me", folder);
         SoftDeleteFolder(folder);
-
         Delete(id);
-        Assert.True(Restore(id).IsSuccess);
 
-        Assert.Equal(folder, _notes.FindActive(id)!.FolderId);
+        var result = Restore(id);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CommandFailureReason.InvalidState, result.Failure!.Reason);
+        Assert.Null(_notes.FindActive(id));
+        Assert.Equal(NoteLifecycle.Deleted, _notes.GetLifecycle(id));
+        Assert.Contains(_notes.ListDeleted(), n => n.Id == id && n.FolderId == folder);
+    }
+
+    [Fact]
+    public void A_binned_note_with_no_folder_is_not_restored_where_it_was()
+    {
+        // Such a note exists only where migration 3 repaired one into the bin.
+        // It has no folder to return to (I7): it stays in the bin, and comes
+        // back only into a folder the user chooses (RestoreNoteToFolder).
+        NoteId id = NoteId.New();
+        Execute(
+            """
+            INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+            VALUES ($id, NULL, 'repaired', 0, '2026-01-01T00:00:00.0000000+00:00', '2026-01-01T00:00:00.0000000+00:00', '2026-01-01T00:00:00.0000000+00:00');
+            """,
+            id.Value);
+
+        var result = Restore(id);
+
+        Assert.Equal(CommandFailureReason.InvalidState, result.Failure!.Reason);
+        Assert.Equal(NoteLifecycle.Deleted, _notes.GetLifecycle(id));
+        Assert.True(new RestoreNoteToFolderHandler(_notes, _clock).Handle(new RestoreNoteToFolder(id, Home)).IsSuccess);
+        Assert.Equal(Home, _notes.FindActive(id)!.FolderId);
     }
 
     [Fact]
@@ -396,9 +428,10 @@ public sealed class DeleteNoteTests : IDisposable
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id FROM Notes WHERE FolderId IS NULL AND DeletedAt IS NULL
+            SELECT Id FROM Notes WHERE FolderId = $home AND DeletedAt IS NULL
             ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
             """;
+        command.Parameters.AddWithValue("$home", Home.Value);
 
         var ids = new List<NoteId>();
         using var reader = command.ExecuteReader();
@@ -445,6 +478,15 @@ public sealed class DeleteNoteTests : IDisposable
         command.CommandText = "UPDATE Folders SET DeletedAt = $now WHERE Id = $id;";
         command.Parameters.AddWithValue("$now", _clock.UtcNow.ToString("O"));
         command.Parameters.AddWithValue("$id", id.Value);
+        command.ExecuteNonQuery();
+    }
+
+    private void Execute(string sql, string id)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
     }
 

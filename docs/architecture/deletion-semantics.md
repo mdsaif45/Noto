@@ -80,7 +80,7 @@ tracking column.
 | - | -------- | --------- | --------- |
 | **A** | Folder with active notes is deleted | Folder → `DELETED`. Its **active** notes → `DELETED`. One transaction. | C11: "notes included" |
 | **B** | A note was already deleted, *then* its folder is deleted | The already-deleted note is **untouched** — its `DeletedAt` keeps its original value | It was already in the bin. Re-stamping it would lose when the user actually deleted it. |
-| **C** | Folder deleted; one of its notes is restored individually | **Allowed.** The note returns to `ACTIVE` with `FolderId` still pointing at the deleted folder. | See §6 — this is the case that kills the tracking column |
+| **C** | Folder deleted; one of its notes is restored individually | **Refused since P1.1 (§13, I7).** Was: allowed. The note returns to `ACTIVE` with `FolderId` still pointing at the deleted folder. | See §6 — this is the case that kills the tracking column |
 | **D** | Deleted folder is restored | Folder → `ACTIVE`. Notes that are still `DELETED` **and** point at this folder → `ACTIVE`. | See §5 for why this is right without a marker |
 | **E** | Folder deleted; one of its notes is purged; folder restored | The purged note is gone. Everything else restores. | Purge is irreversible by definition |
 | **F** | Folder is purged | Its **still-deleted** notes are purged with it. Notes restored out of it beforehand (case C) survive, moved to root. | A purged folder cannot be referenced |
@@ -412,10 +412,53 @@ C1 is a two-level model (folders → notes). There is no surface for notes at th
    - `PurgeFolder` refuses (`InvalidState`).
    - `EmptyRecycleBin` keeps that folder and reports it.
    - The user restores the folder, or moves the note.
-   - Case C is the only way to reach this state and stays legal in the engine, but the UI never creates it (rule 2).
-2. **The UI never issues a bare `RestoreNote` for a note whose folder is deleted.** The bin offers:
-   - **Restore folder**: case D, which brings back the folder with its notes;
-   - **Restore into…**: `RestoreNoteToFolder`, into an active folder.
+2. **Restoring into a folder in the bin is refused, by the engine** (P1.1). This closes Case C's restore path; the original text below said Case C stays legal in the engine.
+   - `RestoreNote` of a note with no live folder to return to (its folder is in the bin, or it has none) fails with `InvalidState` and changes nothing.
+   - `RestoreNoteToFolder` refuses a target in the bin.
+   - The bin therefore offers two routes. **Restore folder** (case D) brings back the folder with its notes. **Restore into…** (`RestoreNoteToFolder`) brings the note into a live folder.
+   - An active note inside a binned folder now exists only in data written before P1.1. The engine still lets commands act on such a note (move, pin, edit, reorder), so it can be moved out. `PurgeFolder` and `EmptyRecycleBin` never strand it.
+
+### I7 is executable
+
+- `RecycleBinRules` (Core) holds the decisions:
+  - `Reaches` states I7;
+  - the `Refuse…` methods return each refusal.
+- The repositories re-decide the same conditions inside the transaction that writes, so a check and its write cannot be split.
+- `RecycleBinPurgeTests` ends every scenario by asserting I7 on the whole database: no active note in a binned or missing folder.
+
+### Results and idempotence
+
+| Command | Repeated | Result | Effect |
+|---|---|---|---|
+| `PurgeNote` | on a note already purged | `NotFound` (contract §6) | none; no event |
+| `RestoreNoteToFolder` | on a note already restored | `InvalidState` | none; no event |
+| `EmptyRecycleBin` | on an empty bin | success, with zero counts | none |
+
+Events are published only after the transaction commits, by the registry, and never on a refusal or an exception:
+- `NotePurged`, `NoteRestored`, `FolderPurged`, `RecycleBinEmptied`;
+- they carry identities and counts, never content.
+
+### No active note without a folder (closed in P1.1)
+
+C1 is a two-level model (folders → notes) and SideNotes has no notes outside a folder: its global create asks for one. No Noto surface ever created a note at the root. So the root is not a place an active note can be.
+
+- **Commands cannot name it.** `CreateNote` and `MoveNoteToFolder` take a `FolderId`, not a nullable one: no entry point (window, tray, a future CLI) can express "no folder".
+- **The database refuses it.** Migration 3 adds two triggers that abort any insert or update leaving an active note without a folder. That includes the foreign key's `ON DELETE SET NULL` when a folder row is removed under an active note; the persistence test proves the action is refused.
+- **Existing ones are repaired explicitly.** Migration 3 moves any active note that already has no folder to the recycle bin, stamped at the upgrade, behind the pre-migration safety copy. Nothing is lost, nothing is hidden, and no folder is invented. It comes back only through `RestoreNoteToFolder`, into a folder the user chooses; a plain `RestoreNote` refuses it, having no live folder to return to.
+- **A deleted note may still have no folder.** That is how the repaired notes wait in the bin.
+
+I7's test oracle is now strict: every active note lives in a live folder.
+
+### Follow-up: the refusal message under a race (correctness hardening, not a contract change)
+
+`RestoreNote` checks the note's lifecycle, then writes. If another writer restored the note between the two, the repository refuses the write and the command reports "no live folder to return to" rather than "not deleted". The outcome is right: a refusal, nothing changed, no event. Only the wording is wrong.
+
+It is not observable through any current entry point:
+- every command is dispatched on the UI thread;
+- one process owns a data root (ADR-013);
+- the planned CLI routes through that owner (implementation plan R12).
+
+When a second writer becomes possible, the repository should report why it refused, and the handler should map that.
 
 ### Purge and later content
 

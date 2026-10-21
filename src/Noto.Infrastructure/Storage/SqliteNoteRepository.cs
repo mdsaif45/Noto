@@ -237,7 +237,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    public void Move(NoteId id, FolderId? targetFolderId, NotePlacement placement, DateTimeOffset updatedAt)
+    public void Move(NoteId id, FolderId targetFolderId, NotePlacement placement, DateTimeOffset updatedAt)
     {
         try
         {
@@ -264,9 +264,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                     SET FolderId = $folderId, SortOrder = $sortOrder, UpdatedAt = $updatedAt
                     WHERE Id = $id AND DeletedAt IS NULL;
                     """;
-                command.Parameters.AddWithValue(
-                    "$folderId",
-                    targetFolderId is { } folder ? folder.Value : DBNull.Value);
+                command.Parameters.AddWithValue("$folderId", targetFolderId.Value);
                 command.Parameters.AddWithValue("$sortOrder", sortOrder);
                 command.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
                 command.Parameters.AddWithValue("$id", id.Value);
@@ -411,7 +409,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
-    public void Restore(NoteId id, DateTimeOffset updatedAt)
+    public bool Restore(NoteId id, DateTimeOffset updatedAt)
     {
         try
         {
@@ -420,24 +418,138 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
 
             // DeletedAt and UpdatedAt only. SortOrder, FolderId and every other
             // field survive untouched, so the note comes back as it was rather
-            // than being reconstructed — including a FolderId that may still
-            // point at a deleted folder (Case C).
+            // than being reconstructed (I6).
+            //
+            // I7: only into a live folder. Not into one that is itself in the
+            // bin (deletion-semantics §13 closes Case C's restore path), and not
+            // into no folder at all: a note with none comes back only through
+            // RestoreInto, into a folder the user chooses. The condition is part
+            // of the write, so it cannot go stale between a check and the update.
             command.CommandText =
                 """
                 UPDATE Notes
                 SET DeletedAt = NULL, UpdatedAt = $now
-                WHERE Id = $id AND DeletedAt IS NOT NULL;
+                WHERE Id = $id AND DeletedAt IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM Folders f WHERE f.Id = Notes.FolderId AND f.DeletedAt IS NULL);
                 """;
             command.Parameters.AddWithValue("$now", Format(updatedAt));
             command.Parameters.AddWithValue("$id", id.Value);
 
-            command.ExecuteNonQuery();
+            return command.ExecuteNonQuery() == 1;
         }
         catch (SqliteException ex)
         {
             throw new StorageException(
                 StorageFailure.WriteFailed,
                 $"Could not restore note '{id}'.",
+                ex);
+        }
+    }
+
+    public bool RestoreInto(NoteId id, FolderId folderId, DateTimeOffset updatedAt)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            // Both preconditions are read inside the transaction that writes:
+            // the note is in the bin, and the target is live (I7).
+            FolderId? from;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText =
+                    """
+                    SELECT n.FolderId
+                    FROM Notes n
+                    WHERE n.Id = $id AND n.DeletedAt IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM Folders f WHERE f.Id = $folderId AND f.DeletedAt IS NULL);
+                    """;
+                command.Parameters.AddWithValue("$id", id.Value);
+                command.Parameters.AddWithValue("$folderId", folderId.Value);
+                using var reader = command.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return false;
+                }
+
+                from = reader.IsDBNull(0) ? null : FolderId.From(reader.GetString(0));
+            }
+
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+
+                if (from == folderId)
+                {
+                    // Back where it was: its SortOrder was kept for exactly this (I6).
+                    command.CommandText =
+                        """
+                        UPDATE Notes
+                        SET DeletedAt = NULL, UpdatedAt = $updatedAt
+                        WHERE Id = $id;
+                        """;
+                }
+                else
+                {
+                    // Into another folder: at the end, as a move files it (O4), in
+                    // the same transaction as the folder change.
+                    double sortOrder = SortOrderEngine.ResolvePosition(
+                        connection,
+                        transaction,
+                        ScopeFor(folderId),
+                        ToEnginePlacement(NotePlacement.Last),
+                        id.Value,
+                        updatedAt);
+
+                    command.CommandText =
+                        """
+                        UPDATE Notes
+                        SET DeletedAt = NULL, FolderId = $folderId, SortOrder = $sortOrder, UpdatedAt = $updatedAt
+                        WHERE Id = $id;
+                        """;
+                    command.Parameters.AddWithValue("$folderId", folderId.Value);
+                    command.Parameters.AddWithValue("$sortOrder", sortOrder);
+                }
+
+                command.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
+                command.Parameters.AddWithValue("$id", id.Value);
+                command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not restore note '{id}' into folder '{folderId}'.",
+                ex);
+        }
+    }
+
+    public bool Purge(NoteId id)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // `DeletedAt IS NOT NULL` is the whole safety of this statement: an
+            // active note is never removed by a purge (I5), whatever id it is
+            // given. NoteTags rows go with it by the schema's cascade (I4).
+            command.CommandText = "DELETE FROM Notes WHERE Id = $id AND DeletedAt IS NOT NULL;";
+            command.Parameters.AddWithValue("$id", id.Value);
+
+            return command.ExecuteNonQuery() == 1;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not permanently delete note '{id}'.",
                 ex);
         }
     }

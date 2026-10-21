@@ -322,6 +322,122 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         }
     }
 
+    public FolderPurge Purge(FolderId id)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            // The folder's state and I7 are read inside the transaction that
+            // removes it, so neither can change between the check and the write.
+            bool inBin;
+            bool activeNotesRemain;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText =
+                    """
+                    SELECT
+                        EXISTS (SELECT 1 FROM Folders WHERE Id = $id AND DeletedAt IS NOT NULL),
+                        EXISTS (SELECT 1 FROM Notes WHERE FolderId = $id AND DeletedAt IS NULL);
+                    """;
+                command.Parameters.AddWithValue("$id", id.Value);
+                using var reader = command.ExecuteReader();
+                reader.Read();
+                inBin = reader.GetInt64(0) == 1;
+                activeNotesRemain = reader.GetInt64(1) == 1;
+            }
+
+            if (!inBin)
+            {
+                return FolderPurge.NotInBin;
+            }
+
+            // I7: an active note living here would be left in no folder (the
+            // schema's ON DELETE SET NULL would move it to the root, where no
+            // surface shows it). The folder is kept.
+            if (activeNotesRemain)
+            {
+                return FolderPurge.ActiveNotesRemain;
+            }
+
+            // Case F: the folder's still-deleted notes go with it, then the folder.
+            Execute(connection, transaction, "DELETE FROM Notes WHERE FolderId = $id AND DeletedAt IS NOT NULL;", id);
+            Execute(connection, transaction, "DELETE FROM Folders WHERE Id = $id AND DeletedAt IS NOT NULL;", id);
+
+            transaction.Commit();
+            return FolderPurge.Purged;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                $"Could not permanently delete folder '{id}' and its notes.",
+                ex);
+        }
+    }
+
+    public RecycleBinPurge EmptyRecycleBin()
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            // Every deleted note: removing one never strands an active note.
+            int notes;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = "DELETE FROM Notes WHERE DeletedAt IS NOT NULL;";
+                notes = command.ExecuteNonQuery();
+            }
+
+            // The deleted folders an active note still lives in are kept (I7).
+            var kept = new List<FolderId>();
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText =
+                    """
+                    SELECT f.Id FROM Folders f
+                    WHERE f.DeletedAt IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM Notes n WHERE n.FolderId = f.Id AND n.DeletedAt IS NULL)
+                    ORDER BY f.Id;
+                    """;
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    kept.Add(FolderId.From(reader.GetString(0)));
+                }
+            }
+
+            int folders;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText =
+                    """
+                    DELETE FROM Folders
+                    WHERE DeletedAt IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM Notes n WHERE n.FolderId = Folders.Id AND n.DeletedAt IS NULL);
+                    """;
+                folders = command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return new RecycleBinPurge(notes, folders, kept);
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not empty the recycle bin.",
+                ex);
+        }
+    }
+
     public double? MaxSortOrder()
     {
         try
@@ -534,5 +650,14 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         return result is null or DBNull
             ? 0
             : Convert.ToDouble(result, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static void Execute(SqliteConnection connection, SqliteTransaction transaction, string sql, FolderId id)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id.Value);
+        command.ExecuteNonQuery();
     }
 }

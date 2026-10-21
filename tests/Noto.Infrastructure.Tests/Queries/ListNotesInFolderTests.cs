@@ -44,30 +44,14 @@ public sealed class ListNotesInFolderTests : IDisposable
     // ---- the root scope (O1) ---------------------------------------------
 
     [Fact]
-    public void Returns_root_notes_when_the_folder_is_null()
+    public void No_active_note_is_listed_without_a_folder()
     {
-        // THE test for `FolderId IS NULL` versus `FolderId = NULL`. The second
-        // matches nothing in SQL's three-valued logic, so a wrong
-        // implementation returns an empty list here while every other test in
-        // this class still passes.
-        var first = _context.SeedNote(null, sortOrder: 1);
-        var second = _context.SeedNote(null, sortOrder: 2);
-
-        var result = Query().Execute(null);
-
-        Assert.Equal(new[] { first, second }, result.Select(n => n.Id));
-    }
-
-    [Fact]
-    public void Root_is_its_own_scope_and_not_a_catch_all()
-    {
-        // O1: a folder's notes never appear at root, and root notes never
-        // appear in a folder.
+        // I7 (migration 3): every active note lives in a folder, so the
+        // no-folder scope lists nothing, and a folder lists only its own notes.
         var folder = _context.SeedFolder("Work");
         var inFolder = _context.SeedNote(folder, sortOrder: 1);
-        var atRoot = _context.SeedNote(null, sortOrder: 1);
 
-        Assert.Equal(new[] { atRoot }, Query().Execute(null).Select(n => n.Id));
+        Assert.Empty(Query().Execute(null));
         Assert.Equal(new[] { inFolder }, Query().Execute(folder).Select(n => n.Id));
     }
 
@@ -116,12 +100,12 @@ public sealed class ListNotesInFolderTests : IDisposable
     }
 
     [Fact]
-    public void Excludes_deleted_notes_at_root_too()
+    public void Excludes_deleted_notes_in_the_default_folder_too()
     {
         var active = _context.SeedNote(null, sortOrder: 1);
         _context.SeedNote(null, sortOrder: 2, deletedAt: _context.Clock.UtcNow);
 
-        Assert.Equal(new[] { active }, Query().Execute(null).Select(n => n.Id));
+        Assert.Equal(new[] { active }, Query().Execute(_context.Home).Select(n => n.Id));
     }
 
     [Fact]
