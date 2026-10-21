@@ -1,4 +1,5 @@
 using Noto.Core.Activation;
+using Noto.Core.Notes;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -57,6 +58,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
 
     /// <summary>The workspace's theme (parity J21).</summary>
     public WorkspaceTheme Theme => _settings.Read(SettingKeys.AppearanceTheme);
+
+    /// <summary>Where a new note goes in its folder (parity B5, J8). Read only until its settings row exists.</summary>
+    public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
 
     /// <summary>Whether the global show/hide hotkey is registered (parity A7).</summary>
     public bool HotkeyEnabled => _settings.Read(SettingKeys.HotkeyEnabled);

@@ -52,6 +52,13 @@ public interface INoteRepository
     /// callers never see an overloaded null (contract §6).
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Inserts a new note at <paramref name="placement"/> in its folder, in one transaction: the position is read
+    /// and the row written together, renormalising the scope if its gap is spent (O6). The note's own
+    /// <c>SortOrder</c> is ignored. A sibling that is no longer an active note of the folder places it at the end.
+    /// </summary>
+    void AddAt(Note note, NotePlacement placement);
+
     Note? FindActive(NoteId id);
 
     /// <summary>

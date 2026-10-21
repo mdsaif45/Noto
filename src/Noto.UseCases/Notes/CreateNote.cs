@@ -14,7 +14,13 @@ namespace Noto.UseCases.Notes;
 /// deletion-semantics §13), so the command cannot express one.
 /// </param>
 /// <param name="Content">Markdown source. Empty is valid — B26 has a placeholder for it.</param>
-public sealed record CreateNote(FolderId FolderId, string Content) : ICommand<CommandResult<NoteId>>;
+/// <param name="Placement">Where it goes in the folder (B5, J8). <see cref="NewNotePlacement.Bottom"/> by default.</param>
+/// <param name="Selected">The selected note, for the placements relative to it.</param>
+public sealed record CreateNote(
+    FolderId FolderId,
+    string Content,
+    NewNotePlacement Placement = NewNotePlacement.Bottom,
+    NoteId? Selected = null) : ICommand<CommandResult<NoteId>>;
 
 /// <summary>
 /// A note was created (ADR-010, #21): the reference event, published by the dispatcher after <see cref="CreateNote"/>
@@ -95,19 +101,11 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
         // under "sort by modified" (contract §4).
         DateTimeOffset now = _clock.UtcNow;
 
-        // O3: a new note goes at the END of its scope, which is max + 1. An
-        // empty scope starts at the documented base rather than at max+1 of
-        // nothing. Ordering is scoped per folder (O1), so the scope is read
-        // from the note's destination.
-        double? highest = _notes.MaxSortOrder(command.FolderId);
-        double sortOrder = highest is { } max ? max + 1 : InitialSortOrder;
-
         var note = new Note
         {
             Id = NoteId.New(),
             Content = command.Content,
             FolderId = command.FolderId,
-            SortOrder = sortOrder,
             CreatedAt = now,
             UpdatedAt = now,
 
@@ -115,7 +113,29 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
             // pinned, not folded, not deleted.
         };
 
-        _notes.Add(note);
+        // B5, J8: the setting decides where in the folder the note goes. The
+        // folder's notes are read in display order only when the placement
+        // needs them; an unknown setting or a selection that is not one of
+        // them falls back to the end (NewNotePlacementRule).
+        NotePlacement placement = command.Placement == NewNotePlacement.Bottom
+            ? NotePlacement.Last
+            : NewNotePlacementRule.Resolve(command.Placement, command.Selected, _notes.ListInFolder(command.FolderId));
+
+        if (placement.AtEnd)
+        {
+            // O3: at the END of its scope, which is max + 1, exactly as before
+            // the setting existed. An empty scope starts at the documented base
+            // rather than at max+1 of nothing. Ordering is scoped per folder
+            // (O1), so the scope is read from the note's destination.
+            double? highest = _notes.MaxSortOrder(command.FolderId);
+            _notes.Add(note with { SortOrder = highest is { } max ? max + 1 : InitialSortOrder });
+        }
+        else
+        {
+            // First, or after a sibling: the position and the insert are one
+            // transaction, renormalising the scope if its gap is spent (O6).
+            _notes.AddAt(note, placement);
+        }
 
         return CommandResult.Success(note.Id);
     }
