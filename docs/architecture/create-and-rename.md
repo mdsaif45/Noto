@@ -5,7 +5,7 @@
 - ADR-010 (commands and events), ADR-016 (card-stack workspace)
 - deletion-semantics §13 (I7), core-note-engine-contract §11
 - Parity: B1, B5, B16, C2, C13, C15, G14, J8
-- Implementation-plan item P1.4. Your sequence names it P1.2; the numbering is reconciled when the plan is next amended.
+- Canonical identifier: **P1.2**. The implementation plan's table row for this work is P1.4; implementation-plan §1.0 records the reconciliation.
 
 Step 1 is built as specified, with two refinements:
 - **Runs of breaks.** A run of line breaks or tabs becomes one space, so CRLF does not become two. Ordinary spaces typed inside a name are kept as typed.
