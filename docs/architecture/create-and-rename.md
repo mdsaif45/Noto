@@ -1,13 +1,15 @@
 # Create and rename: design gate (P1.2)
 
-**Status:** Proposed, 2026-10-21
+**Status:** Accepted 2026-10-21. Step 1 (engine) built on `p1/2-create-rename-tmp`; step 2 (UI) waits for the card-stack surface.
 **Related:**
 - ADR-010 (commands and events), ADR-016 (card-stack workspace)
 - deletion-semantics §13 (I7), core-note-engine-contract §11
 - Parity: B1, B5, B16, C2, C13, C15, G14, J8
 - Implementation-plan item P1.4. Your sequence names it P1.2; the numbering is reconciled when the plan is next amended.
 
-Design only. Nothing here is built until this gate is accepted.
+Step 1 is built as specified, with two refinements:
+- **Runs of breaks.** A run of line breaks or tabs becomes one space, so CRLF does not become two. Ordinary spaces typed inside a name are kept as typed.
+- **Pinned selections.** A pinned selection places the new note at the top of the unpinned notes. A new note cannot sit among the pinned.
 
 ---
 
