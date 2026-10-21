@@ -147,9 +147,10 @@ internal static class SortOrderEngine
     /// deleted rows keep their <c>SortOrder</c> but never participate in
     /// ordering (I6).
     /// </remarks>
-    public static double? MaxSortOrder(SqliteConnection connection, SortOrderScope scope)
+    public static double? MaxSortOrder(SqliteConnection connection, SortOrderScope scope, SqliteTransaction? transaction = null)
     {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             $"SELECT MAX(SortOrder) FROM {scope.Table} WHERE {scope.Predicate} AND DeletedAt IS NULL;";
         scope.Bind(command);
