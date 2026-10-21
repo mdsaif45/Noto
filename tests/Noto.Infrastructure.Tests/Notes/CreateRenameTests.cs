@@ -174,6 +174,23 @@ public sealed class CreateRenameTests : IDisposable
     }
 
     [Fact]
+    public void Placing_a_note_next_to_the_selection_never_changes_the_selected_note()
+    {
+        // The selection only positions the new note: the selected note keeps every field, its UpdatedAt included,
+        // and so does every other note (no renormalisation is needed for a few inserts).
+        FolderId folder = CreateFolder("F").Value;
+        NoteId a = CreateNote(folder, "a").Value;
+        NoteId b = CreateNote(folder, "b").Value;
+        string before = Snapshot();
+
+        CreateNote(folder, "below", NewNotePlacement.BelowSelected, a);
+        CreateNote(folder, "above", NewNotePlacement.AboveSelected, b);
+
+        string after = Snapshot();
+        Assert.All(before.Split('\n'), row => Assert.Contains(row, after, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_selection_that_is_gone_or_elsewhere_places_the_note_at_the_end()
     {
         FolderId folder = CreateFolder("F").Value;
