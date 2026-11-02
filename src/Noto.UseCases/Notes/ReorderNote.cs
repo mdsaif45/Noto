@@ -19,6 +19,9 @@ namespace Noto.UseCases.Notes;
 /// </remarks>
 public sealed record ReorderNote(NoteId NoteId, NoteId? AfterNoteId) : ICommand<CommandResult>;
 
+/// <summary>A note was repositioned within its folder: published after the write commits (ADR-010).</summary>
+public sealed record NoteReordered(NoteId NoteId) : IEvent;
+
 /// <summary>
 /// Handles <see cref="ReorderNote"/>.
 /// </summary>

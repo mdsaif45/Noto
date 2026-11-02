@@ -1,6 +1,7 @@
 using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.Core.Ordering;
 using Noto.UseCases.Commands;
 
 namespace Noto.UseCases.Folders;
@@ -19,6 +20,25 @@ namespace Noto.UseCases.Folders;
 /// (contract §5), which keeps the O6 renormalisation trigger out of the caller.
 /// </remarks>
 public sealed record ReorderFolder(FolderId FolderId, FolderId? AfterFolderId) : ICommand<CommandResult>;
+
+/// <summary>A folder was repositioned in the folder list: published after the write commits (ADR-010).</summary>
+public sealed record FolderReordered(FolderId FolderId) : IEvent;
+
+/// <summary>Moving a folder up, down, to the top or bottom of its pin group (C9, B3), as the engine's reorder.</summary>
+public static class FolderReposition
+{
+    /// <summary>
+    /// Where moving <paramref name="folder"/> in <paramref name="direction"/> among <paramref name="folders"/> (the
+    /// folder list as displayed, O2) places it, for <see cref="ReorderFolder"/>; it does not move when already at that
+    /// edge of its group.
+    /// </summary>
+    public static RepositionTarget<FolderId> For(IReadOnlyList<Folder> folders, FolderId folder, RepositionDirection direction)
+    {
+        ArgumentNullException.ThrowIfNull(folders);
+
+        return Reposition.Of(folders, folder, direction, f => f.Id, f => f.IsPinned, f => f.SortOrder);
+    }
+}
 
 /// <summary>
 /// Handles <see cref="ReorderFolder"/>.
