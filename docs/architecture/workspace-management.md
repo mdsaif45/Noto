@@ -148,6 +148,38 @@ One order exists: `SortOrder` within a scope (a folder's notes; the folder list)
 - **Not in Phase B:** dragging a note onto a folder. The two surfaces are never shown together (ADR-016 §1), so there is no visible target. Ctrl+Shift+M and the menu are the way to move.
 - **No shell drag and drop.** Keyboard fallback: reorder keys and the menu.
 
+### B4 precisely: drag and drop (2026-11-02)
+
+Drag and drop is **another way to ask for B3's reorder**, nothing more: the same rule, the same command, the same one order.
+
+| Drag | Onto | Result |
+|---|---|---|
+| a card | a position in its own pin group, in the same stack | a reorder: `ReorderNote` |
+| a card | a position in the other pin group | **refused**: nothing is written, the stack is re-read, "Pin it to move it there" is announced |
+| a card | where it already is (or the drag is cancelled with Escape) | **no move**: nothing is written |
+| a folder | a position in its own pin group | a reorder: `ReorderFolder` |
+| a folder | a position in the other pin group, or where it is | refused, or no move, as for cards |
+| a card | a folder | **not offered**: the two surfaces are never shown together (ADR-016 §1); Ctrl+Shift+M and the menu move a note |
+| anything from outside Noto (files, text) | either list | **refused**: in-app reorder only; importing is Phase F |
+
+**The rule** (`Reposition.Drop`, Core, pure):
+- The list's own reorder reports where the item landed: its index in the list after the drop.
+- The rule checks that index against the pin boundary. With *P* pinned items, a pinned item must land below *P* and an unpinned one at or above it.
+- It turns the landing index into a position *k* in the item's own group, then into the engine's placement (`Reposition.To`):
+  - before the group's *k*-th other item, i.e. after that item's SortOrder predecessor, or first;
+  - or, at the end of the group, after the group's last item.
+- *k* equal to the item's current position is no move.
+
+**The visual order is never trusted.** After every drop (moved, refused or no-op) the list is rebuilt from the session or the database. A refusal therefore snaps back by construction.
+
+**The editing card** can be dragged. It keeps editing with its unsaved text and caret: order is not content, and nothing is left, so nothing is saved.
+
+**Focus:** the dropped item is selected and focused at its new place, and the move or refusal is announced.
+
+**Accessibility:** drag and drop is never the only way. Every move it does has a key (Ctrl+Alt+Shift+Up/Down) and a menu item (Move to top, Move to bottom), and the result is announced.
+
+**No new subsystem:** the `ListView`'s own reorder (`CanDragItems`, `CanReorderItems`, `AllowDrop`) supplies the drag visuals, the insertion point and Escape to cancel. Noto adds one completion handler per list.
+
 ### Menus and confirmations
 - **Menus:** short, and each item shows its key.
   - Card: Edit, New note, Move to ▸, Pin/Unpin, Fold/Unfold, Move to top, Move to bottom, Move to the Recycle Bin.
