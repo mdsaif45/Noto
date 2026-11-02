@@ -1,6 +1,7 @@
 using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.Core.Ordering;
 using Noto.UseCases.Commands;
 using Noto.UseCases.Notes;
 
@@ -324,6 +325,35 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         Read();
         return CommandResult.Success();
     }
+
+    /// <summary>
+    /// Moves <paramref name="note"/> up, down, to the top or bottom of its pin group (B8, B9), through the engine's one
+    /// order. At that edge already, nothing is written. The card being edited keeps editing with its text.
+    /// </summary>
+    public CommandResult Reorder(NoteId note, RepositionDirection direction)
+    {
+        RepositionTarget<NoteId> target = Target(note, direction);
+
+        if (!target.Moves)
+        {
+            return CommandResult.Success();
+        }
+
+        CommandResult result = _commands.Dispatch(new ReorderNote(note, target.After));
+
+        if (result.IsSuccess)
+        {
+            Read();
+        }
+
+        return result;
+    }
+
+    /// <summary>Whether moving <paramref name="note"/> in <paramref name="direction"/> would move it at all.</summary>
+    public bool CanReorder(NoteId note, RepositionDirection direction) => Target(note, direction).Moves;
+
+    private RepositionTarget<NoteId> Target(NoteId note, RepositionDirection direction) =>
+        Reposition.Of(Notes, note, direction, n => n.Id, n => n.IsPinned, n => n.SortOrder);
 
     /// <summary>The card <paramref name="step"/> places from <paramref name="note"/>; <see langword="null"/> past either end.</summary>
     public NoteId? Neighbour(NoteId note, int step)
