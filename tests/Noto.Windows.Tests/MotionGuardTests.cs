@@ -149,10 +149,8 @@ public sealed class MotionGuardTests
         (string Method, string Surface, bool Forward)[] sites =
         [
             ("EnterSelectedFolder", "NoteRoot", true),
-            ("OpenNote", "EditorRoot", true),
             ("OpenSettings", "page", true),
             ("LeaveFolder", "PaneRoot", false),
-            ("LeaveEditor", "NoteRoot", false),
             ("CloseSettings", "back", false),
         ];
 

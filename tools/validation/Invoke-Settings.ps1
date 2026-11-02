@@ -174,7 +174,6 @@ function Open-Settings-ByKeys { Send-ToNoto @(0x11) 0xBC; $null = Find-ById 'Set
 function Close-Settings-ByBack { (Find-ById 'SettingsBackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); if (-not (Until { -not (Visible-Id 'SettingsRoot') })) { throw 'Back did not leave Settings' } }
 function To-FolderList {
     if (Visible-Id 'SettingsRoot') { Close-Settings-ByBack }
-    if (Visible-Id 'NoteEditor') { (Find-ById 'EditorBackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 500 }
     if (Visible-Id 'BackButton') { (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 500 }
     $null = Find-ById 'FolderList'
 }
@@ -457,7 +456,7 @@ try {
             $entered = Until { Visible-Id 'NoteList' }
             $xy = Centre (Items 'NoteList')[0]; Click-At $xy[0] $xy[1]
             $opened = Until { Visible-Id 'NoteEditor' }
-            Add-Result $run '7  on: one click enters a folder, one click opens a note' ($entered -and $opened -and (Stored 'workspace.single-click-open') -eq 'True') "entered=$entered opened=$opened"
+            Add-Result $run '7  on: one click enters a folder; one click on a card edits it (as with the setting off)' ($entered -and $opened -and (Stored 'workspace.single-click-open') -eq 'True') "entered=$entered opened=$opened"
             To-FolderList
             $xy = Centre (Items 'FolderList')[0]; Click-At $xy[0] $xy[1] -Double
             Add-Result $run '7  on: a double click enters the folder and opens no note it was not aimed at' ((Until { Visible-Id 'NoteList' }) -and -not (Visible-Id 'NoteEditor')) ''

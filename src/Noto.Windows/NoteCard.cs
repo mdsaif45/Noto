@@ -1,111 +1,110 @@
+using System.ComponentModel;
 using Microsoft.UI.Xaml;
+using Noto.Core.Notes;
 
 namespace Noto;
 
 /// <summary>
-/// What the note list shows for one note.
+/// One card in the note stack (ADR-016 §2): what it shows and whether it is the card being edited.
 /// </summary>
 /// <remarks>
 /// <para>
-/// UI-owned for the same reason as <see cref="FolderListItem"/>: the XAML
-/// compiler generates a property <i>setter</i> for every member of a type
-/// named in <c>x:DataType</c>, and <see cref="Core.Notes.Note"/> is an
-/// immutable record whose properties are <c>init</c>-only. Presentation
-/// references the domain, never the reverse (ADR-009), so the accommodation
-/// belongs on this side of the boundary.
+/// UI-owned, as <see cref="FolderListItem"/> is: the XAML compiler generates a setter for every member of a type
+/// named in <c>x:DataType</c>, and the domain <see cref="Note"/> is immutable. Presentation references the domain,
+/// never the reverse (ADR-009). Nothing here is stored on the note but state the domain owns.
 /// </para>
 /// <para>
-/// Carries only what the list renders. The domain note also has
-/// <c>Content</c>, <c>ColorKey</c>, <c>IsFolded</c>, <c>SortOrder</c> and
-/// timestamps; none has an M2-2 surface, and copying them here because they
-/// exist is how a display model quietly becomes a view-model.
+/// Notifies changes because a card is not rebuilt when it starts or stops editing, or when its text is saved: its
+/// container, and the keyboard focus in it, stay where they are.
 /// </para>
 /// </remarks>
-public sealed class NoteListItem
+public sealed class NoteCard : INotifyPropertyChanged
 {
-    /// <summary>
-    /// What a note with no title is called.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Core.Notes.Note.Title"/> is the first non-empty line and is
-    /// the <b>empty string</b> when there is none (contract §3) — an ordinary
-    /// state for a new or whitespace-only note, not a defect. A row rendering
-    /// nothing would be invisible in the list and would announce nothing to a
-    /// screen reader, so the empty case is named rather than blank.
-    /// </remarks>
+    /// <summary>What a note with no title is called: a card that showed nothing would be invisible and silent.</summary>
     public const string UntitledLabel = "Untitled note";
 
-    /// <summary>
-    /// Required by the XAML type activator.
-    /// </summary>
-    /// <remarks>
-    /// Without one the application launches and then fail-fasts with
-    /// <c>0xC0000C04</c> the moment the list renders its first row — see
-    /// <see cref="FolderListItem"/> for the full account.
-    /// </remarks>
-    public NoteListItem()
+    private string _content = string.Empty;
+    private bool _isEditing;
+
+    /// <summary>Required by the XAML type activator (see <see cref="FolderListItem"/>).</summary>
+    public NoteCard()
     {
     }
 
-    public NoteListItem(string id, string title, bool isPinned)
+    public NoteCard(Note note, bool isEditing)
     {
-        Id = id;
-        Title = title;
-        IsPinned = isPinned;
+        ArgumentNullException.ThrowIfNull(note);
+
+        Id = note.Id.Value;
+        IsPinned = note.IsPinned;
+        IsFolded = note.IsFolded;
+        _content = note.Content;
+        _isEditing = isEditing;
     }
 
-    /// <summary>
-    /// The note's id, as its canonical ULID string.
-    /// </summary>
-    /// <remarks>
-    /// <b>The pane addresses notes by this, never by row index or title.</b>
-    /// A note's title is just its first line (parity B16), so two notes
-    /// routinely share one; and O2 orders by pinned-then-SortOrder-then-Id, so
-    /// a pin change moves a row and an index goes stale across a re-query.
-    /// </remarks>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>The note's id. The stack addresses cards by it, never by index or title (B16: titles repeat).</summary>
     public string Id { get; set; } = string.Empty;
 
-    /// <summary>
-    /// The note's title, exactly as the domain computes it.
-    /// </summary>
-    /// <remarks>
-    /// Assigned from <see cref="Core.Notes.Note.Title"/>. The derivation — first
-    /// non-empty line, ATX markers stripped — is contract §3 and stays in the
-    /// domain; duplicating it here would be a second place for it to drift.
-    /// </remarks>
-    public string Title { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Whether the note is pinned.
-    /// </summary>
-    /// <remarks>
-    /// O2 sorts pinned notes to the top (parity B14). Without surfacing the
-    /// flag the grouping is invisible and the order looks arbitrary.
-    /// </remarks>
     public bool IsPinned { get; set; }
 
-    /// <summary>
-    /// What the row displays and announces.
-    /// </summary>
-    /// <remarks>
-    /// The title, or <see cref="UntitledLabel"/> when the note has none. A
-    /// projection rather than a converter: a converter would be a second type,
-    /// registered in XAML, to express one fallback.
-    /// </remarks>
-    public string DisplayTitle => string.IsNullOrEmpty(Title) ? UntitledLabel : Title;
+    public bool IsFolded { get; set; }
 
-    /// <summary>Whether the pinned marker is shown for this row.</summary>
-    public Visibility PinnedMarkerVisibility =>
-        IsPinned ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>Pinned cards sort first (O2); the marker makes that grouping visible.</summary>
+    public Visibility PinnedMarkerVisibility => IsPinned ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The note's markdown source, as stored.</summary>
+    public string Content
+    {
+        get => _content;
+        set
+        {
+            _content = value;
+            Changed(nameof(Content));
+            Changed(nameof(DisplayTitle));
+            Changed(nameof(ReadText));
+        }
+    }
+
+    /// <summary>Whether this is the one card being edited: it holds the editor and its bar, and hides its read view.</summary>
+    public bool IsEditing
+    {
+        get => _isEditing;
+        set
+        {
+            _isEditing = value;
+            Changed(nameof(IsEditing));
+            Changed(nameof(IsReading));
+        }
+    }
+
+    /// <summary>The read view shows while the card is not being edited.</summary>
+    public bool IsReading => !IsEditing;
+
+    /// <summary>The title (B16), computed by the domain, or <see cref="UntitledLabel"/>.</summary>
+    public string DisplayTitle => NoteTitle.From(Content) is { Length: > 0 } title ? title : UntitledLabel;
 
     /// <summary>
-    /// The note's display title.
+    /// The read view (ADR-016 §3): the whole source, or only the title when folded. P2 replaces this with the
+    /// rendered note; the seam is this one property.
     /// </summary>
-    /// <remarks>
-    /// <b>Accessibility, not debugging.</b> A generated <c>ListViewItem</c>
-    /// container has no automation name of its own and falls back to
-    /// <see cref="object.ToString"/> on its data item, so the default would
-    /// announce "Noto.NoteListItem" to a screen reader for every row.
-    /// </remarks>
+    public string ReadText => IsFolded || string.IsNullOrWhiteSpace(Content) ? DisplayTitle : Content;
+
+    /// <summary>The card's states, for assistive technology: its name is the title (ADR-016 §8).</summary>
+    public string HelpText => (IsPinned, IsFolded) switch
+    {
+        (true, true) => "Pinned, folded",
+        (true, false) => "Pinned",
+        (false, true) => "Folded",
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// The title. <b>Accessibility:</b> a generated container with no name of its own announces its item's
+    /// <see cref="object.ToString"/>, which would otherwise be "Noto.NoteCard" for every card.
+    /// </summary>
     public override string ToString() => DisplayTitle;
+
+    private void Changed(string property) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
 }

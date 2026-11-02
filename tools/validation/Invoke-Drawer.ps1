@@ -188,7 +188,7 @@ function Focused-Desc { $f = $AE::FocusedElement; "$($f.Current.ControlType.Prog
 function Select-AndFocus($Item) { $Item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $Item.SetFocus(); Start-Sleep -Milliseconds 300 }
 function Editor-Value { (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value }
 function Set-Editor([string] $Text) { (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text); Start-Sleep -Milliseconds 300 }
-function Notice { try { (Find-ById 'EditorNoticeText' 2).Current.Name } catch { '' } }
+function Notice { try { (Find-ById 'NoteNoticeText' 2).Current.Name } catch { '' } }
 function Row([string] $Column) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql "SELECT $Column FROM Notes WHERE Id = `$n" -Parameters @{ '$n' = $NoteId } }
 function Pin-State { (Find-ById 'PinToggle').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState.ToString() }
 function Pin-Click {
@@ -238,12 +238,15 @@ function To-Surface([string] $Want) {
     switch ($Want) {
         'Editor' { Open-Editor }
         'NoteList' {
-            if ((Surface) -ne 'Editor') { Open-Editor }
-            (Find-ById 'EditorBackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+            # The stack with no card editing: Back (which saves) out of the folder, then into it again.
+            if ((Surface) -ne 'NoteList') {
+                if ((Surface) -eq 'Editor') { (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600 }
+                Select-AndFocus (First-Item 'FolderList'); Send-ToNoto @(0x11) 0x28
+                $null = First-Item 'NoteList'
+            }
         }
         'FolderList' {
-            if ((Surface) -eq 'Editor') { (Find-ById 'EditorBackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600 }
-            if ((Surface) -eq 'NoteList') { (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600 }
+            if ((Surface) -in 'Editor', 'NoteList') { (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600 }
             Select-AndFocus (First-Item 'FolderList')
         }
     }

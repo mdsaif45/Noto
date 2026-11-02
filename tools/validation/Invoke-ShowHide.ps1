@@ -95,7 +95,7 @@ function First-Item($Noto, [string] $ListId) {
 function Select-AndFocus($Item) { $Item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $Item.SetFocus(); Start-Sleep -Milliseconds 300 }
 function Editor-Value($Noto) { (Find-ById $Noto 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value }
 function Set-Editor($Noto, [string] $Text) { (Find-ById $Noto 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text); Start-Sleep -Milliseconds 300 }
-function Notice($Noto) { try { (Find-ById $Noto 'EditorNoticeText' 2).Current.Name } catch { '' } }
+function Notice($Noto) { try { (Find-ById $Noto 'NoteNoticeText' 2).Current.Name } catch { '' } }
 
 function Row($Data, [string] $Column) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $Data -Sql "SELECT $Column FROM Notes WHERE Id = `$n" -Parameters @{ '$n' = $NoteId } }
 

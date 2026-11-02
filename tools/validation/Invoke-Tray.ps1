@@ -281,7 +281,7 @@ function Open-Editor {
     $null = Find-ById 'NoteEditor'
 }
 function Set-Editor([string] $Text) { (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text); Start-Sleep -Milliseconds 300 }
-function Notice { try { (Find-ById 'EditorNoticeText' 2).Current.Name } catch { '' } }
+function Notice { try { (Find-ById 'NoteNoticeText' 2).Current.Name } catch { '' } }
 function Pin-State { (Find-ById 'PinToggle').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState.ToString() }
 function Row([string] $Column) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql "SELECT $Column FROM Notes WHERE Id = `$n" -Parameters @{ '$n' = $NoteId } }
 function Bin-Note { $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId } }

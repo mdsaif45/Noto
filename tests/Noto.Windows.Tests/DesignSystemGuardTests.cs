@@ -518,7 +518,7 @@ public sealed class DesignSystemGuardTests
     {
         // The runtime harness finds elements by their x:Name (their UI Automation id). Renaming one breaks every
         // script that uses it, silently, until the next desktop run.
-        string[] contract = ["FolderList", "NoteList", "NoteEditor", "EditorNoticeText", "FolderNameInput", "BackButton", "EditorBackButton", "PinToggle"];
+        string[] contract = ["FolderList", "NoteList", "NoteEditor", "NoteNoticeText", "FolderNameInput", "BackButton", "PinToggle"];
         var names = Views.SelectMany(v => Load(v).Descendants())
             .SelectMany(e => new[] { (string?)e.Attribute(X + "Name"), (string?)e.Attribute("AutomationProperties.AutomationId") })
             .OfType<string>()

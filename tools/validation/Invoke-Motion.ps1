@@ -115,7 +115,7 @@ function Bin-Note([bool] $Binned) {
 function By-Id([string] $Id) { $AE::FromHandle($noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) }
 function First-Item([string] $ListId) { (By-Id $ListId).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)) }
 function Editor-Text { $e = By-Id 'NoteEditor'; if ($e -and -not $e.Current.IsOffscreen) { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } }
-function Notice { $e = By-Id 'EditorNoticeText'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
+function Notice { $e = By-Id 'NoteNoticeText'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
 function Count([int] $Mark, [string] $Pattern) { @(Trace-Lines $Mark | Where-Object { $_ -match $Pattern }).Count }
 function Show-Noto([string] $Label) {
     <# From the target app in front, the chord brings Noto forward. #>

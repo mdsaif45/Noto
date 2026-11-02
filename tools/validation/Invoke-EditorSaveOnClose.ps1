@@ -109,7 +109,7 @@ function Open-At($Data, [string] $Surface, $Target) {
 
 function Editor-Value($Noto) { (Find-ById $Noto 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value }
 function Set-Editor($Noto, [string] $Text) { (Find-ById $Noto 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text); Start-Sleep -Milliseconds 300 }
-function Notice($Noto) { try { (Find-ById $Noto 'EditorNoticeText' 2).Current.Name } catch { '' } }
+function Notice($Noto) { try { (Find-ById $Noto 'NoteNoticeText' 2).Current.Name } catch { '' } }
 
 function Close-AltF4($Noto) { Send-ToNoto $Noto @(0x12) 0x73 }
 function Close-SysCommand($Noto) { [void][NotoVal.Win32]::PostMessage($Noto.Hwnd, 0x0112, [IntPtr]0xF060, [IntPtr]::Zero); Start-Sleep -Milliseconds 700 }

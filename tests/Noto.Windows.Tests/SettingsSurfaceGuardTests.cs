@@ -159,8 +159,8 @@ public sealed class SettingsSurfaceGuardTests
     [Fact]
     public void Escape_in_settings_follows_the_stored_behaviour()
     {
-        Assert.Contains("OnEscape(WorkspaceSurface.Settings, e);", Body(Main, "OnSettingsKeyDown"), StringComparison.Ordinal);
-        Assert.Matches(@"case EscapeAction\.LeaveSettings:\s*e\.Handled = true;\s*CloseSettings\(\);", Main);
+        Assert.Contains("e.Handled = OnEscape(WorkspaceSurface.Settings);", Body(Main, "OnSettingsKeyDown"), StringComparison.Ordinal);
+        Assert.Matches(@"case EscapeAction\.LeaveSettings:\s*CloseSettings\(\);\s*return true;", Main);
     }
 
     [Fact]
@@ -169,9 +169,12 @@ public sealed class SettingsSurfaceGuardTests
         // Shown memory is already above its provisional budget (quality-gates.md): nothing of Settings exists until it
         // is opened, and it is released when it is left. It is created in code: measured on the frozen Release build,
         // a static x:Load element under a Window is never realised (FindName returned null), and the compiler's bound
-        // x:Load form calls a FindName a Window does not have. Neither may come back.
+        // x:Load form calls a FindName a Window does not have. Neither may come back. Inside a DataTemplate the bound
+        // form calls FindName on the template's own root (the note card's editor, ADR-016 §4), which is allowed.
         Assert.DoesNotContain(MainXaml.Descendants(), e => e.Name.LocalName == "SettingsPage");
-        Assert.DoesNotContain(MainXaml.Descendants().SelectMany(e => e.Attributes()), a => a.Name == X + "Load");
+        Assert.DoesNotContain(
+            MainXaml.Descendants().Where(e => !e.Ancestors().Any(a => a.Name.LocalName == "DataTemplate")).SelectMany(e => e.Attributes()),
+            a => a.Name == X + "Load");
         Assert.DoesNotContain("FindName(", Main, StringComparison.Ordinal);
         Assert.DoesNotContain("XamlMarkupHelper", Main, StringComparison.Ordinal);
     }
@@ -216,21 +219,25 @@ public sealed class SettingsSurfaceGuardTests
     public void Ctrl_comma_inside_the_editor_is_handed_to_the_same_accelerator_and_nothing_else_is()
     {
         // Measured: the editor's TextBox marks Ctrl+, handled in its own KeyDown, so with focus in it the root's
-        // accelerator never ran. The editor's accelerator pass, which runs before that KeyDown, hands exactly that
-        // chord to the root's accelerators: no second shortcut, no second way into OpenSettings, no other key taken
-        // from the editor. What it does at run time is Invoke-Settings.ps1 case 1's to prove.
+        // accelerator never ran. The editor host's accelerator pass, which runs before that KeyDown, hands exactly that
+        // chord to the window root's accelerators: no second shortcut, no second way into OpenSettings, no other key
+        // taken from the editor. What it does at run time is Invoke-Settings.ps1 case 1's and Invoke-NoteStack.ps1
+        // case 9's to prove.
         Match accelerator = Regex.Match(Main, @"new KeyboardAccelerator \{ Key = (?<key>\(VirtualKey\)0x[0-9A-F]+), Modifiers = (?<modifiers>VirtualKeyModifiers\.\w+) \};\s*openSettings\.Invoked \+= OnSettingsAccelerator;\s*WorkspaceRoot\.KeyboardAccelerators\.Add\(openSettings\);");
         Assert.True(accelerator.Success, "The root's Settings accelerator is not where it was.");
 
+        // The window's content is WorkspaceRoot, so the host's XamlRoot.Content is the element holding that accelerator.
+        Assert.Equal("WorkspaceRoot", (string?)MainXaml.Root!.Elements().Single().Attribute(X + "Name"));
+
         string key = Regex.Escape(accelerator.Groups["key"].Value);
         string modifiers = Regex.Escape(accelerator.Groups["modifiers"].Value);
+        string host = Code(Path.Join(Windows, "NoteEditorHost.xaml.cs"));
         Assert.Matches(
-            $@"^\{{\s*if \(args\.Key == {key} && args\.Modifiers == {modifiers}\)\s*\{{\s*WorkspaceRoot\.TryInvokeKeyboardAccelerator\(args\);\s*\}}\s*\}}$",
-            Body(Main, "OnNoteEditorProcessKeyboardAccelerators"));
+            $@"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= \(_, args\) =>\s*\{{\s*if \(args\.Key == {key} && args\.Modifiers == {modifiers} && XamlRoot\?\.Content is UIElement root\)\s*\{{\s*root\.TryInvokeKeyboardAccelerator\(args\);\s*\}}\s*\}};",
+            host);
 
-        // Wired once, in the constructor, to the editor itself; nothing else redirects or invokes accelerators.
+        // Wired once, to the editor itself; nothing else redirects or invokes accelerators.
         string code = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
-        Assert.Matches(@"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= OnNoteEditorProcessKeyboardAccelerators;", Main);
         Assert.Equal(1, Regex.Count(code, @"\.ProcessKeyboardAccelerators \+="));
         Assert.Equal(1, Regex.Count(code, @"TryInvokeKeyboardAccelerator\("));
 
@@ -248,13 +255,16 @@ public sealed class SettingsSurfaceGuardTests
     [Fact]
     public void One_click_opens_only_from_a_row_and_never_twice()
     {
-        foreach (var (tapped, doubleTapped, item) in new[] { ("OnFolderListTapped", "OnFolderListDoubleTapped", "FolderListItem"), ("OnNoteListTapped", "OnNoteListDoubleTapped", "NoteListItem") })
-        {
-            Assert.Contains($"if (SingleClickOpen && IsOnRow<{item}>(e))", Body(Main, tapped), StringComparison.Ordinal);
-            Assert.Contains("if (!SingleClickOpen)", Body(Main, doubleTapped), StringComparison.Ordinal);
-        }
-
+        // Folders: one click or two, as the setting says (J7, C4), never both.
+        Assert.Contains("if (SingleClickOpen && IsOnRow<FolderListItem>(e))", Body(Main, "OnFolderListTapped"), StringComparison.Ordinal);
+        Assert.Contains("if (!SingleClickOpen)", Body(Main, "OnFolderListDoubleTapped"), StringComparison.Ordinal);
         Assert.Contains("(e.OriginalSource as FrameworkElement)?.DataContext is TItem", Main, StringComparison.Ordinal);
+
+        // Cards are edited in place, not opened (ADR-016 §6): one click on a card that is not editing edits it, whatever
+        // the setting; a click in the editor is the editor's, and a double click has no meaning on the stack.
+        Assert.Contains("(e.OriginalSource as FrameworkElement)?.DataContext is NoteCard { IsEditing: false } card", Body(Main, "OnNoteListTapped"), StringComparison.Ordinal);
+        Assert.DoesNotContain("SingleClickOpen", Body(Main, "OnNoteListTapped"), StringComparison.Ordinal);
+        Assert.Null(MainXaml.Descendants().Single(e => (string?)e.Attribute(X + "Name") == "NoteList").Attribute("DoubleTapped"));
     }
 
     // ---------------------------------------------------------------- structure and accessibility
