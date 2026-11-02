@@ -520,14 +520,15 @@ public partial class App : Application
             .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle);
         var events = new EventHub(failure => log.EventSubscriberFailed(failure));
 
+        var dispatcher = new CommandDispatcher(commands, events);
         var main = new MainWindow(
             new ListFoldersQuery(folders),
-            new ListNotesInFolderQuery(notes),
-            new GetNoteQuery(notes),
-            new CommandDispatcher(commands, events))
+            new NoteStackSession(new ListNotesInFolderQuery(notes), dispatcher),
+            dispatcher)
         {
             Escape = preferences.Escape,
             SingleClickOpen = preferences.SingleClickOpen,
+            NewNotePlacement = preferences.NewNotePlacement,
             Settings = new SettingsContext(
                 preferences,
                 () => _login?.State(),

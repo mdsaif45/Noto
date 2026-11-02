@@ -57,7 +57,7 @@ public sealed partial class WorkspaceDrawerGuardTests
         Assert.Equal("OnNoteRootKeyDown", (string?)noteRoot.Attribute("KeyDown"));
         Assert.Contains(noteRoot.Descendants(), e => (string?)e.Attribute(x + "Name") == "BackButton");
         Assert.Contains(noteRoot.Descendants(), e => (string?)e.Attribute(x + "Name") == "NoteList");
-        Assert.Matches(@"e\.Key == VirtualKey\.Escape\)\s*\{\s*OnEscape\(WorkspaceSurface\.NoteList, e\);", Code(Body(Main, "OnNoteRootKeyDown")));
+        Assert.Matches(@"e\.Key == VirtualKey\.Escape\)\s*\{\s*e\.Handled = OnEscape\(WorkspaceSurface\.NoteList\);", Code(Body(Main, "OnNoteRootKeyDown")));
     }
 
     [Fact]

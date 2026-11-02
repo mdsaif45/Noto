@@ -17,15 +17,16 @@ public sealed class SaveTraceGuardTests
     [Fact]
     public void The_save_trace_is_written_after_the_save_returns_in_the_success_branch_only()
     {
-        string save = Body(WindowSource, "TrySaveOpenNote");
+        // The stack's Save dispatches UpdateNoteContent and returns once it is written; nothing unsaved is traced.
+        string save = Body(WindowSource, "TrySaveCard");
 
-        int call = Index(save, "new UpdateNoteContent(");
+        int clean = Index(save, "if (!_stack.IsDirty)");
+        int call = Index(save, "_stack.Save()");
         int success = Index(save, "if (result.IsSuccess)");
-        int baseline = Index(save, "_openNoteBaseline = NoteEditor.Text;");
         int signal = Index(save, Signal);
-        int saved = Index(save, "return true;");
+        int saved = Index(save, "return true;", from: signal);
 
-        Assert.True(call < success && success < baseline && baseline < signal && signal < saved, $"call={call} success={success} baseline={baseline} signal={signal} saved={saved}");
+        Assert.True(clean < call && call < success && success < signal && signal < saved, $"clean={clean} call={call} success={success} signal={signal} saved={saved}");
 
         // Everything after the success branch is a failure: a failure result or a storage exception. No signal there.
         string failures = save[saved..];
@@ -46,9 +47,9 @@ public sealed class SaveTraceGuardTests
         Assert.Contains("Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $\"Noto.Save completed ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}\"));", WindowSource, StringComparison.Ordinal);
     }
 
-    private static int Index(string text, string value)
+    private static int Index(string text, string value, int from = 0)
     {
-        int index = text.IndexOf(value, StringComparison.Ordinal);
+        int index = text.IndexOf(value, from, StringComparison.Ordinal);
         Assert.True(index >= 0, $"Not found: {value}");
         return index;
     }

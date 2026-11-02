@@ -113,14 +113,14 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
                                     <TextBlock Text="Open with a single click" Style="{StaticResource SettingLabelStyle}" />
-                                    <TextBlock Text="Folders and notes. Otherwise, double-click." Style="{StaticResource SettingDescriptionStyle}" />
+                                    <TextBlock Text="Folders. Otherwise, double-click. A note is edited with one click either way." Style="{StaticResource SettingDescriptionStyle}" />
                                 </StackPanel>
                                 <ToggleSwitch
                                     x:Name="SingleClickSetting"
                                     Grid.Column="1"
                                     Toggled="OnSingleClickToggled"
                                     AutomationProperties.Name="Open with a single click"
-                                    AutomationProperties.HelpText="Folders and notes. Otherwise, double-click." />
+                                    AutomationProperties.HelpText="Folders. Otherwise, double-click. A note is edited with one click either way." />
                             </Grid>
 
                         </StackPanel>

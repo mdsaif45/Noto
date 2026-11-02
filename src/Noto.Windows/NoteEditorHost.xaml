@@ -1,0 +1,24 @@
+<UserControl
+    x:Class="Noto.NoteEditorHost"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        The editor host (ADR-016 §3): the only thing that edits a note's text, and the P2 boundary. Callers see Load,
+        Markdown, ContentChanged, LeaveRequested and PlaceCaret; P2 replaces what is inside, not them.
+
+        P1: the plain markdown source in a TextBox. AcceptsReturn and no AcceptsTab: Enter is a newline, Tab leaves.
+        It grows with its text inside the card; the stack scrolls, not the editor. Regular weight, whatever the
+        selected row's emphasis is.
+    -->
+    <TextBox
+        x:Name="NoteEditor"
+        Style="{StaticResource NoteEditorStyle}"
+        AcceptsReturn="True"
+        TextWrapping="Wrap"
+        FontWeight="{StaticResource FontWeightRegular}"
+        TextChanged="OnTextChanged"
+        PreviewKeyDown="OnPreviewKeyDown"
+        AutomationProperties.Name="Note content" />
+
+</UserControl>

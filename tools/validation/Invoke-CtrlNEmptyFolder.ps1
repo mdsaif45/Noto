@@ -7,9 +7,9 @@
   A fresh isolated data root seeded with one empty folder. Keys reach Noto only while it is verifiably the
   foreground window (the activation hotkey arranges that); nothing is typed into the editor.
 
-    1  empty folder: where focus is, then Ctrl+N -> one note created, editor open with focus in it
-    2  back in the list (one row now), Ctrl+N    -> exactly one more note, not two
-    3  Ctrl+N inside the editor                  -> no note created (unbound there, parity B1)
+    1  empty folder: where focus is, then Ctrl+N -> one note created, editing, focus in its editor
+    3  Ctrl+N inside the editor                  -> exactly one more note, editing (ADR-016 §5)
+    2  a card focused (not editing), Ctrl+N      -> exactly one more note, not two
     4  Ctrl+N on the folder list                 -> still the folder name box (C2), no note created
 
 .EXAMPLE
@@ -93,28 +93,29 @@ exit (Invoke-IsolatedRun $run -Title 'Ctrl+N in an empty folder (#69)' -Body {
     Add-Result $run '1  Ctrl+N in an empty folder creates exactly one note' ((NoteCount $data) -eq 1) "notes=$(NoteCount $data)"
     Add-Result $run '1  the new note opens in the editor, with focus in it' ($editorShown -and $focusAfter -match 'id=NoteEditor') "focus=$focusAfter"
 
-    # 3 - Ctrl+N inside the editor: unbound
+    # 3 - Ctrl+N inside the editor: one more note, editing (ADR-016 §5)
     Send-ToNoto $noto @(0x11) 0x4E
-    Add-Result $run '3  Ctrl+N inside the editor creates nothing' ((NoteCount $data) -eq 1) "notes=$(NoteCount $data)"
+    $focus3 = Focused
+    Add-Result $run '3  Ctrl+N inside the editor creates exactly one more note, editing it' ((NoteCount $data) -eq 2 -and $focus3 -match 'id=NoteEditor') "notes=$(NoteCount $data) focus=$focus3"
 
-    # 2 - back in the list with one row, Ctrl+N once -> exactly one more
+    # 2 - a card focused, not editing (Escape leaves editing), Ctrl+N once -> exactly one more
     Send-ToNoto $noto @() 0x1B
     $null = Find-ById $noto 'BackButton'
     $rows = Items $noto 'NoteList'
     if ($rows.Count -gt 0) { $rows[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $rows[0].SetFocus(); Start-Sleep -Milliseconds 300 }
     $focusList = Focused
     Send-ToNoto $noto @(0x11) 0x4E
-    Add-Result $run '2  Ctrl+N with a row focused creates exactly one more note (no double handling)' ((NoteCount $data) -eq 2) "rows before=$($rows.Count) focus=$focusList notes=$(NoteCount $data)"
+    Add-Result $run '2  Ctrl+N with a card focused creates exactly one more note (no double handling)' ((NoteCount $data) -eq 3) "rows before=$($rows.Count) focus=$focusList notes=$(NoteCount $data)"
 
     # 4 - Ctrl+N on the folder list still means "new folder"
-    Send-ToNoto $noto @() 0x1B                                   # leave the editor case 2 opened
+    Send-ToNoto $noto @() 0x1B                                   # leave the card case 2 is editing
     $null = Find-ById $noto 'BackButton'
     Send-ToNoto $noto @() 0x1B                                   # leave the folder
     $null = Find-ById $noto 'FolderList'
     $f2 = (Items $noto 'FolderList')[0]; $f2.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto $noto @(0x11) 0x4E
     $focusFolders = Focused
-    Add-Result $run '4  Ctrl+N on the folder list focuses the folder name box and creates no note' ($focusFolders -match 'id=FolderNameInput' -and (NoteCount $data) -eq 2) "focus=$focusFolders notes=$(NoteCount $data)"
+    Add-Result $run '4  Ctrl+N on the folder list focuses the folder name box and creates no note' ($focusFolders -match 'id=FolderNameInput' -and (NoteCount $data) -eq 3) "focus=$focusFolders notes=$(NoteCount $data)"
 
     Add-Result $run 'teardown: Noto exited cleanly' (Stop-Noto $noto) ''
 })

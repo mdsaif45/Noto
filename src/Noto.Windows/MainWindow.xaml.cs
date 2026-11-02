@@ -4,6 +4,7 @@ using System.Globalization;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Commands;
@@ -15,6 +16,7 @@ using Noto.Platform.Windows;
 using Noto.UseCases.Commands;
 using Noto.UseCases.Folders;
 using Noto.UseCases.Notes;
+using Noto.UseCases.Workspace;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -47,8 +49,7 @@ namespace Noto;
 public sealed partial class MainWindow : Window
 {
     private readonly ListFoldersQuery _listFolders;
-    private readonly ListNotesInFolderQuery _listNotes;
-    private readonly GetNoteQuery _getNote;
+    private readonly NoteStackSession _stack;
     private readonly CommandDispatcher _commands;
 
     /// <summary>
@@ -76,62 +77,40 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private FolderId? _openFolderId;
 
-    /// <summary>The selected note, by id. Never an index.</summary>
+    /// <summary>The selected card, by id. Never an index.</summary>
     private string? _selectedNoteId;
 
     private NoteState _noteState = NoteState.Loading;
 
-    /// <summary>
-    /// The note open in the editor, or <see langword="null"/> when the editor
-    /// is not the active surface.
-    /// </summary>
-    /// <remarks>
-    /// Doubles as the "is the editor open" flag, the way
-    /// <see cref="_openFolderId"/> does for the note surface. Two fields that
-    /// can disagree is a state machine with a hole in it.
-    /// </remarks>
-    private string? _openNoteId;
+    /// <summary>The editing card's editor while it is realised; the text itself is the stack's.</summary>
+    private NoteEditorHost? _editor;
 
-    /// <summary>
-    /// The content the editor was opened with.
-    /// </summary>
-    /// <remarks>
-    /// Dirtiness is this compared against the live text, rather than a flag a
-    /// TextChanged handler maintains: a flag has to be cleared in every exit
-    /// path and stays true if one is missed, which would make a clean buffer
-    /// take the save path. Typing something and undoing it correctly counts as
-    /// clean here.
-    /// </remarks>
-    private string _openNoteBaseline = string.Empty;
+    /// <summary>Where the caret goes once the editing card's editor is realised; <see langword="null"/> when placed.</summary>
+    private CaretPlacement? _pendingCaret;
 
     /// <summary>
     /// The note and the exact text whose save failed when the window was last
     /// asked to close, or <see langword="null"/>.
     /// </summary>
     /// <remarks>
-    /// The text itself rather than a flag, for the reason the baseline is: it
-    /// cannot be left stale. It applies only while that note is open with
-    /// exactly that text — an edit, another note or leaving the editor makes
-    /// it inert without anything having to clear it.
+    /// The text itself rather than a flag: it cannot be left stale. It applies
+    /// only while that note is being edited with exactly that text — an edit,
+    /// another card or leaving editing makes it inert without anything having
+    /// to clear it.
     /// </remarks>
     private (string NoteId, string Text)? _failedCloseSave;
 
-    private EditorState _editorState = EditorState.Loading;
-
     public MainWindow(
         ListFoldersQuery listFolders,
-        ListNotesInFolderQuery listNotes,
-        GetNoteQuery getNote,
+        NoteStackSession stack,
         CommandDispatcher commands)
     {
-        // Queries are read directly; every mutation is dispatched (ADR-010, #21).
+        // Queries are read directly; every mutation is dispatched (ADR-010, #21). The note stack does both for notes.
         _listFolders = listFolders ?? throw new ArgumentNullException(nameof(listFolders));
-        _listNotes = listNotes ?? throw new ArgumentNullException(nameof(listNotes));
-        _getNote = getNote ?? throw new ArgumentNullException(nameof(getNote));
+        _stack = stack ?? throw new ArgumentNullException(nameof(stack));
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
 
         InitializeComponent();
-        NoteEditor.ProcessKeyboardAccelerators += OnNoteEditorProcessKeyboardAccelerators;
 
         AppWindow.Closing += OnAppWindowClosing;
 
@@ -202,12 +181,12 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The note surface's state.
+    /// The note stack's state.
     /// </summary>
     /// <remarks>
     /// Separate from <see cref="PaneState"/> because the two surfaces are
-    /// never active at once and share no transitions. There is no Mutating
-    /// member: M2-2 reads notes and never writes them.
+    /// never active at once and share no transitions. Editing a card is the
+    /// stack's own state (<see cref="NoteStackSession.Editing"/>), not a member here.
     /// </remarks>
     private enum NoteState
     {
@@ -216,25 +195,10 @@ public sealed partial class MainWindow : Window
         Error,
     }
 
-    /// <summary>
-    /// The editor's state.
-    /// </summary>
-    /// <remarks>
-    /// No Saving member: a save happens on leave and either succeeds — in
-    /// which case the surface is already gone — or fails, which is a notice
-    /// over a still-editable buffer rather than a state of its own.
-    /// </remarks>
-    private enum EditorState
-    {
-        Loading,
-        Loaded,
-        Error,
-    }
-
     public ObservableCollection<FolderListItem> Folders { get; } = [];
 
-    /// <summary>The notes of the open folder, in O2 order.</summary>
-    public ObservableCollection<NoteListItem> Notes { get; } = [];
+    /// <summary>The open folder's cards, in O2 order.</summary>
+    public ObservableCollection<NoteCard> Notes { get; } = [];
 
     /// <summary>Whether the list is showing the empty variant of Loaded.</summary>
     private bool IsEmpty => _state == PaneState.Loaded && Folders.Count == 0;
@@ -626,10 +590,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // ----------------------------------------------------------- note list
+    // ----------------------------------------------------------- note stack
 
     /// <summary>
-    /// Enters a folder and shows its notes (parity C1, C4).
+    /// Enters a folder and shows its note stack (parity C1, C4).
     /// </summary>
     /// <remarks>
     /// Selection normally follows arrow-key focus, but a row can hold focus
@@ -654,10 +618,9 @@ public sealed partial class MainWindow : Window
         // The id is captured now: the list is rebuilt on return, and an index
         // or a name would not survive that. Names are not unique (Case G).
         _openFolderId = FolderId.From(item.Id);
+        _stack.Open(_openFolderId.Value);
 
-        // A folder is entered fresh. Nothing establishes remembering which
-        // note was selected last time, and inventing it would be a behaviour
-        // nobody asked for.
+        // A folder is entered fresh: no card is selected or edited.
         _selectedNoteId = null;
 
         BackButton.Content = $"‹ {item.Name}";
@@ -683,19 +646,21 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Returns to the folder list (parity C5, A12 mode 1).
+    /// Returns to the folder list (parity C5, A12 mode 1), saving the card being edited first. A failed save keeps
+    /// the stack, the card and its text, and says why.
     /// </summary>
-    /// <remarks>
-    /// Note selection is discarded rather than remembered: no requirement
-    /// establishes per-folder note selection, and restoring it silently would
-    /// be a product decision made in implementation.
-    /// </remarks>
     private void LeaveFolder()
     {
+        if (!TryEndEdit())
+        {
+            return;
+        }
+
         string? folderId = _openFolderId?.Value;
 
         _openFolderId = null;
         _selectedNoteId = null;
+        _stack.Close();
         Notes.Clear();
         HideNoteNotice();
         HideNoteGuidance();
@@ -725,31 +690,23 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The note read path — executes Q2 for the open folder.
+    /// The stack's read path — executes Q2 for the open folder and rebuilds the cards.
     /// </summary>
     /// <remarks>
-    /// Rebuilt wholesale rather than diffed, for the reason the folder list is:
-    /// the query already returns O2 order (pinned, SortOrder, Id), so replacing
-    /// the collection keeps the view agreeing with the database by
-    /// construction.
+    /// Rebuilt wholesale rather than diffed: the query already returns O2 order (pinned, SortOrder, Id), so the
+    /// stack agrees with the database by construction. The card being edited is rebuilt editing, and its unsaved
+    /// text is the stack's, not its editor's: a rebuilt editor loads it back.
     /// </remarks>
     private void RefreshNotes()
     {
-        if (_openFolderId is not { } folderId)
+        if (_openFolderId is null)
         {
             return;
         }
 
         try
         {
-            IReadOnlyList<Note> notes = _listNotes.Execute(folderId);
-
-            Notes.Clear();
-            foreach (Note note in notes)
-            {
-                Notes.Add(new NoteListItem(note.Id.Value, note.Title, note.IsPinned));
-            }
-
+            ShowCards(_stack.Read());
             _noteState = NoteState.Loaded;
 
             // A successful read answers whatever the last failure said.
@@ -765,8 +722,18 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>Replaces the cards with <paramref name="notes"/>, the editing one marked.</summary>
+    private void ShowCards(IReadOnlyList<Note> notes)
+    {
+        Notes.Clear();
+        foreach (Note note in notes)
+        {
+            Notes.Add(new NoteCard(note, note.Id == _stack.Editing));
+        }
+    }
+
     /// <summary>
-    /// Re-applies the selected note id to the rebuilt list.
+    /// Re-applies the selected note id to the rebuilt stack.
     /// </summary>
     private void RestoreNoteSelection()
     {
@@ -776,7 +743,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        NoteListItem? match = Notes.FirstOrDefault(n => n.Id == _selectedNoteId);
+        NoteCard? match = Notes.FirstOrDefault(n => n.Id == _selectedNoteId);
 
         if (match is null)
         {
@@ -796,11 +763,14 @@ public sealed partial class MainWindow : Window
         bool interactive = _noteState == NoteState.Loaded;
 
         NoteList.IsEnabled = interactive;
+        NewNoteButton.IsEnabled = interactive;
 
         NoteRetryButton.Visibility = _noteState == NoteState.Error
             ? Visibility.Visible
             : Visibility.Collapsed;
         NoteRetryButton.IsEnabled = _noteState == NoteState.Error;
+
+        NoteCountText.Text = interactive ? NoteCount(Notes.Count) : string.Empty;
 
         switch (_noteState)
         {
@@ -815,7 +785,7 @@ public sealed partial class MainWindow : Window
             default:
                 if (Notes.Count == 0)
                 {
-                    ShowNoteGuidance("This folder has no notes yet.");
+                    ShowNoteGuidance("This folder has no notes yet. Press Ctrl+N or select New note to write one.");
                 }
                 else
                 {
@@ -825,6 +795,9 @@ public sealed partial class MainWindow : Window
                 break;
         }
     }
+
+    /// <summary>The list bar's count (C19).</summary>
+    private static string NoteCount(int count) => count == 1 ? "1 note" : $"{count.ToString(CultureInfo.CurrentCulture)} notes";
 
     private void OnBackClick(object sender, RoutedEventArgs e) => LeaveFolder();
 
@@ -839,23 +812,11 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The note list's keyboard contract.
+    /// Ctrl+N — a new note at the configured placement, edited (parity B1, B5).
     /// </summary>
     /// <remarks>
-    /// Enter opens the selected note — the binding M2-2 deliberately left free
-    /// because opening a note needed an editor to open it into. Ctrl+N creates
-    /// one (parity B1, "context-dependent": the same chord makes a folder in
-    /// the folder list).
-    /// </remarks>
-    /// <summary>
-    /// Ctrl+N — create a note in the open folder and open it (parity B1).
-    /// </summary>
-    /// <remarks>
-    /// An accelerator on the note surface's root, as the folder pane does for
-    /// C2, not a key handler on the list. The list handler only ran while a
-    /// row had focus, and an empty folder has no row: the first note could not
-    /// be created from the keyboard (#69). Enter is still the list's
-    /// <c>PreviewKeyDown</c>, because a ListView claims it as item activation.
+    /// An accelerator on the stack's root, so it works wherever focus is in it, the editor included, and in an empty
+    /// folder, which has no card to take focus (#69).
     /// </remarks>
     private void OnCreateNoteAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -863,74 +824,39 @@ public sealed partial class MainWindow : Window
         CreateNoteInOpenFolder();
     }
 
+    private void OnNewNoteClick(object sender, RoutedEventArgs e) => CreateNoteInOpenFolder();
+
     /// <summary>
-    /// Enter opens the selected note.
+    /// Enter and F2 edit the focused card (ADR-016 §5).
     /// </summary>
     /// <remarks>
-    /// PreviewKeyDown, because a ListView consumes Enter as item activation
-    /// before a KeyDown handler on the control can see it. Verified at
-    /// runtime: with a row selected and focused, Enter on KeyDown did nothing
-    /// while Ctrl+N on that same handler opened the editor — so the handler
-    /// fires and the key is what differs. Preview runs on the way down, ahead
-    /// of the control.
+    /// PreviewKeyDown, because a ListView consumes Enter as item activation before a KeyDown handler sees it. Only
+    /// from a card itself: keys typed in the editor tunnel through here too, and Enter there is a new line.
     /// </remarks>
     private void OnNoteListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter)
+        if (e.Key is VirtualKey.Enter or VirtualKey.F2 && e.OriginalSource is ListViewItem { Content: NoteCard card })
         {
             e.Handled = true;
-            OpenSelectedNote();
-        }
-    }
-
-    private void OnNoteListDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
-    {
-        e.Handled = true;
-
-        // With single-click opening, the first click has already opened the note; the second is not a new request.
-        if (!SingleClickOpen)
-        {
-            OpenSelectedNote();
-        }
-    }
-
-    /// <summary>One click on a note opens it, when single-click opening is on (parity J7).</summary>
-    private void OnNoteListTapped(object sender, TappedRoutedEventArgs e)
-    {
-        if (SingleClickOpen && IsOnRow<NoteListItem>(e))
-        {
-            e.Handled = true;
-            OpenSelectedNote();
+            EditCard(card.Id, CaretPlacement.End);
         }
     }
 
     /// <summary>
-    /// Opens the selected note, falling back to the focused row.
+    /// A click on a card edits it (ADR-016 §6): a note is edited in place, not opened, so single-click opening (J7)
+    /// concerns folders only. A click inside the editor is the editor's.
     /// </summary>
-    /// <remarks>
-    /// The fallback matches <see cref="BeginRename"/> and
-    /// <see cref="EnterSelectedFolder"/>: a row can hold focus without being
-    /// selected under programmatic or assistive-technology focus, and doing
-    /// nothing in that case would look broken.
-    /// </remarks>
-    private void OpenSelectedNote()
+    private void OnNoteListTapped(object sender, TappedRoutedEventArgs e)
     {
-        if (_noteState != NoteState.Loaded)
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is NoteCard { IsEditing: false } card)
         {
-            return;
-        }
-
-        NoteListItem? item = NoteList.SelectedItem as NoteListItem
-            ?? (FocusManager.GetFocusedElement(Content.XamlRoot) as ListViewItem)?.Content as NoteListItem;
-
-        if (item is not null)
-        {
-            OpenNote(item.Id);
+            e.Handled = true;
+            EditCard(card.Id, CaretPlacement.End);
         }
     }
 
     private void OnNoteSelectionChanged(object sender, SelectionChangedEventArgs e) =>
-        _selectedNoteId = (NoteList.SelectedItem as NoteListItem)?.Id;
+        _selectedNoteId = (NoteList.SelectedItem as NoteCard)?.Id;
 
     private void ShowNoteNotice(string message)
     {
@@ -969,7 +895,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Puts keyboard focus on a note row, so focus always has a destination.
+    /// Puts keyboard focus on a card, so focus always has a destination.
     /// </summary>
     /// <remarks>
     /// The same shape as <see cref="FocusRow"/>, and deferred for the same
@@ -978,11 +904,11 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void FocusNoteRow(string id)
     {
-        NoteListItem? item = Notes.FirstOrDefault(n => n.Id == id);
+        NoteCard? item = Notes.FirstOrDefault(n => n.Id == id);
 
         if (item is null)
         {
-            _ = NoteList.Focus(FocusState.Programmatic);
+            MoveFocusToNotes();
             return;
         }
 
@@ -1004,162 +930,91 @@ public sealed partial class MainWindow : Window
             });
     }
 
-    // -------------------------------------------------------- note editor
-
-    /// <summary>Whether the editor holds unsaved changes.</summary>
-    /// <remarks>
-    /// Computed by comparing the live text against the content the note was
-    /// opened with, rather than a flag a TextChanged handler maintains: a flag
-    /// must be cleared on every exit path and stays true if one is missed,
-    /// which would send a clean buffer down the save path. Typing something
-    /// and undoing it correctly reads as clean here.
-    /// </remarks>
-    private bool EditorIsDirty =>
-        _openNoteId is not null
-        && !string.Equals(NoteEditor.Text, _openNoteBaseline, StringComparison.Ordinal);
+    // ------------------------------------------------------- editing a card
 
     /// <summary>
-    /// Opens a note in the editor.
+    /// Edits a card, the caret at <paramref name="caret"/> (ADR-016 §2). The card being edited is left first, saving;
+    /// a failed save keeps it editing, with its text and a notice, and nothing else changes.
     /// </summary>
-    private void OpenNote(string noteId)
+    private void EditCard(string id, CaretPlacement caret)
     {
-        _openNoteId = noteId;
-
-        NoteRoot.Visibility = Visibility.Collapsed;
-        EditorRoot.Visibility = Visibility.Visible;
-        Motion.EnterSurface(EditorRoot, forward: true);
-
-        _editorState = EditorState.Loading;
-        ApplyEditorState();
-
-        // Queued for the same reason the other surfaces queue their first
-        // read: the state is applied and handed back before the read begins.
-        _ = DispatcherQueue.TryEnqueueGuarded(LoadOpenNote);
-    }
-
-    /// <summary>
-    /// Reads the open note and fills the buffer.
-    /// </summary>
-    /// <remarks>
-    /// <c>GetNoteQuery</c> applies I1, so a note in the recycle bin reports
-    /// NotFound exactly as a missing one does. Both mean the same thing to the
-    /// user — it is not there — so both return to the list rather than
-    /// stranding them in an editor with nothing to edit.
-    /// </remarks>
-    private void LoadOpenNote()
-    {
-        if (_openNoteId is not { } id)
+        if (_noteState != NoteState.Loaded)
         {
             return;
         }
 
-        try
+        if (_stack.Editing?.Value == id)
         {
-            CommandResult<Note> result = _getNote.Execute(NoteId.From(id));
-
-            if (!result.IsSuccess)
-            {
-                LeaveEditor(discard: true);
-                RefreshNotes();
-                ShowNoteNotice(DescribeNote(result.Failure!));
-                return;
-            }
-
-            NoteEditor.Text = result.Value.Content;
-            _openNoteBaseline = result.Value.Content;
-            UpdateEditorBackLabel();
-
-            _editorState = EditorState.Loaded;
-            HideEditorNotice();
-            ApplyEditorState();
-
-            // Focus after the state is applied: Loading disables the box, and
-            // a disabled TextBox cannot take focus.
-            _ = NoteEditor.Focus(FocusState.Programmatic);
-            NoteEditor.Select(0, 0);
-        }
-        catch (StorageException ex)
-        {
-            _editorState = EditorState.Error;
-            ApplyEditorState();
-            ShowEditorNotice($"Could not read the note: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Leaves the editor, saving first when the buffer is dirty.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Save-on-leave. A dirty buffer is written through
-    /// <c>UpdateNoteContent</c> before the surface is swapped; a failed write
-    /// keeps the user in the editor with their text intact, because losing
-    /// what someone typed is the one outcome this must never produce.
-    /// </para>
-    /// <para>
-    /// This is deliberately NOT parity row B19, which requires continuous
-    /// persistence. B19 stays open and is M3 work — see the note on that row.
-    /// </para>
-    /// </remarks>
-    /// <param name="discard">
-    /// Skip the save. Used when the note is already gone, where writing would
-    /// only produce a second failure for the same cause.
-    /// </param>
-    private void LeaveEditor(bool discard = false)
-    {
-        string? noteId = _openNoteId;
-
-        if (!discard && EditorIsDirty && noteId is not null && !TrySaveOpenNote(noteId))
-        {
-            // Stay put. The buffer is untouched and the notice explains why.
+            StartEditor(id, caret);
             return;
         }
 
-        _openNoteId = null;
-        _openNoteBaseline = string.Empty;
-        NoteEditor.Text = string.Empty;
-        HideEditorNotice();
-        HideEditorGuidance();
-
-        EditorRoot.Visibility = Visibility.Collapsed;
-        NoteRoot.Visibility = Visibility.Visible;
-        Motion.EnterSurface(NoteRoot, forward: false);
-
-        if (noteId is not null)
+        if (!TryEndEdit())
         {
-            // Selected before the re-query, because RefreshNotes restores the
-            // selection itself and would otherwise reapply the previous id.
-            _selectedNoteId = noteId;
-
-            // Re-queried rather than reused. The row's title is the note's
-            // first line (B16), so editing line 1 changes it and can move the
-            // row under O2 — a collection built before the save shows the old
-            // title against the new content. Reached only on the success path:
-            // a failed save returns above, leaving the list untouched.
-            RefreshNotes();
-
-            FocusNoteRow(noteId);
+            return;
         }
+
+        CommandResult result = _stack.BeginEdit(NoteId.From(id));
+
+        if (!result.IsSuccess)
+        {
+            ShowNoteNotice(DescribeNote(result.Failure!));
+            return;
+        }
+
+        HideNoteNotice();
+        SetEditing(id, true);
+        StartEditor(id, caret);
     }
 
     /// <summary>
-    /// Persists the buffer. Returns whether the editor may now be left.
+    /// Leaves editing, saving first (ADR-016 §2). Returns whether no card is being edited now: a failed save keeps the
+    /// card editing with its text, and the notice says why.
     /// </summary>
-    /// <param name="noteId">The open note.</param>
+    private bool TryEndEdit()
+    {
+        if (_stack.Editing is not { } editing)
+        {
+            return true;
+        }
+
+        if (!TrySaveCard())
+        {
+            return false;
+        }
+
+        // Saved: the stored text is the baseline. The card keeps its container and focus, and shows it.
+        string stored = _stack.Baseline;
+        _ = _stack.EndEdit();
+
+        if (Notes.FirstOrDefault(n => n.Id == editing.Value) is { } card)
+        {
+            card.Content = stored;
+        }
+
+        SetEditing(editing.Value, false);
+        return true;
+    }
+
+    /// <summary>
+    /// Stores the editing card's unsaved text; it keeps editing. Returns whether it may now be left.
+    /// </summary>
     /// <param name="noticeSuffix">Appended to the failure notice, if any.</param>
-    private bool TrySaveOpenNote(string noteId, string noticeSuffix = "")
+    private bool TrySaveCard(string noticeSuffix = "")
     {
+        if (!_stack.IsDirty)
+        {
+            return true;
+        }
+
         long started = Stopwatch.GetTimestamp();
 
         try
         {
-            CommandResult result =
-                _commands.Dispatch(new UpdateNoteContent(NoteId.From(noteId), NoteEditor.Text));
+            CommandResult result = _stack.Save();
 
             if (result.IsSuccess)
             {
-                _openNoteBaseline = NoteEditor.Text;
-
                 // #11: the save is written (the handler returns after the database commits). The performance
                 // harness times saves from this line; validation channel only, never the log, never content. The
                 // number is invariant: a regional decimal comma would be misread as a shorter save.
@@ -1168,79 +1023,180 @@ public sealed partial class MainWindow : Window
             }
 
             // NotFound or InvalidState: the note was removed or binned while
-            // it was open, so saving cannot succeed however often it is tried.
-            ShowEditorNotice(DescribeNote(result.Failure!) + noticeSuffix);
+            // it was being edited, so saving cannot succeed however often it is tried.
+            ShowNoteNotice(DescribeNote(result.Failure!) + noticeSuffix);
             return false;
         }
         catch (StorageException ex)
         {
-            ShowEditorNotice($"Could not save the note: {ex.Message}" + noticeSuffix);
+            ShowNoteNotice($"Could not save the note: {ex.Message}" + noticeSuffix);
             return false;
         }
     }
 
+    /// <summary>Marks <paramref name="id"/>'s card editing or not, in place: x:Load adds or removes its editor and bar.</summary>
+    private void SetEditing(string id, bool editing)
+    {
+        if (Notes.FirstOrDefault(n => n.Id == id) is { } card)
+        {
+            card.IsEditing = editing;
+        }
+    }
+
+    /// <summary>Shows the editor on <paramref name="id"/>'s card, scrolled into view, and focuses it.</summary>
+    private void StartEditor(string id, CaretPlacement caret)
+    {
+        if (Notes.FirstOrDefault(n => n.Id == id) is not { } card)
+        {
+            return;
+        }
+
+        _pendingCaret = caret;
+        NoteList.SelectedItem = card;
+        NoteList.ScrollIntoView(card);
+
+        // Already loaded (a card edited again before its editor went away): place the caret now. Otherwise the
+        // editor's Loaded does it, once x:Load has realised it.
+        if (_editor is { } host && host.Note?.Value == id)
+        {
+            host.PlaceCaret(caret);
+            _pendingCaret = null;
+        }
+    }
+
     /// <summary>
-    /// Saves an unsaved note before the window closes — Alt+F4, the taskbar's
-    /// Close, the tray's Quit, or the session ending (ADR-014): every close
-    /// arrives here.
+    /// The editing card's editor was realised (x:Load): it loads the stack's text for that card, which survives the
+    /// card's container being recycled, and takes focus if editing was just asked for.
+    /// </summary>
+    private void OnEditorHostLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not NoteEditorHost host || host.DataContext is not NoteCard card || _stack.Editing?.Value != card.Id)
+        {
+            return;
+        }
+
+        _editor = host;
+        host.Load(NoteId.From(card.Id), _stack.Draft);
+        host.ContentChanged += OnEditorContentChanged;
+        host.LeaveRequested += OnEditorLeaveRequested;
+
+        if (_pendingCaret is { } caret)
+        {
+            _pendingCaret = null;
+            host.PlaceCaret(caret);
+        }
+    }
+
+    private void OnEditorHostUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is NoteEditorHost host)
+        {
+            host.ContentChanged -= OnEditorContentChanged;
+            host.LeaveRequested -= OnEditorLeaveRequested;
+
+            if (_editor == host)
+            {
+                _editor = null;
+            }
+        }
+    }
+
+    // ponytail: the whole source is copied into the stack on every change, so text survives a recycled container;
+    // P2's editor model replaces the copy with its own document.
+    private void OnEditorContentChanged(object? sender, EventArgs e)
+    {
+        if (sender is NoteEditorHost { Note: { } note } host)
+        {
+            _stack.UpdateDraft(note, host.Markdown);
+        }
+    }
+
+    /// <summary>Escape follows the stored behaviour; Ctrl+Alt+Up/Down edit the previous or next card (G11, G12).</summary>
+    private void OnEditorLeaveRequested(object? sender, EditorLeave leave)
+    {
+        if (_stack.Editing is not { } editing)
+        {
+            return;
+        }
+
+        switch (leave)
+        {
+            case EditorLeave.Escape:
+                _ = OnEscape(WorkspaceSurface.Editor);
+                break;
+
+            case EditorLeave.Next or EditorLeave.Previous:
+                if (_stack.Neighbour(editing, leave == EditorLeave.Next ? 1 : -1) is { } next)
+                {
+                    EditCard(next.Value, leave == EditorLeave.Next ? CaretPlacement.Start : CaretPlacement.End);
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>Leaves editing for the focused card (Escape's "leave" step): it saves first and keeps the card.</summary>
+    private void LeaveEditor()
+    {
+        string? editing = _stack.Editing?.Value;
+
+        if (editing is not null && TryEndEdit())
+        {
+            FocusNoteRow(editing);
+        }
+    }
+
+    /// <summary>
+    /// Saves the card being edited before the window closes — Alt+F4, the taskbar's Close, the tray's Quit, or the
+    /// session ending (ADR-014): every close arrives here.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The explicit save that leaving the editor performs, at one more point:
-    /// the window closing. It is not autosave — nothing is written while the
-    /// user types and nothing runs on a timer; parity B19's continuous
-    /// persistence stays M3's.
+    /// The explicit save that leaving a card performs, at one more point: the window closing. It is not autosave —
+    /// nothing is written while the user types; parity B19's continuous persistence stays P2's.
     /// </para>
     /// <para>
-    /// The first close with unsaved text gets exactly one save attempt. If it
-    /// fails, the close is cancelled, the text stays, and the editor's notice
-    /// says so. Closing again with the same text makes no further attempt: it
-    /// discards and closes, the choice the notice offered, so a save that can
-    /// never succeed — the note was removed — cannot trap the user. Text edited
-    /// after the failure is a new unsaved state, and its close gets the normal
-    /// single attempt.
+    /// The first close with unsaved text gets exactly one save attempt. If it fails, the close is cancelled, the text
+    /// stays, and the notice says so. Closing again with the same text makes no further attempt: it discards and
+    /// closes, the choice the notice offered, so a save that can never succeed — the note was removed — cannot trap
+    /// the user. Text edited after the failure is a new unsaved state, and its close gets the normal single attempt.
     /// </para>
     /// <para>
-    /// The session ending is handled before this (ADR-014): Windows' query
-    /// saves through <see cref="SaveBeforeHide"/>, and the close that follows
-    /// finds the editor clean. Not covered: the process being killed, or a
-    /// crash. Neither raises this event (#10).
+    /// The session ending is handled before this (ADR-014): Windows' query saves through <see cref="SaveBeforeHide"/>,
+    /// and the close that follows finds nothing unsaved. Not covered: the process being killed, or a crash (#10).
     /// </para>
     /// </remarks>
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (!EditorIsDirty || _openNoteId is not { } noteId)
+        if (!_stack.IsDirty || _stack.Editing is not { } editing)
         {
             return;
         }
 
         bool closingAgain = _failedCloseSave is { } failed
-            && failed.NoteId == noteId
-            && string.Equals(failed.Text, NoteEditor.Text, StringComparison.Ordinal);
+            && failed.NoteId == editing.Value
+            && string.Equals(failed.Text, _stack.Draft, StringComparison.Ordinal);
 
         // The explicit discard: no second save attempt.
-        if (closingAgain || TrySaveOpenNote(noteId, CloseAgainToDiscard))
+        if (closingAgain || TrySaveCard(CloseAgainToDiscard))
         {
             return;
         }
 
-        _failedCloseSave = (noteId, NoteEditor.Text);
+        _failedCloseSave = (editing.Value, _stack.Draft);
         args.Cancel = true;
     }
 
     /// <summary>
-    /// Saves unsaved editor text before the workspace is hidden (#16 slice 5).
+    /// Saves unsaved text before the workspace is hidden (#16 slice 5).
     /// </summary>
     /// <remarks>
-    /// The same explicit save as leaving the editor, run once per hide. It is
-    /// not autosave (parity B19 stays M3's). A failure returns
-    /// <see langword="false"/> so the window stays shown, with the text kept
-    /// and the editor's notice saying why — nothing is hidden that has not
-    /// been kept. The editor stays open: hiding is not leaving.
+    /// The same explicit save as leaving a card, run once per hide. A failure returns <see langword="false"/> so the
+    /// window stays shown, with the text kept and the notice saying why — nothing is hidden that has not been kept.
+    /// The card keeps editing: hiding is not leaving.
     /// </remarks>
     /// <returns>Whether the window may be hidden.</returns>
-    internal bool SaveBeforeHide() =>
-        !EditorIsDirty || _openNoteId is not { } noteId || TrySaveOpenNote(noteId);
+    internal bool SaveBeforeHide() => TrySaveCard();
 
     private const string CloseAgainToDiscard = " Close the window again to discard the changes and exit.";
 
@@ -1252,7 +1208,7 @@ public sealed partial class MainWindow : Window
     public EscapeBehavior Escape { get; set; } = EscapeBehavior.LeaveFolderOrHide;
 
     /// <summary>
-    /// Whether one click opens a folder or a note (parity J7, C4). Set by the
+    /// Whether one click opens a folder (parity J7, C4); a card is edited with one click either way (ADR-016 §6). Set by the
     /// composition root from the stored setting, at launch and whenever it
     /// changes. Pointer only: the keyboard paths are the same either way.
     /// </summary>
@@ -1297,9 +1253,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        UIElement from = EditorRoot.Visibility == Visibility.Visible ? EditorRoot
-            : NoteRoot.Visibility == Visibility.Visible ? NoteRoot
-            : PaneRoot;
+        UIElement from = NoteRoot.Visibility == Visibility.Visible ? NoteRoot : PaneRoot;
 
         _settingsReturn = from;
         _settingsReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;
@@ -1347,7 +1301,6 @@ public sealed partial class MainWindow : Window
 
         Control restore = _settingsReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous
             ? previous
-            : back == EditorRoot ? NoteEditor
             : back == NoteRoot ? NoteList
             : FolderList;
 
@@ -1375,21 +1328,6 @@ public sealed partial class MainWindow : Window
         OpenSettings();
     }
 
-    /// <summary>
-    /// Ctrl+, with focus in the editor reaches the root's Settings accelerator. Measured: the TextBox marks Ctrl+,
-    /// handled in its own KeyDown, and a handled key reaches no ancestor's accelerators, so it never ran there (Ctrl+W,
-    /// which a TextBox leaves alone, does). The editor's accelerator pass runs before that KeyDown, so the chord is
-    /// handed to the root's accelerators from here: the same accelerator, the same OpenSettings. Nothing else the
-    /// editor receives is touched.
-    /// </summary>
-    private void OnNoteEditorProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
-    {
-        if (args.Key == (VirtualKey)0xBC && args.Modifiers == VirtualKeyModifiers.Control)
-        {
-            WorkspaceRoot.TryInvokeKeyboardAccelerator(args);
-        }
-    }
-
     private void OnSettingsBackRequested(object? sender, EventArgs e) => CloseSettings();
 
     /// <summary>Escape in Settings follows the stored behaviour: by default it goes back (Slice 1, ADR-007).</summary>
@@ -1397,7 +1335,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.Key == VirtualKey.Escape)
         {
-            OnEscape(WorkspaceSurface.Settings, e);
+            e.Handled = OnEscape(WorkspaceSurface.Settings);
         }
     }
 
@@ -1423,31 +1361,31 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// One press of Escape on <paramref name="surface"/>, as the stored
     /// behaviour resolves it. An inline input has already cancelled itself
-    /// and handled the key before this runs; "nothing" leaves it unhandled.
+    /// and handled the key before this runs. Returns whether the press did
+    /// something: "nothing" leaves the key unhandled.
     /// </summary>
-    private void OnEscape(WorkspaceSurface surface, KeyRoutedEventArgs e)
+    private bool OnEscape(WorkspaceSurface surface)
     {
         switch (WorkspaceEscape.Resolve(Escape, surface))
         {
             case EscapeAction.LeaveEditor:
-                e.Handled = true;
                 LeaveEditor();
-                break;
+                return true;
 
             case EscapeAction.LeaveFolder:
-                e.Handled = true;
                 LeaveFolder();
-                break;
+                return true;
 
             case EscapeAction.Hide:
-                e.Handled = true;
                 DismissRequested?.Invoke(this, EventArgs.Empty);
-                break;
+                return true;
 
             case EscapeAction.LeaveSettings:
-                e.Handled = true;
                 CloseSettings();
-                break;
+                return true;
+
+            default:
+                return false;
         }
     }
 
@@ -1456,7 +1394,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.Key == VirtualKey.Escape)
         {
-            OnEscape(WorkspaceSurface.FolderList, e);
+            e.Handled = OnEscape(WorkspaceSurface.FolderList);
         }
     }
 
@@ -1476,27 +1414,29 @@ public sealed partial class MainWindow : Window
     /// </summary>
     internal void SetPinned(bool pinned) => PinToggle.IsChecked = pinned;
 
+    /// <summary>The new-note placement setting (B5, J8), set by the composition root from the stored value.</summary>
+    public NewNotePlacement NewNotePlacement { get; set; }
+
     /// <summary>
-    /// Creates a note in the open folder and opens it (parity B1).
+    /// Creates a note at the configured placement beside the selected card and edits it (parity B1, B5). The card
+    /// being edited is saved first; a failed save creates nothing.
     /// </summary>
-    /// <remarks>
-    /// Created empty, and placed wherever O3 puts it. B5's placement options
-    /// are a setting that does not exist yet (#9), so nothing here chooses.
-    /// </remarks>
     private void CreateNoteInOpenFolder()
     {
-        if (_noteState != NoteState.Loaded || _openFolderId is not { } folderId)
+        if (_noteState != NoteState.Loaded || _openFolderId is null || !TryEndEdit())
         {
             return;
         }
 
+        NoteId? selected = _selectedNoteId is { } id ? NoteId.From(id) : null;
+
         try
         {
-            CommandResult<NoteId> result =
-                _commands.Dispatch(new CreateNote(folderId, string.Empty));
+            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected);
 
             if (!result.IsSuccess)
             {
+                // CreateNote fails when the FOLDER is missing or binned, so the folder wording applies.
                 ShowNoteNotice(Describe(result.Failure!));
                 return;
             }
@@ -1504,8 +1444,10 @@ public sealed partial class MainWindow : Window
             string created = result.Value.Value;
 
             _selectedNoteId = created;
-            RefreshNotes();
-            OpenNote(created);
+            ShowCards(_stack.Notes);
+            ApplyNoteState();
+            StartEditor(created, CaretPlacement.Start);
+            Announce("Note created");
         }
         catch (StorageException ex)
         {
@@ -1514,126 +1456,144 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Soft-deletes the open note (parity B7) and returns to the list.
+    /// Moves a card's note to the recycle bin (parity B7) and focuses the next card, else the previous.
     /// </summary>
     /// <remarks>
-    /// No confirmation dialog. B7 marks Noto BETTER than SideNotes precisely
-    /// because the delete is recoverable — a soft delete into the recycle bin
-    /// — so a blocking prompt would cost the user time and buy nothing.
+    /// No confirmation (ADR-016 §7): the delete is recoverable, a soft delete into the recycle bin, so a blocking
+    /// prompt would cost time and buy nothing. A note deleted while being edited takes its unsaved text with it.
     /// </remarks>
-    private void DeleteOpenNote()
+    private void DeleteCard(string id)
     {
-        if (_editorState != EditorState.Loaded || _openNoteId is not { } id)
+        if (_noteState != NoteState.Loaded)
         {
             return;
         }
+
+        NoteId note = NoteId.From(id);
+        NoteId? next = _stack.AfterRemoval(note);
 
         try
         {
-            CommandResult result = _commands.Dispatch(new DeleteNote(NoteId.From(id)));
+            CommandResult result = _stack.Delete(note);
 
             if (!result.IsSuccess)
             {
-                // Navigation is untouched: the user stays in an editor whose
-                // note still exists.
-                ShowEditorNotice(DescribeNote(result.Failure!));
+                ShowNoteNotice(DescribeNote(result.Failure!));
                 return;
             }
 
-            // The note is gone, so there is nothing to save and no row to
-            // restore. discard skips the save that would otherwise be
-            // attempted against a deleted note.
-            _selectedNoteId = null;
-            LeaveEditor(discard: true);
-            RefreshNotes();
+            _selectedNoteId = next?.Value;
+            ShowCards(_stack.Notes);
+            HideNoteNotice();
+            ApplyNoteState();
+            Announce("Note moved to the Recycle Bin");
+
+            if (next is { } target)
+            {
+                FocusNoteRow(target.Value);
+            }
+            else
+            {
+                MoveFocusToNotes();
+            }
         }
         catch (StorageException ex)
         {
-            ShowEditorNotice($"Could not delete the note: {ex.Message}");
+            ShowNoteNotice($"Could not delete the note: {ex.Message}");
         }
     }
 
-    private void ApplyEditorState()
+    /// <summary>The card the keyboard is on: the one being edited, else the focused or selected one.</summary>
+    private string? CurrentCard() =>
+        _stack.Editing?.Value
+        ?? ((FocusManager.GetFocusedElement(Content.XamlRoot) as ListViewItem)?.Content as NoteCard)?.Id
+        ?? _selectedNoteId;
+
+    private void OnDeleteCardClick(object sender, RoutedEventArgs e)
     {
-        bool interactive = _editorState == EditorState.Loaded;
-
-        NoteEditor.IsEnabled = interactive;
-
-        EditorRetryButton.Visibility = _editorState == EditorState.Error
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        EditorRetryButton.IsEnabled = _editorState == EditorState.Error;
-
-        switch (_editorState)
+        if ((sender as FrameworkElement)?.DataContext is NoteCard card)
         {
-            case EditorState.Loading:
-                ShowEditorGuidance("Loading…");
-                break;
-
-            case EditorState.Error:
-                ShowEditorGuidance("The note could not be loaded.");
-                break;
-
-            default:
-                HideEditorGuidance();
-                break;
+            DeleteCard(card.Id);
         }
     }
 
-    private void OnEditorBackClick(object sender, RoutedEventArgs e) => LeaveEditor();
-
-    private void OnEditorRetryClick(object sender, RoutedEventArgs e)
-    {
-        _editorState = EditorState.Loading;
-        ApplyEditorState();
-
-        _ = DispatcherQueue.TryEnqueueGuarded(LoadOpenNote);
-    }
-
     /// <summary>
-    /// Keeps the Back label showing the note's current title.
+    /// A card's context menu (ADR-016 §6, §8): right-click, Shift+F10 or the Menu key. Every action in it is also a
+    /// key, and every key's action is in it.
     /// </summary>
-    /// <remarks>
-    /// The title is the first non-empty line (parity B16), so it changes as
-    /// the user edits line 1. It is recomputed through the domain rather than
-    /// reimplemented here, so there stays one definition of what a title is.
-    /// </remarks>
-    private void OnNoteEditorTextChanged(object sender, TextChangedEventArgs e) =>
-        UpdateEditorBackLabel();
-
-    private void UpdateEditorBackLabel()
+    private void OnNoteListContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        string title = NoteTitle.From(NoteEditor.Text);
-
-        EditorBackButton.Content = string.IsNullOrEmpty(title)
-            ? $"‹ {NoteListItem.UntitledLabel}"
-            : $"‹ {title}";
-    }
-
-    /// <summary>
-    /// The editor's keyboard contract.
-    /// </summary>
-    /// <remarks>
-    /// Escape follows the stored behaviour (#16 slice 6) — by default it leaves,
-    /// saving when dirty; Alt+Ctrl+Backspace deletes (B7).
-    /// Ctrl+N is deliberately NOT handled here: nothing documents what it does
-    /// with a note open, and every plausible answer is multi-document
-    /// behaviour this surface does not have.
-    /// </remarks>
-    private void OnEditorRootKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Escape)
+        if ((args.OriginalSource as FrameworkElement)?.DataContext is not NoteCard card
+            || NoteList.ContainerFromItem(card) is not ListViewItem container)
         {
-            OnEscape(WorkspaceSurface.Editor, e);
             return;
         }
 
-        if (e.Key == VirtualKey.Back && IsControlDown() && IsAltDown())
+        args.Handled = true;
+        NoteList.SelectedItem = card;
+
+        var menu = new MenuFlyout();
+        menu.Items.Add(MenuItem("Edit", "Enter", () => EditCard(card.Id, CaretPlacement.End)));
+        menu.Items.Add(MenuItem("New note", "Ctrl+N", CreateNoteInOpenFolder));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
+
+        ShowMenu(menu, container, args);
+    }
+
+    /// <summary>
+    /// A folder's context menu: right-click, Shift+F10 or the Menu key. Its actions are the folder list's keys.
+    /// </summary>
+    private void OnFolderListContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (_state != PaneState.Loaded
+            || (args.OriginalSource as FrameworkElement)?.DataContext is not FolderListItem folder
+            || FolderList.ContainerFromItem(folder) is not ListViewItem container)
         {
-            e.Handled = true;
-            DeleteOpenNote();
+            return;
+        }
+
+        args.Handled = true;
+        FolderList.SelectedItem = folder;
+
+        var menu = new MenuFlyout();
+        menu.Items.Add(MenuItem("Open", "Ctrl+Down", EnterSelectedFolder));
+        menu.Items.Add(MenuItem("Rename", "F2", BeginRename));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(MenuItem("New folder", "Ctrl+N", FocusInput));
+        ShowMenu(menu, container, args);
+    }
+
+    /// <summary>At the pointer for a right-click; at the row for Shift+F10 or the Menu key.</summary>
+    private static void ShowMenu(MenuFlyout menu, ListViewItem container, ContextRequestedEventArgs args)
+    {
+        if (args.TryGetPosition(container, out Windows.Foundation.Point point))
+        {
+            menu.ShowAt(container, point);
+        }
+        else
+        {
+            menu.ShowAt(container);
         }
     }
+
+    private static MenuFlyoutItem MenuItem(string text, string keys, Action action)
+    {
+        var item = new MenuFlyoutItem { Text = text, KeyboardAcceleratorTextOverride = keys };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    /// <summary>
+    /// Announces a command's result to assistive technology (ADR-016 §8) without putting text on screen: a
+    /// notification from the stack, read once.
+    /// </summary>
+    private void Announce(string message) =>
+        FrameworkElementAutomationPeer.FromElement(NoteList)?.RaiseNotificationEvent(
+            AutomationNotificationKind.ActionCompleted,
+            AutomationNotificationProcessing.ImportantMostRecent,
+            message,
+            "NotoStack");
 
     private static bool IsControlDown() =>
         InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
@@ -1642,30 +1602,6 @@ public sealed partial class MainWindow : Window
     private static bool IsAltDown() =>
         InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)
             .HasFlag(CoreVirtualKeyStates.Down);
-
-    private void ShowEditorNotice(string message)
-    {
-        EditorNoticeText.Text = message;
-        EditorNoticeText.Visibility = Visibility.Visible;
-    }
-
-    private void HideEditorNotice()
-    {
-        EditorNoticeText.Text = string.Empty;
-        EditorNoticeText.Visibility = Visibility.Collapsed;
-    }
-
-    private void ShowEditorGuidance(string message)
-    {
-        EditorGuidanceText.Text = message;
-        EditorGuidanceText.Visibility = Visibility.Visible;
-    }
-
-    private void HideEditorGuidance()
-    {
-        EditorGuidanceText.Text = string.Empty;
-        EditorGuidanceText.Visibility = Visibility.Collapsed;
-    }
 
     // ------------------------------------------------------- selection/keys
 
@@ -1770,17 +1706,22 @@ public sealed partial class MainWindow : Window
     private static bool IsOnRow<TItem>(TappedRoutedEventArgs e) => (e.OriginalSource as FrameworkElement)?.DataContext is TItem;
 
     /// <summary>
-    /// Esc on the note surface (parity C5, A12): by default it leaves the folder.
+    /// Escape on a card or the stack's controls (parity C5, A12): by default it leaves the folder. In the editor,
+    /// Escape is the editor's (<see cref="OnEditorLeaveRequested"/>). Ctrl+Alt+Backspace moves the current card's note
+    /// to the recycle bin (B7), from the card or its editor.
     /// </summary>
-    /// <remarks>
-    /// Handled on the note surface root so it works wherever focus sits
-    /// inside it — the list, Back, or Retry.
-    /// </remarks>
     private void OnNoteRootKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Escape)
         {
-            OnEscape(WorkspaceSurface.NoteList, e);
+            e.Handled = OnEscape(WorkspaceSurface.NoteList);
+            return;
+        }
+
+        if (e.Key == VirtualKey.Back && IsControlDown() && IsAltDown() && CurrentCard() is { } card)
+        {
+            e.Handled = true;
+            DeleteCard(card);
         }
     }
 
