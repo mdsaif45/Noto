@@ -1,0 +1,201 @@
+# Noto spike - hidden markdown: raw output, 2026-11-03
+# One machine: Windows 11 build 26300, .NET 9.0.6, 20 logical CPUs, Windows App SDK 2.5.1, 96 DPI, window 440x900.
+# Each section is one run; the arguments it was started with are in its heading.
+
+## (no arguments): every probe, editor sized to the window
+environment: Microsoft Windows NT 10.0.26300.0, .NET 9.0.6, 20 logical CPUs
+layout mode: fixed (editor sized to the window, inner scroll)
+fidelity inline: chars=94 docEnd=95 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=21 offsetMisses=0 markupNotHidden=0
+fidelity inline via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity blocks: chars=96 docEnd=97 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=20 offsetMisses=0 markupNotHidden=0
+fidelity blocks via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity lf-final: chars=18 docEnd=19 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity lf-final via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity crlf: chars=27 docEnd=28 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=3 offsetMisses=0 markupNotHidden=0
+fidelity crlf via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity cr-only: chars=25 docEnd=26 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=3 offsetMisses=0 markupNotHidden=0
+fidelity cr-only via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity blank-lines: chars=9 docEnd=10 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity blank-lines via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity unicode: chars=48 docEnd=49 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=3 offsetMisses=0 markupNotHidden=0
+fidelity unicode via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity unclosed: chars=49 docEnd=50 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity unclosed via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity empty: chars=0 docEnd=1 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity empty via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+tom caret set 2: lands 2, MoveRight -> 5, MoveLeft -> 1
+tom caret set 3: lands 4, MoveRight -> 5, MoveLeft -> 1
+tom caret set 4: lands 4, MoveRight -> 5, MoveLeft -> 1
+tom caret set 8: lands 8, MoveRight -> 11, MoveLeft -> 7
+tom caret set 9: lands 10, MoveRight -> 11, MoveLeft -> 7
+tom undo after a coded style: text='abcd' bold=Off
+tom undo again: text='abc'
+tom UndoLimit=0: canUndo=False text='zabc'
+format-only change raises TextChanging: content=0 formatOnly=1
+typed change raises TextChanging: content=1 formatOnly=0
+key Right at 8 (after 'bold', before hidden '**'): caret 8 -> 11
+key Left at 4 (after hidden '**', before 'bold'): caret 4 -> 1
+key End on the line: caret 0 -> 12
+key Home on the line: caret 12 -> 0
+key Backspace at 4: caret 4 -> 1
+  after Backspace: text='a**bold** b'
+typed 'x' at 4 (no restyle): text='a **xbold** b' hidden=Off bold=On
+typed 'x' at 8 (no restyle): text='a **boldx** b' hidden=Off bold=On
+Ctrl+B with formatting accelerators disabled: bold=Off text='plain'
+Ctrl+Z after typing then a coded style: text='abcx' bold=Off
+UndoLimit=0: typing then Ctrl+Z: typing raised content changes=1; after Ctrl+Z text='abcx'
+perf corpus: small=172 chars, large=100661 chars, 2718 lines, 8168 spans
+perf TOM style 2591 chars, 216 spans: batched 80.6 · unbatched 199.7 ms
+perf TOM style 5015 chars, 423 spans: batched 162.4 · unbatched 407.4 ms
+perf TOM style 10053 chars, 828 spans: batched 380.7 · unbatched 1221.3 ms
+perf TOM style 20019 chars, 1652 spans: batched 1195.0 · unbatched 4256.4 ms
+perf large plain SetText (unstyled): 171.3 ms
+perf small TOM load (median of 5): parse 0.03 · style 27.72 · SetText 2.81 · layout 0.03 · first frame 38.16 ms (max frame 77.0)
+perf small RTF load (median of 5): parse 0.03 · style 0.03 · SetText 13.26 · layout 0.04 · first frame 20.91 ms (max frame 20.9)
+perf large RTF load (median of 5): parse 4.57 · style 0.89 · SetText 2521.59 · layout 0.04 · first frame 2534.95 ms (max frame 3129.9)
+perf large TOM load (median of 5): parse 2.30 · style 34739.25 · SetText 172.48 · layout 0.04 · first frame 34918.51 ms (max frame 55036.4)
+perf large keystroke (median / max of 50): type 24.26/34.45 · read back 0.53/2.43 · parse line 0.02/0.03 · style line 169.59/358.83 · total 195.36/393.80 ms
+perf large GetText(UseLf): 0.43 ms each
+perf large full parse: 3.28 ms each
+perf read view small (median of 5): build 0.56 · first frame 15.47 ms
+perf read view large (median of 5): build 103.19 · first frame 532.04 ms
+compositions seen: 0
+done: exiting
+
+## --grow: every probe, editor sized to its text inside an outer ScrollViewer (a card today)
+environment: Microsoft Windows NT 10.0.26300.0, .NET 9.0.6, 20 logical CPUs
+layout mode: grow (editor sized to its text, outer scroll)
+fidelity inline: chars=94 docEnd=95 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=21 offsetMisses=0 markupNotHidden=0
+fidelity inline via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity blocks: chars=96 docEnd=97 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=20 offsetMisses=0 markupNotHidden=0
+fidelity blocks via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity lf-final: chars=18 docEnd=19 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity lf-final via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity crlf: chars=27 docEnd=28 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=3 offsetMisses=0 markupNotHidden=0
+fidelity crlf via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity cr-only: chars=25 docEnd=26 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=3 offsetMisses=0 markupNotHidden=0
+fidelity cr-only via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity blank-lines: chars=9 docEnd=10 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity blank-lines via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity unicode: chars=48 docEnd=49 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=3 offsetMisses=0 markupNotHidden=0
+fidelity unicode via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity unclosed: chars=49 docEnd=50 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity unclosed via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+fidelity empty: chars=0 docEnd=1 None==CR-form:False UseLf==LF:True finalEop='\n' styled UseLf==LF:True NoHidden==visible:True spans=0 offsetMisses=0 markupNotHidden=0
+fidelity empty via RTF: UseLf==LF:True NoHidden==visible:True offsetMisses=0 markupNotHidden=0
+tom caret set 2: lands 2, MoveRight -> 5, MoveLeft -> 1
+tom caret set 3: lands 4, MoveRight -> 5, MoveLeft -> 1
+tom caret set 4: lands 4, MoveRight -> 5, MoveLeft -> 1
+tom caret set 8: lands 8, MoveRight -> 11, MoveLeft -> 7
+tom caret set 9: lands 10, MoveRight -> 11, MoveLeft -> 7
+tom undo after a coded style: text='abcd' bold=Off
+tom undo again: text='abc'
+tom UndoLimit=0: canUndo=False text='zabc'
+format-only change raises TextChanging: content=0 formatOnly=1
+typed change raises TextChanging: content=1 formatOnly=0
+key Right at 8 (after 'bold', before hidden '**'): caret 8 -> 11
+key Left at 4 (after hidden '**', before 'bold'): caret 4 -> 1
+key End on the line: caret 0 -> 12
+key Home on the line: caret 12 -> 0
+key Backspace at 4: caret 4 -> 1
+  after Backspace: text='a**bold** b'
+typed 'x' at 4 (no restyle): text='a **xbold** b' hidden=Off bold=On
+typed 'x' at 8 (no restyle): text='a **boldx** b' hidden=Off bold=On
+Ctrl+B with formatting accelerators disabled: bold=Off text='plain'
+Ctrl+Z after typing then a coded style: text='abcx' bold=Off
+UndoLimit=0: typing then Ctrl+Z: typing raised content changes=1; after Ctrl+Z text='abcx'
+perf corpus: small=172 chars, large=100661 chars, 2718 lines, 8168 spans
+perf TOM style 2591 chars, 216 spans: batched 80.3 · unbatched 193.5 ms
+perf TOM style 5015 chars, 423 spans: batched 175.7 · unbatched 432.3 ms
+perf TOM style 10053 chars, 828 spans: batched 428.6 · unbatched 1280.1 ms
+perf TOM style 20019 chars, 1652 spans: batched 1367.4 · unbatched 4479.3 ms
+perf large plain SetText (unstyled): 161.0 ms
+perf small TOM load (median of 5): parse 0.04 · style 35.03 · SetText 3.38 · layout 0.03 · first frame 46.00 ms (max frame 48.2)
+perf small RTF load (median of 5): parse 0.04 · style 0.04 · SetText 18.10 · layout 0.04 · first frame 22.96 ms (max frame 23.5)
+perf large RTF load (median of 5): parse 6.20 · style 0.90 · SetText 4235.50 · layout 0.05 · first frame 4568.32 ms (max frame 4958.3)
+perf large keystroke (median / max of 50): type 15.82/24.29 · read back 0.45/3.87 · parse line 0.02/0.03 · style line 53.60/212.93 · total 69.72/237.21 ms
+perf large GetText(UseLf): 0.43 ms each
+perf large full parse: 2.59 ms each
+perf read view small (median of 5): build 0.42 · first frame 15.59 ms
+perf read view large (median of 5): build 76.83 · first frame 505.16 ms
+compositions seen: 0
+done: exiting
+
+## --styled: everyday sizes, editor sized to the window
+styled 541 chars, 50 spans, markup hidden: RTF load to frame 6.87 · type 0.34/0.88 · restyle line 1.66/7.12 ms
+styled 541 chars, 50 spans, markup shown: RTF load to frame 13.80 · type 0.38/0.51 · restyle line 2.50/2.90 ms
+styled 1021 chars, 90 spans, markup hidden: RTF load to frame 13.86 · type 0.38/0.55 · restyle line 2.60/6.69 ms
+styled 1021 chars, 90 spans, markup shown: RTF load to frame 20.75 · type 0.39/0.48 · restyle line 2.83/3.72 ms
+styled 2591 chars, 216 spans, markup hidden: RTF load to frame 28.57 · type 0.40/0.82 · restyle line 3.29/5.94 ms
+styled 2591 chars, 216 spans, markup shown: RTF load to frame 32.34 · type 0.43/0.64 · restyle line 3.87/5.44 ms
+styled 5015 chars, 423 spans, markup hidden: RTF load to frame 67.64 · type 0.46/0.61 · restyle line 4.54/7.33 ms
+styled 5015 chars, 423 spans, markup shown: RTF load to frame 65.86 · type 0.47/0.75 · restyle line 4.81/8.14 ms
+styled 10053 chars, 828 spans, markup hidden: RTF load to frame 141.07 · type 0.55/0.89 · restyle line 5.43/10.43 ms
+styled 10053 chars, 828 spans, markup shown: RTF load to frame 155.20 · type 0.61/0.81 · restyle line 5.98/10.43 ms
+styled 25013 chars, 2052 spans, markup hidden: RTF load to frame 404.57 · type 0.66/1.19 · restyle line 6.95/17.67 ms
+styled 25013 chars, 2052 spans, markup shown: RTF load to frame 442.91 · type 0.67/1.10 · restyle line 7.44/18.01 ms
+styled 50027 chars, 4086 spans, markup hidden: RTF load to frame 915.39 · type 0.90/1.93 · restyle line 13.40/35.77 ms
+styled 50027 chars, 4086 spans, markup shown: RTF load to frame 952.19 · type 0.93/1.91 · restyle line 13.31/34.57 ms
+styled 100042 chars, 8114 spans, markup hidden: RTF load to frame 2015.91 · type 1.04/2.94 · restyle line 14.22/59.29 ms
+styled 100042 chars, 8114 spans, markup shown: RTF load to frame 2186.06 · type 1.13/2.86 · restyle line 15.59/56.62 ms
+done: exiting
+
+## --styled --grow
+layout mode: grow
+styled 541 chars, 50 spans, markup hidden: RTF load to frame 6.82 · type 0.35/0.83 · restyle line 1.73/5.43 ms
+styled 541 chars, 50 spans, markup shown: RTF load to frame 13.89 · type 0.36/0.58 · restyle line 2.43/2.78 ms
+styled 1021 chars, 90 spans, markup hidden: RTF load to frame 17.41 · type 0.40/0.65 · restyle line 2.82/6.33 ms
+styled 1021 chars, 90 spans, markup shown: RTF load to frame 20.78 · type 0.39/0.54 · restyle line 2.68/3.77 ms
+styled 2591 chars, 216 spans, markup hidden: RTF load to frame 34.16 · type 0.41/0.50 · restyle line 3.25/6.24 ms
+styled 2591 chars, 216 spans, markup shown: RTF load to frame 41.33 · type 0.43/0.60 · restyle line 3.62/4.64 ms
+styled 5015 chars, 423 spans, markup hidden: RTF load to frame 79.08 · type 0.47/0.86 · restyle line 4.68/7.71 ms
+styled 5015 chars, 423 spans, markup shown: RTF load to frame 88.49 · type 0.49/0.65 · restyle line 5.08/7.59 ms
+styled 10053 chars, 828 spans, markup hidden: RTF load to frame 174.32 · type 0.56/0.86 · restyle line 5.95/10.67 ms
+styled 10053 chars, 828 spans, markup shown: RTF load to frame 200.00 · type 0.58/0.90 · restyle line 6.28/10.83 ms
+styled 25013 chars, 2052 spans, markup hidden: RTF load to frame 511.54 · type 0.66/1.10 · restyle line 7.80/18.56 ms
+styled 25013 chars, 2052 spans, markup shown: RTF load to frame 584.80 · type 0.74/1.09 · restyle line 8.09/18.72 ms
+styled 50027 chars, 4086 spans, markup hidden: RTF load to frame 1195.95 · type 0.99/1.97 · restyle line 13.71/37.01 ms
+styled 50027 chars, 4086 spans, markup shown: RTF load to frame 1357.41 · type 1.02/1.94 · restyle line 14.63/35.35 ms
+styled 100042 chars, 8114 spans, markup hidden: RTF load to frame 2807.03 · type 1.31/2.99 · restyle line 15.85/58.60 ms
+styled 100042 chars, 8114 spans, markup shown: RTF load to frame 3184.24 · type 1.26/3.69 · restyle line 16.68/58.02 ms
+done: exiting
+
+## --matrix: what makes styling slow (10 KB note)
+matrix note: 10053 chars, 828 spans
+matrix baseline (spell on, hidden, fonts, handlers, on screen): TOM style 250.41 · RTF load 141.60 ms
+matrix spell check off: TOM style 245.00 · RTF load 147.24 ms
+matrix markup shown, not hidden: TOM style 247.14 · RTF load 140.03 ms
+matrix no font changes: TOM style 224.84 · RTF load 149.49 ms
+matrix no TextChanging handler: TOM style 233.40 · RTF load 140.16 ms
+matrix not in the visual tree: TOM style 223.15 · RTF load 131.26 ms
+matrix all off: spell, hidden, fonts, handlers: TOM style 227.27 · RTF load 148.29 ms
+done: exiting
+
+## --ops: one call against note size; RTF load; the platform's own insert
+ops 1021 chars: one property 0.196 · whole-format clone 0.308 · GetRange only 0.005 · insert+delete 0.94 ms
+ops 10053 chars: one property 0.202 · whole-format clone 0.215 · GetRange only 0.005 · insert+delete 0.76 ms
+ops 50027 chars: one property 0.268 · whole-format clone 0.382 · GetRange only 0.006 · insert+delete 1.23 ms
+ops 100042 chars: one property 0.398 · whole-format clone 0.572 · GetRange only 0.006 · insert+delete 2.12 ms
+rtf 100 KB load: no runs 583.7 · first 5 KB styled 623.8 ms
+platform TextBox insert in 100 KB (median/max of 20): 0.49/1.05 ms
+platform RichEditBox (unstyled) insert in 100 KB (median/max of 20): 0.36/0.50 ms
+done: exiting
+
+## --chunk: plain first, then RTF slices
+layout mode: fixed
+chunk 10053 chars: plain only to frame 17.27, typing in it 0.34/6.82 · plain + styled head to frame 48.50 ms · rest styled in 3 slices of median 16.67/max 36.9 ms, 90 ms in all · text unchanged:True caret kept:True markupNotHidden=0
+chunk 100042 chars: plain only to frame 139.67, typing in it 1.09/59.85 · plain + styled head to frame 384.15 ms · rest styled in 32 slices of median 235.61/max 407.8 ms, 12623 ms in all · text unchanged:True caret kept:True markupNotHidden=0
+done: exiting
+
+## --chunk --grow
+layout mode: grow
+chunk 10053 chars: plain only to frame 34.00, typing in it 0.32/7.27 · plain + styled head to frame 65.41 ms · rest styled in 3 slices of median 17.68/max 37.8 ms, 92 ms in all · text unchanged:True caret kept:True markupNotHidden=0
+chunk 100042 chars: plain only to frame 323.87, typing in it 1.09/58.80 · plain + styled head to frame 542.30 ms · rest styled in 32 slices of median 230.88/max 409.4 ms, 12682 ms in all · text unchanged:True caret kept:True markupNotHidden=0
+done: exiting
+
+## Probe-Uia.ps1
+uia control type: ControlType.Edit; name: Spike editor
+uia TextPattern text length: 191 (source 191, visible 123)
+uia text == source (markup read aloud): True
+uia text == visible (markup not read): False
+uia first 80 chars: a **bold** b *em* c ~~strike~~ d ==under== e ::mark:: f `code` g [link](https://
