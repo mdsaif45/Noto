@@ -17,6 +17,13 @@ public readonly record struct RepositionTarget<TId>(bool Moves, TId? After)
     where TId : struct;
 
 /// <summary>
+/// What a drag and drop asks for (workspace-management.md, "B4 precisely"): refused when the item would land in the
+/// other pin group; otherwise <see cref="Target"/>, which may be no move.
+/// </summary>
+public readonly record struct RepositionDrop<TId>(bool Allowed, RepositionTarget<TId> Target)
+    where TId : struct;
+
+/// <summary>
 /// Turns "up / down / top / bottom within my pin group" into the engine's only placement, <c>After(sibling)</c> or
 /// first, over the one SortOrder that pinned and unpinned items share.
 /// </summary>
@@ -91,6 +98,84 @@ public static class Reposition
             default:
                 return new RepositionTarget<TId>(false, null);
         }
+    }
+
+    /// <summary>
+    /// The placement for moving <paramref name="item"/> to <paramref name="position"/> in its own pin group, counted
+    /// among the group's other items: 0 is first, their count is last. Its current position is no move.
+    /// </summary>
+    public static RepositionTarget<TId> To<T, TId>(
+        IReadOnlyList<T> displayed,
+        TId item,
+        int position,
+        Func<T, TId> id,
+        Func<T, bool> isPinned,
+        Func<T, double> sortOrder)
+        where T : class
+        where TId : struct, IEquatable<TId>
+    {
+        ArgumentNullException.ThrowIfNull(displayed);
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(isPinned);
+        ArgumentNullException.ThrowIfNull(sortOrder);
+
+        T? moving = displayed.FirstOrDefault(x => id(x).Equals(item));
+
+        if (moving is null)
+        {
+            return new RepositionTarget<TId>(false, null);
+        }
+
+        bool pinned = isPinned(moving);
+        List<T> group = [.. displayed.Where(x => isPinned(x) == pinned)];
+        int current = group.FindIndex(x => id(x).Equals(item));
+        List<T> others = [.. group.Where(x => !id(x).Equals(item))];
+
+        if (position == current || position < 0 || position > others.Count)
+        {
+            return new RepositionTarget<TId>(false, null);
+        }
+
+        return position == others.Count
+            ? new RepositionTarget<TId>(true, id(others[^1]))
+            : Before(others[position], displayed, id, sortOrder);
+    }
+
+    /// <summary>
+    /// What dropping <paramref name="item"/> asks for, given <paramref name="landedAt"/>, its index in the list after the
+    /// drop. With P pinned items, a pinned item must land below P and an unpinned one at or above it; anything else is
+    /// refused. Landing where it was is no move.
+    /// </summary>
+    public static RepositionDrop<TId> Drop<T, TId>(
+        IReadOnlyList<T> displayed,
+        TId item,
+        int landedAt,
+        Func<T, TId> id,
+        Func<T, bool> isPinned,
+        Func<T, double> sortOrder)
+        where T : class
+        where TId : struct, IEquatable<TId>
+    {
+        ArgumentNullException.ThrowIfNull(displayed);
+        ArgumentNullException.ThrowIfNull(isPinned);
+
+        T? moving = displayed.FirstOrDefault(x => id(x).Equals(item));
+
+        if (moving is null || landedAt < 0 || landedAt >= displayed.Count)
+        {
+            return new RepositionDrop<TId>(false, new RepositionTarget<TId>(false, null));
+        }
+
+        int pinnedCount = displayed.Count(isPinned);
+        bool pinned = isPinned(moving);
+
+        if (pinned ? landedAt >= pinnedCount : landedAt < pinnedCount)
+        {
+            return new RepositionDrop<TId>(false, new RepositionTarget<TId>(false, null));
+        }
+
+        int position = pinned ? landedAt : landedAt - pinnedCount;
+        return new RepositionDrop<TId>(true, To(displayed, item, position, id, isPinned, sortOrder));
     }
 
     /// <summary>

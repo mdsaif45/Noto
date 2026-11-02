@@ -38,6 +38,17 @@ public static class FolderReposition
 
         return Reposition.Of(folders, folder, direction, f => f.Id, f => f.IsPinned, f => f.SortOrder);
     }
+
+    /// <summary>
+    /// What dropping <paramref name="folder"/> at <paramref name="landedAt"/>, its index in the folder list after the drop
+    /// (C9, B4), asks for: refused across the pin boundary, otherwise a placement for <see cref="ReorderFolder"/>.
+    /// </summary>
+    public static RepositionDrop<FolderId> Drop(IReadOnlyList<Folder> folders, FolderId folder, int landedAt)
+    {
+        ArgumentNullException.ThrowIfNull(folders);
+
+        return Reposition.Drop(folders, folder, landedAt, f => f.Id, f => f.IsPinned, f => f.SortOrder);
+    }
 }
 
 /// <summary>

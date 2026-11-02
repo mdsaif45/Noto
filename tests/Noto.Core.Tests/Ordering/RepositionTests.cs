@@ -114,6 +114,96 @@ public sealed class RepositionTests
         Assert.Equal(new RepositionTarget<NoteId>(true, null), Of([first, second, third], second, RepositionDirection.Up));
     }
 
+    // ---- to a position, and drops (B4) -------------------------------------------------------------------
+
+    [Fact]
+    public void To_a_position_counts_among_the_groups_other_items()
+    {
+        // A1 B2 C3 D4: B to position 2 of [A, C, D] is before D, after C.
+        Assert.Equal(new RepositionTarget<NoteId>(true, C.Id), To(Plain, B, 2));
+        Assert.Equal(new RepositionTarget<NoteId>(true, null), To(Plain, C, 0));
+        Assert.Equal(new RepositionTarget<NoteId>(true, D.Id), To(Plain, A, 3));
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(0, 0)]
+    [InlineData(3, 3)]
+    public void To_its_own_position_is_no_move(int index, int position)
+    {
+        Assert.False(To(Plain, Plain[index], position).Moves);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(4)]
+    public void To_a_position_outside_the_group_is_no_move(int position)
+    {
+        Assert.False(To(Plain, B, position).Moves);
+    }
+
+    [Fact]
+    public void To_over_the_shared_SortOrder_lands_after_a_pinned_predecessor_when_that_precedes()
+    {
+        // U4 (6) to position 2 of [U1, U2, U3]: before U3 (4), whose SortOrder predecessor is P1 (3).
+        Assert.Equal(new RepositionTarget<NoteId>(true, P1.Id), To(Mixed, U4, 2));
+    }
+
+    [Fact]
+    public void A_drop_in_its_own_group_is_allowed_and_placed()
+    {
+        // Mixed displays P1 P2 | U1 U2 U3 U4. U4 dropped at index 3 (second unpinned) is unpinned position 1.
+        Assert.Equal(new RepositionDrop<NoteId>(true, new RepositionTarget<NoteId>(true, U1.Id)), Drop(Mixed, U4, 3));
+
+        // P2 dropped at index 0 is pinned position 0: before P1, after P1's predecessor U2.
+        Assert.Equal(new RepositionDrop<NoteId>(true, new RepositionTarget<NoteId>(true, U2.Id)), Drop(Mixed, P2, 0));
+    }
+
+    [Theory]
+    [InlineData(2, 0)]   // U1 into the pinned rows
+    [InlineData(2, 1)]
+    [InlineData(5, 1)]   // U4 into the pinned rows
+    [InlineData(0, 2)]   // P1 below the pinned rows
+    [InlineData(1, 5)]   // P2 to the very end
+    public void A_drop_across_the_pin_boundary_is_refused(int index, int landedAt)
+    {
+        Assert.False(Drop(Mixed, Mixed[index], landedAt).Allowed);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(2, 2)]
+    [InlineData(5, 5)]
+    public void A_drop_where_it_was_is_allowed_and_no_move(int index, int landedAt)
+    {
+        RepositionDrop<NoteId> drop = Drop(Mixed, Mixed[index], landedAt);
+
+        Assert.True(drop.Allowed);
+        Assert.False(drop.Target.Moves);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(6)]
+    public void A_drop_outside_the_list_or_of_a_stranger_is_refused(int landedAt)
+    {
+        Assert.False(Drop(Mixed, U1, landedAt).Allowed);
+        Assert.False(Drop(Mixed, new Item(NoteId.New(), false, 9), 3).Allowed);
+    }
+
+    [Fact]
+    public void Dropping_on_the_last_row_of_its_group_lands_after_the_groups_last_item()
+    {
+        Assert.Equal(new RepositionDrop<NoteId>(true, new RepositionTarget<NoteId>(true, U4.Id)), Drop(Mixed, U1, 5));
+        Assert.Equal(new RepositionDrop<NoteId>(true, new RepositionTarget<NoteId>(true, P2.Id)), Drop(Mixed, P1, 1));
+    }
+
+    private static RepositionTarget<NoteId> To(IReadOnlyList<Item> displayed, Item item, int position) =>
+        Reposition.To(displayed, item.Id, position, x => x.Id, x => x.Pinned, x => x.Sort);
+
+    private static RepositionDrop<NoteId> Drop(IReadOnlyList<Item> displayed, Item item, int landedAt) =>
+        Reposition.Drop(displayed, item.Id, landedAt, x => x.Id, x => x.Pinned, x => x.Sort);
+
     private static RepositionTarget<NoteId> Of(IReadOnlyList<Item> displayed, Item item, RepositionDirection direction) =>
         Reposition.Of(displayed, item.Id, direction, x => x.Id, x => x.Pinned, x => x.Sort);
 }

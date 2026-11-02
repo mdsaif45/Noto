@@ -349,6 +349,35 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         return result;
     }
 
+    /// <summary>
+    /// A card was dropped at <paramref name="landedAt"/>, its index in the stack after the drop (B10). A drop into the
+    /// other pin group is refused (InvalidInput) and writes nothing; a drop where it was writes nothing; any other is
+    /// B3's reorder. The card being edited keeps editing with its text.
+    /// </summary>
+    public CommandResult Drop(NoteId note, int landedAt)
+    {
+        RepositionDrop<NoteId> drop = Reposition.Drop(Notes, note, landedAt, n => n.Id, n => n.IsPinned, n => n.SortOrder);
+
+        if (!drop.Allowed)
+        {
+            return CommandResult.Failed(CommandFailure.InvalidInput("A note can move only within its own pinned or unpinned group."));
+        }
+
+        if (!drop.Target.Moves)
+        {
+            return CommandResult.Success();
+        }
+
+        CommandResult result = _commands.Dispatch(new ReorderNote(note, drop.Target.After));
+
+        if (result.IsSuccess)
+        {
+            Read();
+        }
+
+        return result;
+    }
+
     /// <summary>Whether moving <paramref name="note"/> in <paramref name="direction"/> would move it at all.</summary>
     public bool CanReorder(NoteId note, RepositionDirection direction) => Target(note, direction).Moves;
 
