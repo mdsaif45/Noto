@@ -73,6 +73,9 @@ public sealed class NoteStackGuardTests
         Assert.Contains("|| !TryEndEdit()", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Matches(@"if \(!TrySaveCard\(\)\)\s*\{\s*return false;", Body(Main, "TryEndEdit"));
 
+        // A successful save clears a failure's notice, however the user then left: it no longer applies.
+        Assert.Matches(@"Noto\.Save completed[^\n]*\n\s*HideNoteNotice\(\);\s*return true;", Body(Main, "TrySaveCard"));
+
         // Hiding and closing save without leaving.
         Assert.Contains("internal bool SaveBeforeHide() => TrySaveCard();", Main, StringComparison.Ordinal);
         Assert.Contains("TrySaveCard(CloseAgainToDiscard)", Body(Main, "OnAppWindowClosing"), StringComparison.Ordinal);

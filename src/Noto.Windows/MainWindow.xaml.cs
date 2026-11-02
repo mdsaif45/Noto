@@ -1019,6 +1019,9 @@ public sealed partial class MainWindow : Window
                 // harness times saves from this line; validation channel only, never the log, never content. The
                 // number is invariant: a regional decimal comma would be misread as a shorter save.
                 Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Save completed ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
+
+                // A successful save answers whatever the last failure said.
+                HideNoteNotice();
                 return true;
             }
 
