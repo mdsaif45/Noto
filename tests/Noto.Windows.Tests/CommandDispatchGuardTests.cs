@@ -80,6 +80,8 @@ public sealed class CommandDispatchGuardTests
     [InlineData("FoldNotesInFolder", "CommandResult<int>", "NotesFoldedInFolder", "FoldNotesInFolderHandler(notes, clock)", "new NotesFoldedInFolder(command.FolderId, command.Folded, result.Value)")]
     [InlineData("PinFolder", "CommandResult", "FolderPinChanged", "PinFolderHandler(folders, clock)", "new FolderPinChanged(command.FolderId, true)")]
     [InlineData("UnpinFolder", "CommandResult", "FolderPinChanged", "UnpinFolderHandler(folders, clock)", "new FolderPinChanged(command.FolderId, false)")]
+    [InlineData("ReorderNote", "CommandResult", "NoteReordered", "ReorderNoteHandler(notes, clock)", "new NoteReordered(command.NoteId)")]
+    [InlineData("ReorderFolder", "CommandResult", "FolderReordered", "ReorderFolderHandler(folders, clock)", "new FolderReordered(command.FolderId)")]
     public void Each_pin_and_fold_command_is_registered_with_its_event_and_the_state_it_set(string command, string result, string @event, string handler, string describe)
     {
         string registration = Regex.Escape($".Register<{command}, {result}, {@event}>(") + @"\s*" + Regex.Escape($"new {handler}.Handle,") + @"\s*static \((command|_), (result|_)\) => " + Regex.Escape(describe) + @"\)";
