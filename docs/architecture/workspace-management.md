@@ -102,6 +102,42 @@ key / menu item / button / drop
 - **One ordering system:** `SortOrderEngine` decides the numbers.
 - **Event:** `NoteReordered` / `FolderReordered`, after commit.
 
+### B3 precisely: reorder (2026-11-02)
+
+One order exists: `SortOrder` within a scope (a folder's notes; the folder list), shared by pinned and unpinned items. Display is O2: pinned first, then SortOrder, then Id. The engine places an item `After(sibling)` or first, and renormalises when a gap runs out (O6).
+
+**The rule** (`Reposition`, Core, pure; one rule for notes and folders). Given the scope in display order, an item and a direction, it returns either *no move* or the engine's placement:
+
+| Direction | Target in the item's own pin group | Placement |
+|---|---|---|
+| Up | the previous item of the group | before it: `After(its SortOrder predecessor)`, or `First` when it has none |
+| Down | the next item of the group | `After(it)` |
+| Top | the group's first item | before it, as for Up |
+| Bottom | the group's last item | `After(it)` |
+
+- **The pin boundary is never crossed.** The first unpinned item cannot move above a pinned one, and vice versa: pinning is how a note joins the pinned group.
+- **At an edge it is no move.** Nothing is dispatched and nothing is written. The engine's own `AlreadyInPosition` check is the second line.
+- **"SortOrder predecessor"** means the previous item in SortOrder order (ties broken by Id, as O2 does), whichever group it belongs to. Landing just after it puts the item immediately before the target in SortOrder, with no item of its own group in between.
+
+**The flow.**
+- Notes go through `NoteStackSession.Reorder(note, direction)`: the rule, then `ReorderNote`, then a re-read.
+- Folders go through the same rule over `ListFoldersQuery`, then `ReorderFolder`.
+- Events are published after commit: `NoteReordered`, `FolderReordered`.
+
+**The editing card** keeps editing with its unsaved text when it is reordered. Order is not content.
+
+**Keys** (G17, G18):
+- Ctrl+Alt+Shift+Up/Down move the current card (editing, else focused) or the focused folder.
+- They are handled on each list's PreviewKeyDown, ahead of:
+  - Ctrl+Alt+Up/Down (edit the previous or next card);
+  - Ctrl+Down (enter a folder).
+
+**Menus** (B9): Move to top and Move to bottom on cards and folders, each disabled when the rule says no move.
+
+**Focus:** the item keeps focus at its new place; an editing card keeps its caret. Each move is announced ("Moved up", "Moved to top").
+
+**Not in B3:** sorting folders by name (C10, SHOULD); drag and drop (B4).
+
 ### Drag and drop (B10, C9): in-app only
 - **What can be dragged:** a card within its stack, and a folder within the folder list.
   - The `ListView`'s own reorder supplies the insertion line, hover feedback and Escape to cancel.
