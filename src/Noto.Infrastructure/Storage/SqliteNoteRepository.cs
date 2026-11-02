@@ -436,6 +436,35 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     public void SetFolded(NoteId id, bool isFolded, DateTimeOffset updatedAt) =>
         UpdateNoteField(id, "IsFolded", isFolded ? 1 : 0, updatedAt, "fold");
 
+    public int SetFoldedInFolder(FolderId folderId, bool isFolded, DateTimeOffset updatedAt)
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // One statement: every note folds together or none does. Rows already in the state are left unstamped.
+            command.CommandText =
+                """
+                UPDATE Notes
+                SET IsFolded = $value, UpdatedAt = $updatedAt
+                WHERE FolderId = $folder AND DeletedAt IS NULL AND IsFolded <> $value;
+                """;
+            command.Parameters.AddWithValue("$value", isFolded ? 1 : 0);
+            command.Parameters.AddWithValue("$updatedAt", Format(updatedAt));
+            command.Parameters.AddWithValue("$folder", folderId.Value);
+
+            return command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.WriteFailed,
+                $"Could not fold the notes of folder '{folderId}'.",
+                ex);
+        }
+    }
+
     public void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt) =>
         UpdateNoteField(id, "ColorKey", (object?)colorKey ?? DBNull.Value, updatedAt, "colour");
 

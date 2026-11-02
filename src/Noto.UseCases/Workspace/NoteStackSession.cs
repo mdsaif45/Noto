@@ -110,7 +110,10 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         return result;
     }
 
-    /// <summary>Edits <paramref name="note"/>, saving the card being edited first; a failed save keeps that card.</summary>
+    /// <summary>
+    /// Edits <paramref name="note"/>, saving the card being edited first; a failed save keeps that card. A folded card
+    /// is unfolded first, and the unfold is stored (ADR-016 §2); a failed unfold edits nothing.
+    /// </summary>
     public CommandResult BeginEdit(NoteId note)
     {
         if (Editing == note)
@@ -130,6 +133,18 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         if (!left.IsSuccess)
         {
             return left;
+        }
+
+        if (Notes[index].IsFolded)
+        {
+            CommandResult unfolded = _commands.Dispatch(new UnfoldNote(note));
+
+            if (!unfolded.IsSuccess)
+            {
+                return unfolded;
+            }
+
+            _notes[index] = _notes[index] with { IsFolded = false };
         }
 
         Editing = note;
@@ -228,6 +243,86 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Pins or unpins <paramref name="note"/> (B14). O2 re-sorts it into or out of the pinned group without touching
+    /// its SortOrder; the card being edited, pinned or not, keeps editing with its unsaved text.
+    /// </summary>
+    public CommandResult SetPinned(NoteId note, bool pinned)
+    {
+        CommandResult result = pinned
+            ? _commands.Dispatch(new PinNote(note))
+            : _commands.Dispatch(new UnpinNote(note));
+
+        if (result.IsSuccess)
+        {
+            Read();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Folds or unfolds <paramref name="note"/> (B12). Folding the card being edited saves and leaves editing first; a
+    /// failed save folds nothing. The order does not change, so the session's copy is updated in place.
+    /// </summary>
+    public CommandResult SetFolded(NoteId note, bool folded)
+    {
+        if (folded && Editing == note)
+        {
+            CommandResult left = EndEdit();
+
+            if (!left.IsSuccess)
+            {
+                return left;
+            }
+        }
+
+        CommandResult result = folded
+            ? _commands.Dispatch(new FoldNote(note))
+            : _commands.Dispatch(new UnfoldNote(note));
+
+        int index = IndexOf(note);
+
+        if (result.IsSuccess && index >= 0)
+        {
+            _notes[index] = _notes[index] with { IsFolded = folded };
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Folds or unfolds every card in the open folder (B13), in one command. Folding all leaves editing first, saving,
+    /// because the card being edited folds too; unfolding all keeps it editing.
+    /// </summary>
+    public CommandResult SetAllFolded(bool folded)
+    {
+        if (Folder is not { } folder)
+        {
+            return CommandResult.Failed(CommandFailure.InvalidState("No folder is open."));
+        }
+
+        if (folded)
+        {
+            CommandResult left = EndEdit();
+
+            if (!left.IsSuccess)
+            {
+                return left;
+            }
+        }
+
+        CommandResult<int> result = _commands.Dispatch(new FoldNotesInFolder(folder, folded));
+
+        if (!result.IsSuccess)
+        {
+            return CommandResult.Failed(result.Failure!);
+        }
+
+        Read();
+        return CommandResult.Success();
     }
 
     /// <summary>The card <paramref name="step"/> places from <paramref name="note"/>; <see langword="null"/> past either end.</summary>

@@ -1,5 +1,6 @@
 using Noto.Core;
 using Noto.Core.Commands;
+using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.UseCases.Commands;
 
@@ -16,6 +17,47 @@ public sealed record FoldNote(NoteId NoteId) : ICommand<CommandResult>;
 
 /// <summary>Expands a folded note (design §6, parity B12).</summary>
 public sealed record UnfoldNote(NoteId NoteId) : ICommand<CommandResult>;
+
+/// <summary>Folds or unfolds every note in a folder (parity B13, G21, G22). The result is how many changed.</summary>
+public sealed record FoldNotesInFolder(FolderId FolderId, bool Folded) : ICommand<CommandResult<int>>;
+
+/// <summary>A note was pinned or unpinned: published after the write commits (ADR-010).</summary>
+public sealed record NotePinChanged(NoteId NoteId, bool Pinned) : IEvent;
+
+/// <summary>A note was folded or unfolded: published after the write commits (ADR-010).</summary>
+public sealed record NoteFoldChanged(NoteId NoteId, bool Folded) : IEvent;
+
+/// <summary>A folder's notes were folded or unfolded together: published after the write commits (ADR-010).</summary>
+public sealed record NotesFoldedInFolder(FolderId FolderId, bool Folded, int Changed) : IEvent;
+
+/// <summary>Handles <see cref="FoldNotesInFolder"/>.</summary>
+/// <remarks>Only an active folder's notes are folded; one statement, so all or none.</remarks>
+public sealed class FoldNotesInFolderHandler(INoteRepository notes, IClock clock)
+{
+    private readonly INoteRepository _notes = notes ?? throw new ArgumentNullException(nameof(notes));
+    private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+
+    public CommandResult<int> Handle(FoldNotesInFolder command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        switch (_notes.GetFolderState(command.FolderId))
+        {
+            case FolderState.Missing:
+                return CommandResult.Failed<int>(CommandFailure.NotFound($"No folder '{command.FolderId}'."));
+
+            case FolderState.Deleted:
+                return CommandResult.Failed<int>(
+                    CommandFailure.InvalidState($"Folder '{command.FolderId}' is deleted; its notes cannot be folded."));
+
+            case FolderState.Active:
+            default:
+                break;
+        }
+
+        return CommandResult.Success(_notes.SetFoldedInFolder(command.FolderId, command.Folded, _clock.UtcNow));
+    }
+}
 
 /// <summary>
 /// The precondition shared by every single-flag note command.

@@ -24,8 +24,9 @@ public sealed class CommandContractTests
             .Select(m => $"{m.GetParameters()[0].ParameterType.Name} -> {m.ReturnType.Name}")
             .ToList();
 
-        // 23, plus P1.1's PurgeNote, RestoreNoteToFolder, PurgeFolder and EmptyRecycleBin.
-        Assert.Equal(27, handles.Count);
+        // 23, plus P1.1's PurgeNote, RestoreNoteToFolder, PurgeFolder and EmptyRecycleBin, and Phase B2's
+        // FoldNotesInFolder.
+        Assert.Equal(28, handles.Count);
         Assert.True(undeclared.Count == 0, "Commands not declaring their handler's result: " + string.Join(", ", undeclared));
     }
 }

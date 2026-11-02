@@ -169,6 +169,15 @@ public interface INoteRepository
     void SetFolded(NoteId id, bool isFolded, DateTimeOffset updatedAt);
 
     /// <summary>
+    /// Folds or unfolds every active note in a folder, in one statement (B13, fold all).
+    /// </summary>
+    /// <remarks>
+    /// Only notes whose flag actually changes are written and stamped, so a second fold-all is a no-op.
+    /// </remarks>
+    /// <returns>How many notes changed.</returns>
+    int SetFoldedInFolder(FolderId folderId, bool isFolded, DateTimeOffset updatedAt);
+
+    /// <summary>
     /// Sets a note's palette key, or clears it, and stamps <c>UpdatedAt</c>.
     /// </summary>
     /// <param name="colorKey">
