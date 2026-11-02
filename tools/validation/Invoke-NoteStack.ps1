@@ -46,6 +46,13 @@
     34  the pin boundary: the first unpinned card does not rise above a pinned one; nothing is written
     35  at an edge, the menu's move is disabled
     36  Ctrl+Alt+Shift+Down on a folder moves it, focus follows; the folder menu's Move to top; Ctrl+Down still enters
+    37  dragging a card above another: it lands there, stored, selected and focused
+    38  dropping a card where it was: nothing is written
+    39  dragging an unpinned card above a pinned one: refused, nothing written, the stack snaps back
+    40  dragging the card being edited: it moves and keeps editing with its unsaved text
+    41  dragging far down the scrolled stack
+    42  dragging a folder above another, then back
+    43  one click on a card still edits it (drag enabled)
 
   Command announcements are UI Automation notification events, which the managed UI Automation client this harness
   uses cannot subscribe to: NOT RUN here, listened for in the release candidate's Narrator pass.
@@ -155,6 +162,33 @@ function Sql-Rows([string] $Text, [hashtable] $Parameters) {
 function Above([string] $First, [string] $Second) { $o = Order; $o.IndexOf($First) -ge 0 -and $o.IndexOf($First) + 1 -eq $o.IndexOf($Second) }
 function Menu-Enabled([string] $Name) { (Menu-Item $Name).Current.IsEnabled }
 function Folder-Rows { @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { $_.Current.Name }) }
+function Fence([int] $X, [int] $Y) {
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
+    if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing pointer input at ($X,$Y): it is not Noto" }
+}
+function Move-Pointer([int] $X, [int] $Y) {
+    <# A real pointer move (MOUSEEVENTF_MOVE | ABSOLUTE | VIRTUALDESK): input the drag loop sees, unlike SetCursorPos. #>
+    Add-Type -AssemblyName System.Windows.Forms
+    $v = [System.Windows.Forms.SystemInformation]::VirtualScreen
+    $nx = [uint32][Math]::Round(($X - $v.Left) * 65535.0 / ($v.Width - 1)); $ny = [uint32][Math]::Round(($Y - $v.Top) * 65535.0 / ($v.Height - 1))
+    [NotoVal.Win32]::mouse_event(0x0001 -bor 0x8000 -bor 0x4000, $nx, $ny, 0, [IntPtr]::Zero)
+}
+function Drag-To([int] $FromX, [int] $FromY, [int] $ToX, [int] $ToY) {
+    <# A real mouse drag, only while Noto is in front and only where the window under each end is Noto. #>
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to drag: Noto is not the foreground window' }
+    Fence $FromX $FromY; Fence $ToX $ToY
+    Move-Pointer $FromX $FromY; Start-Sleep -Milliseconds 200
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 250
+    for ($i = 1; $i -le 20; $i++) {
+        Move-Pointer ([int]($FromX + ($ToX - $FromX) * $i / 20)) ([int]($FromY + ($ToY - $FromY) * $i / 20)); Start-Sleep -Milliseconds 50
+    }
+    Start-Sleep -Milliseconds 500
+    [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 1200
+}
+function Centre($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2)) }
+function Grip($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + 6), [int]($r.Y + $r.Height / 2)) }
+function UpperEdge($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + $r.Width / 2), [int]($r.Y + 3)) }
+function Orders { (Sql-Rows 'SELECT Id || ''='' || SortOrder FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY Id' @{ '$f' = $FolderId }) -join '|' }
 function Bring-Forward {
     $null = Set-ForegroundByKeyboard $script:target
     Send-ActivationChord -AllowedForeground $script:target.Hwnd
@@ -485,6 +519,79 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x11) 0x28
     $entered = Visible-Id 'BackButton'
     Add-Result $run '36 a folder moves by key and by menu, focus follows; Ctrl+Down still enters' ($start -eq 'Stack,Elsewhere' -and $afterKey -eq 'Elsewhere,Stack' -and $keyFocus -eq 'Stack' -and $afterMenu -eq 'Stack,Elsewhere' -and $entered) "start=$start key=$afterKey focus=$keyFocus menu=$afterMenu entered=$entered"
+
+    # 37 - drag a card above another
+    $o = Order
+    $mover = $o[3]; $target = $o[1]
+    $from = Grip (Card $mover); $to = UpperEdge (Card $target)
+    Drag-To $from[0] $from[1] $to[0] $to[1]
+    $after = Order
+    Add-Result $run '37 dragging a card above another lands it there, stored, focused' ($after[1] -eq $mover -and $after[2] -eq $target -and (Focused-Name) -eq $mover) "mover=$mover target=$target order=$(($after | Select-Object -First 5) -join ',') focus=$(Focused)"
+
+    # 38 - dropping where it was writes nothing
+    $before = Orders
+    $c = Card $after[2]; $g = Grip $c
+    Drag-To $g[0] $g[1] ($g[0] + 30) ($g[1] + 2)
+    Add-Result $run '38 dropping a card where it was writes nothing' ((Orders) -eq $before) "unchanged=$((Orders) -eq $before) focus=$(Focused)"
+
+    # 39 - an unpinned card above a pinned one is refused
+    $o = Order
+    (Card $o[0]).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Pin'
+    $before = Orders; $beforeOrder = (Order) -join '|'
+    $from = Grip (Card $o[3]); $to = UpperEdge (Card $o[0])
+    Drag-To $from[0] $from[1] $to[0] $to[1]
+    $snapped = (Cards | Select-Object -First 4 | ForEach-Object { $_.Current.Name }) -join '|'
+    Add-Result $run '39 an unpinned card dragged above a pinned one is refused: nothing written, the stack snaps back' ((Orders) -eq $before -and ((Order) -join '|') -eq $beforeOrder -and $snapped -eq (((Order) | Select-Object -First 4) -join '|')) "unchanged=$((Orders) -eq $before) shown=$snapped focus=$(Focused)"
+    (Card $o[0]).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Unpin'
+
+    # 40 - drag the card being edited
+    $o = Order
+    $editingName = $o[4]
+    $editId = IdOf $editingName
+    Edit-Card $editingName
+    Set-EditorText "$editingName, unsaved while dragged"
+    $card = Cards | Where-Object { $_.Current.Name -eq $editingName } | Select-Object -First 1
+    $from = Grip $card; $to = UpperEdge (Card $o[2])
+    Drag-To $from[0] $from[1] $to[0] $to[1]
+    $after = Order
+    Add-Result $run '40 the card being edited moves and keeps editing with its unsaved text' ($after[2] -eq $editingName -and (Editors).Count -eq 1 -and (Editor-Value) -eq "$editingName, unsaved while dragged" -and (Stored $editId) -eq $editingName) "order=$(($after | Select-Object -First 5) -join ',') editors=$((Editors).Count) value=$(Editor-Value) db=$(Stored $editId)"
+    Send-ToNoto @() 0x1B
+
+    # 41 - far down the scrolled stack
+    $list = Find-ById 'NoteList'
+    $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100); Start-Sleep -Milliseconds 800
+    $o = @(Order | Where-Object { $_ -like 'Filler *' })
+    $mover = $o[-1]; $target = $o[-3]
+    $from = Grip (Card $mover); $to = UpperEdge (Card $target)
+    Drag-To $from[0] $from[1] $to[0] $to[1]
+    $after = @(Order | Where-Object { $_ -like 'Filler *' })
+    Add-Result $run '41 far down the scrolled stack, a dragged card lands where dropped' ($after[-3] -eq $mover -and $after[-2] -eq $target) "mover=$mover target=$target tail=$(($after | Select-Object -Last 4) -join ',') focus=$(Focused)"
+    $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 0); Start-Sleep -Milliseconds 500
+
+    # 43 - one click on a card still edits it
+    $c = (Cards)[2]; $name = $c.Current.Name; $xy = Centre $c
+    Fence $xy[0] $xy[1]
+    [void][NotoVal.Win32]::SetCursorPos($xy[0], $xy[1]); Start-Sleep -Milliseconds 150
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 900
+    Add-Result $run '43 one click on a card still edits it' ((Editors).Count -eq 1 -and (Editor-Value) -eq $name -and (Focused) -match 'id=NoteEditor') "card=$name editors=$((Editors).Count) value=$(Editor-Value)"
+    Send-ToNoto @() 0x1B
+
+    # 42 - a folder dragged above another, then back
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
+    $start = (Folder-Rows) -join ','
+    $from = Grip ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' }); $to = UpperEdge ($rows | Where-Object { $_.Current.Name -eq 'Stack' })
+    Drag-To $from[0] $from[1] $to[0] $to[1]
+    $moved = (Folder-Rows) -join ','; $movedFocus = Focused-Name
+    $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
+    $from = Grip ($rows | Where-Object { $_.Current.Name -eq 'Stack' }); $to = UpperEdge ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' })
+    Drag-To $from[0] $from[1] $to[0] $to[1]
+    Add-Result $run '42 a folder dragged above another lands there, focused; and back' ($start -eq 'Stack,Elsewhere' -and $moved -eq 'Elsewhere,Stack' -and $movedFocus -eq 'Elsewhere' -and ((Folder-Rows) -join ',') -eq 'Stack,Elsewhere') "start=$start moved=$moved focus=$movedFocus back=$((Folder-Rows) -join ',')"
+    Enter-Folder
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'
