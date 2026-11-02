@@ -547,7 +547,26 @@ public partial class App : Application
                 static (command, _) => new NoteReordered(command.NoteId))
             .Register<ReorderFolder, CommandResult, FolderReordered>(
                 new ReorderFolderHandler(folders, clock).Handle,
-                static (command, _) => new FolderReordered(command.FolderId));
+                static (command, _) => new FolderReordered(command.FolderId))
+            .Register<DeleteFolder, CommandResult, FolderDeleted>(
+                new DeleteFolderHandler(folders, clock).Handle,
+                static (command, _) => new FolderDeleted(command.FolderId))
+            .Register<RestoreFolder, CommandResult, FolderRestored>(
+                new RestoreFolderHandler(folders, clock).Handle,
+                static (command, _) => new FolderRestored(command.FolderId))
+            .Register<RestoreNote, CommandResult>(new RestoreNoteHandler(notes, clock).Handle)
+            .Register<RestoreNoteToFolder, CommandResult, NoteRestored>(
+                new RestoreNoteToFolderHandler(notes, clock).Handle,
+                static (command, _) => new NoteRestored(command.NoteId, command.FolderId))
+            .Register<PurgeNote, CommandResult, NotePurged>(
+                new PurgeNoteHandler(notes).Handle,
+                static (command, _) => new NotePurged(command.NoteId))
+            .Register<PurgeFolder, CommandResult, FolderPurged>(
+                new PurgeFolderHandler(folders).Handle,
+                static (command, _) => new FolderPurged(command.FolderId))
+            .Register<EmptyRecycleBin, CommandResult<RecycleBinPurge>, RecycleBinEmptied>(
+                new EmptyRecycleBinHandler(folders).Handle,
+                static (_, result) => new RecycleBinEmptied(result.Value.NotesPurged, result.Value.FoldersPurged, result.Value.FoldersKept.Count));
         var events = new EventHub(failure => log.EventSubscriberFailed(failure));
 
         // Recent folders (B11) are a move's after-effect, not part of it: recorded once the move has committed, so a
@@ -565,6 +584,12 @@ public partial class App : Application
             SingleClickOpen = preferences.SingleClickOpen,
             NewNotePlacement = preferences.NewNotePlacement,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
+            Bin = new RecycleBin(
+                new ListDeletedFoldersQuery(folders),
+                new ListDeletedNotesQuery(notes),
+                listFolders,
+                new ListNotesInFolderQuery(notes),
+                dispatcher),
             Settings = new SettingsContext(
                 preferences,
                 () => _login?.State(),

@@ -1296,7 +1296,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        UIElement from = NoteRoot.Visibility == Visibility.Visible ? NoteRoot : PaneRoot;
+        UIElement from = RecycleBinSurface is { } bin ? bin : NoteRoot.Visibility == Visibility.Visible ? NoteRoot : PaneRoot;
 
         _settingsReturn = from;
         _settingsReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;
@@ -1425,6 +1425,10 @@ public sealed partial class MainWindow : Window
 
             case EscapeAction.LeaveSettings:
                 CloseSettings();
+                return true;
+
+            case EscapeAction.LeaveRecycleBin:
+                CloseRecycleBin();
                 return true;
 
             default:
@@ -1747,6 +1751,8 @@ public sealed partial class MainWindow : Window
         IReadOnlyList<Folder> folders = Execute(_listFolders.Execute);
         menu.Items.Add(MenuItem("Move to top", string.Empty, () => MoveFolder(folder.Id, RepositionDirection.Top), FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Top).Moves));
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => MoveFolder(folder.Id, RepositionDirection.Bottom), FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Bottom).Moves));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(MenuItem("Delete", "Delete", () => ConfirmDeleteFolder(folder.Id)));
         ShowMenu(menu, container, args);
     }
 
@@ -2179,6 +2185,187 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ----------------------------------------------------------- deleting folders, the Recycle Bin (B5)
+
+    /// <summary>The Recycle Bin's session (Phase B5), set once by the composition root.</summary>
+    internal RecycleBin? Bin { get; set; }
+
+    /// <summary>The Recycle Bin surface while it is open; <see langword="null"/> otherwise.</summary>
+    private RecycleBinPage? RecycleBinSurface { get; set; }
+
+    // What had focus on the folder list when the bin was opened: where leaving it returns.
+    private Control? _binReturnFocus;
+
+    /// <summary>
+    /// Asks before moving a folder and its notes to the Recycle Bin (C11; ADR-016 §7): a flyout at the row, Cancel
+    /// focused. Cancelling writes nothing. No card can be unsaved here: the folder list is reached only by leaving the
+    /// stack, which saves first.
+    /// </summary>
+    private void ConfirmDeleteFolder(string id)
+    {
+        if (_state != PaneState.Loaded || Bin is null
+            || Folders.FirstOrDefault(f => f.Id == id) is not { } folder
+            || FolderList.ContainerFromItem(folder) is not ListViewItem container)
+        {
+            return;
+        }
+
+        int notes;
+        try
+        {
+            notes = Bin.NotesIn(FolderId.From(id));
+        }
+        catch (StorageException ex)
+        {
+            ShowNotice($"Could not read the folder: {ex.Message}");
+            return;
+        }
+
+        ResourceDictionary resources = Microsoft.UI.Xaml.Application.Current.Resources;
+        var cancel = new Button { Content = "Cancel", Style = (Style)resources["FolderPaneButtonStyle"] };
+        var delete = new Button { Content = "Delete", Style = (Style)resources["FolderPaneButtonStyle"] };
+        AutomationProperties.SetName(cancel, "Cancel");
+        AutomationProperties.SetName(delete, "Delete folder");
+        var message = new TextBlock
+        {
+            Text = $"Delete \u201C{folder.Name}\u201D and its {(notes == 1 ? "1 note" : $"{notes} notes")}? They go to the Recycle Bin.",
+            TextWrapping = TextWrapping.Wrap,
+        };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = (double)resources["SpaceS"], HorizontalAlignment = HorizontalAlignment.Right };
+        buttons.Children.Add(delete);
+        buttons.Children.Add(cancel);
+        var body = new StackPanel { Spacing = (double)resources["SpaceS"] };
+        body.Children.Add(message);
+        body.Children.Add(buttons);
+
+        var flyout = new Flyout { Content = body };
+        cancel.Click += (_, _) => flyout.Hide();
+        delete.Click += (_, _) =>
+        {
+            flyout.Hide();
+            DeleteFolder(id);
+        };
+        flyout.Opened += (_, _) => _ = cancel.Focus(FocusState.Programmatic);
+        flyout.Closed += (_, _) =>
+        {
+            if (Folders.Any(f => f.Id == id))
+            {
+                FocusRow(id);
+            }
+        };
+        flyout.ShowAt(container);
+    }
+
+    /// <summary>
+    /// Moves a folder and its active notes to the Recycle Bin (C11): soft, one timestamp, nothing destroyed. Focus goes
+    /// to the next folder, else the previous, else the new-folder box.
+    /// </summary>
+    private void DeleteFolder(string id)
+    {
+        if (_state != PaneState.Loaded || Bin is null)
+        {
+            return;
+        }
+
+        string? next = Removal.Next(Folders, new FolderKey(id), static f => new FolderKey(f.Id))?.Id;
+
+        try
+        {
+            CommandResult result = Bin.DeleteFolder(FolderId.From(id));
+
+            if (!result.IsSuccess)
+            {
+                Refresh();
+                ShowNotice(Describe(result.Failure!));
+                return;
+            }
+
+            _selectedId = next;
+            Refresh();
+            Announce("Folder moved to the Recycle Bin", FolderList);
+
+            if (next is not null)
+            {
+                FocusRow(next);
+            }
+            else
+            {
+                MoveFocusToList();
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowNotice($"Could not delete the folder: {ex.Message}");
+        }
+    }
+
+    /// <summary>A folder id as the removal rule's key.</summary>
+    private readonly record struct FolderKey(string Id);
+
+    private void OnRecycleBinClick(object sender, RoutedEventArgs e) => OpenRecycleBin();
+
+    /// <summary>
+    /// Opens the Recycle Bin (Phase B5) from the folder list: built now, beside the surfaces, released when left, as
+    /// Settings is. No card is being edited: the folder list is showing.
+    /// </summary>
+    internal void OpenRecycleBin()
+    {
+        if (Bin is null || RecycleBinSurface is not null || PaneRoot.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        _binReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;
+
+        var page = new RecycleBinPage();
+        Grid.SetRow(page, Grid.GetRow(PaneRoot));
+        page.KeyDown += OnRecycleBinKeyDown;
+        page.BackRequested += OnRecycleBinBackRequested;
+        ((Panel)PaneRoot.Parent).Children.Add(page);
+        RecycleBinSurface = page;
+
+        page.Show(Bin);
+        PaneRoot.Visibility = Visibility.Collapsed;
+        page.Visibility = Visibility.Visible;
+        Motion.EnterSurface(page, forward: true);
+
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, page.FocusFirst);
+    }
+
+    /// <summary>Leaves the Recycle Bin for the folder list, re-read (a restore may have brought folders back).</summary>
+    private void CloseRecycleBin()
+    {
+        if (RecycleBinSurface is not { } page)
+        {
+            return;
+        }
+
+        PaneRoot.Visibility = Visibility.Visible;
+        page.Visibility = Visibility.Collapsed;
+        Motion.EnterSurface(PaneRoot, forward: false);
+
+        ((Panel)page.Parent).Children.Remove(page);
+        page.KeyDown -= OnRecycleBinKeyDown;
+        page.BackRequested -= OnRecycleBinBackRequested;
+        RecycleBinSurface = null;
+
+        Refresh();
+        Control restore = _binReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous ? previous : RecycleBinButton;
+        _binReturnFocus = null;
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => restore.Focus(FocusState.Programmatic));
+    }
+
+    private void OnRecycleBinBackRequested(object? sender, EventArgs e) => CloseRecycleBin();
+
+    /// <summary>Escape in the Recycle Bin follows the stored behaviour: by default it goes back to the folder list.</summary>
+    private void OnRecycleBinKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Escape)
+        {
+            e.Handled = OnEscape(WorkspaceSurface.RecycleBin);
+        }
+    }
+
     /// <summary>Pins or unpins a folder (C8): the list is re-read (O2) and focus follows the folder.</summary>
     private void PinFolder(string id, bool pinned)
     {
@@ -2242,6 +2429,14 @@ public sealed partial class MainWindow : Window
         {
             e.Handled = true;
             BeginRename();
+            return;
+        }
+
+        // Delete asks to move the folder and its notes to the Recycle Bin (C11), after a confirmation.
+        if (e.Key == VirtualKey.Delete && (FolderList.SelectedItem as FolderListItem ?? (FocusManager.GetFocusedElement(Content.XamlRoot) as ListViewItem)?.Content as FolderListItem) is { } folder)
+        {
+            e.Handled = true;
+            ConfirmDeleteFolder(folder.Id);
             return;
         }
 

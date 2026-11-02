@@ -340,7 +340,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
     Send-ToNoto @(0x11) 0x4E
-    Add-Result $run '16 folder menu (Open, Rename, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,New folder,Pin,Move to top,Move to bottom' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
+    Add-Result $run '16 folder menu (Open, Rename, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,New folder,Pin,Move to top,Move to bottom,Delete' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
 
     # 17 - named actions
     Enter-Folder

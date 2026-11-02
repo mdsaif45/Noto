@@ -46,6 +46,7 @@ public sealed class CommandDispatchGuardTests
             '\n',
             Directory.EnumerateFiles(AppDirectory, "*.cs")
                 .Append(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs"))
+                .Append(SourcePath("src", "Noto.UseCases", "Workspace", "RecycleBin.cs"))
                 .Select(f => WithoutComments(File.ReadAllText(f))));
         var dispatched = Regex.Matches(all, @"\.Dispatch\(\s*new (\w+)\(").Select(m => m.Groups[1].Value).ToList();
         var unregistered = dispatched.Distinct().Where(command => !App.Contains($".Register<{command},", StringComparison.Ordinal)).ToList();
@@ -82,6 +83,12 @@ public sealed class CommandDispatchGuardTests
     [InlineData("UnpinFolder", "CommandResult", "FolderPinChanged", "UnpinFolderHandler(folders, clock)", "new FolderPinChanged(command.FolderId, false)")]
     [InlineData("ReorderNote", "CommandResult", "NoteReordered", "ReorderNoteHandler(notes, clock)", "new NoteReordered(command.NoteId)")]
     [InlineData("ReorderFolder", "CommandResult", "FolderReordered", "ReorderFolderHandler(folders, clock)", "new FolderReordered(command.FolderId)")]
+    [InlineData("DeleteFolder", "CommandResult", "FolderDeleted", "DeleteFolderHandler(folders, clock)", "new FolderDeleted(command.FolderId)")]
+    [InlineData("RestoreFolder", "CommandResult", "FolderRestored", "RestoreFolderHandler(folders, clock)", "new FolderRestored(command.FolderId)")]
+    [InlineData("RestoreNoteToFolder", "CommandResult", "NoteRestored", "RestoreNoteToFolderHandler(notes, clock)", "new NoteRestored(command.NoteId, command.FolderId)")]
+    [InlineData("PurgeNote", "CommandResult", "NotePurged", "PurgeNoteHandler(notes)", "new NotePurged(command.NoteId)")]
+    [InlineData("PurgeFolder", "CommandResult", "FolderPurged", "PurgeFolderHandler(folders)", "new FolderPurged(command.FolderId)")]
+    [InlineData("EmptyRecycleBin", "CommandResult<RecycleBinPurge>", "RecycleBinEmptied", "EmptyRecycleBinHandler(folders)", "new RecycleBinEmptied(result.Value.NotesPurged, result.Value.FoldersPurged, result.Value.FoldersKept.Count)")]
     public void Each_pin_and_fold_command_is_registered_with_its_event_and_the_state_it_set(string command, string result, string @event, string handler, string describe)
     {
         string registration = Regex.Escape($".Register<{command}, {result}, {@event}>(") + @"\s*" + Regex.Escape($"new {handler}.Handle,") + @"\s*static \((command|_), (result|_)\) => " + Regex.Escape(describe) + @"\)";

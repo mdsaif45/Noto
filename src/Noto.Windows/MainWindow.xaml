@@ -103,6 +103,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- Create: the input and its affordance share one row. -->
@@ -244,6 +245,21 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
+
+                <!-- The Recycle Bin (Phase B5): a surface of its own, opened from here. -->
+                <Button
+                    x:Name="RecycleBinButton"
+                    Grid.Row="3"
+                    HorizontalAlignment="Left"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Click="OnRecycleBinClick"
+                    ToolTipService.ToolTip="Deleted notes and folders"
+                    AutomationProperties.Name="Recycle Bin">
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource SpaceXS}">
+                        <FontIcon Glyph="&#xE74D;" FontSize="{StaticResource IconSize}" />
+                        <TextBlock Text="Recycle Bin" />
+                    </StackPanel>
+                </Button>
             </Grid>
 
             <!--
