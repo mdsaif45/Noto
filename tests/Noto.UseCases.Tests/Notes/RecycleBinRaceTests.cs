@@ -102,6 +102,8 @@ public sealed class RecycleBinRaceTests
 
         public void SetFolded(NoteId id, bool isFolded, DateTimeOffset updatedAt) => throw new NotSupportedException();
 
+        public int SetFoldedInFolder(FolderId folderId, bool isFolded, DateTimeOffset updatedAt) => throw new NotSupportedException();
+
         public void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt) => throw new NotSupportedException();
 
         public void SoftDelete(NoteId id, DateTimeOffset deletedAt) => throw new NotSupportedException();

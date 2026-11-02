@@ -11,6 +11,9 @@ public sealed record PinFolder(FolderId FolderId) : ICommand<CommandResult>;
 /// <summary>Unpins a folder (design §6, parity C8).</summary>
 public sealed record UnpinFolder(FolderId FolderId) : ICommand<CommandResult>;
 
+/// <summary>A folder was pinned or unpinned: published after the write commits (ADR-010).</summary>
+public sealed record FolderPinChanged(FolderId FolderId, bool Pinned) : IEvent;
+
 /// <summary>Handles <see cref="PinFolder"/>.</summary>
 /// <remarks>
 /// <para>
