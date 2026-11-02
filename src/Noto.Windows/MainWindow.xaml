@@ -203,6 +203,11 @@
                     DoubleTapped="OnFolderListDoubleTapped"
                     PreviewKeyDown="OnFolderListPreviewKeyDown"
                     ContextRequested="OnFolderListContextRequested"
+                    CanDragItems="True"
+                    CanReorderItems="True"
+                    AllowDrop="True"
+                    DragItemsStarting="OnFolderDragStarting"
+                    DragItemsCompleted="OnFolderDragCompleted"
                     AutomationProperties.Name="Folders">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="local:FolderListItem">
@@ -323,6 +328,11 @@
                     PreviewKeyDown="OnNoteListPreviewKeyDown"
                     Tapped="OnNoteListTapped"
                     ContextRequested="OnNoteListContextRequested"
+                    CanDragItems="True"
+                    CanReorderItems="True"
+                    AllowDrop="True"
+                    DragItemsStarting="OnNoteDragStarting"
+                    DragItemsCompleted="OnNoteDragCompleted"
                     AutomationProperties.Name="Notes">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="local:NoteCard">

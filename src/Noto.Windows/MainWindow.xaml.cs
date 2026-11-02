@@ -19,6 +19,7 @@ using Noto.UseCases.Commands;
 using Noto.UseCases.Folders;
 using Noto.UseCases.Notes;
 using Noto.UseCases.Workspace;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -1976,6 +1977,147 @@ public sealed partial class MainWindow : Window
         catch (StorageException ex)
         {
             ShowNoteNotice($"Could not move the note: {ex.Message}");
+        }
+    }
+
+    // ----------------------------------------------------------- drag and drop (B4)
+
+    /// <summary>The card or folder being dragged, by id; <see langword="null"/> when no drag is under way.</summary>
+    private string? _dragging;
+
+    /// <summary>
+    /// A card's drag begins (B10): one card, on a loaded stack. The list's own reorder draws the drag, the insertion point
+    /// and Escape to cancel; the drop is decided when it completes.
+    /// </summary>
+    private void OnNoteDragStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        if (_noteState != NoteState.Loaded || e.Items.Count != 1 || e.Items[0] is not NoteCard card)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        _dragging = card.Id;
+    }
+
+    /// <summary>
+    /// A card's drop (workspace-management.md, "B4 precisely"): the landing index goes to the session's rule, which
+    /// refuses the other pin group, writes nothing for no move, and otherwise reorders. The visual order is never
+    /// trusted: the stack is rebuilt from the session whatever happened, so a refusal snaps back.
+    /// </summary>
+    private void OnNoteDragCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        string? id = _dragging;
+        _dragging = null;
+
+        if (id is null || Notes.FirstOrDefault(n => n.Id == id) is not { } dropped)
+        {
+            return;
+        }
+
+        int landedAt = args.DropResult == DataPackageOperation.None ? -1 : Notes.IndexOf(dropped);
+        string before = string.Join('|', _stack.Notes.Select(n => n.Id.Value));
+
+        try
+        {
+            CommandResult result = landedAt < 0 ? CommandResult.Success() : _stack.Drop(NoteId.From(id), landedAt);
+
+            _selectedNoteId = id;
+            ShowCards(_stack.Notes);
+            ApplyNoteState();
+
+            if (!result.IsSuccess)
+            {
+                if (result.Failure!.Reason == CommandFailureReason.InvalidInput)
+                {
+                    Announce("Not moved: pin it to move it among the pinned notes, or unpin it to move it below them");
+                }
+                else
+                {
+                    ShowNoteNotice(DescribeNote(result.Failure));
+                }
+            }
+            else if (before != string.Join('|', _stack.Notes.Select(n => n.Id.Value)))
+            {
+                Announce("Moved");
+            }
+
+            if (_stack.Editing?.Value == id)
+            {
+                StartEditor(id, CaretPlacement.End);
+            }
+            else
+            {
+                FocusNoteRow(id);
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowCards(_stack.Notes);
+            ShowNoteNotice($"Could not move the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>A folder's drag begins (C9): one folder, on a loaded list, not while one is being renamed.</summary>
+    private void OnFolderDragStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        if (_state != PaneState.Loaded || _renamingId is not null || e.Items.Count != 1 || e.Items[0] is not FolderListItem folder)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        _dragging = folder.Id;
+    }
+
+    /// <summary>
+    /// A folder's drop: the same rule over the folder list as it was before the drop, then <c>ReorderFolder</c>. The list
+    /// is re-read whatever happened.
+    /// </summary>
+    private void OnFolderDragCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        string? id = _dragging;
+        _dragging = null;
+
+        if (id is null || Folders.FirstOrDefault(f => f.Id == id) is not { } dropped)
+        {
+            return;
+        }
+
+        int landedAt = args.DropResult == DataPackageOperation.None ? -1 : Folders.IndexOf(dropped);
+
+        try
+        {
+            RepositionDrop<FolderId> drop = landedAt < 0
+                ? new RepositionDrop<FolderId>(true, new RepositionTarget<FolderId>(false, null))
+                : FolderReposition.Drop(_listFolders.Execute(), FolderId.From(id), landedAt);
+
+            if (!drop.Allowed)
+            {
+                Announce("Not moved: pin it to move it among the pinned folders, or unpin it to move it below them", FolderList);
+            }
+            else if (drop.Target.Moves)
+            {
+                CommandResult result = _commands.Dispatch(new ReorderFolder(FolderId.From(id), drop.Target.After));
+
+                if (!result.IsSuccess)
+                {
+                    Refresh();
+                    ShowNotice(Describe(result.Failure!));
+                    return;
+                }
+
+                Announce("Moved", FolderList);
+            }
+
+            _selectedId = id;
+            Refresh();
+            FocusRow(id);
+        }
+        catch (StorageException ex)
+        {
+            Refresh();
+            ShowNotice($"Could not move the folder: {ex.Message}");
         }
     }
 

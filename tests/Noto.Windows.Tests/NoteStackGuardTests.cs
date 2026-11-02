@@ -237,6 +237,44 @@ public sealed class NoteStackGuardTests
         Assert.Contains("FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Bottom).Moves", Body(Main, "OnFolderListContextRequested"), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("NoteList", "OnNoteDragStarting", "OnNoteDragCompleted")]
+    [InlineData("FolderList", "OnFolderDragStarting", "OnFolderDragCompleted")]
+    public void Both_lists_use_their_own_reorder_with_one_completion_handler_and_take_nothing_from_outside(string list, string starting, string completed)
+    {
+        XElement view = Named(MainXaml.Root!, list);
+        Assert.Equal("True", (string?)view.Attribute("CanDragItems"));
+        Assert.Equal("True", (string?)view.Attribute("CanReorderItems"));
+        Assert.Equal("True", (string?)view.Attribute("AllowDrop"));
+        Assert.Equal(starting, (string?)view.Attribute("DragItemsStarting"));
+        Assert.Equal(completed, (string?)view.Attribute("DragItemsCompleted"));
+
+        // In-app reorder only: no handler that reads dropped data, so a file or text from outside Noto is not taken.
+        Assert.Null(view.Attribute("Drop"));
+        Assert.Null(view.Attribute("DragOver"));
+        Assert.DoesNotContain("DataView", Main, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetStorageItemsAsync", Main, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_drop_asks_the_rule_and_the_list_is_rebuilt_from_the_session_or_the_database_whatever_happened()
+    {
+        string notes = Body(Main, "OnNoteDragCompleted");
+        Assert.Contains("_stack.Drop(NoteId.From(id), landedAt)", notes, StringComparison.Ordinal);
+        Assert.Contains("args.DropResult == DataPackageOperation.None ? -1 : Notes.IndexOf(dropped)", notes, StringComparison.Ordinal);
+        Assert.True(notes.IndexOf("_stack.Drop(", StringComparison.Ordinal) < notes.IndexOf("ShowCards(_stack.Notes);", StringComparison.Ordinal));
+        Assert.Contains("StartEditor(id, CaretPlacement.End);", notes, StringComparison.Ordinal);
+        Assert.Contains("FocusNoteRow(id);", notes, StringComparison.Ordinal);
+
+        string folders = Body(Main, "OnFolderDragCompleted");
+        Assert.Contains("FolderReposition.Drop(_listFolders.Execute(), FolderId.From(id), landedAt)", folders, StringComparison.Ordinal);
+        Assert.True(folders.IndexOf("else if (drop.Target.Moves)", StringComparison.Ordinal) < folders.IndexOf("_commands.Dispatch(new ReorderFolder(", StringComparison.Ordinal));
+        Assert.Contains("Refresh();\n            FocusRow(id);", folders.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+
+        // A folder being renamed is not dragged.
+        Assert.Contains("_renamingId is not null", Body(Main, "OnFolderDragStarting"), StringComparison.Ordinal);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static XElement Card() =>
