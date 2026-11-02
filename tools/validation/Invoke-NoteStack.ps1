@@ -40,6 +40,12 @@
     28  pin a folded card: still folded, first; unpin: still folded
     29  far down the scrolled stack, Ctrl+Alt+Left folds the focused card and focus stays on it
     30  the folder menu's Pin and Unpin: the folder goes first with help text "Pinned", focus follows it
+    31  Ctrl+Alt+Shift+Up on a focused card: it moves above the one before, stored, focus stays on it, nothing edits
+    32  Ctrl+Alt+Shift+Down in the editor: moved down one, still editing with its unsaved text, focus in the editor
+    33  the card menu's Move to top and Move to bottom
+    34  the pin boundary: the first unpinned card does not rise above a pinned one; nothing is written
+    35  at an edge, the menu's move is disabled
+    36  Ctrl+Alt+Shift+Down on a folder moves it, focus follows; the folder menu's Move to top; Ctrl+Down still enters
 
   Command announcements are UI Automation notification events, which the managed UI Automation client this harness
   uses cannot subscribe to: NOT RUN here, listened for in the release candidate's Narrator pass.
@@ -132,6 +138,23 @@ function IdOf([string] $Content) { [string](Sql $script:data 'SELECT Id FROM Not
 function Focused-Name { $AE::FocusedElement.Current.Name }
 function Focused-Help { $AE::FocusedElement.Current.HelpText }
 function Card-Help([string] $Name) { $c = Card $Name; if ($c) { $c.Current.HelpText } else { '(no card)' } }
+function Order { @(Sql-Rows 'SELECT Content FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder, Id' @{ '$f' = $FolderId }) }
+function Sql-Rows([string] $Text, [hashtable] $Parameters) {
+    $db = Join-Path $script:data 'noto.db'; Assert-UnderRun $run $db
+    Initialize-NotoSqlite $NotoExe
+    $c = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$db"); $c.Open()
+    try {
+        $cmd = $c.CreateCommand(); $cmd.CommandText = $Text
+        foreach ($k in $Parameters.Keys) { [void]$cmd.Parameters.AddWithValue($k, $Parameters[$k]) }
+        $r = $cmd.ExecuteReader(); $out = [System.Collections.Generic.List[string]]::new()
+        while ($r.Read()) { $out.Add($r.GetString(0)) }
+        $r.Close(); $out
+    }
+    finally { $c.Close(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
+}
+function Above([string] $First, [string] $Second) { $o = Order; $o.IndexOf($First) -ge 0 -and $o.IndexOf($First) + 1 -eq $o.IndexOf($Second) }
+function Menu-Enabled([string] $Name) { (Menu-Item $Name).Current.IsEnabled }
+function Folder-Rows { @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { $_.Current.Name }) }
 function Bring-Forward {
     $null = Set-ForegroundByKeyboard $script:target
     Send-ActivationChord -AllowedForeground $script:target.Hwnd
@@ -254,7 +277,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
-    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
+    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Move to top,Move to bottom,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
 
     # 13 - Settings and back while editing
     Send-ToNoto @() 0x0D
@@ -283,7 +306,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
     Send-ToNoto @(0x11) 0x4E
-    Add-Result $run '16 folder menu (Open, Rename, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,New folder,Pin' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
+    Add-Result $run '16 folder menu (Open, Rename, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,New folder,Pin,Move to top,Move to bottom' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
 
     # 17 - named actions
     Enter-Folder
@@ -405,6 +428,63 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $firstAfter = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name
     Add-Result $run '30 folder Pin: first, help text Pinned, focus follows; Unpin returns it' ($firstFolder -eq 'Elsewhere' -and $pinnedHelp -match 'Pinned' -and $pinnedFocus -eq 'Elsewhere' -and $firstAfter -eq 'Stack' -and (Focused-Name) -eq 'Elsewhere') "first=$firstFolder help=$pinnedHelp focus=$pinnedFocus after=$firstAfter now=$(Focused)"
     Enter-Folder
+
+    # 31 - Ctrl+Alt+Shift+Up on a focused card
+    $wasAbove = Above 'Filler 8' 'Filler 9'
+    (Card 'Filler 9').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x26
+    Add-Result $run '31 Ctrl+Alt+Shift+Up moves the card above the one before; focus stays; nothing edits' ($wasAbove -and (Above 'Filler 9' 'Filler 8') -and (Focused-Name) -eq 'Filler 9' -and (Editors).Count -eq 0) "before=$wasAbove now=$(Above 'Filler 9' 'Filler 8') focus=$(Focused) editors=$((Editors).Count)"
+
+    # 32 - Ctrl+Alt+Shift+Down in the editor keeps editing and the unsaved text
+    $id10 = IdOf 'Filler 10'
+    Edit-Card 'Filler 10'
+    Set-EditorText 'Filler 10 unsaved while moving'
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x28
+    Add-Result $run '32 Ctrl+Alt+Shift+Down in the editor: moved down, still editing, unsaved text kept, focus in it' ((Above 'Filler 11' 'Filler 10') -and (Editors).Count -eq 1 -and (Editor-Value) -eq 'Filler 10 unsaved while moving' -and (Stored $id10) -eq 'Filler 10' -and (Focused) -match 'id=NoteEditor') "moved=$(Above 'Filler 11' 'Filler 10') value=$(Editor-Value) db=$(Stored $id10) focus=$(Focused)"
+    Send-ToNoto @() 0x1B
+
+    # 33 - Move to top and Move to bottom from the card menu
+    (Card 'Filler 12').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Move to top'
+    $top = (Order)[0]; $focusTop = Focused-Name
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Move to bottom'
+    $bottom = (Order)[-1]
+    Add-Result $run '33 Move to top, then Move to bottom, from the card menu; focus follows' ($top -eq 'Filler 12' -and $focusTop -eq 'Filler 12' -and $bottom -eq 'Filler 12' -and (Focused-Name) -eq 'Filler 12') "top=$top bottom=$bottom focus=$(Focused)"
+
+    # 34 - the pin boundary
+    $firstName = (Cards)[0].Current.Name
+    (Card $firstName).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Pin'
+    $nextName = (Cards)[1].Current.Name
+    (Card $nextName).SetFocus(); Start-Sleep -Milliseconds 300
+    $before = (Order) -join '|'
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x26
+    Add-Result $run '34 the first unpinned card does not rise above a pinned one; nothing is written' (((Order) -join '|') -eq $before -and (Focused-Name) -eq $nextName) "pinned=$firstName unpinned=$nextName unchanged=$(((Order) -join '|') -eq $before) focus=$(Focused)"
+    (Card $firstName).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Unpin'
+
+    # 35 - at an edge the menu's move is disabled
+    (Cards)[0].SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    $topEnabled = Menu-Enabled 'Move to top'; $bottomEnabled = Menu-Enabled 'Move to bottom'
+    Send-ToNoto @() 0x1B
+    Add-Result $run '35 on the first card, Move to top is disabled and Move to bottom is not' (-not $topEnabled -and $bottomEnabled) "top=$topEnabled bottom=$bottomEnabled"
+
+    # 36 - folders: Ctrl+Alt+Shift+Down, the menu's Move to top, and Ctrl+Down still enters
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $start = (Folder-Rows) -join ','
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x28
+    $afterKey = (Folder-Rows) -join ','; $keyFocus = Focused-Name
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Move to top'
+    $afterMenu = (Folder-Rows) -join ','
+    Send-ToNoto @(0x11) 0x28
+    $entered = Visible-Id 'BackButton'
+    Add-Result $run '36 a folder moves by key and by menu, focus follows; Ctrl+Down still enters' ($start -eq 'Stack,Elsewhere' -and $afterKey -eq 'Elsewhere,Stack' -and $keyFocus -eq 'Stack' -and $afterMenu -eq 'Stack,Elsewhere' -and $entered) "start=$start key=$afterKey focus=$keyFocus menu=$afterMenu entered=$entered"
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

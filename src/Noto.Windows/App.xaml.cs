@@ -541,7 +541,13 @@ public partial class App : Application
                 static (command, _) => new FolderPinChanged(command.FolderId, true))
             .Register<UnpinFolder, CommandResult, FolderPinChanged>(
                 new UnpinFolderHandler(folders, clock).Handle,
-                static (command, _) => new FolderPinChanged(command.FolderId, false));
+                static (command, _) => new FolderPinChanged(command.FolderId, false))
+            .Register<ReorderNote, CommandResult, NoteReordered>(
+                new ReorderNoteHandler(notes, clock).Handle,
+                static (command, _) => new NoteReordered(command.NoteId))
+            .Register<ReorderFolder, CommandResult, FolderReordered>(
+                new ReorderFolderHandler(folders, clock).Handle,
+                static (command, _) => new FolderReordered(command.FolderId));
         var events = new EventHub(failure => log.EventSubscriberFailed(failure));
 
         // Recent folders (B11) are a move's after-effect, not part of it: recorded once the move has committed, so a

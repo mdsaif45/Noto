@@ -205,6 +205,38 @@ public sealed class NoteStackGuardTests
         Assert.Contains("AutomationProperties.SetHelpText(container, card.HelpText);", Body(Main, "FoldCard"), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Reorder_keys_come_first_on_both_lists_so_no_other_chord_takes_them()
+    {
+        // G17, G18: Ctrl+Alt+Shift+Up/Down. On the stack, ahead of fold and Enter here, and of the editor's own
+        // Ctrl+Alt+Up/Down (it tunnels through this handler first). On the folder list, ahead of Ctrl+Down (enter).
+        string notes = Body(Main, "OnNoteListPreviewKeyDown");
+        string chord = "if (e.Key is VirtualKey.Up or VirtualKey.Down && IsControlDown() && IsAltDown() && IsShiftDown())";
+        Assert.StartsWith("{", notes, StringComparison.Ordinal);
+        Assert.True(notes.IndexOf(chord, StringComparison.Ordinal) is > 0 and var first && first < notes.IndexOf("VirtualKey.Left or VirtualKey.Right", StringComparison.Ordinal));
+        Assert.Contains("ReorderCard(current, e.Key == VirtualKey.Up ? RepositionDirection.Up : RepositionDirection.Down);", notes, StringComparison.Ordinal);
+
+        string folders = Body(Main, "OnFolderListPreviewKeyDown");
+        Assert.True(folders.IndexOf(chord, StringComparison.Ordinal) is > 0 and var reorder && reorder < folders.IndexOf("EnterSelectedFolder()", StringComparison.Ordinal));
+        Assert.Contains("MoveFolder(folder.Id, e.Key == VirtualKey.Up ? RepositionDirection.Up : RepositionDirection.Down);", folders, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Reordering_asks_the_rule_and_dispatches_only_a_real_move()
+    {
+        string card = Body(Main, "ReorderCard");
+        Assert.Contains("!_stack.CanReorder(NoteId.From(id), direction)", card, StringComparison.Ordinal);
+        Assert.Contains("_stack.Reorder(NoteId.From(id), direction)", card, StringComparison.Ordinal);
+
+        string folder = Body(Main, "MoveFolder");
+        Assert.Contains("FolderReposition.For(_listFolders.Execute(), FolderId.From(id), direction)", folder, StringComparison.Ordinal);
+        Assert.True(folder.IndexOf("if (!target.Moves)", StringComparison.Ordinal) < folder.IndexOf("_commands.Dispatch(new ReorderFolder(FolderId.From(id), target.After))", StringComparison.Ordinal));
+
+        // Menus: top and bottom, each disabled when the rule says it would not move.
+        Assert.Contains("_stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Top)", Body(Main, "OnNoteListContextRequested"), StringComparison.Ordinal);
+        Assert.Contains("FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Bottom).Moves", Body(Main, "OnFolderListContextRequested"), StringComparison.Ordinal);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static XElement Card() =>

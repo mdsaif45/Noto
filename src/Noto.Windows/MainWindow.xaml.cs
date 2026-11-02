@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml.Input;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.Core.Ordering;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
 using Noto.Platform.Windows;
@@ -840,6 +841,20 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void OnNoteListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Ctrl+Alt+Shift+Up/Down move the current card within its pin group (G17, G18). First, so that neither
+        // Ctrl+Alt+Up/Down (edit the previous or next card, in the editor) nor the list's arrows take the chord.
+        if (e.Key is VirtualKey.Up or VirtualKey.Down && IsControlDown() && IsAltDown() && IsShiftDown())
+        {
+            e.Handled = true;
+
+            if (CurrentCard() is { } current)
+            {
+                ReorderCard(current, e.Key == VirtualKey.Up ? RepositionDirection.Up : RepositionDirection.Down);
+            }
+
+            return;
+        }
+
         // Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds (G19, G20); with Shift, every card (G21, G22). Here, on the way
         // down, so a card and its editor behave the same and the TextBox never takes the arrows.
         if (e.Key is VirtualKey.Left or VirtualKey.Right && IsControlDown() && IsAltDown())
@@ -1576,6 +1591,8 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(card.IsFolded
             ? MenuItem("Unfold", "Ctrl+Alt+Right", () => FoldCard(card.Id, folded: false))
             : MenuItem("Fold", "Ctrl+Alt+Left", () => FoldCard(card.Id, folded: true)));
+        menu.Items.Add(MenuItem("Move to top", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Top), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Top)));
+        menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Bottom), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Bottom)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 
@@ -1726,6 +1743,9 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(folder.IsPinned
             ? MenuItem("Unpin", string.Empty, () => PinFolder(folder.Id, pinned: false))
             : MenuItem("Pin", string.Empty, () => PinFolder(folder.Id, pinned: true)));
+        IReadOnlyList<Folder> folders = Execute(_listFolders.Execute);
+        menu.Items.Add(MenuItem("Move to top", string.Empty, () => MoveFolder(folder.Id, RepositionDirection.Top), FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Top).Moves));
+        menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => MoveFolder(folder.Id, RepositionDirection.Bottom), FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Bottom).Moves));
         ShowMenu(menu, container, args);
     }
 
@@ -1779,8 +1799,8 @@ public sealed partial class MainWindow : Window
     /// Announces a command's result to assistive technology (ADR-016 §8) without putting text on screen: a
     /// notification from the stack, read once.
     /// </summary>
-    private void Announce(string message) =>
-        FrameworkElementAutomationPeer.FromElement(NoteList)?.RaiseNotificationEvent(
+    private void Announce(string message, UIElement? source = null) =>
+        FrameworkElementAutomationPeer.FromElement(source ?? NoteList)?.RaiseNotificationEvent(
             AutomationNotificationKind.ActionCompleted,
             AutomationNotificationProcessing.ImportantMostRecent,
             message,
@@ -1918,6 +1938,105 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Moves a card up, down, to the top or bottom of its pin group (B8, B9). At that edge already, nothing is written.
+    /// The card keeps focus at its new place; the card being edited keeps editing, with its caret.
+    /// </summary>
+    private void ReorderCard(string id, RepositionDirection direction)
+    {
+        if (_noteState != NoteState.Loaded || !_stack.CanReorder(NoteId.From(id), direction))
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = _stack.Reorder(NoteId.From(id), direction);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            _selectedNoteId = id;
+            ShowCards(_stack.Notes);
+            ApplyNoteState();
+            Announce(Moved(direction));
+
+            if (_stack.Editing?.Value == id)
+            {
+                StartEditor(id, CaretPlacement.End);
+            }
+            else
+            {
+                FocusNoteRow(id);
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not move the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>Moves a folder up, down, to the top or bottom of its pin group (C9): re-read, focus follows it.</summary>
+    private void MoveFolder(string id, RepositionDirection direction)
+    {
+        if (_state != PaneState.Loaded)
+        {
+            return;
+        }
+
+        try
+        {
+            RepositionTarget<FolderId> target = FolderReposition.For(_listFolders.Execute(), FolderId.From(id), direction);
+
+            if (!target.Moves)
+            {
+                return;
+            }
+
+            CommandResult result = _commands.Dispatch(new ReorderFolder(FolderId.From(id), target.After));
+
+            if (!result.IsSuccess)
+            {
+                Refresh();
+                ShowNotice(Describe(result.Failure!));
+                return;
+            }
+
+            _selectedId = id;
+            Refresh();
+            FocusRow(id);
+            Announce(Moved(direction), FolderList);
+        }
+        catch (StorageException ex)
+        {
+            ShowNotice($"Could not move the folder: {ex.Message}");
+        }
+    }
+
+    private static string Moved(RepositionDirection direction) => direction switch
+    {
+        RepositionDirection.Up => "Moved up",
+        RepositionDirection.Down => "Moved down",
+        RepositionDirection.Top => "Moved to top",
+        _ => "Moved to bottom",
+    };
+
+    /// <summary>A read for a menu: on a storage failure the menu still opens, its moves disabled.</summary>
+    private static IReadOnlyList<Folder> Execute(Func<IReadOnlyList<Folder>> read)
+    {
+        try
+        {
+            return read();
+        }
+        catch (StorageException)
+        {
+            return [];
+        }
+    }
+
     /// <summary>Pins or unpins a folder (C8): the list is re-read (O2) and focus follows the folder.</summary>
     private void PinFolder(string id, bool pinned)
     {
@@ -2005,6 +2124,19 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void OnFolderListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Ctrl+Alt+Shift+Up/Down move the focused folder within its pin group (C9). Ahead of Ctrl+Down, which enters.
+        if (e.Key is VirtualKey.Up or VirtualKey.Down && IsControlDown() && IsAltDown() && IsShiftDown())
+        {
+            e.Handled = true;
+
+            if ((FolderList.SelectedItem as FolderListItem ?? (FocusManager.GetFocusedElement(Content.XamlRoot) as ListViewItem)?.Content as FolderListItem) is { } folder)
+            {
+                MoveFolder(folder.Id, e.Key == VirtualKey.Up ? RepositionDirection.Up : RepositionDirection.Down);
+            }
+
+            return;
+        }
+
         if (e.Key != VirtualKey.Down)
         {
             return;
