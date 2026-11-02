@@ -101,9 +101,15 @@ public sealed class NoteStackGuardTests
         Assert.Contains(@"MenuItem(""Move to the Recycle Bin"", ""Ctrl+Alt+Backspace"",", menu, StringComparison.Ordinal);
         Assert.Equal("OnNoteListContextRequested", (string?)Named(MainXaml.Root!, "NoteList").Attribute("ContextRequested"));
 
+        // A keyboard request (Shift+F10, the Menu key) comes from the row's container, whose item is its Content: both
+        // menus find their row that way first, or no menu opens from the keyboard (measured on the runtime case).
+        Assert.Contains("ItemOf<NoteCard>(args.OriginalSource) is not { } card", menu, StringComparison.Ordinal);
+        Assert.Contains("source is ListViewItem { Content: T item } ? item : (source as FrameworkElement)?.DataContext as T;", Main, StringComparison.Ordinal);
+
         // The folder list's menu, likewise.
         string folders = Body(Main, "OnFolderListContextRequested");
         Assert.Contains(@"MenuItem(""Open"", ""Ctrl+Down"", EnterSelectedFolder)", folders, StringComparison.Ordinal);
+        Assert.Contains("ItemOf<FolderListItem>(args.OriginalSource) is not { } folder", folders, StringComparison.Ordinal);
         Assert.Contains(@"MenuItem(""Rename"", ""F2"", BeginRename)", folders, StringComparison.Ordinal);
         Assert.Contains(@"MenuItem(""New folder"", ""Ctrl+N"", FocusInput)", folders, StringComparison.Ordinal);
         Assert.Equal("OnFolderListContextRequested", (string?)Named(MainXaml.Root!, "FolderList").Attribute("ContextRequested"));
