@@ -105,8 +105,15 @@ public static class Reposition
         double anchor = sortOrder(target);
         string anchorId = id(target).ToString() ?? string.Empty;
 
+        // O2's total order: SortOrder, then id. Compared exactly, as the engine and SQLite compare it: a tolerance here
+        // would disagree with the order on screen.
         T? predecessor = displayed
-            .Where(x => sortOrder(x) < anchor || (sortOrder(x) == anchor && string.CompareOrdinal(id(x).ToString(), anchorId) < 0))
+            .Where(x => sortOrder(x).CompareTo(anchor) switch
+            {
+                < 0 => true,
+                0 => string.CompareOrdinal(id(x).ToString(), anchorId) < 0,
+                _ => false,
+            })
             .OrderBy(sortOrder)
             .ThenBy(x => id(x).ToString(), StringComparer.Ordinal)
             .LastOrDefault();
