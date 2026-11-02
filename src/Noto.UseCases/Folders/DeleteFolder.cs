@@ -11,6 +11,9 @@ namespace Noto.UseCases.Folders;
 /// </summary>
 public sealed record DeleteFolder(FolderId FolderId) : ICommand<CommandResult>;
 
+/// <summary>A folder and its active notes went to the recycle bin: published after the write commits (ADR-010).</summary>
+public sealed record FolderDeleted(FolderId FolderId) : IEvent;
+
 /// <summary>
 /// Handles <see cref="DeleteFolder"/> — Cases A and B.
 /// </summary>
