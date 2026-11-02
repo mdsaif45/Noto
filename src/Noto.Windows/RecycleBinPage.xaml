@@ -1,0 +1,98 @@
+<UserControl
+    x:Class="Noto.RecycleBinPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Noto"
+    AutomationProperties.AutomationId="RecycleBinRoot"
+    AutomationProperties.Name="Recycle Bin">
+
+    <!--
+        The Recycle Bin (Phase B5; deletion-semantics.md §13): a third surface, opened from the folder list's Recycle
+        Bin button, built when opened and released when left, as Settings is. It lists what is in the bin and offers
+        the engine's own restore, permanent delete and empty; what cannot be undone asks first, Cancel being the
+        default. Every visual value is a token.
+    -->
+    <Grid Background="{ThemeResource SurfaceSidebarBrush}"
+          Padding="{StaticResource PanePadding}"
+          RowSpacing="{StaticResource SpaceS}">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="{StaticResource SpaceXS}">
+            <Button
+                x:Name="BinBackButton"
+                Style="{StaticResource HeaderButtonStyle}"
+                Click="OnBackClick"
+                ToolTipService.ToolTip="Back to folders"
+                AutomationProperties.Name="Back to folders">
+                <FontIcon Glyph="&#xE72B;" FontSize="{StaticResource IconSize}" />
+            </Button>
+            <TextBlock
+                Text="Recycle Bin"
+                VerticalAlignment="Center"
+                FontSize="{StaticResource FontSizeHeading}"
+                AutomationProperties.HeadingLevel="Level1" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Spacing="{StaticResource SpaceXS}">
+            <TextBlock
+                x:Name="BinGuidanceText"
+                Style="{StaticResource FolderPaneGuidanceStyle}"
+                Visibility="Collapsed" />
+            <!-- No static name: the message is the name, announced as it appears. -->
+            <TextBlock
+                x:Name="BinNoticeText"
+                Style="{StaticResource FolderPaneNoticeStyle}"
+                Visibility="Collapsed"
+                AutomationProperties.LiveSetting="Assertive" />
+        </StackPanel>
+
+        <ListView
+            x:Name="RecycleBinList"
+            Grid.Row="2"
+            ItemsSource="{x:Bind Entries}"
+            ItemContainerStyle="{StaticResource NoteRowStyle}"
+            SelectionMode="Single"
+            SelectionChanged="OnSelectionChanged"
+            PreviewKeyDown="OnListPreviewKeyDown"
+            ContextRequested="OnListContextRequested"
+            AutomationProperties.Name="Recycle Bin items">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:RecycleBinItem">
+                    <StackPanel>
+                        <TextBlock Text="{x:Bind DisplayTitle}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{x:Bind Detail}" FontSize="{StaticResource FontSizeCaption}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="{StaticResource SpaceXS}">
+            <Button
+                x:Name="BinRestoreButton"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                Content="Restore"
+                Click="OnRestoreClick"
+                AutomationProperties.Name="Restore" />
+            <Button
+                x:Name="BinPurgeButton"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                Content="Delete permanently"
+                Click="OnPurgeClick"
+                AutomationProperties.Name="Delete permanently" />
+            <Button
+                x:Name="EmptyBinButton"
+                Style="{StaticResource FolderPaneButtonStyle}"
+                Content="Empty"
+                Click="OnEmptyClick"
+                ToolTipService.ToolTip="Empty the Recycle Bin"
+                AutomationProperties.Name="Empty the Recycle Bin" />
+        </StackPanel>
+    </Grid>
+
+</UserControl>

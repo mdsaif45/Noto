@@ -150,7 +150,9 @@ public sealed class MotionGuardTests
         [
             ("EnterSelectedFolder", "NoteRoot", true),
             ("OpenSettings", "page", true),
+            ("OpenRecycleBin", "page", true),
             ("LeaveFolder", "PaneRoot", false),
+            ("CloseRecycleBin", "PaneRoot", false),
             ("CloseSettings", "back", false),
         ];
 
