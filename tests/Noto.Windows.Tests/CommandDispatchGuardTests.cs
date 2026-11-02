@@ -72,6 +72,21 @@ public sealed class CommandDispatchGuardTests
         Assert.Contains("events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, listFolders.Execute()));", App, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("PinNote", "CommandResult", "NotePinChanged", "PinNoteHandler(notes, clock)", "new NotePinChanged(command.NoteId, true)")]
+    [InlineData("UnpinNote", "CommandResult", "NotePinChanged", "UnpinNoteHandler(notes, clock)", "new NotePinChanged(command.NoteId, false)")]
+    [InlineData("FoldNote", "CommandResult", "NoteFoldChanged", "FoldNoteHandler(notes, clock)", "new NoteFoldChanged(command.NoteId, true)")]
+    [InlineData("UnfoldNote", "CommandResult", "NoteFoldChanged", "UnfoldNoteHandler(notes, clock)", "new NoteFoldChanged(command.NoteId, false)")]
+    [InlineData("FoldNotesInFolder", "CommandResult<int>", "NotesFoldedInFolder", "FoldNotesInFolderHandler(notes, clock)", "new NotesFoldedInFolder(command.FolderId, command.Folded, result.Value)")]
+    [InlineData("PinFolder", "CommandResult", "FolderPinChanged", "PinFolderHandler(folders, clock)", "new FolderPinChanged(command.FolderId, true)")]
+    [InlineData("UnpinFolder", "CommandResult", "FolderPinChanged", "UnpinFolderHandler(folders, clock)", "new FolderPinChanged(command.FolderId, false)")]
+    public void Each_pin_and_fold_command_is_registered_with_its_event_and_the_state_it_set(string command, string result, string @event, string handler, string describe)
+    {
+        string registration = Regex.Escape($".Register<{command}, {result}, {@event}>(") + @"\s*" + Regex.Escape($"new {handler}.Handle,") + @"\s*static \((command|_), (result|_)\) => " + Regex.Escape(describe) + @"\)";
+
+        Assert.Matches(registration, App);
+    }
+
     [Fact]
     public void A_subscribers_failure_is_written_to_the_application_log()
     {

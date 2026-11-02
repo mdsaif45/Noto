@@ -25,6 +25,7 @@ public sealed class NoteCard : INotifyPropertyChanged
 
     private string _content = string.Empty;
     private bool _isEditing;
+    private bool _isFolded;
 
     /// <summary>Required by the XAML type activator (see <see cref="FolderListItem"/>).</summary>
     public NoteCard()
@@ -37,7 +38,7 @@ public sealed class NoteCard : INotifyPropertyChanged
 
         Id = note.Id.Value;
         IsPinned = note.IsPinned;
-        IsFolded = note.IsFolded;
+        _isFolded = note.IsFolded;
         _content = note.Content;
         _isEditing = isEditing;
     }
@@ -49,7 +50,22 @@ public sealed class NoteCard : INotifyPropertyChanged
 
     public bool IsPinned { get; set; }
 
-    public bool IsFolded { get; set; }
+    /// <summary>Whether the card shows its title only (B12). Changed in place, so the card keeps its container and focus.</summary>
+    public bool IsFolded
+    {
+        get => _isFolded;
+        set
+        {
+            _isFolded = value;
+            Changed(nameof(IsFolded));
+            Changed(nameof(ReadText));
+            Changed(nameof(HelpText));
+            Changed(nameof(FoldedMarkerVisibility));
+        }
+    }
+
+    /// <summary>A folded card's chevron: folded is visible at a glance, not only in its help text.</summary>
+    public Visibility FoldedMarkerVisibility => IsFolded ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Pinned cards sort first (O2); the marker makes that grouping visible.</summary>
     public Visibility PinnedMarkerVisibility => IsPinned ? Visibility.Visible : Visibility.Collapsed;

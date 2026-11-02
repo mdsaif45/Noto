@@ -50,7 +50,7 @@ public sealed class NoteStackGuardTests
         XElement root = Card().Elements().Single();
 
         Assert.Equal("{x:Bind DisplayTitle, Mode=OneWay}", (string?)root.Attribute("AutomationProperties.Name"));
-        Assert.Equal("{x:Bind HelpText}", (string?)root.Attribute("AutomationProperties.HelpText"));
+        Assert.Equal("{x:Bind HelpText, Mode=OneWay}", (string?)root.Attribute("AutomationProperties.HelpText"));
     }
 
     [Fact]
@@ -139,6 +139,70 @@ public sealed class NoteStackGuardTests
         Assert.Contains("(_stack.Editing?.Value == id && !TryEndEdit())", moveCard, StringComparison.Ordinal);
         Assert.Contains("_stack.Move(note, target.Id)", moveCard, StringComparison.Ordinal);
         Assert.True(moveCard.IndexOf("_stack.AfterRemoval(note)", StringComparison.Ordinal) < moveCard.IndexOf("_stack.Move(", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Fold_keys_are_left_to_fold_right_to_unfold_and_shift_for_every_card_from_a_card_or_its_editor()
+    {
+        // G19-G22, once, on the list's PreviewKeyDown, ahead of the Enter/F2 handling and of the TextBox.
+        string keys = Body(Main, "OnNoteListPreviewKeyDown");
+        Assert.Matches(
+            @"if \(e\.Key is VirtualKey\.Left or VirtualKey\.Right && IsControlDown\(\) && IsAltDown\(\)\)\s*\{\s*e\.Handled = true;\s*bool fold = e\.Key == VirtualKey\.Left;\s*if \(IsShiftDown\(\)\)\s*\{\s*FoldAll\(fold\);\s*\}\s*else if \(CurrentCard\(\) is \{ \} id\)\s*\{\s*FoldCard\(id, fold\);",
+            keys);
+        Assert.True(keys.IndexOf("VirtualKey.Left or VirtualKey.Right", StringComparison.Ordinal) < keys.IndexOf("VirtualKey.Enter", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Folding_the_card_being_edited_or_folding_all_saves_first_and_a_failed_save_folds_nothing()
+    {
+        Assert.Contains("(folded && _stack.Editing?.Value == id && !TryEndEdit())", Body(Main, "FoldCard"), StringComparison.Ordinal);
+        Assert.Contains("(folded && !TryEndEdit())", Body(Main, "FoldAll"), StringComparison.Ordinal);
+
+        // One card is updated in place, keeping its container and focus; fold all re-reads and refocuses.
+        Assert.Contains("card.IsFolded = folded;", Body(Main, "FoldCard"), StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowCards(", Body(Main, "FoldCard"), StringComparison.Ordinal);
+        Assert.Contains("ShowCards(_stack.Notes);", Body(Main, "FoldAll"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Menus_name_the_pin_and_fold_action_that_applies_and_pin_has_no_key()
+    {
+        string card = Body(Main, "OnNoteListContextRequested");
+        Assert.Contains(@"card.IsPinned
+            ? MenuItem(""Unpin"", string.Empty, () => PinCard(card.Id, pinned: false))
+            : MenuItem(""Pin"", string.Empty, () => PinCard(card.Id, pinned: true))", card, StringComparison.Ordinal);
+        Assert.Contains(@"card.IsFolded
+            ? MenuItem(""Unfold"", ""Ctrl+Alt+Right"", () => FoldCard(card.Id, folded: false))
+            : MenuItem(""Fold"", ""Ctrl+Alt+Left"", () => FoldCard(card.Id, folded: true))", card, StringComparison.Ordinal);
+
+        string folder = Body(Main, "OnFolderListContextRequested");
+        Assert.Contains(@"folder.IsPinned
+            ? MenuItem(""Unpin"", string.Empty, () => PinFolder(folder.Id, pinned: false))
+            : MenuItem(""Pin"", string.Empty, () => PinFolder(folder.Id, pinned: true))", folder, StringComparison.Ordinal);
+
+        // Decision 3: no pin chord anywhere.
+        Assert.DoesNotContain(MainXaml.Root!.Descendants(), e => e.Name.LocalName == "KeyboardAccelerator" && ((string?)e.Attribute("Invoked"))?.Contains("Pin", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public void Folded_and_pinned_states_are_visible_and_announced_not_only_drawn()
+    {
+        XElement template = Card();
+        Assert.Single(template.Descendants(), e => e.Name.LocalName == "FontIcon" && (string?)e.Attribute("Visibility") == "{x:Bind FoldedMarkerVisibility, Mode=OneWay}");
+
+        XElement folderRow = Named(MainXaml.Root!, "FolderList").Descendants().Single(e => e.Name.LocalName == "DataTemplate").Elements().Single();
+        Assert.Equal("{x:Bind HelpText}", (string?)folderRow.Attribute("AutomationProperties.HelpText"));
+
+        // UI Automation reports the row's container, not its template (measured by Invoke-NoteStack.ps1 cases 22-30):
+        // every realised or recycled row of both lists gets its help text on the container, and a fold changed in
+        // place updates it.
+        Assert.Contains("FolderList.ContainerContentChanging += OnRowContainerContentChanging;", Main, StringComparison.Ordinal);
+        Assert.Contains("NoteList.ContainerContentChanging += OnRowContainerContentChanging;", Main, StringComparison.Ordinal);
+        string rows = Body(Main, "OnRowContainerContentChanging");
+        Assert.Contains("NoteCard card => card.HelpText,", rows, StringComparison.Ordinal);
+        Assert.Contains("FolderListItem folder => folder.HelpText,", rows, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetHelpText(args.ItemContainer, help);", rows, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetHelpText(container, card.HelpText);", Body(Main, "FoldCard"), StringComparison.Ordinal);
     }
 
     // ---------------------------------------------------------------- helpers
