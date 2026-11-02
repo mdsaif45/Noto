@@ -180,6 +180,70 @@ Drag and drop is **another way to ask for B3's reorder**, nothing more: the same
 
 **No new subsystem:** the `ListView`'s own reorder (`CanDragItems`, `CanReorderItems`, `AllowDrop`) supplies the drag visuals, the insertion point and Escape to cancel. Noto adds one completion handler per list.
 
+### B5 precisely: deleting folders and the Recycle Bin (2026-11-02)
+
+**One deletion model**, the engine's (deletion-semantics.md §13, P1.1). The UI only names actions and asks first where the action cannot be undone.
+
+**Deleting a folder** (C11):
+- **Where:** from the folder list only. On a folder row, its menu's *Delete*, or the Delete key.
+- **Confirmation:** a flyout at the row, "Delete *X* and its *n* notes? They go to the Recycle Bin." *Delete* or *Cancel*. Cancel is the default, and Escape cancels.
+- **The write:** `DeleteFolder`, a soft delete. The folder and its active notes go to the bin together under one timestamp (Cases A and B). Nothing is ever destroyed.
+- **Cancel writes nothing.**
+- **No unsaved text, by construction.** The folder list is reached only by leaving the stack, and leaving saves first; a failed save never reaches the folder list (Phase A). So a delete cannot discard what was typed, and the delete needs no save of its own.
+- **"The active folder"** is the selected row. After the delete, focus goes to the next folder, else the previous, else the new-folder box. The deletion is announced.
+
+**The Recycle Bin** (B7, B23, G15):
+- **Opening it:** a third surface, opened from the folder list by its *Recycle Bin* button, as Settings is opened. Built when opened and released when left. No card is ever being edited there, because it is reached from the folder list.
+- **Leaving it:** Back, or Escape under the Escape setting: leave in the two "leave" modes, hide in Hide, nothing in None. Focus returns to where it was in the folder list.
+- **Its entries:** every folder and note in the bin, most recently deleted first; at equal times folders come before notes.
+  - A folder shows how many of its notes are in the bin with it.
+  - A note shows its folder, and whether that folder is itself in the bin.
+- **Actions, per entry:**
+
+  | Entry | Restore | Restore to... | Delete permanently |
+  |---|---|---|---|
+  | folder | `RestoreFolder`: the folder and every note in the bin that points at it (Case D) | - | `PurgeFolder`: refused while an active note lives in it (I7) |
+  | note, folder live | `RestoreNote`: back to its folder | `RestoreNoteToFolder` | `PurgeNote` |
+  | note, folder in the bin | not offered (I7: no active note in a binned folder) | `RestoreNoteToFolder` | `PurgeNote` |
+
+- **Emptying the bin:** `EmptyRecycleBin`. Every note goes, then every folder that no active note lives in; a folder kept is reported.
+- **Confirmation:** *Delete permanently* and *Empty Recycle Bin* cannot be undone. Each asks in a dialog that says so, with Cancel as the default button. Restore never asks.
+- **After an action:** the bin is re-read. Focus goes to the next entry, else the previous, else the bin's empty state, and the result is announced.
+- **Empty state:** "The Recycle Bin is empty. Deleted notes and folders are kept here until you delete them permanently."
+- **Keys:** Tab reaches every control, the arrows move between entries, Shift+F10 or the Menu key opens an entry's menu. Enter restores where restore is offered; Delete deletes permanently, after the dialog.
+- **Assistive technology:** each entry's name is its title. Its help text is the kind and state: "Folder, 3 notes", "Note in Work", or "Note in Work, which is in the Recycle Bin". Results are announced.
+- **High Contrast:** controls and the design system's own templates only, with no new colours.
+- **Reduced motion:** the surface enters through the existing `ContentMotion`, which reads Windows' animation setting per transition.
+
+**Where the code goes:**
+- `RecycleBin` (UseCases/Workspace, framework-free, tested against SQLite) lists the entries and dispatches the existing commands.
+- The window shows the entries and asks for confirmation.
+- `Removal` (Core/Ordering, pure) picks the next item after one leaves a list, for the folder list and the bin alike.
+- `FolderDeleted` and `FolderRestored` are published after commit, joining P1.1's purge, restore and empty events.
+
+**Verified (B5):**
+- **Real SQLite** (`RecycleBinSurfaceTests`, 13):
+  - a folder delete is soft, takes its notes under one timestamp and destroys nothing;
+  - a second delete is refused with nothing written;
+  - entries keep their order, counts and folder state;
+  - Case D restore; restore refused into a binned folder; Restore to;
+  - a folder is never restored into another folder;
+  - purge of a note, and of a folder with its notes;
+  - purging something already restored is refused;
+  - empty;
+  - events after commit;
+  - I7 after every change.
+- **Core:** `Removal` (3).
+- **Guards:**
+  - the bin is built only while open, from the folder list only, and released when left;
+  - Escape follows the setting, and Settings returns to the bin;
+  - a folder is deleted only by the confirmation's Delete;
+  - the dialogs default to Cancel, and purge and empty run only on the primary choice;
+  - restore is offered only where the engine allows it;
+  - the controls are named, with help text on each entry's container.
+- **Mutation:** 14/14 killed.
+- **Runtime:** `Invoke-RecycleBin.ps1` 16/16, `Invoke-NoteStack.ps1` 52/52.
+
 ### Menus and confirmations
 - **Menus:** short, and each item shows its key.
   - Card: Edit, New note, Move to ▸, Pin/Unpin, Fold/Unfold, Move to top, Move to bottom, Move to the Recycle Bin.
