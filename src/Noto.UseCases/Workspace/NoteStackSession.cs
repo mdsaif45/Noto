@@ -199,6 +199,37 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         return result;
     }
 
+    /// <summary>
+    /// Moves <paramref name="note"/> to <paramref name="target"/> (B11), saving it first if it is the card being
+    /// edited; a failed save moves nothing. A move to the open folder is not a move: nothing is written.
+    /// </summary>
+    public CommandResult Move(NoteId note, FolderId target)
+    {
+        if (target == Folder)
+        {
+            return CommandResult.Success();
+        }
+
+        if (Editing == note)
+        {
+            CommandResult left = EndEdit();
+
+            if (!left.IsSuccess)
+            {
+                return left;
+            }
+        }
+
+        CommandResult result = _commands.Dispatch(new MoveNoteToFolder(note, target));
+
+        if (result.IsSuccess)
+        {
+            Read();
+        }
+
+        return result;
+    }
+
     /// <summary>The card <paramref name="step"/> places from <paramref name="note"/>; <see langword="null"/> past either end.</summary>
     public NoteId? Neighbour(NoteId note, int step)
     {

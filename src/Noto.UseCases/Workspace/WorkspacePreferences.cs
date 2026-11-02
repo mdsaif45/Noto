@@ -1,4 +1,5 @@
 using Noto.Core.Activation;
+using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
@@ -158,6 +159,22 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
         bool globalSaved = TryWrite(SettingKeys.WorkspaceWidth, widthDip);
 
         return ownSaved && globalSaved;
+    }
+
+    /// <summary>The folders notes were most recently moved to, most recent first (B11).</summary>
+    public IReadOnlyList<FolderId> RecentMoveFolders => RecentFolders.Parse(_settings.Read(SettingKeys.NotesRecentMoveFolders));
+
+    /// <summary>
+    /// Records a move's destination as the most recent. Folders no longer among <paramref name="active"/> fall out of
+    /// the list here, the next time it is written.
+    /// </summary>
+    /// <returns>Whether it was stored; a storage failure is never a move's failure.</returns>
+    public bool RememberMoveTarget(FolderId folder, IReadOnlyList<Folder> active)
+    {
+        ArgumentNullException.ThrowIfNull(active);
+
+        IReadOnlyList<FolderId> live = [.. RecentMoveFolders.Where(id => active.Any(f => f.Id == id))];
+        return TryWrite(SettingKeys.NotesRecentMoveFolders, RecentFolders.Format(RecentFolders.Push(live, folder)));
     }
 
     private bool TryWrite<T>(SettingKey<T> key, T value)

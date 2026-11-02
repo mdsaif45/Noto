@@ -1,5 +1,6 @@
 using Noto.Core.Activation;
 using Noto.Core.Diagnostics;
+using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
@@ -205,6 +206,16 @@ public static class SettingKeys
         new("notes.new-placement", NewNotePlacement.Bottom, Enum.IsDefined);
 
     /// <summary>
+    /// The folders notes were most recently moved to (B11): the move menu's first choices.
+    /// </summary>
+    /// <remarks>
+    /// Their ids, most recent first, comma-separated, at most <see cref="RecentFolders.Capacity"/>. Written after each
+    /// move, never by a settings UI. A value that is not such a list is refused when written and reads as empty.
+    /// </remarks>
+    public static readonly SettingKey<string> NotesRecentMoveFolders =
+        new("notes.recent-move-folders", string.Empty, RecentFolders.IsValid);
+
+    /// <summary>
     /// How much Noto writes to its log (#7).
     /// </summary>
     /// <remarks>
@@ -236,6 +247,7 @@ public static class SettingKeys
         WorkspaceSingleClickOpen,
         AppearanceTheme,
         NotesNewPlacement,
+        NotesRecentMoveFolders,
         DiagnosticsLogLevel,
     ];
 
