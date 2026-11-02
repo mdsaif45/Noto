@@ -39,7 +39,7 @@ folders  ──enter──▶  note stack (cards, edited in place)
 ```
 
 - The folder surface is unchanged in kind: a list of folders, pinned first, with the Recycle Bin and Settings beside it.
-- The **note stack** replaces both the note list and the editor surface; `EditorRoot` is retired in P1.2.
+- The **note stack** replaces both the note list and the editor surface; `EditorRoot` is retired in P1.3, the card-stack surface (implementation plan §1.0).
 - The domain does not change. A card is a *presentation* of a `Note` (ADR-009): no presentation state is stored on the note except state the domain already owns (`IsFolded`, `IsPinned`, `ColorKey`, `SortOrder`).
 
 ### 2. Card anatomy and states
@@ -71,7 +71,7 @@ list bottom bar:  "12 notes"  ·  +  ·  list menu ▾   (B18, C19)
 | Member | Meaning |
 |---|---|
 | `Load(NoteId, string content)` | show this note's markdown source |
-| `string Content` | the current markdown source (ADR-004: markdown is the truth) |
+| `string Markdown` | the current markdown source (ADR-004: markdown is the truth). Named `Markdown`, not `Content`: the host is a `UserControl`, whose `Content` is its visual child |
 | `event ContentChanged` | the source changed (P2.1 continuous persistence subscribes here) |
 | `event LeaveRequested(EditorLeave)` | the user asked to leave: `Escape`, `Next`, `Previous` |
 | `void PlaceCaret(CaretPlacement)` | `Start`, `End`, or a point (P2: a hit-tested position) |
@@ -91,7 +91,8 @@ The **read view** has the same kind of seam: one method builds a card's body fro
   - reorder (P1.9);
   - UI Automation list semantics (position in set, selection);
   - theme transitions.
-- Only realised cards exist. Only the Editing card holds an editor.
+- Only realised cards exist. Only the Editing card holds an editor and its bar: both are `x:Load`ed from the card's `IsEditing`, and its read view from `IsReading`. Inside a `DataTemplate` the bound `x:Load` calls `FindName` on the template's own root (checked in the generated code), unlike a `Window`, which has none.
+- The unsaved text is the session's, not the editor's: every change is copied to it, and a realised editor loads it. A recycled container therefore loses nothing.
 - Selection = the Focused or Editing card. It is remembered per folder for the session, and across restarts from P1.11.
 
 ### 5. Keyboard (complete map: implementation plan §10)
@@ -111,7 +112,7 @@ The **read view** has the same kind of seam: one method builds a card's body fro
 
 ### 6. Pointer
 
-- Clicking a card edits it. Single-click versus double-click (J7) applies to **folders** only: a note does not "open", it is edited in place. The Settings description changes from "Folders and notes" to "Folders" in P1.2.
+- Clicking a card edits it. Single-click versus double-click (J7) applies to **folders** only: a note does not "open", it is edited in place. The Settings description changes from "Folders and notes" to "Folders" in P1.3.
 - Right-click opens the context menu.
 - Drag reorders (P1.9).
 
@@ -142,7 +143,8 @@ The Recycle Bin is its own surface, opened from the folder surface (P1.3). Its r
 | Concern | Layer |
 |---|---|
 | Ordering, placement, pin, fold, lifecycle rules | Core / UseCases (they exist; P1 adds the missing commands) |
-| Loading a folder's cards, dispatching commands, refreshing on events | `NoteStackPresenter` (Noto.Windows, plain class, no rules) |
+| The open folder's notes, the one editing card, its unsaved text; save before every way out of editing | `NoteStackSession` (UseCases/Workspace): framework-free, so the rules that keep typed text are tested against real SQLite |
+| Cards, focus, notices, menus; dispatching through the session | `MainWindow` (Noto.Windows): binds the session to the `ListView`; no rules |
 | Card visuals, states, bars | Noto.UI styles and templates (tokens only) |
 | `NoteCard`, `NoteEditorHost` | Noto.Windows user controls |
 
@@ -151,8 +153,8 @@ The Recycle Bin is its own surface, opened from the folder surface (P1.3). Its r
 ## Consequences
 
 - P2 changes only the inside of `NoteEditorHost` and the read view.
-- The note list's "open a note" path, `EditorRoot` and their tests are retired in P1.2, which is behaviour-preserving for create, edit, save-on-leave, delete, Escape and the drawer.
-- Variable-height virtualised cards with an inline editor are the riskiest UI mechanics in P1. P1.2 includes a focused runtime check (focus, arrow keys, transitions under Animation effects off), which the roadmap allows.
+- The note list's "open a note" path, `EditorRoot` and their tests are retired in P1.3, which is behaviour-preserving for create, edit, save-on-leave, delete, Escape and the drawer. One deliberate change: Ctrl+N works in the editor too (§5), saving the card first.
+- Variable-height virtualised cards with an inline editor are the riskiest UI mechanics in P1. P1.3 includes a focused runtime check, `tools/validation/Invoke-NoteStack.ps1` (focus, keys, menu, save on every way out), which the roadmap allows.
 
 ## Alternatives considered
 

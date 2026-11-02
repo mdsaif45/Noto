@@ -101,6 +101,7 @@ The P1 work is executed in the owner's priority order (decision of 2026-10-20: d
 |---|---|---|---|---|
 | Create and rename (folders, notes, placement) | P1.4 | P1.2 (`create-and-rename.md`) | branch `p1/2-create-rename-tmp`; its PR will be titled P1.2 | **P1.2** |
 | Recycle bin, purge, restore into a folder | P1.1 (semantics) + P1.3 (UI) | P1.1 (deletion-semantics §13) | P1.1 | **P1.1** (engine); the UI keeps its table row |
+| Card-stack surface: cards edited in place, the editor-host seam, bars, count, card menu | P1.2 | ADR-016 | branch `p1/3-card-stack` (Basic Release Phase A) | **P1.3** |
 
 Every other row keeps this table's identifier until it is started. It is then reconciled here in the same way, with one row and one canonical name, rather than renumbering the table.
 
