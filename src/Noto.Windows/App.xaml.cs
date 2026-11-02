@@ -504,8 +504,8 @@ public partial class App : Application
         _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
 
         // #21: every mutation the window makes is dispatched. The registry names each command, its handler and, for
-        // CreateNote, CreateFolder and RenameFolder (P1.2), its event; nothing is discovered. A subscriber's failure
-        // is logged as types only.
+        // CreateNote, CreateFolder and RenameFolder (P1.2) and MoveNoteToFolder (Phase B), its event; nothing is
+        // discovered. A subscriber's failure is logged as types only.
         var commands = new CommandRegistry()
             .Register<CreateFolder, CommandResult<FolderId>, FolderCreated>(
                 new CreateFolderHandler(folders, clock).Handle,
@@ -517,18 +517,27 @@ public partial class App : Application
             .Register<CreateNote, CommandResult<NoteId>, NoteCreated>(
                 new CreateNoteHandler(notes, clock).Handle,
                 static (command, result) => new NoteCreated(result.Value, command.FolderId))
-            .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle);
+            .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle)
+            .Register<MoveNoteToFolder, CommandResult, NoteMoved>(
+                new MoveNoteToFolderHandler(notes, clock).Handle,
+                static (command, _) => new NoteMoved(command.NoteId, command.TargetFolderId));
         var events = new EventHub(failure => log.EventSubscriberFailed(failure));
+
+        // Recent folders (B11) are a move's after-effect, not part of it: recorded once the move has committed, so a
+        // settings write never extends the move's transaction and a failed one never fails the move.
+        var listFolders = new ListFoldersQuery(folders);
+        _ = events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, listFolders.Execute()));
 
         var dispatcher = new CommandDispatcher(commands, events);
         var main = new MainWindow(
-            new ListFoldersQuery(folders),
+            listFolders,
             new NoteStackSession(new ListNotesInFolderQuery(notes), dispatcher),
             dispatcher)
         {
             Escape = preferences.Escape,
             SingleClickOpen = preferences.SingleClickOpen,
             NewNotePlacement = preferences.NewNotePlacement,
+            RecentMoveFolders = () => preferences.RecentMoveFolders,
             Settings = new SettingsContext(
                 preferences,
                 () => _login?.State(),

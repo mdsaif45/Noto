@@ -115,6 +115,32 @@ public sealed class NoteStackGuardTests
         Assert.Equal("OnFolderListContextRequested", (string?)Named(MainXaml.Root!, "FolderList").Attribute("ContextRequested"));
     }
 
+    [Fact]
+    public void Moving_is_one_path_from_the_key_and_the_menu_saves_first_and_never_offers_the_cards_own_folder()
+    {
+        // Ctrl+Shift+M (G16) on the stack's root, so it works from a card and from its editor.
+        XElement move = MainXaml.Root!.Descendants().Single(e => e.Name.LocalName == "KeyboardAccelerator" && (string?)e.Attribute("Invoked") == "OnMoveAccelerator");
+        Assert.Equal("M", (string?)move.Attribute("Key"));
+        Assert.Equal("Control,Shift", (string?)move.Attribute("Modifiers"));
+        Assert.Equal("NoteRoot", (string?)move.Ancestors().First(e => e.Attribute(X + "Name") is not null).Attribute(X + "Name"));
+
+        // The key's menu and the card menu's "Move to" are built by the same method.
+        Assert.Contains("MoveDestinations(id)", Body(Main, "OnMoveAccelerator"), StringComparison.Ordinal);
+        Assert.Contains("MoveDestinations(card.Id)", Body(Main, "OnNoteListContextRequested"), StringComparison.Ordinal);
+
+        // Recent first, then all others; the card's own folder is excluded from both.
+        string destinations = Body(Main, "MoveDestinations");
+        Assert.Contains("RecentFolders.Shown(RecentMoveFolders?.Invoke() ?? [], folders, _openFolderId)", destinations, StringComparison.Ordinal);
+        Assert.Contains("folders.Where(f => f.Id != _openFolderId)", destinations, StringComparison.Ordinal);
+        Assert.True(destinations.IndexOf("recent", StringComparison.Ordinal) < destinations.IndexOf("\"All folders\"", StringComparison.Ordinal));
+
+        // The card being edited is saved first, and the move goes through the session.
+        string moveCard = Body(Main, "MoveCard");
+        Assert.Contains("(_stack.Editing?.Value == id && !TryEndEdit())", moveCard, StringComparison.Ordinal);
+        Assert.Contains("_stack.Move(note, target.Id)", moveCard, StringComparison.Ordinal);
+        Assert.True(moveCard.IndexOf("_stack.AfterRemoval(note)", StringComparison.Ordinal) < moveCard.IndexOf("_stack.Move(", StringComparison.Ordinal));
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static XElement Card() =>
@@ -127,7 +153,7 @@ public sealed class NoteStackGuardTests
 
     private static string Body(string source, string method)
     {
-        var declaration = Regex.Match(source, $@"(private|internal) \w+ {method}\(");
+        var declaration = Regex.Match(source, $@"(private|internal)(?: static)? [\w<>?,\[\] ]+? {method}\(");
         Assert.True(declaration.Success, $"Not found: {method}");
         int open = source.IndexOf('{', declaration.Index);
         int depth = 0;
