@@ -10,6 +10,9 @@ namespace Noto.UseCases.Folders;
 /// </summary>
 public sealed record RestoreFolder(FolderId FolderId) : ICommand<CommandResult>;
 
+/// <summary>A folder and its binned notes came back: published after the write commits (ADR-010).</summary>
+public sealed record FolderRestored(FolderId FolderId) : IEvent;
+
 /// <summary>
 /// Handles <see cref="RestoreFolder"/> — Case D.
 /// </summary>

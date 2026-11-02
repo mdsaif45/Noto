@@ -16,6 +16,9 @@ public enum WorkspaceSurface
 
     /// <summary>The settings surface (Slice 1), opened from any of the others.</summary>
     Settings,
+
+    /// <summary>The Recycle Bin (Phase B5), opened from the folder list.</summary>
+    RecycleBin,
 }
 
 /// <summary>What one press of Escape does.</summary>
@@ -35,6 +38,9 @@ public enum EscapeAction
 
     /// <summary>Leave the settings surface for the surface it was opened from.</summary>
     LeaveSettings,
+
+    /// <summary>Leave the Recycle Bin for the folder list it was opened from.</summary>
+    LeaveRecycleBin,
 }
 
 /// <summary>
@@ -53,7 +59,8 @@ public enum EscapeAction
 /// </para>
 /// <para>
 /// Settings is a level above whatever it was opened from, so the two "leave"
-/// modes leave it, back to that surface; Hide hides; None does nothing.
+/// modes leave it, back to that surface; Hide hides; None does nothing. The
+/// Recycle Bin (Phase B5) is a level above the folder list and behaves the same.
 /// </para>
 /// <code>
 ///                       settings        editor        note list     folder list
@@ -73,6 +80,7 @@ public static class WorkspaceEscape
         EscapeBehavior.LeaveFolder or EscapeBehavior.LeaveFolderOrHide => surface switch
         {
             WorkspaceSurface.Settings => EscapeAction.LeaveSettings,
+            WorkspaceSurface.RecycleBin => EscapeAction.LeaveRecycleBin,
             WorkspaceSurface.Editor => EscapeAction.LeaveEditor,
             WorkspaceSurface.NoteList => EscapeAction.LeaveFolder,
             WorkspaceSurface.FolderList when behavior == EscapeBehavior.LeaveFolderOrHide => EscapeAction.Hide,
