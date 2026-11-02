@@ -74,6 +74,24 @@ key / menu item / button / drop
 - **Folded state is stored:** `IsFolded` is the domain's.
 - **Editing a folded card unfolds it, and the unfold is stored** (ADR-016 §2). A folded card shows its title only; its content is untouched.
 
+### B2 precisely: pin and fold state (2026-11-02)
+
+| | Pin | Fold |
+|---|---|---|
+| Stored | `IsPinned` (exists) | `IsFolded` (exists): a note stays folded across restarts and in every surface |
+| Order | O2 lays the pinned partition over the shared SortOrder: pinned first, each partition in SortOrder order. Pinning never writes SortOrder, so unpinning returns the note to its place. No second order. | Unchanged |
+| What changes on screen | The ● marker; the card or folder moves into or out of the pinned group | A folded card shows its title only, with a chevron marker; the note is still in the stack, selectable and focusable |
+| Content | Untouched | Untouched: folding never edits the text |
+| The editing card | Pinning it keeps it editing with its unsaved text; the stack is re-read and its editor reloads the session's text | Folding it saves and leaves editing first; a failed save folds nothing |
+| Editing a folded card | - | Unfolds it first, stored (ADR-016 §2); a failed unfold edits nothing |
+| Fold all / unfold all | - | One command, `FoldNotesInFolder(folder, folded)`, one UPDATE in one statement. Only rows that change are stamped. Fold all leaves editing first (saving), because the editing card folds too; unfold all keeps the editing card editing |
+| Focus | The item keeps focus at its new position (re-read, focused by id) | Stays on the card: one card is updated in place (no rebuild, no layout jump beyond its own height); fold all re-reads and focuses the same card |
+| Keys | None: menu only (decision 3) | Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds the current card (the editing one, else the focused one); with Shift, every card in the folder. Handled once, on the stack's PreviewKeyDown, so the card and the editor behave the same |
+| Menus | Card: Pin / Unpin. Folder: Pin / Unpin | Card: Fold / Unfold |
+| Assistive technology | Help text "Pinned" on cards and folders; the menu item names the action that applies | Help text "Folded"; Fold or Unfold in the menu |
+| Events (after commit) | `NotePinChanged`, `FolderPinChanged` | `NoteFoldChanged`, `NotesFoldedInFolder` |
+| Motion | None added: the list's own layout; nothing to reduce | Same |
+
 ### Reorder (B8, B9, C9, G17, G18)
 - **Keys:** Ctrl+Alt+Shift+Up/Down move the current card or folder up or down **within its pin group**. Top and bottom are in the menu.
 - **Shared SortOrder space:** pinned and unpinned items share it, while display is pinned first. A pure Core rule therefore turns "up within my group" into the engine's `After(x)`:
