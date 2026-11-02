@@ -1526,7 +1526,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnNoteListContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if ((args.OriginalSource as FrameworkElement)?.DataContext is not NoteCard card
+        if (ItemOf<NoteCard>(args.OriginalSource) is not { } card
             || NoteList.ContainerFromItem(card) is not ListViewItem container)
         {
             return;
@@ -1550,7 +1550,7 @@ public sealed partial class MainWindow : Window
     private void OnFolderListContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (_state != PaneState.Loaded
-            || (args.OriginalSource as FrameworkElement)?.DataContext is not FolderListItem folder
+            || ItemOf<FolderListItem>(args.OriginalSource) is not { } folder
             || FolderList.ContainerFromItem(folder) is not ListViewItem container)
         {
             return;
@@ -1566,6 +1566,15 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("New folder", "Ctrl+N", FocusInput));
         ShowMenu(menu, container, args);
     }
+
+    /// <summary>
+    /// The row a context request is for. Shift+F10 and the Menu key come from the row's container, whose item is its
+    /// Content (measured: its DataContext was not the item, and no menu opened); a right-click comes from an element
+    /// inside the row's template, whose DataContext is the item.
+    /// </summary>
+    private static T? ItemOf<T>(object source)
+        where T : class =>
+        source is ListViewItem { Content: T item } ? item : (source as FrameworkElement)?.DataContext as T;
 
     /// <summary>At the pointer for a right-click; at the row for Shift+F10 or the Menu key.</summary>
     private static void ShowMenu(MenuFlyout menu, ListViewItem container, ContextRequestedEventArgs args)
