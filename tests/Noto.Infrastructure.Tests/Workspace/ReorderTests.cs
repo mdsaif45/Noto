@@ -234,6 +234,122 @@ public sealed class ReorderTests : IDisposable
         Assert.Equal([new FolderReordered(two)], told);
     }
 
+    // ---- drag and drop (B4) -------------------------------------------------------------------------
+
+    [Fact]
+    public void Every_drop_of_every_card_lands_exactly_where_dropped_or_is_refused_or_writes_nothing()
+    {
+        // Pinned B and D over the shared SortOrder: displayed B D | A C E. For each card and each landing index, the
+        // stored order must be the list with the card removed and put back at that index, when that keeps it in its
+        // own group; otherwise nothing at all is written.
+        Pin(_b);
+        Pin(_d);
+
+        for (int card = 0; card < 5; card++)
+        {
+            for (int landedAt = 0; landedAt < 5; landedAt++)
+            {
+                List<string> displayed = [.. Display().Select(c => c.ToString())];
+                NoteId note = Id(displayed[card]);
+                bool pinned = Note(note).IsPinned;
+                int pinnedCount = _notes.ListInFolder(_folder).Count(n => n.IsPinned);
+                bool allowed = pinned ? landedAt < pinnedCount : landedAt >= pinnedCount;
+
+                List<string> expected = [.. displayed];
+                expected.RemoveAt(card);
+                expected.Insert(landedAt, displayed[card]);
+                string before = Snapshot();
+
+                CommandResult result = _stack.Drop(note, landedAt);
+
+                if (!allowed)
+                {
+                    Assert.Equal(CommandFailureReason.InvalidInput, result.Failure!.Reason);
+                    Assert.Equal(before, Snapshot());
+                }
+                else if (landedAt == card)
+                {
+                    Assert.True(result.IsSuccess);
+                    Assert.Equal(before, Snapshot());
+                }
+                else
+                {
+                    Assert.True(result.IsSuccess, $"{displayed[card]} at {landedAt}");
+                    Assert.Equal(string.Concat(expected), Display());
+                    Assert.Equal(Display(), string.Concat(_stack.Notes.Select(n => n.Content)));
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void Dropping_the_card_being_edited_keeps_it_editing_with_its_text()
+    {
+        Assert.True(_stack.BeginEdit(_d).IsSuccess);
+        _stack.UpdateDraft(_d, "typed, then dragged");
+
+        Assert.True(_stack.Drop(_d, 1).IsSuccess);
+
+        Assert.Equal("ADBCE", Display());
+        Assert.Equal(_d, _stack.Editing);
+        Assert.Equal("typed, then dragged", _stack.Draft);
+        Assert.Equal("D", Note(_d).Content);
+    }
+
+    [Fact]
+    public void A_drop_is_announced_after_it_commits_and_refused_or_no_move_drops_are_not()
+    {
+        Pin(_e);
+        var told = new List<NoteReordered>();
+        using var subscription = _events.Subscribe<NoteReordered>(e =>
+        {
+            Assert.Equal("EBACD", Display());
+            told.Add(e);
+        });
+
+        Assert.True(_stack.Drop(_b, 1).IsSuccess);
+        Assert.False(_stack.Drop(_c, 0).IsSuccess);
+        Assert.True(_stack.Drop(_a, 2).IsSuccess);
+
+        Assert.Equal([new NoteReordered(_b)], told);
+    }
+
+    [Fact]
+    public void Every_drop_of_every_folder_lands_exactly_where_dropped_or_is_refused()
+    {
+        FolderId two = CreateFolder("Two"), three = CreateFolder("Three");
+        Assert.True(_dispatcher.Dispatch(new PinFolder(three)).IsSuccess);
+
+        for (int index = 0; index < 3; index++)
+        {
+            for (int landedAt = 0; landedAt < 3; landedAt++)
+            {
+                List<FolderId> displayed = FolderOrder();
+                FolderId folder = displayed[index];
+                RepositionDrop<FolderId> drop = FolderReposition.Drop(_folders.ListActive(), folder, landedAt);
+                bool pinned = _folders.FindActive(folder)!.IsPinned;
+
+                Assert.Equal(pinned ? landedAt < 1 : landedAt >= 1, drop.Allowed);
+
+                if (drop.Allowed && drop.Target.Moves)
+                {
+                    Assert.True(_dispatcher.Dispatch(new ReorderFolder(folder, drop.Target.After)).IsSuccess);
+                    List<FolderId> expected = [.. displayed];
+                    expected.RemoveAt(index);
+                    expected.Insert(landedAt, folder);
+                    Assert.Equal(expected, FolderOrder());
+                }
+                else
+                {
+                    Assert.Equal(drop.Allowed, landedAt == index);
+                    Assert.Equal(displayed, FolderOrder());
+                }
+            }
+        }
+
+        Assert.Contains(two, FolderOrder());
+    }
+
     // ---- helpers ------------------------------------------------------------------------------------
 
     private void MoveFolder(FolderId folder, RepositionDirection direction)
