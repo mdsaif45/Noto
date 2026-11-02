@@ -212,7 +212,8 @@
                                 arbitrary to the user.
                             -->
                             <Grid ColumnSpacing="{StaticResource SpaceXS}"
-                                  AutomationProperties.Name="{x:Bind Name}">
+                                  AutomationProperties.Name="{x:Bind Name}"
+                                  AutomationProperties.HelpText="{x:Bind HelpText}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -328,7 +329,7 @@
                             <Grid ColumnSpacing="{StaticResource SpaceXS}"
                                   RowSpacing="{StaticResource SpaceXS}"
                                   AutomationProperties.Name="{x:Bind DisplayTitle, Mode=OneWay}"
-                                  AutomationProperties.HelpText="{x:Bind HelpText}">
+                                  AutomationProperties.HelpText="{x:Bind HelpText, Mode=OneWay}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
@@ -358,13 +359,23 @@
                                     A text glyph rather than an emoji: a colour emoji keeps its own palette, so it
                                     would ignore high contrast, where the user's colours must win.
                                 -->
-                                <TextBlock
+                                <StackPanel
                                     Grid.Column="1"
-                                    Text="●"
-                                    FontSize="{StaticResource FontSizeCaption}"
+                                    Orientation="Horizontal"
                                     VerticalAlignment="Top"
-                                    Visibility="{x:Bind PinnedMarkerVisibility}"
-                                    AutomationProperties.AccessibilityView="Raw" />
+                                    Spacing="{StaticResource SpaceXS}">
+                                    <TextBlock
+                                        Text="●"
+                                        FontSize="{StaticResource FontSizeCaption}"
+                                        Visibility="{x:Bind PinnedMarkerVisibility}"
+                                        AutomationProperties.AccessibilityView="Raw" />
+                                    <!-- Folded (B12): a chevron in the row's own colour, so high contrast keeps it. -->
+                                    <FontIcon
+                                        Glyph="&#xE76C;"
+                                        FontSize="{StaticResource FontSizeCaption}"
+                                        Visibility="{x:Bind FoldedMarkerVisibility, Mode=OneWay}"
+                                        AutomationProperties.AccessibilityView="Raw" />
+                                </StackPanel>
 
                                 <!-- The card's bar (B17), on the card being edited. Phase B adds pin, fold and move. -->
                                 <StackPanel

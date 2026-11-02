@@ -4,6 +4,7 @@ using System.Globalization;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -111,6 +112,10 @@ public sealed partial class MainWindow : Window
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
 
         InitializeComponent();
+
+        // Each row's states for assistive technology go on its container (OnRowContainerContentChanging).
+        FolderList.ContainerContentChanging += OnRowContainerContentChanging;
+        NoteList.ContainerContentChanging += OnRowContainerContentChanging;
 
         AppWindow.Closing += OnAppWindowClosing;
 
@@ -835,6 +840,25 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void OnNoteListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds (G19, G20); with Shift, every card (G21, G22). Here, on the way
+        // down, so a card and its editor behave the same and the TextBox never takes the arrows.
+        if (e.Key is VirtualKey.Left or VirtualKey.Right && IsControlDown() && IsAltDown())
+        {
+            e.Handled = true;
+            bool fold = e.Key == VirtualKey.Left;
+
+            if (IsShiftDown())
+            {
+                FoldAll(fold);
+            }
+            else if (CurrentCard() is { } id)
+            {
+                FoldCard(id, fold);
+            }
+
+            return;
+        }
+
         if (e.Key is VirtualKey.Enter or VirtualKey.F2 && e.OriginalSource is ListViewItem { Content: NoteCard card })
         {
             e.Handled = true;
@@ -1546,6 +1570,12 @@ public sealed partial class MainWindow : Window
         }
 
         menu.Items.Add(move);
+        menu.Items.Add(card.IsPinned
+            ? MenuItem("Unpin", string.Empty, () => PinCard(card.Id, pinned: false))
+            : MenuItem("Pin", string.Empty, () => PinCard(card.Id, pinned: true)));
+        menu.Items.Add(card.IsFolded
+            ? MenuItem("Unfold", "Ctrl+Alt+Right", () => FoldCard(card.Id, folded: false))
+            : MenuItem("Fold", "Ctrl+Alt+Left", () => FoldCard(card.Id, folded: true)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 
@@ -1692,6 +1722,10 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("Rename", "F2", BeginRename));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("New folder", "Ctrl+N", FocusInput));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(folder.IsPinned
+            ? MenuItem("Unpin", string.Empty, () => PinFolder(folder.Id, pinned: false))
+            : MenuItem("Pin", string.Empty, () => PinFolder(folder.Id, pinned: true)));
         ShowMenu(menu, container, args);
     }
 
@@ -1703,6 +1737,23 @@ public sealed partial class MainWindow : Window
     private static T? ItemOf<T>(object source)
         where T : class =>
         source is ListViewItem { Content: T item } ? item : (source as FrameworkElement)?.DataContext as T;
+
+    /// <summary>
+    /// Gives a realised or recycled row its states for assistive technology. The row UI Automation reports is the
+    /// container, not the template inside it (measured: help text on the template never reached the focused row), so
+    /// "Pinned" and "Folded" are set on the container.
+    /// </summary>
+    private static void OnRowContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        string help = args.Item switch
+        {
+            NoteCard card => card.HelpText,
+            FolderListItem folder => folder.HelpText,
+            _ => string.Empty,
+        };
+
+        AutomationProperties.SetHelpText(args.ItemContainer, help);
+    }
 
     /// <summary>At the pointer for a right-click; at the row for Shift+F10 or the Menu key.</summary>
     private static void ShowMenu(MenuFlyout menu, ListViewItem container, ContextRequestedEventArgs args)
@@ -1738,6 +1789,165 @@ public sealed partial class MainWindow : Window
     private static bool IsControlDown() =>
         InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(CoreVirtualKeyStates.Down);
+
+    private static bool IsShiftDown() =>
+        InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            .HasFlag(CoreVirtualKeyStates.Down);
+
+    /// <summary>
+    /// Pins or unpins a card's note (B14). It re-sorts into or out of the pinned group and keeps focus there; the card
+    /// being edited keeps editing with its unsaved text.
+    /// </summary>
+    private void PinCard(string id, bool pinned)
+    {
+        if (_noteState != NoteState.Loaded)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = _stack.SetPinned(NoteId.From(id), pinned);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            _selectedNoteId = id;
+            ShowCards(_stack.Notes);
+            HideNoteNotice();
+            ApplyNoteState();
+            Announce(pinned ? "Pinned" : "Unpinned");
+
+            if (_stack.Editing?.Value == id)
+            {
+                StartEditor(id, CaretPlacement.End);
+            }
+            else
+            {
+                FocusNoteRow(id);
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not pin the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Folds or unfolds a card (B12), in place: it keeps its container and focus. Folding the card being edited saves
+    /// and leaves editing first; a failed save folds nothing.
+    /// </summary>
+    private void FoldCard(string id, bool folded)
+    {
+        if (_noteState != NoteState.Loaded || (folded && _stack.Editing?.Value == id && !TryEndEdit()))
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = _stack.SetFolded(NoteId.From(id), folded);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            if (Notes.FirstOrDefault(n => n.Id == id) is { } card)
+            {
+                card.IsFolded = folded;
+
+                if (NoteList.ContainerFromItem(card) is ListViewItem container)
+                {
+                    AutomationProperties.SetHelpText(container, card.HelpText);
+                }
+            }
+
+            Announce(folded ? "Folded" : "Unfolded");
+            FocusNoteRow(id);
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not fold the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Folds or unfolds every card in the folder (B13) in one command. Folding all saves and leaves editing first;
+    /// focus stays on the current card.
+    /// </summary>
+    private void FoldAll(bool folded)
+    {
+        if (_noteState != NoteState.Loaded || (folded && !TryEndEdit()))
+        {
+            return;
+        }
+
+        string? current = CurrentCard();
+
+        try
+        {
+            CommandResult result = _stack.SetAllFolded(folded);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(Describe(result.Failure!));
+                return;
+            }
+
+            ShowCards(_stack.Notes);
+            ApplyNoteState();
+            Announce(folded ? "All notes folded" : "All notes unfolded");
+
+            if (current is not null && _stack.Editing?.Value == current)
+            {
+                StartEditor(current, CaretPlacement.End);
+            }
+            else if (current is not null)
+            {
+                FocusNoteRow(current);
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not fold the notes: {ex.Message}");
+        }
+    }
+
+    /// <summary>Pins or unpins a folder (C8): the list is re-read (O2) and focus follows the folder.</summary>
+    private void PinFolder(string id, bool pinned)
+    {
+        if (_state != PaneState.Loaded)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = pinned
+                ? _commands.Dispatch(new PinFolder(FolderId.From(id)))
+                : _commands.Dispatch(new UnpinFolder(FolderId.From(id)));
+
+            if (!result.IsSuccess)
+            {
+                Refresh();
+                ShowNotice(Describe(result.Failure!));
+                return;
+            }
+
+            _selectedId = id;
+            Refresh();
+            FocusRow(id);
+        }
+        catch (StorageException ex)
+        {
+            ShowNotice($"Could not pin the folder: {ex.Message}");
+        }
+    }
 
     private static bool IsAltDown() =>
         InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)

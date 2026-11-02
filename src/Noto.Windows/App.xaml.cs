@@ -504,7 +504,7 @@ public partial class App : Application
         _login = Environment.ProcessPath is string executable ? LoginRegistration.ForCurrentUser(executable) : null;
 
         // #21: every mutation the window makes is dispatched. The registry names each command, its handler and, for
-        // CreateNote, CreateFolder and RenameFolder (P1.2) and MoveNoteToFolder (Phase B), its event; nothing is
+        // CreateNote, CreateFolder and RenameFolder (P1.2) and the Phase B commands, its event; nothing is
         // discovered. A subscriber's failure is logged as types only.
         var commands = new CommandRegistry()
             .Register<CreateFolder, CommandResult<FolderId>, FolderCreated>(
@@ -520,7 +520,28 @@ public partial class App : Application
             .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle)
             .Register<MoveNoteToFolder, CommandResult, NoteMoved>(
                 new MoveNoteToFolderHandler(notes, clock).Handle,
-                static (command, _) => new NoteMoved(command.NoteId, command.TargetFolderId));
+                static (command, _) => new NoteMoved(command.NoteId, command.TargetFolderId))
+            .Register<PinNote, CommandResult, NotePinChanged>(
+                new PinNoteHandler(notes, clock).Handle,
+                static (command, _) => new NotePinChanged(command.NoteId, true))
+            .Register<UnpinNote, CommandResult, NotePinChanged>(
+                new UnpinNoteHandler(notes, clock).Handle,
+                static (command, _) => new NotePinChanged(command.NoteId, false))
+            .Register<FoldNote, CommandResult, NoteFoldChanged>(
+                new FoldNoteHandler(notes, clock).Handle,
+                static (command, _) => new NoteFoldChanged(command.NoteId, true))
+            .Register<UnfoldNote, CommandResult, NoteFoldChanged>(
+                new UnfoldNoteHandler(notes, clock).Handle,
+                static (command, _) => new NoteFoldChanged(command.NoteId, false))
+            .Register<FoldNotesInFolder, CommandResult<int>, NotesFoldedInFolder>(
+                new FoldNotesInFolderHandler(notes, clock).Handle,
+                static (command, result) => new NotesFoldedInFolder(command.FolderId, command.Folded, result.Value))
+            .Register<PinFolder, CommandResult, FolderPinChanged>(
+                new PinFolderHandler(folders, clock).Handle,
+                static (command, _) => new FolderPinChanged(command.FolderId, true))
+            .Register<UnpinFolder, CommandResult, FolderPinChanged>(
+                new UnpinFolderHandler(folders, clock).Handle,
+                static (command, _) => new FolderPinChanged(command.FolderId, false));
         var events = new EventHub(failure => log.EventSubscriberFailed(failure));
 
         // Recent folders (B11) are a move's after-effect, not part of it: recorded once the move has committed, so a

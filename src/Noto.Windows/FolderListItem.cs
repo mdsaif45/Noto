@@ -120,5 +120,8 @@ public sealed class FolderListItem
     /// announce "Noto.FolderListItem" to a screen reader for every row.
     /// Observed with UI Automation against the running application.
     /// </remarks>
+    /// <summary>The folder's state for assistive technology: the ● marker is not its only sign.</summary>
+    public string HelpText => IsPinned ? "Pinned" : string.Empty;
+
     public override string ToString() => Name;
 }

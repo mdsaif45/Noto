@@ -31,6 +31,15 @@
     19  Ctrl+Shift+M on a card: All folders (no recent yet), never the card's own; choosing one moves it, focus stays
     20  the card menu's Move to: the recent folder first; choosing it moves the card
     21  Ctrl+Shift+M from the editor with unsaved text: saved first, then moved
+    22  the card menu's Pin: the card goes first, stored, help text "Pinned", focus on it; Unpin returns it
+    23  Ctrl+Alt+Left folds the focused card, Ctrl+Alt+Right unfolds it: stored, help text, title kept, focus kept
+    24  the card menu's Fold and Unfold
+    25  Ctrl+Alt+Left in the editor with unsaved text: saved, folded, editing left, the card focused
+    26  Enter on a folded card: it unfolds (stored) and edits
+    27  Ctrl+Alt+Shift+Left folds every card, focus kept; Ctrl+Alt+Shift+Right unfolds every card
+    28  pin a folded card: still folded, first; unpin: still folded
+    29  far down the scrolled stack, Ctrl+Alt+Left folds the focused card and focus stays on it
+    30  the folder menu's Pin and Unpin: the folder goes first with help text "Pinned", focus follows it
 
   Command announcements are UI Automation notification events, which the managed UI Automation client this harness
   uses cannot subscribe to: NOT RUN here, listened for in the release candidate's Narrator pass.
@@ -118,6 +127,11 @@ function Menu-Item([string] $Name) {
 }
 function Expand([string] $Name) { (Menu-Item $Name).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600 }
 function Choose([string] $Name) { (Menu-Item $Name).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900 }
+function Flag([string] $Id, [string] $Column) { [int](Sql $script:data "SELECT $Column FROM Notes WHERE Id = `$n" @{ '$n' = $Id } -Scalar) }
+function IdOf([string] $Content) { [string](Sql $script:data 'SELECT Id FROM Notes WHERE Content = $c AND DeletedAt IS NULL' @{ '$c' = $Content } -Scalar) }
+function Focused-Name { $AE::FocusedElement.Current.Name }
+function Focused-Help { $AE::FocusedElement.Current.HelpText }
+function Card-Help([string] $Name) { $c = Card $Name; if ($c) { $c.Current.HelpText } else { '(no card)' } }
 function Bring-Forward {
     $null = Set-ForegroundByKeyboard $script:target
     Send-ActivationChord -AllowedForeground $script:target.Hwnd
@@ -240,7 +254,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
-    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
+    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
 
     # 13 - Settings and back while editing
     Send-ToNoto @() 0x0D
@@ -269,7 +283,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
     Send-ToNoto @(0x11) 0x4E
-    Add-Result $run '16 folder menu (Open, Rename, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,New folder' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
+    Add-Result $run '16 folder menu (Open, Rename, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,New folder,Pin' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
 
     # 17 - named actions
     Enter-Folder
@@ -305,6 +319,92 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Choose 'Elsewhere'
     $id6 = [string](Sql $script:data "SELECT Id FROM Notes WHERE Content = 'Filler 6, typed then moved'" -Scalar)
     Add-Result $run '21 Ctrl+Shift+M from the editor saves the text, then moves the card' ($id6 -ne '' -and (FolderOf $id6) -eq $Elsewhere -and (Editors).Count -eq 0 -and (Focused) -match 'ListItem') "id=$id6 folder=$(FolderOf $id6) editors=$((Editors).Count) focus=$(Focused)"
+
+    # 22 - Pin and Unpin from the card menu
+    $id7 = IdOf 'Filler 7'
+    (Card 'Filler 7').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Pin'
+    $first = (Cards)[0].Current.Name
+    Add-Result $run '22 Pin from the menu: first, stored, help text Pinned, focus on it' ($first -eq 'Filler 7' -and (Flag $id7 'IsPinned') -eq 1 -and (Card-Help 'Filler 7') -match 'Pinned' -and (Focused-Name) -eq 'Filler 7') "first=$first pinned=$(Flag $id7 'IsPinned') help=$(Card-Help 'Filler 7') focus=$(Focused)"
+    Send-ToNoto @(0x10) 0x79
+    $menu = Menu-Items
+    Choose 'Unpin'
+    $first = (Cards)[0].Current.Name
+    Add-Result $run '22 ... the menu then offers Unpin, which returns it to its place' (($menu -contains 'Unpin') -and -not ($menu -contains 'Pin') -and $first -ne 'Filler 7' -and (Flag $id7 'IsPinned') -eq 0 -and (Focused-Name) -eq 'Filler 7') "menu=$($menu -join ',') first=$first focus=$(Focused)"
+
+    # 23 - Ctrl+Alt+Left / Right on the focused card
+    Send-ToNoto @(0x11, 0x12) 0x25
+    $folded = (Flag $id7 'IsFolded') -eq 1; $help = Focused-Help; $name = Focused-Name
+    Send-ToNoto @(0x11, 0x12) 0x27
+    Add-Result $run '23 Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds: stored, help text, title and focus kept' ($folded -and $help -match 'Folded' -and $name -eq 'Filler 7' -and (Flag $id7 'IsFolded') -eq 0 -and (Focused-Name) -eq 'Filler 7' -and (Focused-Help) -notmatch 'Folded') "folded=$folded help=$help unfolded=$((Flag $id7 'IsFolded') -eq 0) focus=$(Focused)"
+
+    # 24 - Fold and Unfold from the menu
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Fold'
+    $viaMenu = (Flag $id7 'IsFolded') -eq 1
+    Send-ToNoto @(0x10) 0x79
+    $menu = Menu-Items
+    Choose 'Unfold'
+    Add-Result $run '24 Fold and Unfold from the card menu' ($viaMenu -and ($menu -contains 'Unfold') -and (Flag $id7 'IsFolded') -eq 0 -and (Focused-Name) -eq 'Filler 7') "folded=$viaMenu menu=$($menu -join ',') focus=$(Focused)"
+
+    # 25 - fold from the editor with unsaved text
+    Edit-Card 'Filler 7'
+    Set-EditorText 'Filler 7 typed then folded'
+    Send-ToNoto @(0x11, 0x12) 0x25
+    Add-Result $run '25 Ctrl+Alt+Left in the editor saves, folds, leaves editing, the card focused' ((Stored $id7) -eq 'Filler 7 typed then folded' -and (Flag $id7 'IsFolded') -eq 1 -and (Editors).Count -eq 0 -and (Focused-Name) -eq 'Filler 7 typed then folded') "db=$(Stored $id7) folded=$(Flag $id7 'IsFolded') editors=$((Editors).Count) focus=$(Focused)"
+
+    # 26 - editing a folded card unfolds it
+    Send-ToNoto @() 0x0D
+    Add-Result $run '26 Enter on a folded card unfolds it (stored) and edits its whole text' ((Flag $id7 'IsFolded') -eq 0 -and (Editors).Count -eq 1 -and (Editor-Value) -eq 'Filler 7 typed then folded') "folded=$(Flag $id7 'IsFolded') value=$(Editor-Value)"
+    Send-ToNoto @() 0x1B
+
+    # 27 - fold all and unfold all
+    $total = ActiveCount
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x25
+    $foldedAll = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND IsFolded = 1' @{ '$f' = $FolderId } -Scalar)
+    $keptFocus = Focused-Name
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x27
+    $stillFolded = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND IsFolded = 1' @{ '$f' = $FolderId } -Scalar)
+    $elsewhereFolded = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND IsFolded = 1' @{ '$f' = $Elsewhere } -Scalar)
+    Add-Result $run '27 Ctrl+Alt+Shift+Left folds every card here (not elsewhere), focus kept; Right unfolds all' ($foldedAll -eq $total -and $keptFocus -eq 'Filler 7 typed then folded' -and $stillFolded -eq 0 -and $elsewhereFolded -eq 0) "folded=$foldedAll/$total focus=$keptFocus after=$stillFolded elsewhere=$elsewhereFolded"
+
+    # 28 - pin a folded card, then unpin
+    Send-ToNoto @(0x11, 0x12) 0x25
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Pin'
+    $first = (Cards)[0].Current.Name
+    $both = (Flag $id7 'IsPinned') -eq 1 -and (Flag $id7 'IsFolded') -eq 1
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Unpin'
+    Add-Result $run '28 a folded card pinned stays folded and first; unpinned, still folded' ($both -and $first -eq 'Filler 7 typed then folded' -and (Flag $id7 'IsPinned') -eq 0 -and (Flag $id7 'IsFolded') -eq 1 -and (Card-Help 'Filler 7 typed then folded') -match 'Folded') "first=$first both=$both pinned=$(Flag $id7 'IsPinned') folded=$(Flag $id7 'IsFolded') focus=$(Focused)"
+    Send-ToNoto @(0x11, 0x12) 0x27
+
+    # 29 - far down the scrolled stack
+    $list = Find-ById 'NoteList'
+    $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100); Start-Sleep -Milliseconds 800
+    $last = Cards | Where-Object { $_.Current.Name -like 'Filler *' } | Select-Object -Last 1
+    $lastName = $last.Current.Name
+    $last.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11, 0x12) 0x25
+    $idLast = IdOf $lastName
+    Add-Result $run '29 far down the scrolled stack, the focused card folds and keeps focus' ($idLast -ne '' -and (Flag $idLast 'IsFolded') -eq 1 -and (Focused-Name) -eq $lastName) "card=$lastName folded=$(Flag $idLast 'IsFolded') focus=$(Focused)"
+    Send-ToNoto @(0x11, 0x12) 0x27
+    $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 0); Start-Sleep -Milliseconds 500
+
+    # 30 - the folder menu's Pin and Unpin
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
+    ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' }).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Pin'
+    $firstFolder = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name
+    $pinnedHelp = Focused-Help; $pinnedFocus = Focused-Name
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Unpin'
+    $firstAfter = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name
+    Add-Result $run '30 folder Pin: first, help text Pinned, focus follows; Unpin returns it' ($firstFolder -eq 'Elsewhere' -and $pinnedHelp -match 'Pinned' -and $pinnedFocus -eq 'Elsewhere' -and $firstAfter -eq 'Stack' -and (Focused-Name) -eq 'Elsewhere') "first=$firstFolder help=$pinnedHelp focus=$pinnedFocus after=$firstAfter now=$(Focused)"
+    Enter-Folder
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'
