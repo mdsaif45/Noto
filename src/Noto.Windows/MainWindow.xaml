@@ -260,6 +260,8 @@
                 -->
                 <Grid.KeyboardAccelerators>
                     <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnCreateNoteAccelerator" />
+                    <!-- Move the current card to another folder (B11, G16), from a card or its editor. -->
+                    <KeyboardAccelerator Key="M" Modifiers="Control,Shift" Invoked="OnMoveAccelerator" />
                 </Grid.KeyboardAccelerators>
 
                 <Grid.RowDefinitions>

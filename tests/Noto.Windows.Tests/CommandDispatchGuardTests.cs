@@ -40,8 +40,13 @@ public sealed class CommandDispatchGuardTests
     public void Every_command_the_window_layer_dispatches_is_registered()
     {
         // An unregistered command compiles and fails only when it is first dispatched; here it fails the build. Every
-        // dispatch names its command where it is made, so none escapes the check.
-        string all = string.Join('\n', Directory.EnumerateFiles(AppDirectory, "*.cs").Select(f => WithoutComments(File.ReadAllText(f))));
+        // dispatch names its command where it is made, so none escapes the check. The note stack's session dispatches
+        // for the window (ADR-016), so its commands are the window's too.
+        string all = string.Join(
+            '\n',
+            Directory.EnumerateFiles(AppDirectory, "*.cs")
+                .Append(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs"))
+                .Select(f => WithoutComments(File.ReadAllText(f))));
         var dispatched = Regex.Matches(all, @"\.Dispatch\(\s*new (\w+)\(").Select(m => m.Groups[1].Value).ToList();
         var unregistered = dispatched.Distinct().Where(command => !App.Contains($".Register<{command},", StringComparison.Ordinal)).ToList();
 
@@ -56,6 +61,15 @@ public sealed class CommandDispatchGuardTests
         Assert.Matches(
             @"\.Register<CreateNote, CommandResult<NoteId>, NoteCreated>\(\s*new CreateNoteHandler\(notes, clock\)\.Handle,\s*static \(command, result\) => new NoteCreated\(result\.Value, command\.FolderId\)\)",
             App);
+    }
+
+    [Fact]
+    public void Moving_a_note_is_announced_as_NoteMoved_and_recorded_as_recent_only_after_it_commits()
+    {
+        Assert.Matches(
+            @"\.Register<MoveNoteToFolder, CommandResult, NoteMoved>\(\s*new MoveNoteToFolderHandler\(notes, clock\)\.Handle,\s*static \(command, _\) => new NoteMoved\(command\.NoteId, command\.TargetFolderId\)\)",
+            App);
+        Assert.Contains("events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, listFolders.Execute()));", App, StringComparison.Ordinal);
     }
 
     [Fact]

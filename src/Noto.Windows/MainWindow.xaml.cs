@@ -1538,11 +1538,139 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         menu.Items.Add(MenuItem("Edit", "Enter", () => EditCard(card.Id, CaretPlacement.End)));
         menu.Items.Add(MenuItem("New note", "Ctrl+N", CreateNoteInOpenFolder));
+
+        var move = new MenuFlyoutSubItem { Text = "Move to" };
+        foreach (MenuFlyoutItemBase item in MoveDestinations(card.Id))
+        {
+            move.Items.Add(item);
+        }
+
+        menu.Items.Add(move);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 
         ShowMenu(menu, container, args);
     }
+
+    /// <summary>The folders notes were most recently moved to (B11), set by the composition root.</summary>
+    internal Func<IReadOnlyList<FolderId>>? RecentMoveFolders { get; set; }
+
+    /// <summary>
+    /// Ctrl+Shift+M (G16): the current card's move menu, at the card, from the card or its editor.
+    /// </summary>
+    private void OnMoveAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_noteState != NoteState.Loaded
+            || CurrentCard() is not { } id
+            || Notes.FirstOrDefault(n => n.Id == id) is not { } card
+            || NoteList.ContainerFromItem(card) is not ListViewItem container)
+        {
+            return;
+        }
+
+        var menu = new MenuFlyout();
+        foreach (MenuFlyoutItemBase item in MoveDestinations(id))
+        {
+            menu.Items.Add(item);
+        }
+
+        menu.ShowAt(container);
+    }
+
+    /// <summary>
+    /// Where a card can move (workspace-management.md §3): the recent folders first, then every other folder in
+    /// folder-list order. Never the card's own folder: moving there is not a move.
+    /// </summary>
+    private List<MenuFlyoutItemBase> MoveDestinations(string id)
+    {
+        var items = new List<MenuFlyoutItemBase>();
+        IReadOnlyList<Folder> folders;
+
+        try
+        {
+            folders = _listFolders.Execute();
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not read the folders: {ex.Message}");
+            return items;
+        }
+
+        IReadOnlyList<Folder> recent = RecentFolders.Shown(RecentMoveFolders?.Invoke() ?? [], folders, _openFolderId);
+        foreach (Folder folder in recent)
+        {
+            items.Add(MenuItem(folder.Name, string.Empty, () => MoveCard(id, folder)));
+        }
+
+        var all = new MenuFlyoutSubItem { Text = "All folders" };
+        foreach (Folder folder in folders.Where(f => f.Id != _openFolderId))
+        {
+            all.Items.Add(MenuItem(folder.Name, string.Empty, () => MoveCard(id, folder)));
+        }
+
+        if (recent.Count > 0)
+        {
+            items.Add(new MenuFlyoutSeparator());
+        }
+
+        items.Add(all.Items.Count > 0 ? all : MenuItem("No other folders", string.Empty, static () => { }, enabled: false));
+        return items;
+    }
+
+    /// <summary>
+    /// Moves a card's note to <paramref name="target"/> (B11). The card being edited is saved first; a failed save
+    /// moves nothing. The card leaves the stack and focus goes to the next card, else the previous.
+    /// </summary>
+    private void MoveCard(string id, Folder target)
+    {
+        if (_noteState != NoteState.Loaded || (_stack.Editing?.Value == id && !TryEndEdit()))
+        {
+            return;
+        }
+
+        NoteId note = NoteId.From(id);
+        NoteId? next = _stack.AfterRemoval(note);
+
+        try
+        {
+            CommandResult result = _stack.Move(note, target.Id);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeMove(result.Failure!));
+                return;
+            }
+
+            _selectedNoteId = next?.Value;
+            ShowCards(_stack.Notes);
+            HideNoteNotice();
+            ApplyNoteState();
+            Announce($"Moved to {target.Name}");
+
+            if (next is { } focus)
+            {
+                FocusNoteRow(focus.Value);
+            }
+            else
+            {
+                MoveFocusToNotes();
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not move the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>A refused move, in words: the note or the destination is gone or binned.</summary>
+    private static string DescribeMove(CommandFailure failure) => failure.Reason switch
+    {
+        CommandFailureReason.NotFound => "That note or folder no longer exists.",
+        CommandFailureReason.InvalidState => "That note or folder is in the recycle bin.",
+        _ => "The note could not be moved.",
+    };
 
     /// <summary>
     /// A folder's context menu: right-click, Shift+F10 or the Menu key. Its actions are the folder list's keys.
@@ -1589,9 +1717,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static MenuFlyoutItem MenuItem(string text, string keys, Action action)
+    private static MenuFlyoutItem MenuItem(string text, string keys, Action action, bool enabled = true)
     {
-        var item = new MenuFlyoutItem { Text = text, KeyboardAcceleratorTextOverride = keys };
+        var item = new MenuFlyoutItem { Text = text, KeyboardAcceleratorTextOverride = keys, IsEnabled = enabled };
         item.Click += (_, _) => action();
         return item;
     }

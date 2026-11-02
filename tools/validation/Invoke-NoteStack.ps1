@@ -28,6 +28,9 @@
     16  the folder list still works: Shift+F10 (Open, Rename, New folder); Ctrl+N focuses the name box
     17  the New note button and Back are named
     18  closing while editing: saved, a clean exit
+    19  Ctrl+Shift+M on a card: All folders (no recent yet), never the card's own; choosing one moves it, focus stays
+    20  the card menu's Move to: the recent folder first; choosing it moves the card
+    21  Ctrl+Shift+M from the editor with unsaved text: saved first, then moved
 
   Command announcements are UI Automation notification events, which the managed UI Automation client this harness
   uses cannot subscribe to: NOT RUN here, listened for in the release candidate's Narrator pass.
@@ -48,6 +51,7 @@ $AE = [System.Windows.Automation.AutomationElement]
 $Scope = [System.Windows.Automation.TreeScope]
 $CT = [System.Windows.Automation.ControlType]
 $FolderId = '01J0000000000000000000F016'
+$Elsewhere = '01J0000000000000000000F017'
 $A = '01J00000000000000000000N01'; $B = '01J00000000000000000000N02'; $C = '01J00000000000000000000N03'
 $Seed = [ordered]@{ $A = 'Alpha'; $B = 'Beta'; $C = 'Gamma' }
 foreach ($n in 4..43) { $Seed['01J0000000000000000000N{0:D3}' -f $n] = "Filler $n" }
@@ -99,6 +103,21 @@ function Menu-Items {
     $cond = [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::MenuItem)
     @($AE::RootElement.FindAll($Scope::Descendants, $cond) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid } | ForEach-Object { $_.Current.Name })
 }
+function FolderOf([string] $Id) { [string](Sql $script:data 'SELECT FolderId FROM Notes WHERE Id = $n' @{ '$n' = $Id } -Scalar) }
+function Menu-Item([string] $Name) {
+    $cond = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::MenuItem),
+        [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, $Name))
+    $deadline = (Get-Date).AddSeconds(5)
+    while ((Get-Date) -lt $deadline) {
+        $e = @($AE::RootElement.FindAll($Scope::Descendants, $cond) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid }) | Select-Object -First 1
+        if ($e) { return $e }
+        Start-Sleep -Milliseconds 200
+    }
+    throw "no menu item '$Name'"
+}
+function Expand([string] $Name) { (Menu-Item $Name).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600 }
+function Choose([string] $Name) { (Menu-Item $Name).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900 }
 function Bring-Forward {
     $null = Set-ForegroundByKeyboard $script:target
     Send-ActivationChord -AllowedForeground $script:target.Hwnd
@@ -126,6 +145,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     if (-not (Stop-Noto $first)) { throw 'the seeding start did not exit cleanly' }
     $now = [DateTimeOffset]::UtcNow.ToString('O')
     $null = Sql $script:data "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Stack', 1, `$t, `$t)" @{ '$f' = $FolderId; '$t' = $now }
+    $null = Sql $script:data "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Elsewhere', 2, `$t, `$t)" @{ '$f' = $Elsewhere; '$t' = $now }
     $i = 0
     foreach ($id in $Seed.Keys) {
         $i++
@@ -220,7 +240,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
-    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
+    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
 
     # 13 - Settings and back while editing
     Send-ToNoto @() 0x0D
@@ -255,6 +275,36 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Enter-Folder
     $new = Find-ById 'NewNoteButton'; $back = Find-ById 'BackButton'
     Add-Result $run '17 New note and Back are named' ($new.Current.Name -eq 'New note' -and $back.Current.Name -eq 'Back to folders') "new=$($new.Current.Name) back=$($back.Current.Name)"
+
+    # 19 - Ctrl+Shift+M on a card: no recent yet, All folders without the card's own; choose one
+    $card = Card 'Filler 4'
+    $card.SetFocus(); Start-Sleep -Milliseconds 300
+    $before = ActiveCount
+    Send-ToNoto @(0x11, 0x10) 0x4D
+    $top = Menu-Items
+    Expand 'All folders'
+    $all = @(Menu-Items | Where-Object { $_ -notin $top })
+    Choose 'Elsewhere'
+    $id4 = [string](Sql $script:data "SELECT Id FROM Notes WHERE Content = 'Filler 4'" -Scalar)
+    Add-Result $run '19 Ctrl+Shift+M: All folders without its own; choosing one moves it; focus stays' (($top -join ',') -eq 'All folders' -and ($all -join ',') -eq 'Elsewhere' -and (FolderOf $id4) -eq $Elsewhere -and (ActiveCount) -eq $before - 1 -and -not (Card 'Filler 4') -and (Focused) -match 'ListItem') "top=$($top -join ',') all=$($all -join ',') folder=$(FolderOf $id4) notes=$before->$(ActiveCount) focus=$(Focused)"
+
+    # 20 - the card menu's Move to: the recent folder first
+    $card = Card 'Filler 5'
+    $card.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Expand 'Move to'
+    $sub = @(Menu-Items | Where-Object { $_ -notin 'Edit', 'New note', 'Move to', 'Move to the Recycle Bin' })
+    Choose 'Elsewhere'
+    $id5 = [string](Sql $script:data "SELECT Id FROM Notes WHERE Content = 'Filler 5'" -Scalar)
+    Add-Result $run '20 the card menu''s Move to lists the recent folder first; choosing it moves the card' ($sub[0] -eq 'Elsewhere' -and (FolderOf $id5) -eq $Elsewhere -and -not (Card 'Filler 5')) "sub=$($sub -join ',') folder=$(FolderOf $id5) focus=$(Focused)"
+
+    # 21 - Ctrl+Shift+M from the editor with unsaved text: saved first, then moved
+    Edit-Card 'Filler 6'
+    Set-EditorText 'Filler 6, typed then moved'
+    Send-ToNoto @(0x11, 0x10) 0x4D
+    Choose 'Elsewhere'
+    $id6 = [string](Sql $script:data "SELECT Id FROM Notes WHERE Content = 'Filler 6, typed then moved'" -Scalar)
+    Add-Result $run '21 Ctrl+Shift+M from the editor saves the text, then moves the card' ($id6 -ne '' -and (FolderOf $id6) -eq $Elsewhere -and (Editors).Count -eq 0 -and (Focused) -match 'ListItem') "id=$id6 folder=$(FolderOf $id6) editors=$((Editors).Count) focus=$(Focused)"
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'
