@@ -58,6 +58,10 @@ The parity count is read from
 
 ## Shape
 
+> **The first release is the Basic Release (v0.1), defined in [basic-release.md](basic-release.md)** (2026-11-02):
+> the core product, polished, before any new idea. The milestones below remain the capability map; their version
+> labels are superseded by it.
+
 ```
   ┌─ FOUNDATION ────────────────────────────────────────────┐
   │ M0  Foundation & Architecture   ████████████   v0.1     │
