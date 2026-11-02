@@ -2390,6 +2390,7 @@ public sealed partial class MainWindow : Window
             _selectedId = id;
             Refresh();
             FocusRow(id);
+            Announce(pinned ? "Pinned" : "Unpinned", FolderList);
         }
         catch (StorageException ex)
         {

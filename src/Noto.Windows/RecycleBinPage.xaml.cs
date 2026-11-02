@@ -119,6 +119,12 @@ public sealed partial class RecycleBinPage : UserControl
             e.Handled = true;
             Restore(item);
         }
+        else if (e.Key == VirtualKey.Enter)
+        {
+            // Not silent (B6, F3): say why, and where the way that works is.
+            e.Handled = true;
+            Announce("Its folder is in the Recycle Bin. Restore the folder, or use Restore to in this note's menu.");
+        }
         else if (e.Key == VirtualKey.Delete)
         {
             e.Handled = true;
