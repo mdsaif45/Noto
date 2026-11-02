@@ -244,6 +244,82 @@ Drag and drop is **another way to ask for B3's reorder**, nothing more: the same
 - **Mutation:** 14/14 killed.
 - **Runtime:** `Invoke-RecycleBin.ps1` 16/16, `Invoke-NoteStack.ps1` 52/52.
 
+### B6 precisely: keyboard and accessibility hardening (2026-11-02)
+
+B6 adds no feature. It audits A–B5 and fixes what the audit found.
+
+**The keyboard map, as built** (one owner per chord per scope; checked by a guard):
+
+| Scope | Key | Action | Precedence |
+|---|---|---|---|
+| anywhere | Ctrl+W | hide | root accelerator |
+| anywhere | Ctrl+, | Settings | root accelerator; the editor hands it up |
+| folder list | Ctrl+N | focus the new-folder box | the pane's accelerator |
+| folder list | Ctrl+Down; double-click, or one click by the setting | enter the folder | PreviewKeyDown, after reorder (Enter is deliberately unbound here) |
+| folder list | F2 / Delete | rename / delete (confirmed) | KeyDown on the list |
+| folder list | Ctrl+Alt+Shift+Up/Down | move the folder | PreviewKeyDown, first |
+| stack | Ctrl+N / Ctrl+Shift+M | new note / move to folder | the stack's accelerators, the editor included |
+| stack | Ctrl+Alt+Shift+Up/Down | move the card | PreviewKeyDown, first |
+| stack | Ctrl+Alt+Left/Right (+Shift) | fold / unfold (all) | PreviewKeyDown, second |
+| stack | Enter, F2 | edit the card | PreviewKeyDown, only from a card, never from the editor |
+| stack | Ctrl+Alt+Backspace | delete the card | the stack's KeyDown |
+| editor | Ctrl+Alt+Up/Down | edit the previous or next card | the host's PreviewKeyDown (after the stack's) |
+| bin | Enter / Delete | restore / delete permanently (confirmed) | PreviewKeyDown, only from an entry |
+| everywhere | Escape | one level back, by the Escape setting | per surface (`WorkspaceEscape`) |
+| everywhere | Shift+F10, Menu | the row's menu | `ContextRequested` |
+
+AltGr types nothing with arrows or Backspace, so no Ctrl+Alt chord above takes a character (implementation plan §10.2).
+
+**What the audit found, and the fix for each:**
+1. **F1:** WinUI shows an automatic key-tip tooltip for a `KeyboardAccelerator` (the stray "Ctrl+N" popup). Every element that hosts accelerators sets `KeyboardAcceleratorPlacementMode="Hidden"`; the buttons' own tooltips already name their keys.
+2. **F2:** pinning a folder now announces "Pinned"/"Unpinned", as pinning a card does.
+3. **F3:** Enter on a bin entry that cannot be restored in place announces why, and where Restore to is, instead of doing nothing silently.
+4. **F4:** the runtime case now checks the focused, recycled card's help text far down the scrolled stack, not only its stored flag.
+
+**Announcements** (one per action, from the list where it happened; no second announcement for the same change):
+- notes: created, deleted, moved, pinned, folded, fold all, reordered, dropped, refused drop;
+- folders: deleted, pinned, reordered, dropped, refused drop;
+- bin: restored, restored to, deleted permanently, emptied, can't restore here.
+
+Failed saves are the stack's notice, a live region marked assertive. Creating and renaming a folder move focus to the row, which is read, so they add no announcement.
+
+**Editing safety, every path around an active editor:**
+
+| Path | Result |
+|---|---|
+| another card, Ctrl+N, move, leaving the folder | save first; a failed save stays put |
+| fold | save and leave editing first; a failed save folds nothing |
+| pin, reorder, drag | keep editing with the unsaved text |
+| hide, close | save; a failed save keeps the window or cancels the close |
+| Settings | keeps the editor and its text |
+| folder delete, Recycle Bin | unreachable while editing: both live on the folder list, reached only by leaving the stack |
+
+**Undo for deletion: deferred, not built.**
+- A deleted note or folder is one action away in the Recycle Bin, with its place, content and notes kept.
+- A separate Undo would need state parallel to the transaction that already recorded the deletion.
+- Nothing in A–B5 shows a release-blocking gap.
+- Revisit after the release-candidate usability pass.
+
+**Left to the release-candidate campaign:**
+- Narrator speech, because UI Automation notification events are not observable from the harness's client;
+- High Contrast and reduced motion at runtime on a machine set up for them;
+- non-US layout and AltGr checks (P9.7).
+
+B6 adds no colour, no template and no motion.
+
+**Verified (B6):**
+- **Guards (`KeyboardAccessibilityGuardTests`, 16):**
+  - every accelerator host hides the automatic key tip;
+  - no chord has two owners in one scope;
+  - each of the twelve window actions announces its outcome, with no more than two announcements per method;
+  - the bin's actions announce, and Enter on an entry it cannot restore is not silent;
+  - failed saves go through the assertive live region.
+- **Mutation:** 6/6 killed, by these guards (each fix removed in turn). Phase A 19, B1 17, B2 19, B3 17, B4 15 and B5 14 re-run on this tree: all killed.
+- **Runtime**, on a Release build frozen from the final source:
+  - `Invoke-NoteStack.ps1` 54/54. Case 29 now checks the recycled card's container help text; case 44 checks there is no key tip while Ctrl is held; case 45 checks Tab reaches the Recycle Bin button.
+  - `Invoke-RecycleBin.ps1` 16/16. In case 6, Enter on an entry that cannot be restored in place writes nothing.
+- **Negative control:** the same harness against the pre-B6 build fails case 44 (a "Ctrl+N" key tip on both lists). The check is real.
+
 ### Menus and confirmations
 - **Menus:** short, and each item shows its key.
   - Card: Edit, New note, Move to ▸, Pin/Unpin, Fold/Unfold, Move to top, Move to bottom, Move to the Recycle Bin.
