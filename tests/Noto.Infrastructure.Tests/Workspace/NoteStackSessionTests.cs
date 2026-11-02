@@ -3,6 +3,7 @@ using Noto.Core;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Infrastructure.Storage;
 using Noto.Infrastructure.Tests.Storage;
@@ -26,7 +27,9 @@ public sealed class NoteStackSessionTests : IDisposable
     private readonly SqliteFolderRepository _folders;
     private readonly Clock _clock = new(new DateTimeOffset(2026, 11, 2, 9, 0, 0, TimeSpan.Zero));
     private readonly NoteStackSession _stack;
+    private readonly EventHub _events = new(_ => { });
     private readonly FolderId _folder;
+    private readonly FolderId _other;
     private readonly NoteId _a;
     private readonly NoteId _b;
     private readonly NoteId _c;
@@ -42,11 +45,15 @@ public sealed class NoteStackSessionTests : IDisposable
             new CommandRegistry()
                 .Register<UpdateNoteContent, CommandResult>(new UpdateNoteContentHandler(_notes, _clock).Handle)
                 .Register<CreateNote, CommandResult<NoteId>>(new CreateNoteHandler(_notes, _clock).Handle)
-                .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(_notes, _clock).Handle),
-            new EventHub(_ => { }));
+                .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(_notes, _clock).Handle)
+                .Register<MoveNoteToFolder, CommandResult, NoteMoved>(
+                    new MoveNoteToFolderHandler(_notes, _clock).Handle,
+                    static (command, _) => new NoteMoved(command.NoteId, command.TargetFolderId)),
+            _events);
         _stack = new NoteStackSession(new ListNotesInFolderQuery(_notes), dispatcher);
 
         _folder = new CreateFolderHandler(_folders, _clock).Handle(new CreateFolder("Stack")).Value;
+        _other = new CreateFolderHandler(_folders, _clock).Handle(new CreateFolder("Other")).Value;
         _a = Create("Alpha\nsecond line");
         _b = Create("Beta");
         _c = Create("Gamma");
@@ -319,6 +326,212 @@ public sealed class NoteStackSessionTests : IDisposable
         Assert.Equal("typed", _stack.Draft);
     }
 
+    // ---- moving (B11) ---------------------------------------------------------------------------------
+
+    [Fact]
+    public void A_moved_note_lands_at_the_end_of_its_destination_and_leaves_the_stack_with_its_identity_and_content()
+    {
+        NoteId x = Create("Already there", _other);
+
+        Assert.True(_stack.Move(_b, _other).IsSuccess);
+
+        Assert.Equal([_a, _c], _stack.Notes.Select(n => n.Id));
+        Assert.Equal([x, _b], _notes.ListInFolder(_other).Select(n => n.Id));
+        Assert.Equal("Beta", Stored(_b));
+        Assert.Equal([_a, _c], _notes.ListInFolder(_folder).Select(n => n.Id));
+    }
+
+    [Fact]
+    public void Moving_the_card_being_edited_saves_it_first()
+    {
+        Assert.True(_stack.BeginEdit(_b).IsSuccess);
+        _stack.UpdateDraft(_b, "typed, then moved");
+
+        Assert.True(_stack.Move(_b, _other).IsSuccess);
+
+        Assert.Equal("typed, then moved", Stored(_b));
+        Assert.Equal(_other.Value, Scalar("SELECT FolderId FROM Notes WHERE Id = $p;", _b.Value));
+        Assert.Null(_stack.Editing);
+    }
+
+    [Fact]
+    public void A_failed_save_moves_nothing_and_keeps_the_card_editing()
+    {
+        Assert.True(_stack.BeginEdit(_b).IsSuccess);
+        _stack.UpdateDraft(_b, "typed");
+        Sql("CREATE TRIGGER inject BEFORE UPDATE OF Content ON Notes BEGIN SELECT RAISE(ABORT, 'injected'); END;");
+
+        Assert.Throws<StorageException>(() => _stack.Move(_b, _other));
+
+        Assert.Equal(_folder.Value, Scalar("SELECT FolderId FROM Notes WHERE Id = $p;", _b.Value));
+        Assert.Equal(_b, _stack.Editing);
+        Assert.Equal("typed", _stack.Draft);
+    }
+
+    [Fact]
+    public void A_refused_save_moves_nothing()
+    {
+        Assert.True(_stack.BeginEdit(_b).IsSuccess);
+        _stack.UpdateDraft(_b, "typed");
+        Sql("UPDATE Notes SET DeletedAt = '2026-11-02T09:00:00.0000000+00:00' WHERE Id = $p;", _b.Value);
+
+        Assert.Equal(CommandFailureReason.InvalidState, _stack.Move(_b, _other).Failure!.Reason);
+
+        Assert.Equal(_folder.Value, Scalar("SELECT FolderId FROM Notes WHERE Id = $p;", _b.Value));
+        Assert.Equal(_b, _stack.Editing);
+    }
+
+    [Fact]
+    public void A_save_refused_while_the_note_could_still_move_moves_nothing()
+    {
+        // The save is refused for a reason that leaves the note movable, so only the session's own check stops it.
+        var dispatcher = new CommandDispatcher(
+            new CommandRegistry()
+                .Register<UpdateNoteContent, CommandResult>(_ => CommandResult.Failed(CommandFailure.InvalidInput("refused")))
+                .Register<MoveNoteToFolder, CommandResult>(new MoveNoteToFolderHandler(_notes, _clock).Handle),
+            new EventHub(_ => { }));
+        var stack = new NoteStackSession(new ListNotesInFolderQuery(_notes), dispatcher);
+        stack.Open(_folder);
+        _ = stack.Read();
+        Assert.True(stack.BeginEdit(_b).IsSuccess);
+        stack.UpdateDraft(_b, "typed");
+
+        Assert.Equal(CommandFailureReason.InvalidInput, stack.Move(_b, _other).Failure!.Reason);
+
+        Assert.Equal(_folder.Value, Scalar("SELECT FolderId FROM Notes WHERE Id = $p;", _b.Value));
+        Assert.Equal(_b, stack.Editing);
+        Assert.Equal("typed", stack.Draft);
+    }
+
+    [Fact]
+    public void The_recent_list_setting_refuses_a_value_that_is_not_such_a_list()
+    {
+        var settings = new SqliteSettingsStore(_database, NullStorageLog.Instance);
+        settings.Load();
+
+        Assert.False(settings.Write(SettingKeys.NotesRecentMoveFolders, "garbage"));
+        Assert.False(settings.Write(SettingKeys.NotesRecentMoveFolders, $"{_other},{_other}"));
+        Assert.True(settings.Write(SettingKeys.NotesRecentMoveFolders, $"{_other},{_folder}"));
+    }
+
+    [Fact]
+    public void Moving_another_card_keeps_the_one_being_edited_with_its_text()
+    {
+        Assert.True(_stack.BeginEdit(_a).IsSuccess);
+        _stack.UpdateDraft(_a, "still typing");
+
+        Assert.True(_stack.Move(_c, _other).IsSuccess);
+
+        Assert.Equal(_a, _stack.Editing);
+        Assert.Equal("still typing", _stack.Draft);
+    }
+
+    [Fact]
+    public void A_move_to_the_open_folder_is_not_a_move_and_writes_nothing()
+    {
+        string before = Snapshot();
+
+        Assert.True(_stack.Move(_a, _folder).IsSuccess);
+
+        Assert.Equal(before, Snapshot());
+        Assert.Equal([_a, _b, _c], _stack.Notes.Select(n => n.Id));
+    }
+
+    [Fact]
+    public void A_move_into_a_binned_folder_is_refused_and_changes_nothing()
+    {
+        Sql("UPDATE Folders SET DeletedAt = '2026-11-02T09:00:00.0000000+00:00' WHERE Id = $p;", _other.Value);
+        string before = Snapshot();
+
+        Assert.Equal(CommandFailureReason.InvalidState, _stack.Move(_a, _other).Failure!.Reason);
+
+        Assert.Equal(before, Snapshot());
+        Assert.Equal([_a, _b, _c], _stack.Notes.Select(n => n.Id));
+    }
+
+    [Fact]
+    public void Moving_twice_keeps_both_orders_whole()
+    {
+        Assert.True(_stack.Move(_a, _other).IsSuccess);
+        Assert.True(_stack.Move(_c, _other).IsSuccess);
+
+        Assert.Equal([_b], _notes.ListInFolder(_folder).Select(n => n.Id));
+        Assert.Equal([_a, _c], _notes.ListInFolder(_other).Select(n => n.Id));
+        Assert.Equal(2L, Count($"SELECT COUNT(DISTINCT SortOrder) FROM Notes WHERE FolderId = '{_other.Value}';"));
+    }
+
+    [Fact]
+    public void A_move_is_announced_after_it_commits_and_a_refused_one_is_not()
+    {
+        var told = new List<NoteMoved>();
+        using var subscription = _events.Subscribe<NoteMoved>(e =>
+        {
+            Assert.Equal(e.FolderId.Value, Scalar("SELECT FolderId FROM Notes WHERE Id = $p;", e.NoteId.Value));
+            told.Add(e);
+        });
+
+        Assert.True(_stack.Move(_a, _other).IsSuccess);
+        Assert.False(_stack.Move(_b, FolderId.New()).IsSuccess);
+        Assert.True(_stack.Move(_c, _folder).IsSuccess);
+
+        Assert.Equal([new NoteMoved(_a, _other)], told);
+    }
+
+    // ---- recent folders (B11) ------------------------------------------------------------------------
+
+    [Fact]
+    public void Each_move_records_its_destination_as_the_most_recent_and_it_survives_a_restart()
+    {
+        WorkspacePreferences preferences = Preferences();
+        FolderId third = new CreateFolderHandler(_folders, _clock).Handle(new CreateFolder("Third")).Value;
+        using var subscription = _events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, _folders.ListActive()));
+
+        Assert.True(_stack.Move(_a, _other).IsSuccess);
+        Assert.True(_stack.Move(_b, third).IsSuccess);
+        Assert.True(_stack.Move(_c, _other).IsSuccess);
+
+        Assert.Equal([_other, third], preferences.RecentMoveFolders);
+        Assert.Equal([_other, third], Preferences().RecentMoveFolders);
+    }
+
+    [Fact]
+    public void A_refused_move_records_nothing()
+    {
+        WorkspacePreferences preferences = Preferences();
+        using var subscription = _events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, _folders.ListActive()));
+
+        Assert.False(_stack.Move(_a, FolderId.New()).IsSuccess);
+
+        Assert.Empty(preferences.RecentMoveFolders);
+    }
+
+    [Fact]
+    public void A_folder_no_longer_active_falls_out_the_next_time_the_list_is_written()
+    {
+        WorkspacePreferences preferences = Preferences();
+        FolderId third = new CreateFolderHandler(_folders, _clock).Handle(new CreateFolder("Third")).Value;
+        Assert.True(preferences.RememberMoveTarget(_other, _folders.ListActive()));
+        Assert.True(preferences.RememberMoveTarget(third, _folders.ListActive()));
+        Sql("UPDATE Folders SET DeletedAt = '2026-11-02T09:00:00.0000000+00:00' WHERE Id = $p;", _other.Value);
+
+        Assert.Equal([third, _other], preferences.RecentMoveFolders);
+        Assert.True(preferences.RememberMoveTarget(_folder, _folders.ListActive()));
+
+        Assert.Equal([_folder, third], preferences.RecentMoveFolders);
+    }
+
+    [Fact]
+    public void A_corrupt_stored_list_reads_as_empty_and_is_replaced_by_the_next_move()
+    {
+        Sql("INSERT INTO Settings (Key, Value) VALUES ('notes.recent-move-folders', 'garbage');");
+        WorkspacePreferences preferences = Preferences();
+
+        Assert.Empty(preferences.RecentMoveFolders);
+        Assert.True(preferences.RememberMoveTarget(_other, _folders.ListActive()));
+
+        Assert.Equal([_other], preferences.RecentMoveFolders);
+    }
+
     // ---- neighbours ----------------------------------------------------------------------------------
 
     [Fact]
@@ -360,10 +573,17 @@ public sealed class NoteStackSessionTests : IDisposable
 
     // ---- helpers -------------------------------------------------------------------------------------
 
-    private NoteId Create(string content)
+    private NoteId Create(string content, FolderId? folder = null)
     {
         _clock.Advance(TimeSpan.FromSeconds(1));
-        return new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(_folder, content)).Value;
+        return new CreateNoteHandler(_notes, _clock).Handle(new CreateNote(folder ?? _folder, content)).Value;
+    }
+
+    private WorkspacePreferences Preferences()
+    {
+        var settings = new SqliteSettingsStore(_database, NullStorageLog.Instance);
+        settings.Load();
+        return new WorkspacePreferences(settings);
     }
 
     private string? Stored(NoteId note) => Scalar("SELECT Content FROM Notes WHERE Id = $p;", note.Value) as string;

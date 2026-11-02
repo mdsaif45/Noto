@@ -15,6 +15,9 @@ namespace Noto.UseCases.Notes;
 /// </param>
 public sealed record MoveNoteToFolder(NoteId NoteId, FolderId TargetFolderId) : ICommand<CommandResult>;
 
+/// <summary>A note was moved to <paramref name="FolderId"/>: published by the registry after the move commits (ADR-010).</summary>
+public sealed record NoteMoved(NoteId NoteId, FolderId FolderId) : IEvent;
+
 /// <summary>
 /// Handles <see cref="MoveNoteToFolder"/>.
 /// </summary>
