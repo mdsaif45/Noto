@@ -14,8 +14,8 @@
      4  the folder menu's Delete on Work (2 notes): the confirmation names them; Delete bins the folder and both notes
         under one timestamp; Home is untouched; focus goes to the next folder; I7 holds
      5  the Recycle Bin opens from its button: Work (Folder, 2 notes) and its notes, help text on each entry
-     6  a note whose folder is in the bin: Restore is disabled and not in its menu; Restore to Home restores it there,
-        with the text typed in case 3
+     6  a note whose folder is in the bin: Enter writes nothing (it is announced, B6); Restore is disabled and not in
+        its menu; Restore to Home restores it there, with the text typed in case 3
      7  Enter on Work restores the folder with the rest of its notes
      8  Delete permanently on a folder: the dialog's default is Cancel (Escape writes nothing); confirming purges it
      9  Empty: Cancel writes nothing; confirming purges everything; the empty state shows and Empty is disabled
@@ -156,13 +156,16 @@ exit (Invoke-IsolatedRun $run -Title 'Deleting folders and the Recycle Bin (Phas
 
     # 6 - a note whose folder is in the bin: no Restore, Restore to Home
     Focus-Row 'RecycleBinList' 'Plan typed before delete'
+    $before = Snapshot
+    Send-ToNoto @() 0x0D
+    $enterWroteNothing = (Snapshot) -eq $before -and (Row 'RecycleBinList' 'Plan typed before delete') -and (Focused-Name) -eq 'Plan typed before delete'
     $restoreEnabled = (Find-ById 'BinRestoreButton').Current.IsEnabled
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     (Wait-Mine $CT::MenuItem 'Restore to').GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600
     (Wait-Mine $CT::MenuItem 'Home').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900
     $planFolder = [string](Sql 'SELECT FolderId FROM Notes WHERE Id = $n' @{ '$n' = $Plan } -Scalar)
-    Add-Result $run '6  a note whose folder is in the bin: Restore disabled and not in its menu; Restore to Home keeps its text' (-not $restoreEnabled -and ($menu -notcontains 'Restore') -and ($menu -contains 'Restore to') -and $planFolder -eq $Home_ -and (Deleted 'Notes' $Plan) -eq '' -and (I7)) "restoreEnabled=$restoreEnabled menu=$($menu -join ',') folder=$planFolder"
+    Add-Result $run '6  a note whose folder is in the bin: Enter writes nothing; Restore disabled and not in its menu; Restore to Home keeps its text' ($enterWroteNothing -and -not $restoreEnabled -and ($menu -notcontains 'Restore') -and ($menu -contains 'Restore to') -and $planFolder -eq $Home_ -and (Deleted 'Notes' $Plan) -eq '' -and (I7)) "restoreEnabled=$restoreEnabled menu=$($menu -join ',') folder=$planFolder"
 
     # 7 - Enter on Work restores the folder with the rest of its notes
     Focus-Row 'RecycleBinList' 'Work'

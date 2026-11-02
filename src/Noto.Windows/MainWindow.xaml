@@ -27,7 +27,12 @@
         never moves, so the content slides and fades inside the docked
         rectangle over the sidebar colour, never over nothing.
     -->
-    <Grid x:Name="WorkspaceRoot" Background="{ThemeResource SurfaceSidebarBrush}">
+    <!--
+        KeyboardAcceleratorPlacementMode="Hidden" on every element that hosts accelerators (B6, F1): WinUI would
+        otherwise pop an automatic key-tip tooltip ("Ctrl+N") when a modifier is held. Each button's own tooltip
+        already names its key.
+    -->
+    <Grid x:Name="WorkspaceRoot" Background="{ThemeResource SurfaceSidebarBrush}" KeyboardAcceleratorPlacementMode="Hidden">
 
         <!--
             Ctrl+W hides the workspace from any surface (parity A10, G7). On
@@ -83,6 +88,7 @@
 
             <Grid x:Name="PaneRoot"
                   Grid.Row="1"
+                  KeyboardAcceleratorPlacementMode="Hidden"
                   KeyDown="OnPaneRootKeyDown"
                   Background="{ThemeResource SurfaceSidebarBrush}"
                   Padding="{StaticResource PanePadding}"
@@ -269,6 +275,7 @@
             -->
             <Grid x:Name="NoteRoot"
                   Grid.Row="1"
+                  KeyboardAcceleratorPlacementMode="Hidden"
                   KeyDown="OnNoteRootKeyDown"
                   Background="{ThemeResource SurfaceSidebarBrush}"
                   Padding="{StaticResource PanePadding}"

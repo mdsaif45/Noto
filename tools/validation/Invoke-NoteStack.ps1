@@ -53,6 +53,8 @@
     41  dragging far down the scrolled stack
     42  dragging a folder above another, then back
     43  one click on a card still edits it (drag enabled)
+    44  holding Ctrl on the stack and on the folder list shows no automatic key-tip tooltip (B6, F1)
+    45  from a folder row, Tab reaches the Recycle Bin button and Shift+Tab returns
 
   Command announcements are UI Automation notification events, which the managed UI Automation client this harness
   uses cannot subscribe to: NOT RUN here, listened for in the release candidate's Narrator pass.
@@ -189,6 +191,14 @@ function Centre($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.
 function Grip($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + 6), [int]($r.Y + $r.Height / 2)) }
 function UpperEdge($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + $r.Width / 2), [int]($r.Y + 3)) }
 function Orders { (Sql-Rows 'SELECT Id || ''='' || SortOrder FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY Id' @{ '$f' = $FolderId }) -join '|' }
+function Tooltips { @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ToolTip)) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid -and -not $_.Current.IsOffscreen } | ForEach-Object { $_.Current.Name }) }
+function Hold-Control-Tooltips {
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to send keys: Noto is not the foreground window' }
+    [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x11, $false))); Start-Sleep -Milliseconds 1500
+    $seen = Tooltips
+    [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x11, $true))); Start-Sleep -Milliseconds 300
+    $seen
+}
 function Bring-Forward {
     $null = Set-ForegroundByKeyboard $script:target
     Send-ActivationChord -AllowedForeground $script:target.Hwnd
@@ -445,7 +455,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $last.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x11, 0x12) 0x25
     $idLast = IdOf $lastName
-    Add-Result $run '29 far down the scrolled stack, the focused card folds and keeps focus' ($idLast -ne '' -and (Flag $idLast 'IsFolded') -eq 1 -and (Focused-Name) -eq $lastName) "card=$lastName folded=$(Flag $idLast 'IsFolded') focus=$(Focused)"
+    Add-Result $run '29 far down the scrolled stack, the focused card folds, keeps focus, and its container says Folded' ($idLast -ne '' -and (Flag $idLast 'IsFolded') -eq 1 -and (Focused-Name) -eq $lastName -and (Focused-Help) -match 'Folded') "card=$lastName folded=$(Flag $idLast 'IsFolded') help=$(Focused-Help) focus=$(Focused)"
     Send-ToNoto @(0x11, 0x12) 0x27
     $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 0); Start-Sleep -Milliseconds 500
 
@@ -591,6 +601,22 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $from = Grip ($rows | Where-Object { $_.Current.Name -eq 'Stack' }); $to = UpperEdge ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' })
     Drag-To $from[0] $from[1] $to[0] $to[1]
     Add-Result $run '42 a folder dragged above another lands there, focused; and back' ($start -eq 'Stack,Elsewhere' -and $moved -eq 'Elsewhere,Stack' -and $movedFocus -eq 'Elsewhere' -and ((Folder-Rows) -join ',') -eq 'Stack,Elsewhere') "start=$start moved=$moved focus=$movedFocus back=$((Folder-Rows) -join ',')"
+    Enter-Folder
+
+    # 44 - no automatic key-tip tooltip while Ctrl is held
+    (Cards)[0].SetFocus(); Start-Sleep -Milliseconds 300
+    $onStack = @(Hold-Control-Tooltips)
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $onFolders = @(Hold-Control-Tooltips)
+    Add-Result $run '44 holding Ctrl shows no automatic key-tip tooltip on the stack or the folder list' (($onStack | Where-Object { $_ -match 'Ctrl' }).Count -eq 0 -and ($onFolders | Where-Object { $_ -match 'Ctrl' }).Count -eq 0) "stack=$($onStack -join ',') folders=$($onFolders -join ',')"
+
+    # 45 - Tab from a folder row reaches the Recycle Bin button; Shift+Tab returns
+    $row = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0]
+    $row.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @() 0x09
+    $tabbed = Focused
+    Send-ToNoto @(0x10) 0x09
+    Add-Result $run '45 Tab from a folder row reaches the Recycle Bin button; Shift+Tab returns to the row' ($tabbed -match 'id=RecycleBinButton' -and (Focused) -match 'ListItem') "tab=$tabbed back=$(Focused)"
     Enter-Folder
 
     # 18 - closing while editing saves, then exits cleanly
