@@ -28,6 +28,12 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
 {
     private static readonly ClaimTimings Quick = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(50));
 
+    /// <summary>
+    /// How much earlier than requested a kernel wait's timeout may expire as Stopwatch measures it: one tick of
+    /// Windows' default 15.625 ms timer.
+    /// </summary>
+    private static readonly TimeSpan KernelWaitTolerance = TimeSpan.FromMilliseconds(15.625);
+
     private static InstanceKey NewKey() =>
         InstanceKey.From(ProcessIdentity.CurrentUserSid(), $@"C:\noto-instance-tests\{Guid.NewGuid():N}");
 
@@ -262,7 +268,12 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
 
         output.WriteLine($"gave up after {clock.ElapsedMilliseconds} ms (takeover limit {Quick.Takeover.TotalMilliseconds} ms)");
         Assert.Equal(ClaimOutcome.Unreachable, claim.Outcome);
-        Assert.InRange(clock.Elapsed, Quick.Takeover, Quick.Takeover + TimeSpan.FromSeconds(3));
+
+        // It waited out the takeover, not the 1 s unreachable limit and not nothing. The floor allows one timer tick:
+        // the takeover is a kernel wait (Mutex.WaitOne), whose timeout can expire a fraction of a millisecond before
+        // the interval as Stopwatch measures it (measured: 499.84 ms for 500), so an exact floor failed intermittently
+        // under load, where the claim's own overhead before the wait had shrunk to 1 ms.
+        Assert.InRange(clock.Elapsed, Quick.Takeover - KernelWaitTolerance, Quick.Takeover + TimeSpan.FromSeconds(3));
     }
 
     [Fact]
