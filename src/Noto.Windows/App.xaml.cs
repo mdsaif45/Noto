@@ -337,17 +337,8 @@ public partial class App : Application
     /// <summary>How long a failure on another thread waits for the UI thread to save the open note.</summary>
     private static readonly TimeSpan FailureSaveTimeout = TimeSpan.FromSeconds(5);
 
-    /// <summary>
-    /// How long the process may take to end once the window has closed and everything is saved and released
-    /// (ExitWatchdog). Measured: a normal exit takes about 120 ms (Invoke-ExitCycles.ps1).
-    /// </summary>
-    private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(5);
-
     /// <summary>The last-chance boundaries' one handling of a failure (#10).</summary>
     private FailureBoundary? _failures;
-
-    /// <summary>The application's event log, for the exit watchdog's record of an overrun.</summary>
-    private RollingFileLog? _appLog;
 
     /// <summary>The note database, released last when Noto ends, so no handle on it outlives the final write.</summary>
     private NotoDatabase? _database;
@@ -414,7 +405,6 @@ public partial class App : Application
         // lines elsewhere are a separate channel: the runtime validation
         // harness reads them.
         var log = new RollingFileLog(paths.LogsDirectory);
-        _appLog = log;
 
         // #10: the last-chance boundaries. The first failure is recorded, the
         // open note saved once and the application ended through its one
@@ -655,8 +645,9 @@ public partial class App : Application
         {
             ReleaseResources();
 
-            // Everything is saved and released: the process may end no later than this (ExitWatchdog).
-            ExitWatchdog.Arm(ShutdownGrace, () => _appLog?.ShutdownOverran((int)ShutdownGrace.TotalMilliseconds));
+            // Everything is saved and released (the database too): the process ends now, not in the framework's
+            // teardown, which can fault after this point (ProcessEnd, R17).
+            ProcessEnd.Now(0);
         };
 
         // After MainWindow's own Closing handler, which may cancel the close
@@ -1221,7 +1212,7 @@ public partial class App : Application
         _hotkey?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
-        // process's handle and the exit watchdog can never end a process holding it.
+        // process's handle and the process never ends holding it.
         _database?.Release();
 
         // The pipe first, then the mutex: a successor waiting on the

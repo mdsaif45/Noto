@@ -4,22 +4,25 @@
   Noto exits, every time: open, edit, close, many times over, each exit timed and its code checked.
 
 .DESCRIPTION
-  A release-blocking exit hang was seen once in development: Noto traced its whole shutdown and was still alive 10 s
-  later. This repeats the full cycle that preceded it, deterministically:
+  The exit "hang" seen twice (R17) was a crash: Microsoft.UI.Xaml.dll faulted tearing the window down after Noto's
+  last close work, and Windows Error Reporting held the process ~11 s. Noto now ends its own process once it has
+  saved and released everything. This repeats the cycle that crashed:
 
-    start (isolated data root) -> show (hotkey) -> enter the folder -> edit a card -> type -> format (Ctrl+B) ->
-    leave or stay editing -> close (WM_CLOSE)
+    start (isolated data root) -> show (hotkey) -> enter the folder -> edit a card -> type -TypeChars characters,
+    autosaves between -> format (Ctrl+B) -> leave or stay editing -> close (WM_CLOSE)
 
-  and records how long the process took to end after the close and its exit code. Half the cycles run with a
-  debug-output reader attached (as every other harness has, to read Noto's traces) and half without, because an
-  OutputDebugString call waits on that reader: a stalled reader can hold a writer for up to 10 s.
+  and records how long the process took to end after the close and its exit code. Half the cycles close with the
+  card still editing, which is what crashed. Half run with a debug-output reader attached (as every other harness
+  has, to read Noto's traces) and half without, because an OutputDebugString call waits on that reader. A close over
+  budget writes a full dump and the process's thread states (one thread waiting on an LPC reply and the rest
+  suspended is a crash report in progress).
 
   Pass: every exit ends within -ExitBudgetMs with code 0. Each cycle's exit time is reported.
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-ExitCycles.ps1 -NotoExe <path>\Noto.exe -Cycles 30
 #>
-param([Parameter(Mandatory)] [string] $NotoExe, [ValidateRange(2, 200)] [int] $Cycles = 20, [int] $ExitBudgetMs = 3000)
+param([Parameter(Mandatory)] [string] $NotoExe, [ValidateRange(2, 200)] [int] $Cycles = 20, [int] $ExitBudgetMs = 3000, [ValidateRange(0, 400)] [int] $TypeChars = 60)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
@@ -111,6 +114,11 @@ exit (Invoke-IsolatedRun $run -Title 'Noto exits, every time' -Body {
             $null = Find-ById 'NoteEditor'
             Send-ToNoto @(0x11) 0x23 200
             Type-Text " $i"
+            if ($TypeChars -gt 0) {
+                # The workload both sightings followed: steady typing in the editor, autosaves between, then the close.
+                Type-Text (' typed ' * [Math]::Ceiling($TypeChars / 7)).Substring(0, $TypeChars)
+                Start-Sleep -Milliseconds 1300
+            }
             Send-ToNoto @(0x11, 0x10) 0x25 200
             Send-ToNoto @(0x11) 0x42 300
             # Odd cycles close with the card still editing (the close saves), even ones after leaving it.
@@ -121,9 +129,12 @@ exit (Invoke-IsolatedRun $run -Title 'Noto exits, every time' -Body {
             $exited = $proc.WaitForExit($ExitBudgetMs)
             $dump = ''
             if (-not $exited) {
-                # Over budget: keep the evidence of where it is stuck before waiting any longer.
+                # Over budget: keep the evidence of where it is stuck before waiting any longer. Which threads are
+                # left says whether it is still in the framework (many) or already inside ExitProcess (one).
+                $proc.Refresh()
+                $threads = @($proc.Threads | ForEach-Object { "$($_.ThreadState)$(if ($_.ThreadState -eq 'Wait') { "/$($_.WaitReason)" })" } | Group-Object | ForEach-Object { "$($_.Name)x$($_.Count)" }) -join ' '
                 $path = Join-Path $run.Root "noto-exit-$i.dmp"
-                $dump = if ([NotoVal.Dump]::Write($proc, $path)) { "dump: $path" } else { 'dump failed' }
+                $dump = $(if ([NotoVal.Dump]::Write($proc, $path)) { "dump: $path" } else { 'dump failed' }) + " threads=$($proc.Threads.Count) [$threads]"
                 $exited = $proc.WaitForExit(20000)
             }
             $ms = $closed.ElapsedMilliseconds
