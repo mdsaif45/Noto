@@ -14,6 +14,7 @@ public sealed class LinkGuardTests
     private static readonly string Main = Code(Path.Join(Windows, "MainWindow.xaml.cs"));
     private static readonly string Links = Code(Path.Join(Windows, "MainWindow.Links.cs"));
     private static readonly string ReadView = Code(Path.Join(Windows, "MarkdownReadView.cs"));
+    private static readonly string Images = Code(Path.Join(Windows, "NoteEditorHost.Images.cs"));
 
     [Fact]
     public void Ctrl_Click_and_Ctrl_Enter_open_a_link_and_a_plain_click_only_places_the_caret()
@@ -26,8 +27,11 @@ public sealed class LinkGuardTests
     public void Paste_prefers_copied_files_then_a_web_address_over_a_selection()
     {
         string paste = Body(Host, "PasteAsync");
-        Assert.Matches(@"TextEdit\? edit = paths\.Count > 0 \? MarkdownCommands\.LinkPaths\(_text, at, paths\)\s*: plain is not null \? MarkdownCommands\.LinkSelection\(_text, at, plain\)\s*: null;", paste);
+        Assert.Matches(@"if \(paths\.Count > 0\)\s*\{\s*AddFiles\(paths\);\s*return;\s*\}\s*TextEdit\? edit = plain is not null \? MarkdownCommands\.LinkSelection\(_text, at, plain\) : null;", paste);
         Assert.Contains(".Where(Path.IsPathFullyQualified)", paste, StringComparison.Ordinal);
+
+        // Files that are not images are linked, as before images (D34).
+        Assert.Contains("Apply(MarkdownCommands.LinkPaths(_text, _selection, others), record: true);", Body(Images, "AddFiles"), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -469,6 +469,11 @@ public partial class App : Application
         var folders = new SqliteFolderRepository(database);
         var notes = new SqliteNoteRepository(database);
 
+        // The images beside the notes (ADR-019 §4). Files no note refers to any more, and older than the sweep's grace,
+        // are removed once, off the UI thread, after startup.
+        var images = new AttachmentStore(paths.AttachmentsDirectory);
+        _ = Task.Run(() => images.SweepUnreferenced(database, DateTimeOffset.UtcNow));
+
         // Phase 1 (architecture-overview.md §startup): settings are read once,
         // before any window, because the things that depend on them — hotkey
         // registration, the tray — run before the first frame. Every later
@@ -589,6 +594,7 @@ public partial class App : Application
             NewNotePlacement = preferences.NewNotePlacement,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
             Search = new SearchWorkspaceQuery(notes, folders),
+            Images = images,
             Bin = new RecycleBin(
                 new ListDeletedFoldersQuery(folders),
                 new ListDeletedNotesQuery(notes),

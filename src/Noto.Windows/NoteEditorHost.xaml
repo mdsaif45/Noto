@@ -28,7 +28,12 @@
             MarkupBrush="{ThemeResource TextSecondaryBrush}"
             LinkBrush="{ThemeResource TextLinkBrush}"
             CodeSurfaceBrush="{ThemeResource SurfaceCodeBrush}"
+            AllowDrop="True"
             AutomationProperties.Name="Note content" />
+        <Canvas
+            x:Name="ImageMarks"
+            IsHitTestVisible="False"
+            AutomationProperties.AccessibilityView="Raw" />
         <Canvas
             x:Name="TaskMarks"
             IsHitTestVisible="False"

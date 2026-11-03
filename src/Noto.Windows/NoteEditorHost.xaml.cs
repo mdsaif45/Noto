@@ -13,6 +13,7 @@ using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Noto.Core.Notes;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -141,6 +142,9 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.PreviewKeyDown += OnPreviewKeyDown;
         NoteEditor.SizeChanged += (_, _) => QueueTaskMarks();
         NoteEditor.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnPointerReleased), handledEventsToo: true);
+        NoteEditor.AddHandler(DragEnterEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
+        NoteEditor.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
+        NoteEditor.AddHandler(DropEvent, new DragEventHandler(OnDrop), handledEventsToo: true);
 
         // Caret keys stay in the editor. RichEdit moves the caret on them but, unlike the TextBox it replaced, leaves
         // some unhandled (measured: Ctrl+End), and an unhandled one reaches the stack's ListView, which moves its
@@ -181,6 +185,7 @@ public sealed partial class NoteEditorHost : UserControl
         long started = Stopwatch.GetTimestamp();
         Set(() => NoteEditor.Document.SetText(TextSetOptions.FormatRtf, MarkdownStyling.Rtf(_document, Palette())));
         Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Editor loaded chars={_text.Length} spans={_document.Spans.Count} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
+        _imagesFrom = started;
         QueueTaskMarks();
 
         // What the user waits for: the first frame drawn after the note was set, RichEdit's layout included. Timing only,
@@ -444,6 +449,7 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.LayoutUpdated -= PlaceTaskMarks;
         _marksQueued = false;
         TaskMarks.Children.Clear();
+        PlaceImages();
 
         if (_showMarkup)
         {
@@ -518,6 +524,7 @@ public sealed partial class NoteEditorHost : UserControl
         string? html = null;
         string? plain = null;
         IReadOnlyList<string> paths = [];
+        RandomAccessStreamReference? picture = null;
 
         try
         {
@@ -539,6 +546,12 @@ public sealed partial class NoteEditorHost : UserControl
             {
                 plain = Normalize(await clipboard.GetTextAsync());
             }
+
+            // A picture alone (a screenshot, an image copied from a browser or an editor); with text, the text wins.
+            if (paths.Count == 0 && plain is null && html is null && clipboard.Contains(StandardDataFormats.Bitmap))
+            {
+                picture = await clipboard.GetBitmapAsync();
+            }
         }
         catch (COMException)
         {
@@ -546,15 +559,25 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
+        if (picture is not null)
+        {
+            await AddPicture(picture);
+            return;
+        }
+
         // Read after the clipboard: a keystroke during the wait has moved the text and the caret.
         Flush();
         TextSelection at = _selection;
 
-        // In order: copied files as links; a web address over a selection links it (D53), whatever HTML came with it;
-        // then formatted HTML as Markdown, or the plain text.
-        TextEdit? edit = paths.Count > 0 ? MarkdownCommands.LinkPaths(_text, at, paths)
-            : plain is not null ? MarkdownCommands.LinkSelection(_text, at, plain)
-            : null;
+        // In order: copied files, images kept and shown, the rest as links; a web address over a selection links it
+        // (D53), whatever HTML came with it; then formatted HTML as Markdown, or the plain text.
+        if (paths.Count > 0)
+        {
+            AddFiles(paths);
+            return;
+        }
+
+        TextEdit? edit = plain is not null ? MarkdownCommands.LinkSelection(_text, at, plain) : null;
 
         if (edit is null && (html ?? plain) is { } pasted)
         {

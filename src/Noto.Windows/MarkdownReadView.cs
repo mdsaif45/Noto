@@ -1,8 +1,11 @@
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Windows.UI.Text;
@@ -21,6 +24,12 @@ internal sealed partial class MarkdownReadView : UserControl
     /// </summary>
     private const int RenderedLimit = 20_000;
 
+    /// <summary>The tallest a card draws an image: a card is a glance at the note, the editor shows it larger.</summary>
+    private const double ImageMaxHeight = 160;
+
+    /// <summary>A card draws this many of a note's images; the rest stay their captions.</summary>
+    private const int ImageLimit = 4;
+
     public static readonly DependencyProperty SourceProperty = Property(nameof(Source), typeof(string));
     public static readonly DependencyProperty MarkupBrushProperty = Property(nameof(MarkupBrush), typeof(Brush));
     public static readonly DependencyProperty LinkBrushProperty = Property(nameof(LinkBrush), typeof(Brush));
@@ -34,6 +43,9 @@ internal sealed partial class MarkdownReadView : UserControl
     /// a card's link has nothing else to do, the card being a read view.
     /// </summary>
     internal static Action<string>? OpenLink { get; set; }
+
+    /// <summary>The file of an image's reference when Noto keeps it and it is there (ADR-019 §4); set once by the window.</summary>
+    internal static Func<string?, string?>? ResolveImage { get; set; }
 
     public string? Source
     {
@@ -80,12 +92,68 @@ internal sealed partial class MarkdownReadView : UserControl
         Brush? link = highContrast ? null : LinkBrush;
         var code = (FontFamily)Application.Current.Resources["FontFamilyCode"];
 
+        double room = ActualWidth > 0 ? ActualWidth : double.PositiveInfinity;
+        int images = 0;
+
         foreach (MarkdownBlock block in document.Blocks)
         {
             var paragraph = new Paragraph();
             Inlines(document, block, paragraph, markup, link, code);
+
+            // Each image below its caption, the caption being what a reader of the screen hears.
+            foreach (MarkdownSpan image in block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image))
+            {
+                if (ResolveImage is null || ++images > ImageLimit)
+                {
+                    break;
+                }
+
+                var holder = new Border();
+                paragraph.Inlines.Add(new LineBreak());
+                paragraph.Inlines.Add(new InlineUIContainer { Child = holder });
+                _ = Picture(holder, ReferenceOf(document, block, image), room, markup);
+            }
+
             view.Blocks.Add(paragraph);
         }
+    }
+
+    /// <summary>The image's source as written, if it has one.</summary>
+    private static string? ReferenceOf(MarkdownDocument document, MarkdownBlock block, MarkdownSpan image) =>
+        block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start > image.Start && s.End < image.End)
+            .Select(s => document.Source.Substring(s.Start, s.Length))
+            .LastOrDefault();
+
+    /// <summary>
+    /// Draws the image in <paramref name="holder"/> once its size is read: no wider than the card or taller than
+    /// <see cref="ImageMaxHeight"/>, never enlarged; a one-line notice when its file is not there or cannot be read.
+    /// </summary>
+    private static async Task Picture(Border holder, string? reference, double room, Brush? markup)
+    {
+        string? path = ResolveImage?.Invoke(reference);
+        if (path is not null && await ImageFiles.SizeOf(path) is { } size)
+        {
+            (double width, double height) = ImageSize.Fit(size.Width, size.Height, room, ImageMaxHeight);
+            var bitmap = ImageFiles.Bitmap(path, width);
+            var image = new Image { Source = bitmap, Width = width, Height = height, Stretch = Stretch.Uniform, Margin = new Thickness(0, 4, 0, 4) };
+            AutomationProperties.SetAccessibilityView(image, AccessibilityView.Raw);
+            bitmap.ImageFailed += (_, _) => holder.Child = Notice("This image can't be shown", markup);
+            holder.Child = image;
+            return;
+        }
+
+        holder.Child = Notice(path is null ? "Image not found" : "This image can't be shown", markup);
+    }
+
+    private static TextBlock Notice(string text, Brush? markup)
+    {
+        var notice = new TextBlock { Text = text, FontStyle = FontStyle.Italic, FontSize = (double)Application.Current.Resources["FontSizeCaption"] };
+        if (markup is not null)
+        {
+            notice.Foreground = markup;
+        }
+
+        return notice;
     }
 
     /// <summary>The block's text, cut where its spans start and end, each run styled by the spans over it.</summary>
@@ -167,7 +235,7 @@ internal sealed partial class MarkdownReadView : UserControl
                 case MarkdownSpanKind.Link:
                     Tint(run, link);
                     break;
-                case MarkdownSpanKind.Quote:
+                case MarkdownSpanKind.Quote or MarkdownSpanKind.Image:
                     run.FontStyle = FontStyle.Italic;
                     Tint(run, markup);
                     break;

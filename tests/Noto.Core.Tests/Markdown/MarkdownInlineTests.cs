@@ -110,13 +110,12 @@ public sealed class MarkdownInlineTests
 
     [Theory]
     [InlineData("[](u)")]
-    [InlineData("![alt](src)")]
     [InlineData("[a](b c)")]
     [InlineData("[a]()")]
     [InlineData("[a](unclosed")]
     [InlineData("[a] (u)")]
     [InlineData("[a](b(c)")]
-    public void Not_a_link_empty_text_images_spaces_and_unclosed_destinations_are_text(string source)
+    public void Not_a_link_empty_text_spaces_and_unclosed_destinations_are_text(string source)
     {
         Assert.Equal(string.Empty, Shape(source));
     }

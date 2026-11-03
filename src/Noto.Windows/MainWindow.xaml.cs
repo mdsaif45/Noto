@@ -1183,13 +1183,16 @@ public sealed partial class MainWindow : Window
         }
 
         _editor = host;
+        host.Images = Images;
         host.Load(NoteId.From(card.Id), _stack.Draft);
         host.ContentChanged -= OnEditorContentChanged;
         host.LeaveRequested -= OnEditorLeaveRequested;
         host.LinkOpenRequested -= OnEditorLinkOpenRequested;
+        host.ImageNotice -= OnEditorImageNotice;
         host.ContentChanged += OnEditorContentChanged;
         host.LeaveRequested += OnEditorLeaveRequested;
         host.LinkOpenRequested += OnEditorLinkOpenRequested;
+        host.ImageNotice += OnEditorImageNotice;
 
         if (_pendingCaret is { } caret)
         {
@@ -1211,6 +1214,7 @@ public sealed partial class MainWindow : Window
             host.ContentChanged -= OnEditorContentChanged;
             host.LeaveRequested -= OnEditorLeaveRequested;
             host.LinkOpenRequested -= OnEditorLinkOpenRequested;
+            host.ImageNotice -= OnEditorImageNotice;
 
             if (_editor == host)
             {
