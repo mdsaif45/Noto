@@ -340,7 +340,9 @@ namespace NotoVal
         [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr MapViewOfFile(IntPtr m, uint a, uint h, uint l, UIntPtr s);
         [DllImport("kernel32.dll")] static extern bool SetEvent(IntPtr e);
         [DllImport("kernel32.dll")] static extern uint WaitForSingleObject(IntPtr h, uint ms);
-        readonly IntPtr _ready, _data, _view; readonly Thread _thread; volatile bool _stop;
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+        [DllImport("kernel32.dll")] static extern bool UnmapViewOfFile(IntPtr v);
+        readonly IntPtr _ready, _data, _map, _view; readonly Thread _thread; volatile bool _stop;
         readonly List<string> _lines = new List<string>();
         int _freezePid, _freezeTid; string _freezeOn; public readonly ManualResetEventSlim Frozen = new ManualResetEventSlim();
 
@@ -349,8 +351,8 @@ namespace NotoVal
             _ready = CreateEvent(IntPtr.Zero, false, false, "DBWIN_BUFFER_READY");
             bool existed = Marshal.GetLastWin32Error() == 183;
             _data = CreateEvent(IntPtr.Zero, false, false, "DBWIN_DATA_READY");
-            IntPtr map = CreateFileMapping(new IntPtr(-1), IntPtr.Zero, 4, 0, 4096, "DBWIN_BUFFER");
-            _view = MapViewOfFile(map, 4, 0, 0, new UIntPtr(4096));
+            _map = CreateFileMapping(new IntPtr(-1), IntPtr.Zero, 4, 0, 4096, "DBWIN_BUFFER");
+            _view = MapViewOfFile(_map, 4, 0, 0, new UIntPtr(4096));
             if (existed) throw new InvalidOperationException("another debug-output reader is running (close DebugView or the debugger)");
             _thread = new Thread(Loop) { IsBackground = true }; _thread.Start();
         }
@@ -376,6 +378,9 @@ namespace NotoVal
 
         public string[] Lines(int pid) { lock (_lines) return _lines.Where(l => l.Contains(" pid=" + pid + " ")).ToArray(); }
         public string[] All() { lock (_lines) return _lines.ToArray(); }
-        public void Dispose() { _stop = true; _thread.Join(); }
+        // The DBWIN objects are closed too: left open after the reader stops, they tell every OutputDebugString in every
+        // process that a reader exists, and each call then waits 10 s for a buffer nobody frees (measured: a later Noto
+        // start took over 30 s to show its window).
+        public void Dispose() { _stop = true; _thread.Join(); UnmapViewOfFile(_view); CloseHandle(_map); CloseHandle(_data); CloseHandle(_ready); }
     }
 }

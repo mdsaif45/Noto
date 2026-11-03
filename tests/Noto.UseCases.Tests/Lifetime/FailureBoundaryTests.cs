@@ -239,6 +239,10 @@ public sealed class FailureBoundaryTests
         {
         }
 
+        public void ShutdownOverran(int waitedMs)
+        {
+        }
+
         public void UnhandledException(UnhandledSource source, ExceptionSummary failure)
         {
             ThrowIf(nameof(UnhandledException));
