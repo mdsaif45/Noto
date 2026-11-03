@@ -57,7 +57,7 @@ UNC paths are refused: opening one contacts a server, as a web link does, but si
 - **Paste a URL over a selection (D53):** the selection becomes `[selection](url)`, one undo step.
 - **File and folder links (D34, J16):**
   - files and folders copied in Explorer (Ctrl+C) and pasted into the editor (Ctrl+V) become `[name](file:///…)`, one per line, at the caret: the keyboard path, and the one in the links PR;
-  - dropping them from Explorer does the same; it arrives with the images PR (§5), which needs the editor's drop handling for images anyway.
+  - dropping them from Explorer does the same, at the drop point (built with the images, §4).
   - A file link reads as its name. Its destination is hidden like any link's.
 
 ### 4. Images: files beside the database, markdown in the note
@@ -69,25 +69,28 @@ UNC paths are refused: opening one contacts a server, as a web link does, but si
   - The note's text stays the truth (ADR-004). Search indexes it, export copies it, and the source shows it.
   - **There is no Attachments table.** A table would be a second record of what the text already says, and could disagree with it. data-model.md's sketch is superseded.
 - **In the editor:**
-  - the image's line keeps its source, with the markup hidden;
-  - its paragraph is given **space below** (`SpaceAfter`) equal to the image's shown height;
-  - an overlay draws the image in that space, as the checkbox overlay draws boxes (ADR-017 §10).
+  - the image's line keeps its source, with the markup hidden: what shows is its name, dimmed, as a caption;
+  - its paragraph is given **space below** (`SpaceAfter`) equal to the image's drawn height and a 6 px gap above and below;
+  - an overlay draws the image in that space, as the checkbox overlay draws boxes (ADR-017 §10). RichEdit's rectangle for the line takes in that space (measured), so the picture is placed at the top of it.
   - The text stays 1:1, and no object enters the document; the guard stands.
-  - With Show markup on, no image is drawn.
-- **In a card:** the read view shows the image in its own line.
-- **Sizing:** shown at its natural width up to the card's width, at most 320 px high, aspect kept. It is decoded at the shown size (`DecodePixelWidth`), never at full resolution.
+  - With Show markup on, no image is drawn. A note with more than 50 images keeps them all as captions.
+- **In a card:** the read view draws each image below its caption, at most 160 px high, for a note's first 4 images: a card is a glance.
+- **Sizing (`ImageSize.Fit`, Core):** natural size, made smaller to fit the editor's width and 320 px high (the card's width and 160 px), aspect kept, **never enlarged**. The size is read from the file's header first; the picture is then decoded at the drawn width (`DecodePixelWidth`), never at full resolution.
+- **A missing or unreadable file:** *Image not found* or *This image can't be shown* is drawn where the picture would be, in the editor and the card. Nothing else changes; the source is untouched.
+- **Accessibility:** the drawn pictures are out of the accessibility tree (`AccessibilityView.Raw`). What a reader of the screen hears is the line itself: the image's name.
 - **How it gets in:**
-  - Ctrl+V of a bitmap is saved as PNG;
-  - a dropped image file is copied;
-  - each inserts the reference on its own line, one undo step.
+  - **Ctrl+V of a picture** (a screenshot, an image copied from a browser) is re-encoded as PNG and named *Pasted image*. Only when the clipboard has no files and no text: with text, the text is pasted;
+  - **Ctrl+V of files copied in Explorer:** files that are not images are linked (§3); each image file is copied in and named by its file name;
+  - **dropping files** does the same at the drop point;
+  - each image goes on a line of its own, one undo step each. A refusal (over 25 MB, not an image of an accepted type, a write that failed) is said in the notice line.
 - **Removal:** deleting the image's line deletes the reference. Undo brings it back, since the file is still there.
-- **Sweep:** at startup, a file in `attachments` is deleted when no note refers to it (binned notes included) and it is older than 7 days. The 7 days let undo, the bin and a crash mid-edit all keep their image.
+- **Sweep:** once per start, off the UI thread, a file in `attachments` is deleted when Noto named it, no note refers to it (binned notes included) and it is older than 7 days. The 7 days let undo, the bin and a crash mid-edit all keep their image. A sweep that cannot read the notes or the folder deletes nothing.
 - **Not in v0.1:** an image's own menu (copy, save, preview: D32, D33, D35) and screenshots by hotkey.
 
 ### 5. Order: two PRs, one design
 
 1. **Links:** §1, §2, §3. It needs nothing from §4.
-2. **Images:** §4, reusing §1's `Attachment` kind and the drop handling from 1.
+2. **Images:** §4, with the drop of §3's files, which shares the editor's drop handling.
 
 ## Consequences
 
@@ -120,7 +123,5 @@ UNC paths are refused: opening one contacts a server, as a web link does, but si
 - **Runtime harness:**
   - Ctrl+Click and Ctrl+Enter open (observed through a test URI handler, never a real browser);
   - a card link opens;
-  - a dropped file becomes a link;
-  - a pasted bitmap becomes an image file and a reference, drawn in both the editor and the card;
-  - deleting the line removes it;
-  - timings for a note with images.
+  - a copied file becomes a link (`Invoke-Links.ps1`);
+  - `Invoke-Images.ps1`: the sweep at start; drawing in the card and the editor, below the line in reserved space; tall and small images; missing and unreadable files in both; the picture out of the accessibility tree; a pasted picture as a PNG file and a reference, one undo; text winning over a picture; copied image and text files; a real drop at the drop point; a removed image swept at the next start; timings for a note with five images.

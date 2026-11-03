@@ -78,6 +78,7 @@ internal static class MarkdownStyling
         MarkdownSpanKind.Code or MarkdownSpanKind.CodeBlock => Look.Mono | Look.CodeSurface,
         MarkdownSpanKind.Link => Look.Link | Look.Underline,
         MarkdownSpanKind.Quote => Look.Italic | Look.Dim,
+        MarkdownSpanKind.Image => Look.Italic | Look.Dim,
         MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox or MarkdownSpanKind.Separator => Look.Dim,
         MarkdownSpanKind.TaskDone => Look.Strike | Look.Dim,
         _ => Look.None,
@@ -169,9 +170,11 @@ internal static class MarkdownStyling
                     continue;
                 }
 
-                // A heading's space above, as the load gave it; any other block in the region has none.
-                target.GetRange(block.Start, block.End).ParagraphFormat.SpaceBefore =
-                    block.Kind == MarkdownBlockKind.Heading && block.Start > 0 ? HeadingSpaceBefore : 0;
+                // A heading's space above, as the load gave it; any other block in the region has none. No block has
+                // space below until an image's is set again where it is drawn (NoteEditorHost.PlaceImages).
+                ITextParagraphFormat paragraph = target.GetRange(block.Start, block.End).ParagraphFormat;
+                paragraph.SpaceBefore = block.Kind == MarkdownBlockKind.Heading && block.Start > 0 ? HeadingSpaceBefore : 0;
+                paragraph.SpaceAfter = 0;
 
                 foreach (MarkdownSpan span in block.Spans)
                 {

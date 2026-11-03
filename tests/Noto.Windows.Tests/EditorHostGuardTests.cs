@@ -31,8 +31,9 @@ public sealed class EditorHostGuardTests
     public void Nothing_puts_text_into_the_document_that_is_not_the_source()
     {
         // ADR-017 §1: no link fields, list numbering or embedded objects; text is read back whole, hidden markup included.
-        string editor = Host + Styling;
-        Assert.DoesNotMatch(@"\.Link\s*=(?!>)|ListType|InsertImage|TextGetOptions\.NoHidden", editor);
+        // An image is its source text; the picture is drawn over the editor (ADR-019 §4), never put into the document.
+        string editor = string.Join('\n', Directory.EnumerateFiles(Windows, "NoteEditorHost*.cs").Select(Code));
+        Assert.DoesNotMatch(@"\.Link\s*=(?!>)|ListType|(?<!MarkdownCommands)\.InsertImage|InsertObject|TextGetOptions\.NoHidden", editor);
         Assert.Contains("GetText(TextGetOptions.UseLf, out string now)", Host, StringComparison.Ordinal);
         Assert.Contains("SetText(TextSetOptions.FormatRtf, MarkdownStyling.Rtf(_document, Palette()))", Host, StringComparison.Ordinal);
     }

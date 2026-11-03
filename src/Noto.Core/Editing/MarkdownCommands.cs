@@ -210,6 +210,24 @@ public static class MarkdownCommands
     }
 
     /// <summary>
+    /// An image Noto keeps, on a line of its own at the selection (ADR-019 §4): <c>![name](reference)</c>, with a line
+    /// break added before it or after it where the line goes on. The caret goes after the image's line.
+    /// </summary>
+    public static TextEdit InsertImage(string text, TextSelection selection, string reference, string name)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(name);
+
+        string alt = name.Replace("[", "\\[", StringComparison.Ordinal).Replace("]", "\\]", StringComparison.Ordinal).ReplaceLineEndings(" ");
+        bool before = selection.Start > 0 && text[selection.Start - 1] != '\n';
+        bool after = selection.End < text.Length && text[selection.End] != '\n';
+        string image = (before ? "\n" : string.Empty) + "![" + alt + "](" + reference + ")" + (after ? "\n" : string.Empty);
+        int caret = selection.Start + image.Length - (after ? 1 : 0);
+        return new TextEdit(selection.Start, selection.Length, image, TextSelection.Caret(caret));
+    }
+
+    /// <summary>
     /// Links to local files and folders (D34), one per line, replacing the selection: each reads as its name and opens
     /// its full path. The caret goes after the last.
     /// </summary>

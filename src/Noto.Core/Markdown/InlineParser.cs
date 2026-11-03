@@ -35,7 +35,6 @@ internal static class InlineParser
             }
             else if (c == '!' && i + 1 < end && source[i + 1] == '[')
             {
-                // Image syntax is P3's: the bracket opens nothing, but still closes its own ']'.
                 brackets.Add(new Bracket(i + 1, delimiters.Count, IsImage: true));
                 i += 2;
             }
@@ -72,7 +71,7 @@ internal static class InlineParser
         var taken = new bool[end - start];
         for (int k = first; k < spans.Count; k++)
         {
-            if (spans[k].Kind is MarkdownSpanKind.Code or MarkdownSpanKind.Link or MarkdownSpanKind.LinkTarget or MarkdownSpanKind.Markup)
+            if (spans[k].Kind is MarkdownSpanKind.Code or MarkdownSpanKind.Link or MarkdownSpanKind.LinkTarget or MarkdownSpanKind.Markup or MarkdownSpanKind.Image)
             {
                 for (int p = spans[k].Start; p < spans[k].End; p++)
                 {
@@ -191,7 +190,27 @@ internal static class InlineParser
         Bracket open = brackets[^1];
         brackets.RemoveAt(brackets.Count - 1);
 
-        if (open.IsImage || !open.IsActive || at == open.At + 1 || Destination(source, at + 1, end) is not { } target)
+        // An image (ADR-019 §4): its alt text may be empty, and it leaves the brackets around it open (CommonMark: a
+        // link may hold an image, not another link).
+        if (open.IsImage)
+        {
+            if (Destination(source, at + 1, end) is not { } imageSource)
+            {
+                return at + 1;
+            }
+
+            spans.Add(new MarkdownSpan(MarkdownSpanKind.Image, open.At - 1, imageSource + 1 - (open.At - 1)));
+            spans.Add(new MarkdownSpan(MarkdownSpanKind.Markup, open.At - 1, 2));
+            spans.Add(new MarkdownSpan(MarkdownSpanKind.Markup, at, 2));
+            spans.Add(new MarkdownSpan(MarkdownSpanKind.LinkTarget, at + 2, imageSource - at - 2));
+            spans.Add(new MarkdownSpan(MarkdownSpanKind.Markup, imageSource, 1));
+
+            Emphasis(delimiters, open.Delimiters, spans);
+            delimiters.RemoveRange(open.Delimiters, delimiters.Count - open.Delimiters);
+            return imageSource + 1;
+        }
+
+        if (!open.IsActive || at == open.At + 1 || Destination(source, at + 1, end) is not { } target)
         {
             return at + 1;
         }

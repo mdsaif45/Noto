@@ -47,6 +47,12 @@ public enum MarkdownSpanKind
 
     /// <summary>A link's destination: hidden like markup, kept apart so it can be opened.</summary>
     LinkTarget,
+
+    /// <summary>
+    /// A whole image, <c>![alt](source)</c> (ADR-019 §4): its markers are <see cref="Markup"/> and its source a
+    /// <see cref="LinkTarget"/> inside it, as a link's are; the alt text between is the image's only text.
+    /// </summary>
+    Image,
 }
 
 /// <summary>
