@@ -32,12 +32,6 @@ public interface IAppLog
     /// and the other subscribers were still told (ADR-010).
     /// </summary>
     void EventSubscriberFailed(ExceptionSummary failure);
-
-    /// <summary>
-    /// The window had closed, with every note saved and every resource released, and the process was still alive
-    /// <paramref name="waitedMs"/> later, so it ended itself (ADR-014). Not a data event: nothing was unsaved.
-    /// </summary>
-    void ShutdownOverran(int waitedMs);
 }
 
 /// <summary>Which last-chance boundary saw an exception.</summary>

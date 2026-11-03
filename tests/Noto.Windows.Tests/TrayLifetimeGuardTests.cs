@@ -84,10 +84,24 @@ public sealed class TrayLifetimeGuardTests
     }
 
     [Fact]
+    public void The_process_ends_itself_once_and_only_after_everything_is_released()
+    {
+        // TerminateProcess skips every finaliser and buffered write: one call, at the end of Closed, nothing before.
+        string windows = string.Join('\n', Directory.EnumerateFiles(Path.GetDirectoryName(SourcePath("src", "Noto.Windows", "App.xaml.cs"))!, "*.cs").Select(f => Code(File.ReadAllText(f))));
+        Assert.Equal(1, Regex.Count(windows, @"ProcessEnd\.Now\("));
+        Assert.DoesNotMatch(@"TerminateProcess|GetCurrentProcess\(\)\.Kill", windows);
+
+        string platform = string.Join('\n', Directory.EnumerateFiles(Path.GetDirectoryName(SourcePath("src", "Noto.Platform.Windows", "ProcessEnd.cs"))!, "*.cs").Select(f => Code(File.ReadAllText(f))));
+        Assert.Equal(1, Regex.Count(platform, @"NativeMethods\.TerminateProcess\("));
+        Assert.Contains("public static void Now(uint exitCode) => _ = NativeMethods.TerminateProcess(NativeMethods.GetCurrentProcess(), exitCode);", platform, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Cleanup_runs_once_on_closed_icon_first()
     {
-        // The window's Closed releases through the one method the failure paths use too (#10), then bounds the exit.
-        Assert.Matches(@"_window\.Closed \+= \(_, _\) =>\s*\{\s*ReleaseResources\(\);\s*ExitWatchdog\.Arm\(", Code(App));
+        // The window's Closed releases through the one method the failure paths use too (#10), then ends the process
+        // itself: the framework's teardown after it can fault (R17), and nothing of Noto's is left for it to do.
+        Assert.Matches(@"_window\.Closed \+= \(_, _\) =>\s*\{\s*ReleaseResources\(\);\s*ProcessEnd\.Now\(0\);\s*\};", Code(App));
         string closed = Body(App, "ReleaseResources");
         int tray = Index(closed, "_tray?.Dispose()");
         int hotkey = Index(closed, "_hotkey?.Dispose()");
@@ -95,7 +109,7 @@ public sealed class TrayLifetimeGuardTests
         int pipe = Index(closed, "_activationPipe?.Dispose()");
         int ownership = Index(closed, "_ownership?.Dispose()");
 
-        // The database file is closed before the mutex goes, and so before the exit watchdog arms.
+        // The database file is closed before the mutex goes, and so before the process ends.
         Assert.True(tray < hotkey && hotkey < database && database < pipe && pipe < ownership, "Icon, hotkey, database, pipe, then the mutex.");
         Assert.Equal(1, Regex.Count(Code(App), @"_tray\?\.Dispose\(\)"));
         Assert.Matches(@"var database = new NotoDatabase\(paths\.DatabaseFile, log\);\s*_database = database;", Code(App));
