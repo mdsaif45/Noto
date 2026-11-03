@@ -66,15 +66,14 @@
     <Thickness x:Key="GroupPadding">12</Thickness>
 
     <!--
-        A switch flush with a settings row's right edge. WinUI's switch
-        template keeps a fixed 12px column after the track for its On/Off text,
-        even when there is none: the switch is pulled into it by the same 12,
-        and its focus ring, 7 outside the track like WinUI's own, is drawn
-        around the track rather than the empty column (7 - 12 = 5 on the
-        right). The 12 is the template's, not a step of the scale.
+        A settings switch as wide as its track. WinUI's switch template lays the
+        track out from its left and keeps the On/Off text's column after it:
+        measured (UI Automation, Settings page), a switch that sized itself
+        stopped 86px short of the row's right edge. As wide as the track, it is
+        flush with the other controls. The 40 is the template's track, not a
+        step of the scale.
     -->
-    <Thickness x:Key="SettingSwitchMargin">0,0,-12,0</Thickness>
-    <Thickness x:Key="SettingSwitchFocusVisualMargin">-7,-3,5,-3</Thickness>
+    <x:Double x:Key="SettingSwitchWidth">40</x:Double>
 
     <!--
         TYPOGRAPHY — Body, Caption and Heading.

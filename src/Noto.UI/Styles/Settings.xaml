@@ -66,18 +66,16 @@
         A setting's switch, at the row's right edge like every other control.
         No On/Off text: the row's name is the switch's accessible name, its
         state is the track's, and the text would push the track off the edge.
-        The template keeps the text's column even when it is empty, so the
-        switch is pulled into it (SettingSwitchMargin) and its focus ring drawn
-        around the track alone (SettingSwitchFocusVisualMargin).
+        As wide as its track (SettingSwitchWidth), so the track is the right
+        edge, as every other control's is.
     -->
     <Style x:Key="SettingToggleSwitchStyle" TargetType="ToggleSwitch">
         <Setter Property="HorizontalAlignment" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Width" Value="{StaticResource SettingSwitchWidth}" />
         <Setter Property="OnContent" Value="" />
         <Setter Property="OffContent" Value="" />
-        <Setter Property="Margin" Value="{StaticResource SettingSwitchMargin}" />
-        <Setter Property="FocusVisualMargin" Value="{StaticResource SettingSwitchFocusVisualMargin}" />
     </Style>
 
     <!-- A setting's choice of one, at the row's right edge, as wide as its longest item. -->
