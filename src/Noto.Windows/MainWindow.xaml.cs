@@ -1164,7 +1164,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void AttachEditor(NoteEditorHost? host)
     {
-        if (host is null || host.DataContext is not NoteCard card || _stack.Editing?.Value != card.Id || host.Note?.Value == card.Id)
+        // Not this card's editor, or it already shows this card.
+        if (host is null || host.DataContext is not NoteCard card || _stack.Editing is not { } editing || editing.Value != card.Id
+            || (host.Note is { } shown && shown.Value == card.Id))
         {
             return;
         }
