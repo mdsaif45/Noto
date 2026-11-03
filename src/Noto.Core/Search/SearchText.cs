@@ -111,14 +111,11 @@ public static class SearchText
         MarkdownDocument doc = MarkdownDocument.Parse(line);
         var hidden = new bool[line.Length];
 
-        foreach (MarkdownSpan span in doc.Blocks.SelectMany(b => b.Spans))
+        foreach (MarkdownSpan span in doc.Blocks.SelectMany(b => b.Spans).Where(s => s.Kind is MarkdownSpanKind.Markup or MarkdownSpanKind.LinkTarget or MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox))
         {
-            if (span.Kind is MarkdownSpanKind.Markup or MarkdownSpanKind.LinkTarget or MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox)
+            for (int i = span.Start; i < span.End; i++)
             {
-                for (int i = span.Start; i < span.End; i++)
-                {
-                    hidden[i] = true;
-                }
+                hidden[i] = true;
             }
         }
 
@@ -146,12 +143,13 @@ public static class SearchText
                 continue;
             }
 
+            // Indexed rather than filtered with Where: this runs at every word start of every hit.
             int longest = 0;
-            foreach (string word in query.Words)
+            for (int w = 0; w < query.Words.Count; w++)
             {
-                if (word.Length > longest && StartsWith(text, i, word))
+                if (query.Words[w].Length > longest && StartsWith(text, i, query.Words[w]))
                 {
-                    longest = word.Length;
+                    longest = query.Words[w].Length;
                 }
             }
 
