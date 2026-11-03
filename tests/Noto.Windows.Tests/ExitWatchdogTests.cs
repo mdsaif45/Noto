@@ -7,8 +7,8 @@ namespace Noto.Windows.Tests;
 
 /// <summary>
 /// The bounded-shutdown safeguard (ADR-017 §10): after its grace the watchdog records the overrun, then ends the
-/// process with exit code 0; the end runs even if recording fails. The clock runs here on its own thread, as in Noto,
-/// with the end observed instead of performed; that the end Noto uses is TerminateProcess is guarded below.
+/// process; the end runs even if recording fails. The clock runs here on its own thread, as in Noto, with the end
+/// observed instead of performed; that the end Noto uses kills its own process is guarded below.
 /// </summary>
 public sealed class ExitWatchdogTests
 {
@@ -47,12 +47,12 @@ public sealed class ExitWatchdogTests
     }
 
     [Fact]
-    public void Noto_ends_itself_with_TerminateProcess_and_exit_code_0()
+    public void Noto_ends_by_killing_its_own_process()
     {
         string watchdog = File.ReadAllText(SourcePath("src", "Noto.Platform.Windows", "ExitWatchdog.cs"));
 
         Assert.Matches(
-            @"public static void Arm\(TimeSpan grace, Action\? onOverrun\) =>\s*Arm\(grace, onOverrun, \(\) => NativeMethods\.TerminateProcess\(NativeMethods\.GetCurrentProcess\(\), 0\)\);",
+            @"public static void Arm\(TimeSpan grace, Action\? onOverrun\) =>\s*Arm\(grace, onOverrun, \(\) => Process\.GetCurrentProcess\(\)\.Kill\(\)\);",
             watchdog);
         Assert.Matches(@"try\s*\{\s*onOverrun\?\.Invoke\(\);\s*\}\s*finally\s*\{\s*end\(\);\s*\}", watchdog);
         Assert.Matches(@"IsBackground = true,", watchdog);
