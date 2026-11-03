@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Noto.Platform.Windows;
 
 /// <summary>
@@ -16,11 +18,12 @@ public static class ExitWatchdog
 {
     /// <summary>
     /// Starts the clock on a background thread, which ends with the process if it ends in time. After
-    /// <paramref name="grace"/>, <paramref name="onOverrun"/> runs and the process ends with exit code 0.
+    /// <paramref name="grace"/>, <paramref name="onOverrun"/> runs and the process is killed: everything was saved
+    /// and released before the clock started, so this ends an idle process. Its exit code (-1) is not a clean exit's
+    /// 0, so an overrun shows to whatever started Noto as well as in the log.
     /// </summary>
-    // Code 0: everything was saved and released before the clock started; this ends an idle process.
     public static void Arm(TimeSpan grace, Action? onOverrun) =>
-        Arm(grace, onOverrun, () => NativeMethods.TerminateProcess(NativeMethods.GetCurrentProcess(), 0));
+        Arm(grace, onOverrun, () => Process.GetCurrentProcess().Kill());
 
     /// <summary>The clock itself, with what ends the process given: the tests' seam.</summary>
     internal static void Arm(TimeSpan grace, Action? onOverrun, Action end)
