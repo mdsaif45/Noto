@@ -331,6 +331,131 @@ public static class MarkdownCommands
         return (lead, lead);
     }
 
+    /// <summary>
+    /// Tab in a list (G36): indents each selected list item by its own marker's width, so it nests under the item
+    /// above as Markdown reads it. <see langword="null"/> when a selected line is not a list item: Tab then moves focus.
+    /// </summary>
+    public static TextEdit? IndentListItems(string text, TextSelection selection) => ShiftListItems(text, selection, indent: true);
+
+    /// <summary>Shift+Tab in a list (G37): outdents each selected list item by up to its marker's width, or one tab.</summary>
+    public static TextEdit? OutdentListItems(string text, TextSelection selection) => ShiftListItems(text, selection, indent: false);
+
+    private static TextEdit? ShiftListItems(string text, TextSelection selection, bool indent)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var blocks = BlocksIn(MarkdownDocument.Parse(text), selection).Where(b => b.Kind != MarkdownBlockKind.Blank).ToList();
+
+        if (blocks.Count == 0 || blocks.Any(b => b.Kind is not (MarkdownBlockKind.BulletItem or MarkdownBlockKind.OrderedItem or MarkdownBlockKind.TaskItem)))
+        {
+            return null;
+        }
+
+        int start = blocks[0].Start;
+        int end = blocks[^1].End;
+        var result = new StringBuilder();
+        int at = start;
+        int anchorShift = 0;
+        int activeShift = 0;
+        bool changed = false;
+
+        foreach (MarkdownBlock block in blocks)
+        {
+            MarkdownSpan marker = block.Spans.First(s => s.Kind == MarkdownSpanKind.ListMarker);
+            string lead = text[block.Start..marker.Start];
+            string shifted = indent ? lead + new string(' ', marker.Length) : Outdent(lead, marker.Length);
+            int delta = shifted.Length - lead.Length;
+            changed |= delta != 0;
+
+            result.Append(text, at, block.Start - at).Append(shifted);
+            anchorShift += selection.Anchor > block.Start ? delta : 0;
+            activeShift += selection.Active > block.Start ? delta : 0;
+            at = marker.Start;
+        }
+
+        if (!changed)
+        {
+            return null;
+        }
+
+        result.Append(text, at, end - at);
+        var after = new TextSelection(Math.Max(start, selection.Anchor + anchorShift), Math.Max(start, selection.Active + activeShift));
+        return new TextEdit(start, end - start, result.ToString(), after);
+    }
+
+    /// <summary>The indent with one level removed: a leading tab, or up to <paramref name="width"/> spaces.</summary>
+    private static string Outdent(string lead, int width)
+    {
+        if (lead.StartsWith('\t'))
+        {
+            return lead[1..];
+        }
+
+        int spaces = 0;
+        while (spaces < lead.Length && spaces < width && lead[spaces] == ' ')
+        {
+            spaces++;
+        }
+
+        return lead[spaces..];
+    }
+
+    /// <summary>Alt+Up (G38): the selected lines change places with the line above. <see langword="null"/> at the top.</summary>
+    public static TextEdit? MoveLinesUp(string text, TextSelection selection) => MoveLines(text, selection, up: true);
+
+    /// <summary>Alt+Down (G39): the selected lines change places with the line below. <see langword="null"/> at the bottom.</summary>
+    public static TextEdit? MoveLinesDown(string text, TextSelection selection) => MoveLines(text, selection, up: false);
+
+    private static TextEdit? MoveLines(string text, TextSelection selection, bool up)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        int first = LineStart(text, selection.Start);
+
+        // A selection that ends at the start of a line does not take that line with it.
+        int lastAt = selection.Length > 0 && selection.End > first && selection.End == LineStart(text, selection.End) ? selection.End - 1 : selection.End;
+        int last = LineEnd(text, lastAt);
+
+        if (up)
+        {
+            if (first == 0)
+            {
+                return null;
+            }
+
+            int above = LineStart(text, first - 1);
+            string moved = text[first..last];
+            string other = text[above..(first - 1)];
+            int shift = -(other.Length + 1);
+            return Moved(above, last - above, moved + "\n" + other, selection, shift);
+        }
+
+        if (last == text.Length)
+        {
+            return null;
+        }
+
+        int belowEnd = LineEnd(text, last + 1);
+        string down = text[first..last];
+        string below = text[(last + 1)..belowEnd];
+        int forward = below.Length + 1;
+        return Moved(first, belowEnd - first, below + "\n" + down, selection, forward);
+    }
+
+    /// <summary>
+    /// The edit of a line move, the selection carried with the lines and kept inside them: a selection that ended at
+    /// the start of the next line did not take that line along, so its end stays with the moved block.
+    /// </summary>
+    private static TextEdit Moved(int start, int length, string replacement, TextSelection selection, int shift) =>
+        new(start, length, replacement, new TextSelection(
+            Math.Clamp(selection.Anchor + shift, start, start + replacement.Length),
+            Math.Clamp(selection.Active + shift, start, start + replacement.Length)));
+
+    /// <summary>The start of the line holding <paramref name="at"/>: just after the break before it, or 0.</summary>
+    private static int LineStart(string text, int at) =>
+        at <= 0 ? 0 : text.LastIndexOf('\n', Math.Min(at, text.Length) - 1) + 1;
+
+    private static int LineEnd(string text, int at) => text.IndexOf('\n', Math.Min(at, text.Length)) is var e and >= 0 ? e : text.Length;
+
     /// <summary>The blocks a selection touches: the caret's block, or every block from its start to its end.</summary>
     private static IEnumerable<MarkdownBlock> BlocksIn(MarkdownDocument doc, TextSelection selection) =>
         doc.Blocks.Where(b => b.End >= selection.Start && b.Start <= selection.End

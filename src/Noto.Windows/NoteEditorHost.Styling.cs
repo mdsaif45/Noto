@@ -13,6 +13,7 @@ internal readonly record struct EditorPalette(
     Color Markup,
     Color Link,
     Color CodeSurface,
+    Color Surface,
     string BodyFont,
     string CodeFont,
     double BodySize,
@@ -44,17 +45,31 @@ internal static class MarkdownStyling
         Dim = 64,
         Hidden = 128,
         CodeSurface = 256,
+
+        /// <summary>Drawn in the editor's own surface colour: it keeps its width, and the checkbox overlay draws there.</summary>
+        Invisible = 512,
     }
 
-    /// <summary>Each look's RTF control word. Colour 2 is markup, 3 a link, 4 the code surface (the colour table's order).</summary>
+    /// <summary>
+    /// Each look's RTF control word. Colour 2 is markup, 3 a link, 4 the code surface, 5 the editor's surface (the colour
+    /// table's order).
+    /// </summary>
     private static readonly (Look Flag, string Word)[] ControlWords =
     [
         (Look.Bold, @"\b"), (Look.Italic, @"\i"), (Look.Strike, @"\strike"), (Look.Underline, @"\ul"), (Look.Mono, @"\f1"),
-        (Look.CodeSurface, @"\highlight4"), (Look.Link, @"\cf3"), (Look.Dim, @"\cf2"), (Look.Hidden, @"\v"),
+        (Look.CodeSurface, @"\highlight4"), (Look.Link, @"\cf3"), (Look.Dim, @"\cf2"), (Look.Hidden, @"\v"), (Look.Invisible, @"\cf5"),
     ];
 
-    private static Look Of(MarkdownSpanKind kind, bool showMarkup) => kind switch
+    /// <summary>Space above a heading that is not the note's first line, in points: it separates sections.</summary>
+    private const float HeadingSpaceBefore = 8;
+
+    /// <summary>
+    /// A span's look. In a task item the marker and box are invisible but keep their width: the editor draws a real
+    /// checkbox over them (NoteEditorHost.TaskMarks). With markup shown, they are the source again.
+    /// </summary>
+    private static Look Of(MarkdownSpanKind kind, bool showMarkup, bool inTask) => kind switch
     {
+        MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox when inTask && !showMarkup => Look.Invisible,
         MarkdownSpanKind.Markup or MarkdownSpanKind.LinkTarget => showMarkup ? Look.Dim : Look.Hidden,
         MarkdownSpanKind.Heading or MarkdownSpanKind.Strong => Look.Bold,
         MarkdownSpanKind.Emphasis => Look.Italic,
@@ -75,22 +90,32 @@ internal static class MarkdownStyling
         var looks = new Look[text.Length];
         var levels = new int[text.Length];
 
-        foreach (MarkdownSpan span in document.Spans)
+        var spaced = new HashSet<int>();
+
+        foreach (MarkdownBlock block in document.Blocks)
         {
-            Look look = Of(span.Kind, palette.ShowMarkup);
-            for (int i = span.Start; i < span.End; i++)
+            if (block.Kind == MarkdownBlockKind.Heading && block.Start > 0)
             {
-                looks[i] |= look;
-                if (span.Kind == MarkdownSpanKind.Heading)
+                spaced.Add(block.Start);
+            }
+
+            foreach (MarkdownSpan span in block.Spans)
+            {
+                Look look = Of(span.Kind, palette.ShowMarkup, block.Kind == MarkdownBlockKind.TaskItem);
+                for (int i = span.Start; i < span.End; i++)
                 {
-                    levels[i] = span.Level;
+                    looks[i] |= look;
+                    if (span.Kind == MarkdownSpanKind.Heading)
+                    {
+                        levels[i] = span.Level;
+                    }
                 }
             }
         }
 
         var rtf = new StringBuilder(text.Length * 2 + 256);
         rtf.Append(@"{\rtf1\ansi\uc1\deff0{\fonttbl{\f0 ").Append(palette.BodyFont).Append(@";}{\f1 ").Append(palette.CodeFont).Append(";}}")
-           .Append(@"{\colortbl;").Append(Rgb(palette.Text)).Append(Rgb(palette.Markup)).Append(Rgb(palette.Link)).Append(Rgb(palette.CodeSurface)).Append('}')
+           .Append(@"{\colortbl;").Append(Rgb(palette.Text)).Append(Rgb(palette.Markup)).Append(Rgb(palette.Link)).Append(Rgb(palette.CodeSurface)).Append(Rgb(palette.Surface)).Append('}')
            .Append(@"\f0\fs").Append(HalfPoints(palette.BodySize)).Append(@"\cf1 ");
 
         int run = 0;
@@ -99,6 +124,12 @@ internal static class MarkdownStyling
             if (i < text.Length && looks[i] == looks[run] && levels[i] == levels[run] && text[i] != '\n' && text[i - 1] != '\n')
             {
                 continue;
+            }
+
+            // A paragraph's spacing is set where its text starts: \pard resets it, \sb is in twentieths of a point.
+            if ((run == 0 || text[run - 1] == '\n') && text.Length > 0 && (run == text.Length || text[run] != '\n'))
+            {
+                rtf.Append(spaced.Contains(run) ? $@"\pard\sb{(int)(HeadingSpaceBefore * 20)} " : @"\pard ");
             }
 
             Emit(rtf, text, run, i, looks[run], levels[run], palette);
@@ -138,6 +169,10 @@ internal static class MarkdownStyling
                     continue;
                 }
 
+                // A heading's space above, as the load gave it; any other block in the region has none.
+                target.GetRange(block.Start, block.End).ParagraphFormat.SpaceBefore =
+                    block.Kind == MarkdownBlockKind.Heading && block.Start > 0 ? HeadingSpaceBefore : 0;
+
                 foreach (MarkdownSpan span in block.Spans)
                 {
                     int from = Math.Max(span.Start, start);
@@ -145,7 +180,7 @@ internal static class MarkdownStyling
 
                     if (to > from)
                     {
-                        Apply(target.GetRange(from, to).CharacterFormat, Of(span.Kind, palette.ShowMarkup), span, palette);
+                        Apply(target.GetRange(from, to).CharacterFormat, Of(span.Kind, palette.ShowMarkup, block.Kind == MarkdownBlockKind.TaskItem), span, palette);
                     }
                 }
             }
@@ -197,6 +232,11 @@ internal static class MarkdownStyling
         if (look.HasFlag(Look.Link) || look.HasFlag(Look.Dim))
         {
             format.ForegroundColor = look.HasFlag(Look.Link) ? palette.Link : palette.Markup;
+        }
+
+        if (look.HasFlag(Look.Invisible))
+        {
+            format.ForegroundColor = palette.Surface;
         }
 
         if (span.Kind == MarkdownSpanKind.Heading)

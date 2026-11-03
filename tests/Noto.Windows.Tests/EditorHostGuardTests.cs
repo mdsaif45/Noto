@@ -19,7 +19,7 @@ public sealed class EditorHostGuardTests
     public void RichEdits_own_undo_and_formatting_chords_are_off_and_its_undo_is_never_called()
     {
         Assert.Contains("NoteEditor.Document.UndoLimit = 0;", Host, StringComparison.Ordinal);
-        XElement box = HostXaml.Root!.Elements().Single();
+        XElement box = HostXaml.Root!.Descendants().Single(e => e.Name.LocalName == "EditorBox");
         Assert.Equal("All", (string?)box.Attribute("DisabledFormattingAccelerators"));
 
         string all = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
@@ -56,7 +56,54 @@ public sealed class EditorHostGuardTests
         // Measured: TextChanged arrives after the key, so Enter right after typing saw the caret one character early.
         Assert.Matches(@"internal bool Run\(EditorCommand command\)\s*\{\s*Flush\(\);", Host);
         Assert.Matches(@"if \(e\.Key == VirtualKey\.Enter && !ctrl && !alt\)\s*\{\s*Flush\(\);", Host);
-        Assert.Matches(@"e\.Handled = true;\s*Flush\(\);\s*DataPackageView clipboard", Host);
+        Assert.Matches(@"Flush\(\);\s*TextSelection at = _selection;", Body(Host, "PasteAsync"));
+    }
+
+    [Fact]
+    public void Tab_nests_a_list_item_and_otherwise_moves_focus()
+    {
+        // The P1 accessibility contract: Tab never types a tab character; outside a list it moves focus.
+        Assert.Matches(@"if \(e\.Key == VirtualKey\.Tab && !ctrl && !alt\)\s*\{\s*e\.Handled = true;\s*Flush\(\);\s*Func<string, TextSelection, TextEdit\?> shiftItems = shift \? MarkdownCommands\.OutdentListItems : MarkdownCommands\.IndentListItems;", Host);
+        Assert.Matches(@"FocusManager\.TryMoveFocus\(shift \? FocusNavigationDirection\.Previous : FocusNavigationDirection\.Next", Host);
+    }
+
+    [Fact]
+    public void Alt_Up_and_Down_move_lines_and_Ctrl_Alt_still_leaves_for_another_card()
+    {
+        // The leave chords are checked first: with Ctrl held, Alt+Up/Down never move a line.
+        Assert.True(Host.IndexOf("VirtualKey.Down when ctrl && alt => EditorLeave.Next", StringComparison.Ordinal) < Host.IndexOf("if (alt && !ctrl && e.Key is VirtualKey.Up or VirtualKey.Down)", StringComparison.Ordinal));
+        Assert.Contains("e.Key == VirtualKey.Up ? MarkdownCommands.MoveLinesUp : MarkdownCommands.MoveLinesDown", Host, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Paste_converts_HTML_through_Core_only_when_formatted_and_survives_a_busy_clipboard()
+    {
+        string paste = Body(Host, "PasteAsync");
+        Assert.Contains("if (formatted && clipboard.Contains(StandardDataFormats.Html))", paste, StringComparison.Ordinal);
+        Assert.Contains("HtmlToMarkdown.Convert(", paste, StringComparison.Ordinal);
+        Assert.Matches(@"catch \(COMException\)\s*\{\s*return;", paste);
+        Assert.Contains("PasteAsync(formatted: true);", Body(Host, "OnPaste"), StringComparison.Ordinal);
+        Assert.Matches(@"if \(ctrl && shift && !alt && e\.Key == VirtualKey\.V\)\s*\{\s*e\.Handled = true;\s*PasteAsync\(formatted: false\);", Host);
+    }
+
+    [Fact]
+    public void A_click_toggles_a_task_only_on_its_drawn_checkbox()
+    {
+        // RichEdit's client coordinates start inside the border and padding; both the hit test and the overlay say so.
+        string click = Body(Host, "OnPointerReleased");
+        Assert.Contains("if (!_selection.IsCaret)", click, StringComparison.Ordinal);
+        Assert.Contains("point.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left", click, StringComparison.Ordinal);
+        Assert.Contains("at >= from && at <= box.End && MarkdownCommands.ToggleTaskDone(", click, StringComparison.Ordinal);
+        Assert.Contains("NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left", Body(Host, "PlaceTaskMarks"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_checkbox_overlay_takes_no_input_and_is_not_read_twice()
+    {
+        // Narrator reads a task from the source; the drawn boxes are decoration only.
+        XElement marks = HostXaml.Root!.Descendants().Single(e => (string?)e.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == "TaskMarks");
+        Assert.Equal("False", (string?)marks.Attribute("IsHitTestVisible"));
+        Assert.Equal("Raw", (string?)marks.Attribute("AutomationProperties.AccessibilityView"));
     }
 
     [Fact]
