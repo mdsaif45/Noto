@@ -66,6 +66,33 @@ public sealed partial class PlatformRuntimeTests
         Assert.Equal(dockedOuter, Independent.WindowRect(window.Handle));
     }
 
+    [Theory]
+    [Trait("Category", DesktopSession.RequiresDesktopTrait)]
+    [InlineData(DockEdge.Left)]
+    [InlineData(DockEdge.Right)]
+    public void The_client_area_reaches_the_top_edge_and_the_inner_edge_still_resizes(DockEdge edge)
+    {
+        if (!DesktopSession.ShouldRun(out string reason))
+        {
+            output.WriteLine(reason);
+            return;
+        }
+
+        // Measured on the real application: the top sizing border of a window with no title bar is drawn inside the
+        // visible frame, in the frame's colour, whatever the workspace's theme. Docked, the top is client area, so the
+        // workspace's own surface is drawn there; from the moment the dock is installed, not from the first resize.
+        using var window = DockedTestWindow(edge, out _, out PixelRect dockedOuter);
+        Native.Point origin = default;
+        Assert.True(Native.ClientToScreen(window.Handle, ref origin));
+
+        output.WriteLine($"{edge}: outer {dockedOuter}, client origin ({origin.X}, {origin.Y})");
+
+        Assert.Equal(dockedOuter.Top, origin.Y);
+
+        // The side borders keep their default size: the inner edge is still a sizing border, not client area.
+        Assert.True(origin.X > dockedOuter.Left);
+    }
+
     [Fact]
     [Trait("Category", DesktopSession.RequiresDesktopTrait)]
     public void Nothing_is_refused_when_neither_position_nor_size_changes()
@@ -603,5 +630,16 @@ public sealed partial class PlatformRuntimeTests
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static partial bool IsIconic(nint hwnd);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static partial bool ClientToScreen(nint hwnd, ref Point point);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Point
+        {
+            public int X;
+            public int Y;
+        }
     }
 }
