@@ -324,9 +324,8 @@ public sealed class SettingsSurfaceGuardTests
 
         Assert.Equal(5, groups.Count);
 
-        foreach (XElement group in groups)
+        foreach (XElement panel in groups.Select(group => Assert.Single(group.Elements())))
         {
-            XElement panel = Assert.Single(group.Elements());
             Assert.Equal("{StaticResource SpaceM}", (string?)panel.Attribute("Spacing"));
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
