@@ -34,6 +34,8 @@ public sealed class MarkdownInlineTests
     [InlineData("snake_case_name")]
     [InlineData("_中文_中文")]
     [InlineData("a ****")]
+    [InlineData("a*\"foo\"*")]
+    [InlineData("x*.y*")]
     public void Runs_that_cannot_open_or_close_are_text(string source)
     {
         Assert.Equal(string.Empty, Shape(source));
@@ -57,6 +59,8 @@ public sealed class MarkdownInlineTests
     [InlineData("*foo**bar*", "Markup[*] Emphasis[foo**bar] Markup[*]")]
     [InlineData("**foo**bar**", "Markup[**] Strong[foo] Markup[**]")]
     [InlineData("*a*b*c*", "Markup[*] Emphasis[a] Markup[*] Markup[*] Emphasis[c] Markup[*]")]
+    [InlineData("*a _b* c_", "Markup[*] Emphasis[a _b] Markup[*]")]
+    [InlineData("**a _b** c_", "Markup[**] Strong[a _b] Markup[**]")]
     public void Overlap_and_leftover_marks_follow_CommonMark_and_leftovers_are_text(string source, string shape)
     {
         Assert.Equal(shape, Shape(source));
@@ -82,6 +86,7 @@ public sealed class MarkdownInlineTests
     [InlineData("**a`**`b**", "Markup[**] Strong[a`**`b] Markup[`] Code[**] Markup[`] Markup[**]")]
     [InlineData("`unclosed", "")]
     [InlineData("``a`", "")]
+    [InlineData("`a``b`", "Markup[`] Code[a``b] Markup[`]")]
     [InlineData("`\\*`", "Markup[`] Code[\\*] Markup[`]")]
     public void Code_spans_bind_first_and_nothing_inside_them_is_formatting(string source, string shape)
     {
