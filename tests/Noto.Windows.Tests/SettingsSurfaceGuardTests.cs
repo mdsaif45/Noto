@@ -233,7 +233,7 @@ public sealed class SettingsSurfaceGuardTests
         string modifiers = Regex.Escape(accelerator.Groups["modifiers"].Value);
         string host = Code(Path.Join(Windows, "NoteEditorHost.xaml.cs"));
         Assert.Matches(
-            $@"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= \(_, args\) =>\s*\{{\s*if \(args\.Key == {key} && args\.Modifiers == {modifiers} && XamlRoot\?\.Content is UIElement root\)\s*\{{\s*root\.TryInvokeKeyboardAccelerator\(args\);\s*\}}\s*\}};",
+            $@"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= \(_, args\) =>\s*\{{\s*if \(args\.Key is {key} or VirtualKey\.F && args\.Modifiers == {modifiers} && XamlRoot\?\.Content is UIElement root\)\s*\{{\s*root\.TryInvokeKeyboardAccelerator\(args\);\s*\}}\s*\}};",
             host);
 
         // Wired once, to the editor itself; nothing else redirects or invokes accelerators.

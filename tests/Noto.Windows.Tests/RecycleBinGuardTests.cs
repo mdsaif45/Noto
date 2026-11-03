@@ -36,7 +36,7 @@ public sealed class RecycleBinGuardTests
     {
         Assert.Contains("e.Handled = OnEscape(WorkspaceSurface.RecycleBin);", Body(Main, "OnRecycleBinKeyDown"), StringComparison.Ordinal);
         Assert.Matches(@"case EscapeAction\.LeaveRecycleBin:\s*CloseRecycleBin\(\);\s*return true;", Main);
-        Assert.Contains("UIElement from = RecycleBinSurface is { } bin ? bin :", Body(Main, "OpenSettings"), StringComparison.Ordinal);
+        Assert.Matches(@"UIElement from = RecycleBinSurface is \{ \} bin \? bin\s*:", Body(Main, "OpenSettings"));
     }
 
     [Fact]

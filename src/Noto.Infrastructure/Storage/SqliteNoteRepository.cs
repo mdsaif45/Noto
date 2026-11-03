@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.Core.Search;
 using Noto.Core.Storage;
 using Noto.Core.Tags;
 
@@ -746,6 +747,54 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     /// rows in a table; giving it <c>NoteId</c> would tie one algorithm to one
     /// domain, so the translation lives here rather than there.
     /// </remarks>
+    public IReadOnlyList<Note> FindMatching(SearchQuery query, FolderId? folderId, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+        if (query.IsEmpty)
+        {
+            throw new ArgumentException("An empty query searches for nothing.", nameof(query));
+        }
+
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // The index finds; Notes decides what is shown (ADR-018 §1): an active note in an active folder. The
+            // rowid join is ADR-012's; MATCH gets the escaped query only (ADR-003).
+            command.CommandText = """
+                SELECT n.Id, n.FolderId, n.Content, n.ColorKey, n.IsPinned, n.IsFolded,
+                       n.SortOrder, n.CreatedAt, n.UpdatedAt, n.DeletedAt
+                FROM NotesFts
+                JOIN Notes n ON n.rowid = NotesFts.rowid
+                WHERE NotesFts MATCH $match
+                  AND n.DeletedAt IS NULL
+                  AND EXISTS (SELECT 1 FROM Folders f WHERE f.Id = n.FolderId AND f.DeletedAt IS NULL)
+                  AND ($folderId IS NULL OR n.FolderId = $folderId)
+                ORDER BY bm25(NotesFts), n.UpdatedAt DESC
+                LIMIT $limit;
+                """;
+            command.Parameters.AddWithValue("$match", query.ToFtsMatch());
+            command.Parameters.AddWithValue("$folderId", folderId is { } scope ? scope.Value : DBNull.Value);
+            command.Parameters.AddWithValue("$limit", limit);
+
+            var notes = new List<Note>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                notes.Add(ReadNote(reader));
+            }
+
+            return notes;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(StorageFailure.Unknown, "Could not search the notes.", ex);
+        }
+    }
+
     public IReadOnlyList<Note> ListInFolder(FolderId? folderId)
     {
         try

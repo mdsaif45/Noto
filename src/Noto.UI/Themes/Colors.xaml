@@ -177,6 +177,12 @@
             <Color x:Key="SurfaceCodeColor">#F0F0F0</Color>
             <SolidColorBrush x:Key="TextLinkBrush" Color="{StaticResource TextLinkColor}" />
             <SolidColorBrush x:Key="SurfaceCodeBrush" Color="{StaticResource SurfaceCodeColor}" />
+
+            <!-- Search (ADR-018): a matched word start, marked behind its text. Text on it measures 13.9:1. -->
+            <Color x:Key="SearchMatchColor">#FFE58A</Color>
+            <Color x:Key="SearchMatchTextColor">#1A1A1A</Color>
+            <SolidColorBrush x:Key="SearchMatchBrush" Color="{StaticResource SearchMatchColor}" />
+            <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{StaticResource SearchMatchTextColor}" />
         </ResourceDictionary>
 
         <!--
@@ -291,6 +297,12 @@
             <Color x:Key="SurfaceCodeColor">#3A3A3A</Color>
             <SolidColorBrush x:Key="TextLinkBrush" Color="{StaticResource TextLinkColor}" />
             <SolidColorBrush x:Key="SurfaceCodeBrush" Color="{StaticResource SurfaceCodeColor}" />
+
+            <!-- Search (ADR-018): a matched word start, marked behind its text. Text on it measures 6.8:1. -->
+            <Color x:Key="SearchMatchColor">#6B5A00</Color>
+            <Color x:Key="SearchMatchTextColor">#FFFFFF</Color>
+            <SolidColorBrush x:Key="SearchMatchBrush" Color="{StaticResource SearchMatchColor}" />
+            <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{StaticResource SearchMatchTextColor}" />
         </ResourceDictionary>
 
         <!--
@@ -405,6 +417,12 @@
             <StaticResource x:Key="SurfaceCodeColor" ResourceKey="SystemColorWindowColor" />
             <SolidColorBrush x:Key="TextLinkBrush" Color="{ThemeResource SystemColorHotlightColor}" />
             <SolidColorBrush x:Key="SurfaceCodeBrush" Color="{ThemeResource SystemColorWindowColor}" />
+
+            <!-- Search (ADR-018): a match is marked as selected text is, in the user's own colours. -->
+            <StaticResource x:Key="SearchMatchColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="SearchMatchTextColor" ResourceKey="SystemColorHighlightTextColor" />
+            <SolidColorBrush x:Key="SearchMatchBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

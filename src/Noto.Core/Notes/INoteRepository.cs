@@ -1,4 +1,5 @@
 using Noto.Core.Folders;
+using Noto.Core.Search;
 using Noto.Core.Tags;
 
 namespace Noto.Core.Notes;
@@ -277,6 +278,15 @@ public interface INoteRepository
     /// in ordering.
     /// </remarks>
     IReadOnlyList<Note> ListInFolder(FolderId? folderId);
+
+    /// <summary>
+    /// The <b>active</b> notes in active folders that match <paramref name="query"/> (ADR-018 §2), best first by the
+    /// index's rank, then the most recently updated; at most <paramref name="limit"/>.
+    /// </summary>
+    /// <param name="query">A non-empty query; an empty one is the caller's to refuse.</param>
+    /// <param name="folderId">Only this folder's notes, or <see langword="null"/> for every folder.</param>
+    /// <param name="limit">The most notes returned.</param>
+    IReadOnlyList<Note> FindMatching(SearchQuery query, FolderId? folderId, int limit);
 
     /// <summary>
     /// The <b>active</b> notes carrying a tag, most recently updated first (Q5).

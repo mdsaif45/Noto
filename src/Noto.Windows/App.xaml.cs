@@ -598,6 +598,7 @@ public partial class App : Application
             SingleClickOpen = preferences.SingleClickOpen,
             NewNotePlacement = preferences.NewNotePlacement,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
+            Search = new SearchWorkspaceQuery(notes, folders),
             Bin = new RecycleBin(
                 new ListDeletedFoldersQuery(folders),
                 new ListDeletedNotesQuery(notes),
