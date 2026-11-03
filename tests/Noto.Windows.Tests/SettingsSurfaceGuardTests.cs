@@ -267,6 +267,18 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Null(MainXaml.Descendants().Single(e => (string?)e.Attribute(X + "Name") == "NoteList").Attribute("DoubleTapped"));
     }
 
+    [Fact]
+    public void The_second_click_of_a_double_click_that_entered_a_folder_edits_no_card()
+    {
+        // Measured (the settings harness, case 7): with one click entering, the second click of a double click is not a
+        // double tap on the folder list, which is gone, but a tap on the stack, on whatever card is under the pointer.
+        Assert.Matches(@"_enteredByClickAt = Environment\.TickCount64;\s*EnterSelectedFolder\(\);", Body(Main, "OnFolderListTapped"));
+
+        string tapped = Body(Main, "OnNoteListTapped");
+        Assert.Matches(@"if \(Environment\.TickCount64 - _enteredByClickAt <= _system\.DoubleClickTime\)\s*\{\s*e\.Handled = true;\s*return;\s*\}", tapped);
+        Assert.True(Index(tapped, "_system.DoubleClickTime") < Index(tapped, "EditCard("), "A card is edited before the double click is refused.");
+    }
+
     // ---------------------------------------------------------------- structure and accessibility
 
     [Fact]

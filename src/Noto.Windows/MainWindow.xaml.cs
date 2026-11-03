@@ -22,6 +22,7 @@ using Noto.UseCases.Workspace;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 using Windows.UI.Core;
+using Windows.UI.ViewManagement;
 using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
 namespace Noto;
@@ -109,6 +110,12 @@ public sealed partial class MainWindow : Window
 
     /// <summary>When the editing card's text last became unsaved (a <see cref="Stopwatch"/> timestamp); 0 when it is saved.</summary>
     private long _unsavedSince;
+
+    /// <summary>When one click last entered a folder (an <see cref="Environment.TickCount64"/>), see <see cref="OnNoteListTapped"/>.</summary>
+    private long _enteredByClickAt;
+
+    /// <summary>Windows' own settings, read live: the double-click time.</summary>
+    private readonly UISettings _system = new();
 
     public MainWindow(
         ListFoldersQuery listFolders,
@@ -899,6 +906,14 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnNoteListTapped(object sender, TappedRoutedEventArgs e)
     {
+        // The second click of a double click that entered this folder (J7): the folder row it was aimed at is gone, so
+        // the framework raises it as a tap on the stack, on whatever card is under the pointer by then (measured).
+        if (Environment.TickCount64 - _enteredByClickAt <= _system.DoubleClickTime)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if ((e.OriginalSource as FrameworkElement)?.DataContext is NoteCard { IsEditing: false } card)
         {
             e.Handled = true;
@@ -2560,7 +2575,8 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
 
         // With single-click opening, the first click has already entered the folder, and the second lands on the note
-        // list that replaced it: acting on it would open a note nobody chose.
+        // list that replaced it: acting on it would open a note nobody chose. There it is a tap, which OnNoteListTapped
+        // refuses.
         if (!SingleClickOpen)
         {
             EnterSelectedFolder();
@@ -2573,6 +2589,7 @@ public sealed partial class MainWindow : Window
         if (SingleClickOpen && IsOnRow<FolderListItem>(e))
         {
             e.Handled = true;
+            _enteredByClickAt = Environment.TickCount64;
             EnterSelectedFolder();
         }
     }
