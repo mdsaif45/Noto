@@ -1,6 +1,6 @@
 # ADR-017 — The editor model: hidden markup over the source
 
-**Status:** Accepted
+**Status:** Accepted: the architecture (§1–§4). **Provisional:** the long-note constraints (§5). **Release-candidate gates:** §6 and the list under Verification.
 **Date:** 2026-11-03
 **Related:**
 - ADR-004 (markdown content, invisible markdown), ADR-010 (commands and events), ADR-011 (design system), ADR-016 §3 (the `NoteEditorHost` seam)
@@ -33,9 +33,19 @@ How does the editor show live-styled markdown with its markup hidden, so that:
 | B. Visible text plus an offset map | Only the visible text; Core maps every visible offset to a source offset and back | Rejected |
 | C. A custom-drawn text control | Glyphs drawn by Noto (DirectWrite / Win2D) | Rejected |
 | D. A web editor in WebView2 | CodeMirror or ProseMirror | Rejected |
-| E. The plain `TextBox`, permanently | The source, unstyled | Rejected as the end state (ADR-004); kept as the fallback for long notes (§5) |
+| E. The plain `TextBox`, permanently | The source, unstyled | Rejected as the end state (ADR-004). A plain-source fallback for long notes is only a provisional constraint (§5) |
 
 ## Decision
+
+This ADR decides three different kinds of thing, and only the first is settled:
+
+| Category | What | Status |
+|---|---|---|
+| **Accepted architecture** | Markdown source preserved character for character (§1); hidden-markup RichEdit model (§2); Core/host separation and Noto's own undo (§3); incremental formatting (§4) | **Accepted.** Changed only if later evidence shows the model is fundamentally unsuitable |
+| **Provisional implementation constraints** | The 400-markup-span threshold; the long-note plain-source fallback; the exact performance behaviour of large notes (§5) | **Provisional.** Derived from the spike's synthetic, markup-dense corpus. Revalidated during the real editor implementation and the RC performance campaign. Not a product requirement |
+| **Release-candidate gates** | Narrator behaviour (§6); IME and `Win+.`; spell check; High Contrast; reduced motion; realistic large-note performance | **Open.** Each is decided by testing the real user experience in the RC campaign, not by the spike |
+
+A spike limitation does not become the product specification by being written down here.
 
 ### 1. The document is the source
 
@@ -108,26 +118,53 @@ Each formatting call costs 0.2–0.4 ms, and more as the note grows; nothing in 
 | A command | Apply its `TextEdit`, then the same block rule | as above |
 | An IME composition | **No restyle while it is active** (`TextCompositionStarted` … `Ended`); one restyle when it ends | — |
 
-### 5. Long notes open as plain source
+### 5. Long notes (PROVISIONAL: an implementation constraint, not a product decision)
 
-A note is live-styled only when it holds at most **400 markup spans** (`StyledSpanLimit`, provisional). The span count is Core's: the spike's parse costs 2.6–4.2 ms per 100 KB.
+**What the spike measured.** On a synthetic corpus of dense markdown (about one span per 12 characters, the worst case):
+- styled load: 79 ms at 5 KB, 174 ms at 10 KB, 2.8 s at 100 KB;
+- restyling a 100 KB note progressively, in RTF slices, kept the text and the caret, but blocked the UI thread for 230–409 ms per 3 KB slice;
+- span-by-span TOM took 35 s;
+- plain source loaded 100 KB in 140–324 ms (today: 479 ms) and typed at about 1 ms.
 
-- That is about 5 KB of markup-dense text and much more of ordinary prose. Here it loads styled in 79 ms; a laptop at half this machine's speed stays inside the 200 ms large-note budget.
-- Above the limit, the note opens as **plain source**: markup visible, no styling, the same editor and commands. The card's bottom bar says so. The 100 KB note loads in 140–324 ms, against today's 479 ms, and types at about 1 ms.
-- The mode is chosen when editing starts and stays until the editor is left: a note that grows past the limit while it is edited does not change under the caret.
-- The read view uses the same limit. A styled `RichTextBlock` takes about 0.5 ms to build for a short note, but about 500 ms to first frame at 100 KB.
+**The working constraint until better evidence exists:**
+- a note is live-styled when it holds at most **400 markup spans** (`StyledSpanLimit`), about 5 KB of that dense corpus;
+- above it, the note opens as plain source with the same editor and commands;
+- the mode is chosen when editing starts and does not change under the caret;
+- the read view follows the same rule.
 
-**Why not progressive styling of a long note:** restyling a 100 KB note in RTF slices keeps the text and the caret, but blocks the UI thread for 230–409 ms per 3 KB slice, 12.6 s in all. Span-by-span TOM takes 35 s.
+Both the number and the fallback are **provisional**. They are an engineering boundary from one synthetic corpus on one machine, not v0.1 behaviour.
 
-### 6. Accessibility
+**What the real editor work must establish** (the parser, P2.2, and the rich host, P2.5, each measure it; the RC performance campaign confirms it):
 
-- **UI Automation exposes the source, markup included** (finding 11). This is accepted for P2:
-  - what is heard is exactly what is edited, and caret offsets agree;
-  - hiding it would mean a custom `ITextProvider`, a full reimplementation of text accessibility, which R2 forbids.
-  - Narrator listening in the RC campaign decides whether this ships; the reversal path is under "Future reconsideration".
-- **Spell check stays on** (`IsSpellCheckEnabled`); whether hidden markup disturbs it is an RC visual check.
-- **IME and `Win+.`**: RichEdit is TSF-native, and §4's composition rule keeps Noto out of the way. Not exercised here: no IME is installed (RC).
-- `Esc`, `Tab`, `Ctrl+Alt+Up/Down` and the other leave and navigation keys are the host's, exactly as in P1 (ADR-016 §5).
+| Question | How |
+|---|---|
+| How often is the threshold actually reached? | Span counts over a corpus of realistic notes: short lists, meeting notes, long-form prose, code-heavy snippets, checklists, pasted documents. Not only the synthetic dense corpus |
+| Do normal long-form notes stay fully styled? | The same corpus, loaded through the real host, on the RC reference machine |
+| Is a better incremental strategy possible? | Candidates: styling only what is visible plus a margin, with off-screen text unstyled until it scrolls in; cheaper restyle units; fewer runs per span; work off the UI thread wherever the control allows. Each one measured, not assumed |
+| Can the fallback be avoided for practical notes? | It must be, wherever the measurements allow |
+| What is the real user-visible budget? | Set from those measurements against quality-gates.md (note switch, large-note render, responsive typing), not from this spike alone |
+
+**The rule meanwhile:** a normal note is never silently degraded from polished rendered editing to raw markdown merely because it is long. If any fallback survives into v0.1, it is an intentional, documented UX decision, validated on representative real-world notes, with its own visible presentation, and it gets its own entry in this ADR.
+
+### 6. Accessibility (RELEASE-CANDIDATE GATE)
+
+**The finding (spike finding 11):** RichEdit's UI Automation `TextPattern` exposes the underlying markdown source, markup included. This is a fact about the control, not an accepted v0.1 behaviour.
+
+**The release decision, made in the RC campaign by testing Narrator over styled notes:**
+- **if** Narrator reading the source markdown is understandable and usable, the behaviour is documented and accepted;
+- **if** it is noisy or confusing, it is a **v0.1 accessibility defect**. It is then investigated and fixed with whatever preserves §1's markdown-source invariant:
+  - an accessible projection, an automation peer or custom text provider that reports the visible text;
+  - Show markup on whenever a screen reader is active (SPI_GETSCREENREADER);
+  - another architecture that keeps the invariant.
+
+The spike classed a custom text provider as high risk. That is an implementation preference, not a reason to reject the investigation: the requirement is the user's experience.
+
+**Also RC gates:**
+- **Spell check** stays on (`IsSpellCheckEnabled`); whether hidden markup disturbs it is checked visually.
+- **IME and `Win+.`:** RichEdit is TSF-native, and §4's composition rule keeps Noto out of the way. Not exercised here: no IME is installed.
+- **High Contrast and reduced motion:** the styling uses theme tokens only, and is verified in the RC campaign.
+
+**Unchanged:** `Esc`, `Tab`, `Ctrl+Alt+Up/Down` and the other leave and navigation keys are the host's, exactly as in P1 (ADR-016 §5).
 
 ### 7. Order of the remaining Phase C work (implementation plan §8, unchanged)
 
@@ -145,7 +182,7 @@ P2.3 and P2.4 run on today's plain editor through the same `TextEdit` contract, 
 
 - **Option A is the only one where the source never stops being the text.** Fidelity, offsets, caret and typing all come from RichEdit itself (spike findings 1–6). B needs a second text kept consistent through every IME composition, autocorrect, paste and UI Automation read; one mapping slip is data loss. A cannot slip, because there is nothing to map.
 - **Pure transforms make the host replaceable** (R2). If `RichEditBox` ever fails a gate, only the host is rewritten; commands, history, parser and tests stay.
-- **The limits are measured, not guessed.** Each number in §4 and §5 is in the spike's raw output, and §5's limit is a named constant re-measured on the RC reference machine.
+- **The measurements are recorded, not generalised.** Each number in §4 and §5 is in the spike's raw output. §4's cost model holds the architecture; §5's numbers are one synthetic corpus on one machine, so they stay provisional until real notes and the RC reference machine are measured.
 
 ## Consequences
 
@@ -158,8 +195,8 @@ P2.3 and P2.4 run on today's plain editor through the same `TextEdit` contract, 
 **Negative:**
 - Noto writes and owns undo and redo;
 - every restyle is deliberate, with no free "style everything" pass;
-- long notes are not live-styled: a visible, honest limit, and an exception to ADR-004's "parity requirement" bounded by measurement;
-- screen readers hear markup until the RC decides otherwise;
+- large-note behaviour is not settled (§5): the real editor work must measure it on realistic notes before v0.1;
+- screen-reader behaviour is not settled (§6): the RC Narrator pass decides it, and a noisy result is a v0.1 defect;
 - stored text moves from CR to LF on each note's first P2 save. The text itself is unchanged, but it is a write.
 
 **Guards (added with the code they protect, P2.5):**
@@ -176,9 +213,9 @@ P2.3 and P2.4 run on today's plain editor through the same `TextEdit` contract, 
 | **B. Visible text plus an offset map** | Two texts and a mapping to keep correct through IME, autocorrect, paste, undo and UI Automation; every caret and selection translated both ways. The spike shows A gets 1:1 offsets free |
 | **C. Custom-drawn control** | Text accessibility, IME/TSF, spell check, selection and caret all hand-built: the R2 risk in full |
 | **D. WebView2 editor** | ADR-004 forbids a web view for notes. It puts a browser engine, and its memory, into a background utility (principle 9) |
-| **E. Plain `TextBox` forever** | ADR-004 rejects it as the end state. It stays as §5's fallback, which is the same editor with styling off |
+| **E. Plain `TextBox` forever** | ADR-004 rejects it as the end state |
 | RichEdit's own undo, made to skip restyles | WinUI's `RichEditTextDocument` has no way to suspend undo recording; its only lever, `ClearUndoRedoHistory`, would erase the user's history with each restyle |
-| Progressive styling of long notes | Measured: 230–409 ms of UI-thread blocking per slice (§5) |
+| Progressive styling of long notes **in RTF slices**, as measured | 230–409 ms of UI-thread blocking per slice (§5). Other incremental strategies are not rejected: §5 requires them to be measured |
 
 ## Verification
 
@@ -186,23 +223,24 @@ P2.3 and P2.4 run on today's plain editor through the same `TextEdit` contract, 
 
 | PR | Its own gate |
 |---|---|
-| P2.2 | Parser round-trip and span tests over SideNotes' subset and the spike's fidelity corpus; parse of 100 KB ≤ 10 ms |
+| P2.2 | Parser round-trip and span tests over SideNotes' subset and the spike's fidelity corpus; parse of 100 KB ≤ 10 ms; **span counts over a realistic-note corpus** (§5) |
 | P2.3, P2.4 | One pure test per command, including a "not applicable" case; mutation testing |
-| P2.5 | A focused runtime check that re-measures §4's numbers, and §5's at the limit, on a frozen build; the guards above; mutation testing of `EditHistory` and `TextDiff` |
+| P2.5 | A focused runtime check on a frozen build that re-measures §4's numbers and answers §5's questions on the realistic corpus, including at least one better incremental strategy; the guards above; mutation testing of `EditHistory` and `TextDiff` |
 
-**RC campaign:**
+**RC campaign (release-candidate gates):**
 - Narrator listening over styled notes (decides §6);
 - a Japanese IME and `Win+.` in a styled note;
 - spell check with markup hidden;
-- High Contrast styling;
-- §5's limit re-measured on the reference machine.
+- High Contrast and reduced motion;
+- realistic large-note performance on the reference machine (confirms or removes §5's constraints).
 
 ## Future reconsideration criteria
 
 Revisit if:
-- Narrator listening finds markup noise unacceptable. The path is an automation peer that reports the visible text, or Show markup on whenever a screen reader is active (SPI_GETSCREENREADER);
-- a Windows App SDK update changes formatting-call costs. The spike reruns in minutes, and §5's limit moves with it;
-- the RC reference machine misses §4's or §5's budgets. The limit drops, it does not disappear;
+- §6's Narrator gate fails. That is a defect to fix within §1's invariant, not a reason to accept the noise;
+- realistic notes or a better incremental strategy remove the need for §5's fallback. It is then deleted, not kept as a precaution;
+- a Windows App SDK update changes formatting-call costs. The spike reruns in minutes;
+- the real host (P2.5) shows that the model itself, not only its tuning, cannot meet the v0.1 bar. That, and only that, reopens §1–§4;
 - P3's images need embedded objects. That needs its own ADR (P3.0) and must keep §1's "nothing not in the source" or replace it explicitly.
 
 Do **not** revisit to make the control the model, or to hold a second, visible-only text. Both are what this ADR exists to prevent.

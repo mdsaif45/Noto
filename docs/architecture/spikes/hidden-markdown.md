@@ -3,7 +3,7 @@
 **Phase:** Basic Release Phase C, design gate (implementation plan P2.0)
 **Date:** 2026-11-03
 **Status:** Complete
-**Verdict:** **GO, with a size limit.** The document text can stay the markdown source, character for character, with the markup hidden. A note is live-styled up to a measured size; above it, the note opens as plain source.
+**Verdict:** **GO for the model.** The document text can stay the markdown source, character for character, with the markup hidden. Large-note performance and screen-reader output are open questions, not settled limits: ADR-017 §5 and §6.
 **Decision:** [ADR-017](../../decisions/ADR-017-editor-model.md)
 **Code:** [`spikes/HiddenMarkdown/`](../../../spikes/HiddenMarkdown/) · raw output: [`spike-results.sample.txt`](../../../spikes/HiddenMarkdown/spike-results.sample.txt)
 
@@ -110,8 +110,8 @@ Fixed layout is 20–30% faster at every size (10 KB: 141 ms; 100 KB: 2,016 ms).
    - on a keystroke, restyle nothing unless the edited block's structure changed;
    - above a size, do not style at all.
 4. **Typing is never the problem.** An insert costs 0.3–1.3 ms (median) at every size, styled or not.
-5. **Large notes cannot be fully live-styled on this control.** Styled load passes the 200 ms "large note" budget only up to about 10 KB of dense markdown. Progressive styling of the rest, TOM or RTF slices, blocks the UI thread for hundreds of milliseconds per slice. Plain source loads 100 KB in 140–324 ms and types at about 1 ms.
-6. **UI Automation exposes the source.** A screen reader gets the markup. Whether that is acceptable is a Narrator listening question for the RC campaign; ADR-017 records the decision and its reversal path.
+5. **The two whole-note strategies measured here do not scale to very large notes.** On this dense synthetic corpus, styled load passes the 200 ms "large note" budget only up to about 10 KB. Progressive styling in TOM calls or RTF slices blocks the UI thread for hundreds of milliseconds per slice. Plain source loads 100 KB in 140–324 ms and types at about 1 ms. Realistic notes and other incremental strategies are not measured yet (ADR-017 §5).
+6. **UI Automation exposes the source.** A screen reader gets the markup. Whether that is usable is a release-candidate gate: Narrator listening decides, and a noisy result is a v0.1 defect (ADR-017 §6).
 
 ## Limitations
 
