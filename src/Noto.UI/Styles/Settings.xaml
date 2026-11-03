@@ -52,6 +52,40 @@
         <Setter Property="Padding" Value="{StaticResource GroupPadding}" />
     </Style>
 
+    <!--
+        One setting: its name and description in the first column, its control
+        in the second, Auto, column, at the row's right edge. The columns are
+        the row's own (a style cannot set them); the spacing between them is
+        set here, once.
+    -->
+    <Style x:Key="SettingRowStyle" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="{StaticResource SpaceM}" />
+    </Style>
+
+    <!--
+        A setting's switch, at the row's right edge like every other control.
+        No On/Off text: the row's name is the switch's accessible name, its
+        state is the track's, and the text would push the track off the edge.
+        The template keeps the text's column even when it is empty, so the
+        switch is pulled into it (SettingSwitchMargin) and its focus ring drawn
+        around the track alone (SettingSwitchFocusVisualMargin).
+    -->
+    <Style x:Key="SettingToggleSwitchStyle" TargetType="ToggleSwitch">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="OnContent" Value="" />
+        <Setter Property="OffContent" Value="" />
+        <Setter Property="Margin" Value="{StaticResource SettingSwitchMargin}" />
+        <Setter Property="FocusVisualMargin" Value="{StaticResource SettingSwitchFocusVisualMargin}" />
+    </Style>
+
+    <!-- A setting's choice of one, at the row's right edge, as wide as its longest item. -->
+    <Style x:Key="SettingComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- A setting's name. -->
     <Style x:Key="SettingLabelStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />

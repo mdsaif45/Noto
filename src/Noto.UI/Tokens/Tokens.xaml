@@ -66,6 +66,17 @@
     <Thickness x:Key="GroupPadding">12</Thickness>
 
     <!--
+        A switch flush with a settings row's right edge. WinUI's switch
+        template keeps a fixed 12px column after the track for its On/Off text,
+        even when there is none: the switch is pulled into it by the same 12,
+        and its focus ring, 7 outside the track like WinUI's own, is drawn
+        around the track rather than the empty column (7 - 12 = 5 on the
+        right). The 12 is the template's, not a step of the scale.
+    -->
+    <Thickness x:Key="SettingSwitchMargin">0,0,-12,0</Thickness>
+    <Thickness x:Key="SettingSwitchFocusVisualMargin">-7,-3,5,-3</Thickness>
+
+    <!--
         TYPOGRAPHY — Body, Caption and Heading.
 
         14px body matches the Windows shell default, so Noto reads as a native

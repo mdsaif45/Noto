@@ -15,6 +15,10 @@
         Contrast and the same focus ring. Every visual value is a token. Tab
         order is document order, which is the visual order.
 
+        Every setting is one row (SettingRowStyle): its name, and what it does,
+        on the left; its control at the row's right edge, vertically centred,
+        so the controls of every group line up in one column.
+
         Created only when Settings is first opened, and released when it is
         left: the tree costs nothing while it is not on screen.
     -->
@@ -62,7 +66,7 @@
                     <Border Style="{StaticResource SettingsGroupStyle}">
                         <StackPanel Spacing="{StaticResource SpaceM}">
 
-                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                            <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
@@ -84,12 +88,13 @@
                                 <ToggleSwitch
                                     x:Name="LaunchAtLoginSetting"
                                     Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
                                     Toggled="OnLaunchAtLoginToggled"
                                     AutomationProperties.Name="Start Noto with Windows"
                                     AutomationProperties.HelpText="Starts Noto hidden when you sign in." />
                             </Grid>
 
-                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                            <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
@@ -101,12 +106,13 @@
                                 <ToggleSwitch
                                     x:Name="HideOnDeactivationSetting"
                                     Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
                                     Toggled="OnHideOnDeactivationToggled"
                                     AutomationProperties.Name="Hide when I click elsewhere"
                                     AutomationProperties.HelpText="Unless Keep Noto open is on." />
                             </Grid>
 
-                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                            <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
@@ -118,6 +124,7 @@
                                 <ToggleSwitch
                                     x:Name="SingleClickSetting"
                                     Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
                                     Toggled="OnSingleClickToggled"
                                     AutomationProperties.Name="Open with a single click"
                                     AutomationProperties.HelpText="Folders. Otherwise, double-click. A note is edited with one click either way." />
@@ -133,23 +140,37 @@
                     <Border Style="{StaticResource SettingsGroupStyle}">
                         <StackPanel Spacing="{StaticResource SpaceM}">
 
-                            <StackPanel Spacing="{StaticResource SpaceXS}">
-                                <TextBlock Text="Side" Style="{StaticResource SettingLabelStyle}" />
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Side" Style="{StaticResource SettingLabelStyle}" />
+                                </StackPanel>
                                 <ComboBox
                                     x:Name="SideSetting"
-                                    HorizontalAlignment="Stretch"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
                                     SelectionChanged="OnSideChanged"
                                     AutomationProperties.Name="Side">
                                     <ComboBoxItem Content="Right" Tag="Right" />
                                     <ComboBoxItem Content="Left" Tag="Left" />
                                 </ComboBox>
-                            </StackPanel>
+                            </Grid>
 
-                            <StackPanel Spacing="{StaticResource SpaceXS}">
-                                <TextBlock Text="Escape key" Style="{StaticResource SettingLabelStyle}" />
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Escape key" Style="{StaticResource SettingLabelStyle}" />
+                                </StackPanel>
                                 <ComboBox
                                     x:Name="EscapeSetting"
-                                    HorizontalAlignment="Stretch"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
                                     SelectionChanged="OnEscapeChanged"
                                     AutomationProperties.Name="Escape key">
                                     <ComboBoxItem Content="Go back, then hide" Tag="LeaveFolderOrHide" />
@@ -157,7 +178,7 @@
                                     <ComboBoxItem Content="Hide Noto" Tag="Hide" />
                                     <ComboBoxItem Content="Do nothing" Tag="None" />
                                 </ComboBox>
-                            </StackPanel>
+                            </Grid>
 
                         </StackPanel>
                     </Border>
@@ -167,19 +188,30 @@
                 <StackPanel Spacing="{StaticResource SpaceS}">
                     <TextBlock Text="Appearance" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
                     <Border Style="{StaticResource SettingsGroupStyle}">
-                        <StackPanel Spacing="{StaticResource SpaceXS}">
-                            <TextBlock Text="Theme" Style="{StaticResource SettingLabelStyle}" />
-                            <TextBlock Text="High contrast, when on in Windows, is used instead." Style="{StaticResource SettingDescriptionStyle}" />
-                            <ComboBox
-                                x:Name="ThemeSetting"
-                                HorizontalAlignment="Stretch"
-                                SelectionChanged="OnThemeChanged"
-                                AutomationProperties.Name="Theme"
-                                AutomationProperties.HelpText="High contrast, when on in Windows, is used instead.">
-                                <ComboBoxItem Content="Use Windows setting" Tag="System" />
-                                <ComboBoxItem Content="Light" Tag="Light" />
-                                <ComboBoxItem Content="Dark" Tag="Dark" />
-                            </ComboBox>
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Theme" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="High contrast, when on in Windows, is used instead." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="ThemeSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnThemeChanged"
+                                    AutomationProperties.Name="Theme"
+                                    AutomationProperties.HelpText="High contrast, when on in Windows, is used instead.">
+                                    <ComboBoxItem Content="Use Windows setting" Tag="System" />
+                                    <ComboBoxItem Content="Light" Tag="Light" />
+                                    <ComboBoxItem Content="Dark" Tag="Dark" />
+                                </ComboBox>
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -188,8 +220,9 @@
                 <StackPanel Spacing="{StaticResource SpaceS}">
                     <TextBlock Text="Shortcuts" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
                     <Border Style="{StaticResource SettingsGroupStyle}">
-                        <StackPanel Spacing="{StaticResource SpaceXS}">
-                            <Grid ColumnSpacing="{StaticResource SpaceS}">
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
@@ -201,37 +234,50 @@
                                 <ToggleSwitch
                                     x:Name="HotkeyEnabledSetting"
                                     Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
                                     Toggled="OnHotkeyEnabledToggled"
                                     AutomationProperties.Name="Show and hide Noto with a shortcut" />
                             </Grid>
+
                             <!--
                                 The recorder (Slice 1, parity G50): select it, press the new chord. While it listens it
                                 owns the keyboard, Escape or leaving it cancels, and Noto's own chord is held but
                                 ignored, so pressing it cannot hide this page. The status line announces each step.
                             -->
-                            <Button
-                                x:Name="HotkeyRecorder"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Style="{StaticResource FolderPaneButtonStyle}"
-                                Click="OnRecorderClick"
-                                PreviewKeyDown="OnRecorderKeyDown"
-                                LostFocus="OnRecorderLostFocus"
-                                ProcessKeyboardAccelerators="OnRecorderAccelerators"
-                                AutomationProperties.Name="Change the show and hide shortcut"
-                                AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
-                            <!-- Each step of recording, and how it ended. The text is the name; announced when it changes. -->
-                            <TextBlock
-                                x:Name="HotkeyRecorderStatus"
-                                Style="{StaticResource SettingDescriptionStyle}"
-                                Visibility="Collapsed"
-                                AutomationProperties.LiveSetting="Assertive" />
-                            <!-- Why the shortcut is not active. The text is the name; announced when it appears. -->
-                            <TextBlock
-                                x:Name="HotkeyMessage"
-                                Style="{StaticResource FolderPaneNoticeStyle}"
-                                Visibility="Collapsed"
-                                AutomationProperties.LiveSetting="Assertive" />
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <!-- Each step of recording, and how it ended. The text is the name; announced when it changes. -->
+                                    <TextBlock
+                                        x:Name="HotkeyRecorderStatus"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                    <!-- Why the shortcut is not active. The text is the name; announced when it appears. -->
+                                    <TextBlock
+                                        x:Name="HotkeyMessage"
+                                        Style="{StaticResource FolderPaneNoticeStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="HotkeyRecorder"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Click="OnRecorderClick"
+                                    PreviewKeyDown="OnRecorderKeyDown"
+                                    LostFocus="OnRecorderLostFocus"
+                                    ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                    AutomationProperties.Name="Change the show and hide shortcut"
+                                    AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -240,18 +286,28 @@
                 <StackPanel Spacing="{StaticResource SpaceS}">
                     <TextBlock Text="Data" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
                     <Border Style="{StaticResource SettingsGroupStyle}">
-                        <StackPanel Spacing="{StaticResource SpaceS}">
-                            <StackPanel Spacing="{StaticResource SpaceXS}">
-                                <TextBlock Text="Data folder" Style="{StaticResource SettingLabelStyle}" />
-                                <TextBlock Text="Where Noto keeps your notes and settings." Style="{StaticResource SettingDescriptionStyle}" />
-                            </StackPanel>
-                            <Button
-                                x:Name="RevealDataFolderButton"
-                                HorizontalAlignment="Left"
-                                Style="{StaticResource FolderPaneButtonStyle}"
-                                Content="Open in Explorer"
-                                Click="OnRevealDataFolderClick"
-                                AutomationProperties.Name="Open the data folder in Explorer" />
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Data folder" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Where Noto keeps your notes and settings." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="RevealDataFolderButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Open in Explorer"
+                                    Click="OnRevealDataFolderClick"
+                                    AutomationProperties.Name="Open the data folder in Explorer" />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>
