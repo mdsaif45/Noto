@@ -51,7 +51,7 @@
         (ADR-011 rule 4: add when a surface needs one, not because a surface
         appeared).
     -->
-    <Style x:Key="NoteEditorStyle" TargetType="TextBox">
+    <Style x:Key="NoteEditorStyle" TargetType="RichEditBox">
         <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
         <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />

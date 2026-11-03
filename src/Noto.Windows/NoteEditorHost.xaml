@@ -1,24 +1,29 @@
 <UserControl
     x:Class="Noto.NoteEditorHost"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Noto">
 
     <!--
         The editor host (ADR-016 §3): the only thing that edits a note's text, and the P2 boundary. Callers see Load,
-        Markdown, ContentChanged, LeaveRequested and PlaceCaret; P2 replaces what is inside, not them.
+        Markdown, ContentChanged, LeaveRequested, PlaceCaret and the formatting commands; nothing else.
 
-        P1: the plain markdown source in a TextBox. AcceptsReturn and no AcceptsTab: Enter is a newline, Tab leaves.
-        It grows with its text inside the card; the stack scrolls, not the editor. Regular weight, whatever the
-        selected row's emphasis is.
+        P2 (ADR-017): a RichEditBox whose text is the markdown source, its markup hidden by format and styled from
+        Core's parse. RichEdit's own undo and formatting chords are off: Noto owns both. It grows with its text
+        inside the card; the stack scrolls, not the editor. The brushes are theme resources, so a theme switch
+        restyles the note.
     -->
-    <TextBox
+    <local:EditorBox
         x:Name="NoteEditor"
         Style="{StaticResource NoteEditorStyle}"
-        AcceptsReturn="True"
         TextWrapping="Wrap"
-        FontWeight="{StaticResource FontWeightRegular}"
-        TextChanged="OnTextChanged"
-        PreviewKeyDown="OnPreviewKeyDown"
+        AcceptsReturn="True"
+        IsSpellCheckEnabled="True"
+        DisabledFormattingAccelerators="All"
+        ClipboardCopyFormat="PlainText"
+        MarkupBrush="{ThemeResource TextSecondaryBrush}"
+        LinkBrush="{ThemeResource TextLinkBrush}"
+        CodeSurfaceBrush="{ThemeResource SurfaceCodeBrush}"
         AutomationProperties.Name="Note content" />
 
 </UserControl>

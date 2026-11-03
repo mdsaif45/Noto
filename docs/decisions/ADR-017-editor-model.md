@@ -144,6 +144,17 @@ Both the number and the fallback are **provisional**. They are an engineering bo
 | Can the fallback be avoided for practical notes? | It must be, wherever the measurements allow |
 | What is the real user-visible budget? | Set from those measurements against quality-gates.md (note switch, large-note render, responsive typing), not from this spike alone |
 
+**What the real host measured (the editor slice, 2026-11-03).** On a frozen Release build, notes built from realistic, markup-heavy content (about 95 spans per 1,000 characters):
+
+| Note | First frame after opening | Work per keystroke |
+|---|---|---|
+| 5 KB | 18 ms | 3–12 ms |
+| 20 KB | 151 ms | 3.5–4 ms |
+| 50 KB | 152 ms | 4–15 ms |
+| 100 KB | 309 ms | 4–9 ms |
+
+Today's plain TextBox takes 479 ms for 100 KB. **No fallback is implemented: every note is styled.** The constraint stays provisional only until the RC reference machine confirms these numbers. Scrolling a very long note is not yet measured.
+
 **The rule meanwhile:** a normal note is never silently degraded from polished rendered editing to raw markdown merely because it is long. If any fallback survives into v0.1, it is an intentional, documented UX decision, validated on representative real-world notes, with its own visible presentation, and it gets its own entry in this ADR.
 
 ### 6. Accessibility (RELEASE-CANDIDATE GATE)
@@ -206,6 +217,21 @@ Parity B19: notes save themselves; there is no save command. Before P2.1, text w
   - every harness that forces a failed save bins the note before typing, so autosave cannot write first.
 
 Parity B19 stays `[ ]` until the RC re-score (implementation plan, decision 4).
+
+### 9. The editor slice precisely (2026-11-03)
+
+What the first user-visible editor holds, and the decisions the code made that this ADR did not already:
+
+| Decision | Why |
+|---|---|
+| A card's **read view renders** the same parse (`MarkdownReadView`): markup left out, a bullet and a text-style ☐/☑ drawn for list markers and boxes; plain text above 20,000 characters | A stack you scan should read like notes, not source. In high contrast it sets no colour of its own: on a selected row that is HighlightText, and GrayText there measured 1.37:1 |
+| The editor answers **UI Automation's Value pattern** with the source (`EditorBoxAutomationPeer`) | RichEditBox exposes only Text; the TextBox it replaced had Value too, and every validation harness reads and writes the note through it |
+| **Caret keys are marked handled** after RichEdit moves the caret | Measured: an unhandled Ctrl+End reached the stack's ListView, which moved its selection and edited the last card |
+| A command, Enter or paste **first reads back the last keystroke** (`Flush`) | Measured: RichEdit raises TextChanged after the key, so Enter right after typing continued the list one character early |
+| An editor **attaches on data-context change** as well as on load | Measured: a recycled container realised with the previous card's data loaded nothing when the editing card arrived |
+| **One Format button** on the editing card's bar, a menu of every command with its key; Enter continues and ends lists; Shift+Enter is a plain line break; paste is plain text | Keyboard-first with one quiet affordance; formatted paste is P2.7's |
+
+Still to come (editor polish): Tab to indent list items and Alt+Up/Down to move lines (P2.4), a rendered checkbox inside the editor, formatted paste (P2.7), and the IME, spell check and Narrator RC gates of §6.
 
 ## Rationale
 

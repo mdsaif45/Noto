@@ -20,7 +20,7 @@ public sealed class NoteStackGuardTests
     [Fact]
     public void Only_the_editor_host_references_its_inner_control()
     {
-        // ADR-016 §3: P2 replaces the host's inside, so nothing outside it may reach the TextBox.
+        // ADR-016 §3: P2 replaced the host's inside (ADR-017: a RichEditBox), and nothing outside it may reach it.
         var reaching = Directory.EnumerateFiles(Windows, "*.*")
             .Where(f => f.EndsWith(".cs", StringComparison.Ordinal) || f.EndsWith(".xaml", StringComparison.Ordinal))
             .Where(f => !Path.GetFileName(f).StartsWith("NoteEditorHost.", StringComparison.Ordinal))
@@ -29,7 +29,7 @@ public sealed class NoteStackGuardTests
             .ToList();
 
         Assert.True(reaching.Count == 0, "References the editor's inner control: " + string.Join(", ", reaching));
-        Assert.Matches(@"<TextBox\s+x:Name=""NoteEditor""", File.ReadAllText(Path.Join(Windows, "NoteEditorHost.xaml")));
+        Assert.Matches(@"<local:EditorBox\s+x:Name=""NoteEditor""", File.ReadAllText(Path.Join(Windows, "NoteEditorHost.xaml")));
     }
 
     [Fact]
@@ -58,9 +58,16 @@ public sealed class NoteStackGuardTests
     {
         // The text lives in the session, not the control: a realised editor loads it, every change goes back to it,
         // and an editor for a card that is not the editing one loads nothing.
-        string loaded = Body(Main, "OnEditorHostLoaded");
+        string loaded = Body(Main, "AttachEditor");
         Assert.Contains("_stack.Editing?.Value != card.Id", loaded, StringComparison.Ordinal);
+        Assert.Contains("host.Note?.Value == card.Id", loaded, StringComparison.Ordinal);
         Assert.Contains("host.Load(NoteId.From(card.Id), _stack.Draft);", loaded, StringComparison.Ordinal);
+
+        // Both ways a card reaches its editor attach it: realised, or a recycled container given the card afterwards.
+        Assert.Contains("private void OnEditorHostLoaded(object sender, RoutedEventArgs e) => AttachEditor(sender as NoteEditorHost);", Main, StringComparison.Ordinal);
+        Assert.Matches(@"if \(sender is NoteEditorHost \{ IsLoaded: true \} host\)\s*\{\s*AttachEditor\(host\);", Body(Main, "OnEditorHostDataContextChanged"));
+        XElement editor = Named(Card(), "CardEditor");
+        Assert.Equal("OnEditorHostDataContextChanged", (string?)editor.Attribute("DataContextChanged"));
         Assert.Contains("_stack.UpdateDraft(note, host.Markdown);", Body(Main, "OnEditorContentChanged"), StringComparison.Ordinal);
     }
 
