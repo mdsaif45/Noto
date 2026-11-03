@@ -37,6 +37,7 @@ public sealed class SearchWorkspaceQuery(INoteRepository notes, IFolderRepositor
     private readonly INoteRepository _notes = notes ?? throw new ArgumentNullException(nameof(notes));
     private readonly IFolderRepository _folders = folders ?? throw new ArgumentNullException(nameof(folders));
 
+    /// <summary>The results for <paramref name="text"/>: empty for a query with no letter or digit, never run.</summary>
     /// <param name="text">What was typed.</param>
     /// <param name="folderId">Only this folder (E9), or <see langword="null"/> for every folder.</param>
     public SearchResults Execute(string? text, FolderId? folderId)
