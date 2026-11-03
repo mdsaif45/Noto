@@ -309,6 +309,80 @@ public sealed class SettingsSurfaceGuardTests
     }
 
     [Fact]
+    public void Every_setting_is_one_row_with_its_control_centred_at_the_right_edge()
+    {
+        // One layout for every setting, so the controls of every group line up in one column at the right: each group
+        // holds only rows, spaced alike; each row is the shared row style over a stretching text column and an Auto
+        // control column; the control column holds one control, right-aligned and centred, by attribute or its style.
+        var styles = XDocument.Load(SourcePath("src", "Noto.UI", "Styles", "Settings.xaml")).Descendants()
+            .Where(e => e.Name.LocalName == "Style" && e.Attribute(X + "Key") is not null)
+            .ToDictionary(e => (string)e.Attribute(X + "Key")!);
+        XElement scroll = Named(PageXaml, "SettingsScroll");
+        var groups = scroll.Descendants().Where(e => (string?)e.Attribute("Style") == "{StaticResource SettingsGroupStyle}").ToList();
+        var rows = scroll.Descendants().Where(e => e.Name.LocalName == "Grid").ToList();
+        var failures = new List<string>();
+
+        Assert.Equal(5, groups.Count);
+
+        foreach (XElement group in groups)
+        {
+            XElement panel = Assert.Single(group.Elements());
+            Assert.Equal("{StaticResource SpaceM}", (string?)panel.Attribute("Spacing"));
+            Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
+        }
+
+        Assert.Equal(9, rows.Count);
+
+        foreach (XElement row in rows)
+        {
+            var columns = row.Descendants().Where(e => e.Name.LocalName == "ColumnDefinition").Select(c => (string?)c.Attribute("Width"));
+            var controls = row.Elements().Where(e => (string?)e.Attribute("Grid.Column") == "1").ToList();
+            XElement? control = controls.Count == 1 ? controls[0] : null;
+
+            if ((string?)row.Attribute("Style") != "{StaticResource SettingRowStyle}" || !columns.SequenceEqual(["*", "Auto"]) || control is null)
+            {
+                failures.Add($"row {rows.IndexOf(row)} is not a two-column setting row with one control");
+                continue;
+            }
+
+            string name = (string?)control.Attribute(X + "Name") ?? control.Name.LocalName;
+
+            if (control.Name.LocalName is not ("ToggleSwitch" or "ComboBox" or "Button")
+                || Effective(control, "HorizontalAlignment") != "Right"
+                || Effective(control, "VerticalAlignment") != "Center")
+            {
+                failures.Add($"{name} is not a control centred at the row's right edge");
+            }
+        }
+
+        // Every switch and every choice on the page is such a row's control; none is left stacked under its label.
+        failures.AddRange(PageXaml.Descendants()
+            .Where(e => e.Name.LocalName is "ToggleSwitch" or "ComboBox")
+            .Where(e => e.Parent?.Name.LocalName != "Grid" || (string?)e.Attribute("Grid.Column") != "1")
+            .Select(e => $"{(string?)e.Attribute(X + "Name")} is outside a row's control column"));
+
+        // A switch shows no On/Off text, so its track is what sits at the edge; its name is the setting's.
+        Assert.Contains(styles["SettingToggleSwitchStyle"].Elements(), s => (string?)s.Attribute("Property") == "OnContent" && (string?)s.Attribute("Value") == string.Empty);
+        Assert.Contains(styles["SettingToggleSwitchStyle"].Elements(), s => (string?)s.Attribute("Property") == "OffContent" && (string?)s.Attribute("Value") == string.Empty);
+
+        Assert.True(failures.Count == 0, string.Join("; ", failures));
+
+        string? Effective(XElement control, string property)
+        {
+            if ((string?)control.Attribute(property) is string set)
+            {
+                return set;
+            }
+
+            string? key = Regex.Match((string?)control.Attribute("Style") ?? string.Empty, @"^\{StaticResource (\w+)\}$").Groups[1].Value;
+
+            return styles.TryGetValue(key, out XElement? style)
+                ? style.Elements().Where(s => (string?)s.Attribute("Property") == property).Select(s => (string?)s.Attribute("Value")).FirstOrDefault()
+                : null;
+        }
+    }
+
+    [Fact]
     public void The_page_itself_is_the_settings_root_ui_automation_can_see()
     {
         // Measured on the frozen Release build: SettingsRoot on the page's inner grid never reached UI Automation; a
