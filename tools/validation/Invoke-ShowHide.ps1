@@ -232,9 +232,10 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
     Chord @($target.Hwnd)
     $null = Wait-Presence $noto { param($e) $e.WsVisible -and $e.IsForeground }
     $editorKept = (Editor-Value $noto) -eq $text9
+    # Binned before the typing: autosave (P2.1) must not get to write the text first.
+    $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId }
     $text10 = "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"
     Set-Editor $noto $text10
-    $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId }
     if ((Fg) -ne $noto.Hwnd) { Bring-NotoForward $noto $target }
     Chord @($noto.Hwnd)
     Start-Sleep -Seconds 1

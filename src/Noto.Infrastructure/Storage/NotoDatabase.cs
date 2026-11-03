@@ -116,9 +116,9 @@ public sealed class NotoDatabase
         //
         // This is a real trade: a power cut may lose the most recently
         // committed writes. Accepted because that window is small, and because
-        // OFF (which risks the whole file) is the only faster option. Note
-        // that saving is not continuous yet: the editor saves on leave and on
-        // close, and continuous persistence (parity B19) is M3's.
+        // OFF (which risks the whole file) is the only faster option. The
+        // editor writes while the user types (parity B19, P2.1), at most every
+        // second of pause and by five seconds of steady typing.
         Execute(connection, "PRAGMA synchronous = NORMAL;");
 
         // busy_timeout — wait rather than failing instantly if another

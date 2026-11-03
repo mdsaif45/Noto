@@ -178,6 +178,35 @@ P2.9 quick formatting ◀── P2.8 modes, spell ◀── P2.7 paste ◀──
 
 P2.3 and P2.4 run on today's plain editor through the same `TextEdit` contract, so they are usable, and fully unit-testable, before the rich host exists.
 
+### 8. P2.1 precisely: continuous persistence (2026-11-03)
+
+Parity B19: notes save themselves; there is no save command. Before P2.1, text was written only when the user left a card, hid or closed the window, or the session ended. A crash or a kill lost everything typed since.
+
+| Rule | Detail |
+|---|---|
+| **When** | After `Autosave.Quiet` (1 s) without a change. Never later than `Autosave.Longest` (5 s) after the text first became unsaved, however steadily the user types. `Autosave.Delay` (UseCases, pure) is the whole policy |
+| **How** | The same save as leaving a card (`TrySaveCard`): one `UpdateNoteContent` dispatch. The card keeps editing |
+| **Explicit saves stay** | Leaving, another card, Ctrl+N, move, fold, hide, close and session end still write at once. Any attempt takes the pending write's place |
+| **Text typed back to what is stored** | Nothing is written |
+| **Failure** | As every save: the text is kept, the card keeps editing, the notice says why. A failed attempt restarts the bound, so a note that cannot be saved is retried at the normal pace, not on every key. No timer overwrites a failed close's "close again to discard" notice |
+| **No new UI** | No Save button, no save command, no "saved" indicator (B19) |
+| **Durability** | Each write is one committed SQLite transaction (WAL, `synchronous = NORMAL`, `NotoDatabase`). It survives Noto crashing or being killed; a power loss can lose the latest transactions. A crash or kill loses at most the last 5 s of steady typing, or 1 s after a pause |
+| **Cost** | One save measured 26–27 ms for short and 100 KB notes (quality-gates.md, #11). That is at most once a second after a pause, and once every 5 s while typing steadily. Each write moves `UpdatedAt`; nothing orders by it |
+
+**Not settled here (later work, not P2.1's):**
+- A write while an IME composition is open stores the composition text as the editor reports it; the next write corrects it. The rich host (P2.5) keeps §4's composition rule.
+- A database held by another process blocks a write for up to `busy_timeout` (5 s), as it already does for every save. That is P10's storage-fault work.
+
+**Verification:**
+- `AutosaveTests`: the bounds, the delay at every boundary, steady typing landing on 5 s.
+- The stack guards.
+- Runtime, on a frozen build:
+  - `Invoke-EditorSaveOnClose.ps1` cases 7 (written while editing; a kill loses none of it; the integrity check; a clean restart) and 8 (the 5 s bound under steady typing);
+  - `Invoke-NoteStack.ps1` cases 8, 9, 32 and 40, which now expect the write;
+  - every harness that forces a failed save bins the note before typing, so autosave cannot write first.
+
+Parity B19 stays `[ ]` until the RC re-score (implementation plan, decision 4).
+
 ## Rationale
 
 - **Option A is the only one where the source never stops being the text.** Fidelity, offsets, caret and typing all come from RichEdit itself (spike findings 1–6). B needs a second text kept consistent through every IME composition, autocorrect, paste and UI Automation read; one mapping slip is data loss. A cannot slip, because there is nothing to map.

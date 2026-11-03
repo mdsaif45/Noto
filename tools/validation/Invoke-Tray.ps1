@@ -462,7 +462,7 @@ try {
             # Hide leaves the shell in front with the overflow still open; a click elsewhere may only dismiss it.
             Close-Flyout
 
-            Noto-Front; Set-Editor "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"; Bin-Note
+            Noto-Front; Bin-Note; Set-Editor "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"
             Target-Front
             $m = Trace-Mark; $null = Open-Menu; Choose 'H'
             Start-Sleep -Milliseconds 800
@@ -512,7 +512,7 @@ try {
             Close-Flyout
 
             Start-Fresh @{ 'workspace.hide-on-deactivation' = 'False' }; Open-Editor
-            Set-Editor "cannot be saved by quit $([guid]::NewGuid().ToString('N').Substring(0, 6))"; Bin-Note; $kept = Row 'Content'
+            Bin-Note; Set-Editor "cannot be saved by quit $([guid]::NewGuid().ToString('N').Substring(0, 6))"; $kept = Row 'Content'
             $null = Invoke-Minimize $noto; Target-Front
             $m = Trace-Mark; $null = Open-Menu; Choose 'Q'
             $e = Wait-For { param($e) $e.IsForeground }
@@ -551,7 +551,7 @@ try {
             Add-Result $run '13 session end with unsaved text -> saved before allowing; exits' ($rm -eq 0 -and (Exited $old) -and (Row 'Content') -eq $text) "RmShutdown=$rm content saved=$((Row 'Content') -eq $text); trace: $(Trace-Of $old.Pid)"
 
             Start-Fresh; Open-Editor
-            $text = "cannot be saved at session end $([guid]::NewGuid().ToString('N').Substring(0, 6))"; Set-Editor $text; Bin-Note
+            $text = "cannot be saved at session end $([guid]::NewGuid().ToString('N').Substring(0, 6))"; Bin-Note; Set-Editor $text
             $m = Trace-Mark; $rm = [NotoVal.Tray]::RmClose($noto.Pid, $noto.Start, 60000)
             Start-Sleep -Milliseconds 800
             Add-Result $run '13 session end with a failed save -> refused; Noto stays, text kept' ($rm -ne 0 -and (Get-Process -Id $noto.Pid -ErrorAction SilentlyContinue) -and (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -eq $text) "RmShutdown=$rm; trace: $(Trace-Since $m)"

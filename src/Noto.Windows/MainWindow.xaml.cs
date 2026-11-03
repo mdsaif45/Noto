@@ -22,6 +22,7 @@ using Noto.UseCases.Workspace;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 using Windows.UI.Core;
+using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
 namespace Noto;
 
@@ -103,6 +104,12 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private (string NoteId, string Text)? _failedCloseSave;
 
+    /// <summary>Writes unsaved text while the user types (parity B19, P2.1): armed by each change, see <see cref="ArmAutosave"/>.</summary>
+    private readonly DispatcherQueueTimer _autosave;
+
+    /// <summary>When the editing card's text last became unsaved (a <see cref="Stopwatch"/> timestamp); 0 when it is saved.</summary>
+    private long _unsavedSince;
+
     public MainWindow(
         ListFoldersQuery listFolders,
         NoteStackSession stack,
@@ -120,6 +127,10 @@ public sealed partial class MainWindow : Window
         NoteList.ContainerContentChanging += OnRowContainerContentChanging;
 
         AppWindow.Closing += OnAppWindowClosing;
+
+        _autosave = DispatcherQueue.CreateTimer();
+        _autosave.IsRepeating = false;
+        _autosave.Tick += OnAutosaveTick;
 
         // Slice 1.3: the content's motion; the coordinator runs the drawer's, the navigation below a surface's.
         Motion = new ContentMotion(WorkspaceContent);
@@ -1044,10 +1055,17 @@ public sealed partial class MainWindow : Window
     {
         if (!_stack.IsDirty)
         {
+            StopAutosave();
             return true;
         }
 
         long started = Stopwatch.GetTimestamp();
+
+        // This attempt is the write any pending autosave was waiting for. If it fails, the bound starts again from
+        // now: a note that cannot be saved is retried at the normal pace, not on every key, and no timer replaces
+        // this failure's notice (a failed close's "close again" offer included).
+        _autosave.Stop();
+        _unsavedSince = started;
 
         try
         {
@@ -1055,6 +1073,8 @@ public sealed partial class MainWindow : Window
 
             if (result.IsSuccess)
             {
+                StopAutosave();
+
                 // #11: the save is written (the handler returns after the database commits). The performance
                 // harness times saves from this line; validation channel only, never the log, never content. The
                 // number is invariant: a regional decimal comma would be misread as a shorter save.
@@ -1151,7 +1171,44 @@ public sealed partial class MainWindow : Window
         if (sender is NoteEditorHost { Note: { } note } host)
         {
             _stack.UpdateDraft(note, host.Markdown);
+            ArmAutosave();
         }
+    }
+
+    /// <summary>
+    /// Schedules the write of unsaved text (parity B19, P2.1): after <see cref="Autosave.Quiet"/> without a change, and
+    /// by <see cref="Autosave.Longest"/> after the text first became unsaved however steadily the user types. Text
+    /// typed back to what is stored needs no write.
+    /// </summary>
+    private void ArmAutosave()
+    {
+        if (!_stack.IsDirty)
+        {
+            StopAutosave();
+            return;
+        }
+
+        if (_unsavedSince == 0)
+        {
+            _unsavedSince = Stopwatch.GetTimestamp();
+        }
+
+        _autosave.Stop();
+        _autosave.Interval = Autosave.Delay(Stopwatch.GetElapsedTime(_unsavedSince));
+        _autosave.Start();
+    }
+
+    /// <summary>
+    /// The write the timer scheduled: the same save as leaving a card, so a failure keeps the text and the notice says
+    /// why. The card keeps editing either way.
+    /// </summary>
+    private void OnAutosaveTick(DispatcherQueueTimer sender, object args) => _ = TrySaveCard();
+
+    /// <summary>Nothing is unsaved: no write is due.</summary>
+    private void StopAutosave()
+    {
+        _autosave.Stop();
+        _unsavedSince = 0;
     }
 
     /// <summary>Escape follows the stored behaviour; Ctrl+Alt+Up/Down edit the previous or next card (G11, G12).</summary>
@@ -1195,8 +1252,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The explicit save that leaving a card performs, at one more point: the window closing. It is not autosave —
-    /// nothing is written while the user types; parity B19's continuous persistence stays P2's.
+    /// The explicit save that leaving a card performs, at one more point: the window closing. Text typed since the last
+    /// autosave (P2.1) is written here at once rather than waiting for the timer.
     /// </para>
     /// <para>
     /// The first close with unsaved text gets exactly one save attempt. If it fails, the close is cancelled, the text
@@ -1206,7 +1263,8 @@ public sealed partial class MainWindow : Window
     /// </para>
     /// <para>
     /// The session ending is handled before this (ADR-014): Windows' query saves through <see cref="SaveBeforeHide"/>,
-    /// and the close that follows finds nothing unsaved. Not covered: the process being killed, or a crash (#10).
+    /// and the close that follows finds nothing unsaved. A kill or a crash (#10) loses only what autosave had not yet
+    /// written: at most <see cref="Autosave.Longest"/> of typing.
     /// </para>
     /// </remarks>
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)

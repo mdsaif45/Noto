@@ -402,9 +402,10 @@ try {
 
         # 7b / 8b - a failed save keeps Noto shown
         Open-Editor
+        # Binned before the typing: autosave (P2.1) must not get to write the text first.
+        $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId }
         $text7b = "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"
         Set-Editor $text7b
-        $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "UPDATE Notes SET DeletedAt = `$t WHERE Id = `$n" -Parameters @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $NoteId }
         Send-ToNoto @(0x11) 0x57
         Start-Sleep -Milliseconds 800
         $e = Ev $noto
