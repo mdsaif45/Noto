@@ -231,7 +231,20 @@ What the first user-visible editor holds, and the decisions the code made that t
 | An editor **attaches on data-context change** as well as on load | Measured: a recycled container realised with the previous card's data loaded nothing when the editing card arrived |
 | **One Format button** on the editing card's bar, a menu of every command with its key; Enter continues and ends lists; Shift+Enter is a plain line break; paste is plain text | Keyboard-first with one quiet affordance; formatted paste is P2.7's |
 
-Still to come (editor polish): Tab to indent list items and Alt+Up/Down to move lines (P2.4), a rendered checkbox inside the editor, formatted paste (P2.7), and the IME, spell check and Narrator RC gates of §6.
+Still to come (editor polish, §10): Tab to indent list items and Alt+Up/Down to move lines (P2.4), a rendered checkbox inside the editor, formatted paste (P2.7). The IME, spell check and Narrator RC gates of §6 stay RC gates.
+
+### 10. Editor polish precisely (2026-11-03)
+
+| Decision | Why |
+|---|---|
+| **Tab** in a list item indents it by its marker's width; **Shift+Tab** removes one tab or up to that width of spaces. Outside a list, or a selection that is not all list items, Tab moves focus as before | Nested text lines up under its parent's text, as CommonMark reads it. The P1 contract (Tab never types a tab) holds |
+| **Alt+Up/Down** move the selected lines; a selection ending at a line's start does not take that line. **Ctrl+Alt+Up/Down** still leave for another card: they are checked first | G38, G39, and ADR-016 §5 unchanged |
+| A task's **checkbox is drawn in the editor**: its marker and box stay in the text, drawn in the editor's own surface colour so they keep their width, and a glyph overlay (`TaskMarks`) draws ☐/☑ over them. The overlay takes no input and is `Raw` to UI Automation. A click with no selection on the drawn box toggles the task through `ToggleTaskDone`; a click on the text or a drag never does | The source never changes shape (§1), offsets stay 1:1, and toggling is the same Core command as Ctrl+. and the menu. With Show markup on, or above 300 tasks, no overlay is drawn and the source boxes show, dimmed. Narrator still reads the source box: §6's RC gate is unchanged |
+| **Ctrl+V** pastes clipboard HTML as Markdown (`HtmlToMarkdown`, Core): the §2 subset only, links kept only for http, https, mailto and file, script and style dropped, nothing fetched. With no HTML, or with **Ctrl+Shift+V**, the text is pasted plain. A clipboard held by another app makes the paste do nothing | A paste from a browser keeps its bold, links, lists and headings as Markdown, never as foreign markup. One undo step, as every edit |
+| A heading that is not the note's first line has **8 pt above it** | Sections read as sections; the load and the restyle set the same space |
+| **Exit is bounded**: once the window has closed and every resource is released, `ExitWatchdog` gives the framework's teardown 5 s, then logs `ShutdownOverran` and ends the process with exit code 0 | The one exit hang seen was after the last trace, in framework teardown. It did not recur in 60 measured cycles (`Invoke-ExitCycles.ps1`: median 121–130 ms, max 197 ms; a dump is written on any overrun). One harness defect was found and fixed: its debug-output listener left the DBWIN objects open, so every later OutputDebugString blocked 10 s. Data is already written when the watchdog arms, so the bound can lose nothing, and a recurrence is in the log |
+
+**Measured, open (performance campaign):** in a 100 KB note, Ctrl+End takes 920–964 ms from the key to the caret, and Ctrl+Home 461–481 ms (`Invoke-Editor.ps1` case 19; one UI Automation poll is 7–10 ms of that). The build before this slice measures the same, so it is not a regression. Its cause is not yet established; §5's large-note work owns it.
 
 ## Rationale
 

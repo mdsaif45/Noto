@@ -140,6 +140,65 @@ public sealed class MarkdownCommandsTests
         Assert.Null(MarkdownCommands.ContinueList(text, selection));
     }
 
+    [Theory]
+    [InlineData("- a\n- b|", "- a\n  - b|")]
+    [InlineData("1. a\n2. b|", "1. a\n   2. b|")]
+    [InlineData("- [ ] a\n- [ ] b|", "- [ ] a\n  - [ ] b|")]
+    [InlineData("[- a\n- b]", "[  - a\n  - b]")]
+    public void Tab_in_a_list_nests_each_item_by_its_markers_width(string before, string after) =>
+        AssertCommand(MarkdownCommands.IndentListItems, before, after);
+
+    [Theory]
+    [InlineData("- a\n  - b|", "- a\n- b|")]
+    [InlineData("- a\n    - b|", "- a\n  - b|")]
+    [InlineData("- a\n\t- b|", "- a\n- b|")]
+    public void Shift_tab_in_a_list_takes_one_level_off(string before, string after) =>
+        AssertCommand(MarkdownCommands.OutdentListItems, before, after);
+
+    [Theory]
+    [InlineData("plain|")]
+    [InlineData("[- a\nplain]")]
+    [InlineData("# heading|")]
+    public void Tab_outside_a_list_is_not_an_indent_so_it_moves_focus(string before)
+    {
+        (string text, TextSelection selection) = Parse(before);
+
+        Assert.Null(MarkdownCommands.IndentListItems(text, selection));
+    }
+
+    [Fact]
+    public void Shift_tab_at_the_left_edge_does_nothing()
+    {
+        (string text, TextSelection selection) = Parse("- a|");
+
+        Assert.Null(MarkdownCommands.OutdentListItems(text, selection));
+    }
+
+    [Theory]
+    [InlineData("one\ntw|o\nthree", "tw|o\none\nthree")]
+    [InlineData("one\n[two\nthree]", "[two\nthree]\none")]
+    [InlineData("a\n[b\n]c", "[b\n]a\nc")]
+    public void Alt_up_moves_the_lines_above_the_one_before(string before, string after) =>
+        AssertCommand(MarkdownCommands.MoveLinesUp, before, after);
+
+    [Theory]
+    [InlineData("on|e\ntwo\nthree", "two\non|e\nthree")]
+    [InlineData("[one\ntwo]\nthree", "three\n[one\ntwo]")]
+    public void Alt_down_moves_the_lines_below_the_one_after(string before, string after) =>
+        AssertCommand(MarkdownCommands.MoveLinesDown, before, after);
+
+    [Theory]
+    [InlineData("fi|rst\nsecond", true)]
+    [InlineData("first\nsec|ond", false)]
+    [InlineData("on|ly", true)]
+    [InlineData("on|ly", false)]
+    public void Moving_past_the_edge_does_nothing(string before, bool up)
+    {
+        (string text, TextSelection selection) = Parse(before);
+
+        Assert.Null(up ? MarkdownCommands.MoveLinesUp(text, selection) : MarkdownCommands.MoveLinesDown(text, selection));
+    }
+
     [Fact]
     public void Every_command_on_every_caret_of_a_realistic_note_gives_a_valid_edit_or_nothing()
     {
@@ -150,6 +209,7 @@ public sealed class MarkdownCommandsTests
             MarkdownCommands.ToggleUnderline, MarkdownCommands.ToggleCode, MarkdownCommands.CycleHeading,
             MarkdownCommands.ToggleBullets, MarkdownCommands.ToggleNumbers, MarkdownCommands.ToggleTasks,
             MarkdownCommands.ToggleTaskDone, MarkdownCommands.WrapInCodeBlock, MarkdownCommands.InsertLink, MarkdownCommands.ContinueList,
+            MarkdownCommands.IndentListItems, MarkdownCommands.OutdentListItems, MarkdownCommands.MoveLinesUp, MarkdownCommands.MoveLinesDown,
         ];
 
         foreach (Func<string, TextSelection, TextEdit?> command in commands)

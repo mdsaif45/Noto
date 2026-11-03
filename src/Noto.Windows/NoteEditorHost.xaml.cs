@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Text;
@@ -137,6 +138,8 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.PaletteChanged += (_, _) => RestyleAll();
         ActualThemeChanged += (_, _) => RestyleAll();
         NoteEditor.PreviewKeyDown += OnPreviewKeyDown;
+        NoteEditor.SizeChanged += (_, _) => QueueTaskMarks();
+        NoteEditor.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnPointerReleased), handledEventsToo: true);
 
         // Caret keys stay in the editor. RichEdit moves the caret on them but, unlike the TextBox it replaced, leaves
         // some unhandled (measured: Ctrl+End), and an unhandled one reaches the stack's ListView, which moves its
@@ -174,6 +177,7 @@ public sealed partial class NoteEditorHost : UserControl
         long started = Stopwatch.GetTimestamp();
         Set(() => NoteEditor.Document.SetText(TextSetOptions.FormatRtf, MarkdownStyling.Rtf(_document, Palette())));
         Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Editor loaded chars={_text.Length} spans={_document.Spans.Count} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
+        QueueTaskMarks();
 
         // What the user waits for: the first frame drawn after the note was set, RichEdit's layout included. Timing only,
         // on the validation channel, never content.
@@ -356,6 +360,7 @@ public sealed partial class NoteEditorHost : UserControl
         _document = MarkdownDocument.Parse(now);
         (int start, int length) region = MarkdownDocument.ChangedRegion(was, _document);
         Restyle(region);
+        QueueTaskMarks();
         Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Editor change chars={_text.Length} restyled={region.length} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
         ContentChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -372,6 +377,76 @@ public sealed partial class NoteEditorHost : UserControl
         }
 
         Restyle((0, _text.Length));
+        QueueTaskMarks();
+    }
+
+    /// <summary>The most tasks drawn as checkboxes; a note with more keeps its boxes as text (still clickable).</summary>
+    private const int TaskMarkLimit = 300;
+
+    private bool _marksQueued;
+
+    /// <summary>Places the checkboxes once the layout that follows this change is done: positions are layout's.</summary>
+    private void QueueTaskMarks()
+    {
+        if (_marksQueued)
+        {
+            return;
+        }
+
+        _marksQueued = true;
+        NoteEditor.LayoutUpdated += PlaceTaskMarks;
+    }
+
+    /// <summary>
+    /// A checkbox over each task's marker and box, from RichEdit's own character rectangles, so it sits exactly where
+    /// the (invisible) source characters are. Checked or not is the parse's answer. With markup shown there are none:
+    /// the source shows.
+    /// </summary>
+    private void PlaceTaskMarks(object? sender, object e)
+    {
+        NoteEditor.LayoutUpdated -= PlaceTaskMarks;
+        _marksQueued = false;
+        TaskMarks.Children.Clear();
+
+        if (_showMarkup)
+        {
+            return;
+        }
+
+        var tasks = _document.Blocks.Where(b => b.Kind == MarkdownBlockKind.TaskItem).Take(TaskMarkLimit + 1).ToList();
+        if (tasks.Count > TaskMarkLimit)
+        {
+            return;
+        }
+
+        // RichEdit measures from inside the control's border and padding (measured: 13 and 9 px off without them).
+        var toMarks = NoteEditor.TransformToVisual(TaskMarks);
+        double left = NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left;
+        double top = NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top;
+
+        foreach (MarkdownBlock task in tasks)
+        {
+            MarkdownSpan marker = task.Spans.First(s => s.Kind == MarkdownSpanKind.ListMarker);
+            MarkdownSpan box = task.Spans.First(s => s.Kind == MarkdownSpanKind.TaskBox);
+            NoteEditor.Document.GetRange(marker.Start, box.End).GetRect(PointOptions.ClientCoordinates, out Windows.Foundation.Rect rect, out _);
+
+            if (rect.Height <= 0)
+            {
+                continue;
+            }
+
+            double size = Math.Round(rect.Height * 0.8);
+            var mark = new FontIcon
+            {
+                Glyph = ((char)(task.IsChecked ? 0xE73A : 0xE739)).ToString(), // Segoe Fluent Icons: CheckboxComposite, Checkbox
+                FontSize = size,
+                Foreground = NoteEditor.Foreground,
+            };
+            Windows.Foundation.Point at = toMarks.TransformPoint(new Windows.Foundation.Point(rect.X + left, rect.Y + top));
+            Canvas.SetLeft(mark, at.X);
+            Canvas.SetTop(mark, at.Y + ((rect.Height - size) / 2));
+            TaskMarks.Children.Add(mark);
+        }
     }
 
     /// <summary>Changes the document as Noto, never read back as a user edit.</summary>
@@ -390,19 +465,49 @@ public sealed partial class NoteEditorHost : UserControl
         }
     }
 
-    /// <summary>Paste is plain text through the same edit path (P2.7 adds formatted paste): one undo step.</summary>
-    private async void OnPaste(object sender, TextControlPasteEventArgs e)
+    /// <summary>RichEdit never pastes itself: Ctrl+V and the context menu's Paste are a formatted paste.</summary>
+    private void OnPaste(object sender, TextControlPasteEventArgs e)
     {
         e.Handled = true;
-        Flush();
-        DataPackageView clipboard = Clipboard.GetContent();
+        PasteAsync(formatted: true);
+    }
 
-        if (!clipboard.Contains(StandardDataFormats.Text))
+    /// <summary>
+    /// Pastes the clipboard through the same edit path: one undo step. Formatted (Ctrl+V), HTML from a browser or an
+    /// office app arrives as Markdown (HtmlToMarkdown); otherwise, and always for Ctrl+Shift+V, as plain text.
+    /// </summary>
+    private async void PasteAsync(bool formatted)
+    {
+        string? pasted = null;
+
+        try
+        {
+            DataPackageView clipboard = Clipboard.GetContent();
+
+            if (formatted && clipboard.Contains(StandardDataFormats.Html))
+            {
+                string markdown = HtmlToMarkdown.Convert(HtmlFormatHelper.GetStaticFragment(await clipboard.GetHtmlFormatAsync()));
+                pasted = markdown.Length > 0 ? markdown : null;
+            }
+
+            if (pasted is null && clipboard.Contains(StandardDataFormats.Text))
+            {
+                pasted = Normalize(await clipboard.GetTextAsync());
+            }
+        }
+        catch (COMException)
+        {
+            // Another app holds the clipboard open: the paste does nothing, as in any other Windows editor.
+            return;
+        }
+
+        if (pasted is null)
         {
             return;
         }
 
-        string pasted = Normalize(await clipboard.GetTextAsync());
+        // Read after the clipboard: a keystroke during the wait has moved the text and the caret.
+        Flush();
         TextSelection at = _selection;
         Apply(new TextEdit(at.Start, at.Length, pasted, TextSelection.Caret(at.Start + pasted.Length)), record: true);
     }
@@ -410,7 +515,7 @@ public sealed partial class NoteEditorHost : UserControl
     /// <summary>
     /// The editor's own keys, before the control: leaving (ADR-016 §5), undo and redo, the formatting chords
     /// (implementation plan §10), Enter in a list, a soft break that stays a plain line break, and Tab, which moves
-    /// focus (the P1 accessibility contract).
+    /// focus (the P1 accessibility contract) unless it nests a list item.
     /// </summary>
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -430,6 +535,27 @@ public sealed partial class NoteEditorHost : UserControl
         {
             e.Handled = true;
             LeaveRequested?.Invoke(this, request);
+            return;
+        }
+
+        // Alt+Up/Down move the selected lines (G38, G39); with Ctrl they leave for another card (above).
+        if (alt && !ctrl && e.Key is VirtualKey.Up or VirtualKey.Down)
+        {
+            e.Handled = true;
+            Flush();
+            Func<string, TextSelection, TextEdit?> move = e.Key == VirtualKey.Up ? MarkdownCommands.MoveLinesUp : MarkdownCommands.MoveLinesDown;
+            if (move(_text, _selection) is { } moved)
+            {
+                Apply(moved, record: true);
+            }
+
+            return;
+        }
+
+        if (ctrl && shift && !alt && e.Key == VirtualKey.V)
+        {
+            e.Handled = true;
+            PasteAsync(formatted: false);
             return;
         }
 
@@ -458,8 +584,57 @@ public sealed partial class NoteEditorHost : UserControl
 
         if (e.Key == VirtualKey.Tab && !ctrl && !alt)
         {
+            // In a list Tab nests and Shift+Tab un-nests (G36, G37); anywhere else it moves focus.
             e.Handled = true;
+            Flush();
+            Func<string, TextSelection, TextEdit?> shiftItems = shift ? MarkdownCommands.OutdentListItems : MarkdownCommands.IndentListItems;
+            if (shiftItems(_text, _selection) is { } indented)
+            {
+                Apply(indented, record: true);
+                return;
+            }
+
             _ = FocusManager.TryMoveFocus(shift ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next, new FindNextElementOptions { SearchRoot = XamlRoot?.Content });
+        }
+    }
+
+    /// <summary>
+    /// A click on a task's box checks or unchecks that task, as the box invites. Hit-tested by character, so a click
+    /// on the task's text only places the caret; a drag that selects is never a click.
+    /// </summary>
+    private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.GetCurrentPoint(NoteEditor).Properties.PointerUpdateKind != Microsoft.UI.Input.PointerUpdateKind.LeftButtonReleased)
+        {
+            return;
+        }
+
+        Flush();
+        if (!_selection.IsCaret)
+        {
+            return;
+        }
+
+        // RichEdit's client coordinates start inside the control's border and padding.
+        var point = e.GetCurrentPoint(NoteEditor).Position;
+        point = new Windows.Foundation.Point(
+            point.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left,
+            point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top);
+        int at = NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition;
+        MarkdownBlock? task = _document.Blocks.FirstOrDefault(b => b.Kind == MarkdownBlockKind.TaskItem && b.Start <= at && at <= b.End);
+
+        // The drawn checkbox covers the marker and the box: a click anywhere on it is a caret inside or at either end.
+        if (task is null)
+        {
+            return;
+        }
+
+        MarkdownSpan box = task.Spans.First(s => s.Kind == MarkdownSpanKind.TaskBox);
+        int from = task.Spans.Where(s => s.Kind == MarkdownSpanKind.ListMarker).Select(s => s.Start).DefaultIfEmpty(box.Start).First();
+
+        if (at >= from && at <= box.End && MarkdownCommands.ToggleTaskDone(_text, TextSelection.Caret(box.Start)) is { } toggled)
+        {
+            Apply(toggled with { After = _selection }, record: true);
         }
     }
 
@@ -498,6 +673,7 @@ public sealed partial class NoteEditorHost : UserControl
         Markup: ColorOf(NoteEditor.MarkupBrush),
         Link: ColorOf(NoteEditor.LinkBrush),
         CodeSurface: ColorOf(NoteEditor.CodeSurfaceBrush),
+        Surface: ColorOf(NoteEditor.Background),
         BodyFont: FirstFamily("FontFamilyBody"),
         CodeFont: FirstFamily("FontFamilyCode"),
         BodySize: (double)Application.Current.Resources["FontSizeBody"],

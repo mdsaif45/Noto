@@ -23,6 +23,12 @@
     11  closing Noto and opening it again: the same source in the database and in the editor
     12  Dark: the same, rendered and edited, after a restart in the Dark theme (screenshots of both themes in the run)
     13  cost: for 5, 20, 50 and 100 KB realistic notes, Noto's own load and keystroke traces (Noto.Editor loaded / change)
+    14  Tab in a list item nests it, Shift+Tab un-nests it
+    15  Alt+Down and Alt+Up move the caret's line
+    16  a click on a task's checkbox checks or unchecks it; a click on its text does not
+    17  Ctrl+V pastes a browser's HTML as Markdown; Ctrl+Shift+V pastes the same clipboard as plain text
+    18  switching to the next note: Noto's own first-frame trace
+    19  in the 100 KB note, Ctrl+End and Ctrl+Home: from the key to the caret being there
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -133,6 +139,45 @@ function Read-Text($Card) {
 function Range-Of([string] $Needle) {
     <# The editor's Text pattern range holding $Needle, or $null. #>
     (Editor).GetCurrentPattern($TP::Pattern).DocumentRange.FindText($Needle, $false, $false)
+}
+function Click-At([int] $X, [int] $Y) {
+    <# A real left click, only while Noto is in front and only where the window under the point is Noto. #>
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to click: Noto is not the foreground window' }
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
+    if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing to click at ($X,$Y): it is not Noto" }
+    [void][NotoVal.Win32]::SetCursorPos($X, $Y); Start-Sleep -Milliseconds 150
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 60
+    [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 600
+}
+function Centre-Of($Range) { $r = @($Range.GetBoundingRectangles())[0]; @([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2)) }
+function Set-HtmlClipboard([string] $Html, [string] $Text) {
+    <# CF_HTML and plain text on the clipboard together, as a browser puts them: Windows PowerShell, which is STA. #>
+    $script = @'
+param($html, $text)
+Add-Type -AssemblyName System.Windows.Forms
+$before = '<html><body><!--StartFragment-->'
+$doc = $before + $html + '<!--EndFragment--></body></html>'
+$header = "Version:0.9`r`nStartHTML:{0:D10}`r`nEndHTML:{1:D10}`r`nStartFragment:{2:D10}`r`nEndFragment:{3:D10}`r`n"
+$startHtml = ($header -f 0, 0, 0, 0).Length
+$startFragment = $startHtml + $before.Length
+$cf = ($header -f $startHtml, ($startHtml + $doc.Length), $startFragment, ($startFragment + $html.Length)) + $doc
+$data = New-Object System.Windows.Forms.DataObject
+$data.SetData([System.Windows.Forms.DataFormats]::Html, $cf)
+$data.SetData([System.Windows.Forms.DataFormats]::UnicodeText, $text)
+[System.Windows.Forms.Clipboard]::SetDataObject($data, $true)
+'@
+    $file = Join-Path $run.Root 'clipboard.ps1'; Set-Content $file $script
+    & powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File $file $Html $Text
+}
+function Caret-At-End {
+    $tp = (Editor).GetCurrentPattern($TP::Pattern)
+    $sel = @($tp.GetSelection())[0]
+    $sel.CompareEndpoints([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $tp.DocumentRange, [System.Windows.Automation.Text.TextPatternRangeEndpoint]::End) -ge -1
+}
+function Caret-At-Start {
+    $tp = (Editor).GetCurrentPattern($TP::Pattern)
+    $sel = @($tp.GetSelection())[0]
+    $sel.CompareEndpoints([System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start, $tp.DocumentRange, [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start) -le 0
 }
 function Shot([string] $Name) {
     $r = New-Object NotoVal.Capture+RECT; [void][NotoVal.Capture]::GetWindowRect($script:noto.Hwnd, [ref]$r)
@@ -261,6 +306,60 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     $darkRead = Read-Text (Card 'Groceries')
     Add-Result $run '12 Dark: cards rendered and the editor styled the same way (see the screenshots)' ($darkRead -match '☐' -and $darkRead -notmatch '\[ \]') "screenshots: $lightStack $lightEdit $darkStack $darkEdit"
 
+    # 14 - Tab nests a list item, Shift+Tab un-nests it (the Groceries note, in Dark)
+    Edit-Card 'Groceries'
+    (Range-Of 'milk').Select(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @() 0x09
+    $nested = (Editor-Value).Contains("`n  - [ ] milk")
+    Send-ToNoto @(0x10) 0x09
+    Add-Result $run '14 Tab nests a list item, Shift+Tab un-nests it' ($nested -and (Editor-Value).Contains("`n- [ ] milk`n")) "nested=$nested value='$((Editor-Value) -replace "`n", '\n')'"
+
+    # 15 - Alt+Down, Alt+Up
+    (Range-Of 'milk').Select(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x12) 0x28
+    $down = (Editor-Value).Contains("- [x] bread`n- [ ] milk")
+    Send-ToNoto @(0x12) 0x26
+    Add-Result $run '15 Alt+Down and Alt+Up move the caret''s line' ($down -and (Editor-Value).Contains("- [ ] milk`n- [x] bread")) "down=$down value='$((Editor-Value) -replace "`n", '\n')'"
+
+    # 16 - a click on a task's checkbox toggles it; a click on its text does not
+    $box = Centre-Of (Range-Of '[x]')
+    Click-At $box[0] $box[1]
+    $unchecked = (Editor-Value).Contains("- [ ] bread")
+    $boxRange = Range-Of '[ ] bread'
+    [void]$boxRange.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, [System.Windows.Automation.Text.TextUnit]::Character, -6)
+    $box = Centre-Of $boxRange
+    Click-At $box[0] $box[1]
+    $rechecked = (Editor-Value).Contains("- [x] bread")
+    $text = Centre-Of (Range-Of 'bread')
+    Click-At $text[0] $text[1]
+    $untouched = (Editor-Value).Contains("- [x] bread")
+    $checkShot = Shot 'dark-checkboxes'
+    Add-Result $run '16 a click on a checkbox toggles its task; a click on its text does not' ($unchecked -and $rechecked -and $untouched) "unchecked=$unchecked rechecked=$rechecked text-click-untouched=$untouched screenshot: $checkShot"
+
+    # 17 - formatted paste, and plain paste of the same clipboard; the clipboard restored after
+    $savedClip = Get-Clipboard -Raw
+    try {
+        Set-HtmlClipboard "<b>bold</b> and <a href='https://example.com/x'>a link</a>" 'bold and a link'
+        Send-ToNoto @(0x11) 0x23 300
+        Send-ToNoto @() 0x0D 300
+        Send-ToNoto @(0x11) 0x56 900
+        $formatted = (Editor-Value).EndsWith('**bold** and [a link](https://example.com/x)')
+        Send-ToNoto @() 0x0D 300
+        Send-ToNoto @(0x11, 0x10) 0x56 900
+        # Enter after a task continues the list: both pastes land in a new task item.
+        $plain = (Editor-Value).EndsWith("`n- [ ] bold and a link")
+        Add-Result $run '17 Ctrl+V pastes HTML as Markdown; Ctrl+Shift+V pastes it as plain text' ($formatted -and $plain) "formatted=$formatted plain=$plain tail='$(((Editor-Value).Substring([Math]::Max(0, (Editor-Value).Length - 70))) -replace "`n", '\n')'"
+    }
+    finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
+
+    # 18 - switching to the next note
+    $mark = @(Traces 'Noto\.Editor').Count
+    Send-ToNoto @(0x11, 0x12) 0x28 1200
+    $switched = @(Traces 'Noto\.Editor' | Select-Object -Skip $mark | Where-Object { $_ -match 'Noto\.Editor rendered' })[-1]
+    Add-Result $run '18 switching to the next note: first frame recorded' ($null -ne $switched -and (Editor-Value) -eq 'A plain note with no markup at all.') "first frame: $(Ms $switched) ms"
+    Send-ToNoto @(0x11, 0x12) 0x26 1200
+    Send-ToNoto @() 0x1B 900
+
     # 13 - cost on realistic notes
     # The long notes follow the three short ones; Ctrl+Alt+Down (G12) edits the next card, scrolling it into view, so
     # a card far down the virtualised stack is reached the way a user reaches it.
@@ -289,6 +388,21 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
         }
         $title = (Editor-Value).Split("`n")[0]
         Add-Result $run "13 $size realistic note: load and keystroke cost recorded" ($null -ne $load -and $title -eq "abcdeLong note $size") "chars=$((Editor-Value).Length) load: $($load -replace '^.*Noto\.Editor ', '') | first frame: $(Ms $rendered) ms | per keystroke ms: $($changes -join ', ') | title='$title'"
+
+        if ($size -eq '100 KB') {
+            # 19 - the far end of a long note and back: from the key to the caret being there
+            $clock = [System.Diagnostics.Stopwatch]::StartNew()
+            Send-ToNoto @(0x11) 0x23 0
+            while (-not (Caret-At-End) -and $clock.ElapsedMilliseconds -lt 10000) { Start-Sleep -Milliseconds 10 }
+            $toEnd = $clock.ElapsedMilliseconds
+            $clock.Restart()
+            Send-ToNoto @(0x11) 0x24 0
+            while (-not (Caret-At-Start) -and $clock.ElapsedMilliseconds -lt 10000) { Start-Sleep -Milliseconds 10 }
+            $toStart = $clock.ElapsedMilliseconds
+            # What one poll costs on its own, the caret already there: the harness's share of each number above.
+            $clock.Restart(); $null = Caret-At-Start; $poll = $clock.ElapsedMilliseconds
+            Add-Result $run '19 100 KB note: Ctrl+End and Ctrl+Home reach the far end' ($toEnd -lt 10000 -and $toStart -lt 10000) "Ctrl+End $toEnd ms, Ctrl+Home $toStart ms; one UI Automation poll alone $poll ms"
+        }
     }
 }) }
 finally {

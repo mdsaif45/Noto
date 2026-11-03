@@ -12,18 +12,27 @@
         Core's parse. RichEdit's own undo and formatting chords are off: Noto owns both. It grows with its text
         inside the card; the stack scrolls, not the editor. The brushes are theme resources, so a theme switch
         restyles the note.
+
+        TaskMarks draws a checkbox over each task's marker and box, which the editor keeps in the text (the source)
+        but draws invisibly. It takes no input: a click reaches the editor, which toggles the task it hit.
     -->
-    <local:EditorBox
-        x:Name="NoteEditor"
-        Style="{StaticResource NoteEditorStyle}"
-        TextWrapping="Wrap"
-        AcceptsReturn="True"
-        IsSpellCheckEnabled="True"
-        DisabledFormattingAccelerators="All"
-        ClipboardCopyFormat="PlainText"
-        MarkupBrush="{ThemeResource TextSecondaryBrush}"
-        LinkBrush="{ThemeResource TextLinkBrush}"
-        CodeSurfaceBrush="{ThemeResource SurfaceCodeBrush}"
-        AutomationProperties.Name="Note content" />
+    <Grid>
+        <local:EditorBox
+            x:Name="NoteEditor"
+            Style="{StaticResource NoteEditorStyle}"
+            TextWrapping="Wrap"
+            AcceptsReturn="True"
+            IsSpellCheckEnabled="True"
+            DisabledFormattingAccelerators="All"
+            ClipboardCopyFormat="PlainText"
+            MarkupBrush="{ThemeResource TextSecondaryBrush}"
+            LinkBrush="{ThemeResource TextLinkBrush}"
+            CodeSurfaceBrush="{ThemeResource SurfaceCodeBrush}"
+            AutomationProperties.Name="Note content" />
+        <Canvas
+            x:Name="TaskMarks"
+            IsHitTestVisible="False"
+            AutomationProperties.AccessibilityView="Raw" />
+    </Grid>
 
 </UserControl>
