@@ -365,6 +365,9 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Contains(styles["SettingToggleSwitchStyle"].Elements(), s => (string?)s.Attribute("Property") == "OnContent" && (string?)s.Attribute("Value") == string.Empty);
         Assert.Contains(styles["SettingToggleSwitchStyle"].Elements(), s => (string?)s.Attribute("Property") == "OffContent" && (string?)s.Attribute("Value") == string.Empty);
 
+        // As wide as its track: measured, a switch that sized itself stopped 86px short of the right edge.
+        Assert.Contains(styles["SettingToggleSwitchStyle"].Elements(), s => (string?)s.Attribute("Property") == "Width" && (string?)s.Attribute("Value") == "{StaticResource SettingSwitchWidth}");
+
         Assert.True(failures.Count == 0, string.Join("; ", failures));
 
         string? Effective(XElement control, string property)
