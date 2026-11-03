@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Noto.Core.Editing;
+using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Noto.Core.Notes;
 using Windows.ApplicationModel.DataTransfer;
@@ -165,6 +166,9 @@ public sealed partial class NoteEditorHost : UserControl
 
     /// <summary>The user asked to leave the editor.</summary>
     internal event EventHandler<EditorLeave>? LeaveRequested;
+
+    /// <summary>The user asked to open the link at the caret or the pointer (Ctrl+Enter, Ctrl+Click): its destination.</summary>
+    internal event EventHandler<string>? LinkOpenRequested;
 
     /// <summary>Shows <paramref name="markdown"/> as <paramref name="note"/>'s source, styled, with nothing to undo.</summary>
     internal void Load(NoteId note, string markdown)
@@ -511,21 +515,29 @@ public sealed partial class NoteEditorHost : UserControl
     /// </summary>
     private async void PasteAsync(bool formatted)
     {
-        string? pasted = null;
+        string? html = null;
+        string? plain = null;
+        IReadOnlyList<string> paths = [];
 
         try
         {
             DataPackageView clipboard = Clipboard.GetContent();
 
+            // Files and folders copied in Explorer become links to them (D34): each item's own full path.
+            if (clipboard.Contains(StandardDataFormats.StorageItems))
+            {
+                paths = [.. (await clipboard.GetStorageItemsAsync()).Select(i => i.Path).Where(Path.IsPathFullyQualified)];
+            }
+
             if (formatted && clipboard.Contains(StandardDataFormats.Html))
             {
                 string markdown = HtmlToMarkdown.Convert(HtmlFormatHelper.GetStaticFragment(await clipboard.GetHtmlFormatAsync()));
-                pasted = markdown.Length > 0 ? markdown : null;
+                html = markdown.Length > 0 ? markdown : null;
             }
 
-            if (pasted is null && clipboard.Contains(StandardDataFormats.Text))
+            if (clipboard.Contains(StandardDataFormats.Text))
             {
-                pasted = Normalize(await clipboard.GetTextAsync());
+                plain = Normalize(await clipboard.GetTextAsync());
             }
         }
         catch (COMException)
@@ -534,15 +546,25 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
-        if (pasted is null)
-        {
-            return;
-        }
-
         // Read after the clipboard: a keystroke during the wait has moved the text and the caret.
         Flush();
         TextSelection at = _selection;
-        Apply(new TextEdit(at.Start, at.Length, pasted, TextSelection.Caret(at.Start + pasted.Length)), record: true);
+
+        // In order: copied files as links; a web address over a selection links it (D53), whatever HTML came with it;
+        // then formatted HTML as Markdown, or the plain text.
+        TextEdit? edit = paths.Count > 0 ? MarkdownCommands.LinkPaths(_text, at, paths)
+            : plain is not null ? MarkdownCommands.LinkSelection(_text, at, plain)
+            : null;
+
+        if (edit is null && (html ?? plain) is { } pasted)
+        {
+            edit = new TextEdit(at.Start, at.Length, pasted, TextSelection.Caret(at.Start + pasted.Length));
+        }
+
+        if (edit is { } paste)
+        {
+            Apply(paste, record: true);
+        }
     }
 
     /// <summary>
@@ -600,6 +622,19 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
+        // Ctrl+Enter opens the link at the caret (ADR-019 §2): the keyboard's way to what Ctrl+Click does.
+        if (e.Key == VirtualKey.Enter && ctrl && !alt && !shift)
+        {
+            Flush();
+            if (LinkTarget.At(_document, _selection.Active) is { } destination)
+            {
+                e.Handled = true;
+                LinkOpenRequested?.Invoke(this, destination);
+            }
+
+            return;
+        }
+
         if (e.Key == VirtualKey.Enter && !ctrl && !alt)
         {
             Flush();
@@ -654,6 +689,14 @@ public sealed partial class NoteEditorHost : UserControl
             point.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left,
             point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top);
         int at = NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition;
+
+        // Ctrl+Click on a link opens it (ADR-019 §2); a plain click only places the caret.
+        if (IsDown(VirtualKey.Control) && LinkTarget.At(_document, at) is { } destination)
+        {
+            LinkOpenRequested?.Invoke(this, destination);
+            return;
+        }
+
         MarkdownBlock? task = _document.Blocks.FirstOrDefault(b => b.Kind == MarkdownBlockKind.TaskItem && b.Start <= at && at <= b.End);
 
         // The drawn checkbox covers the marker and the box: a click anywhere on it is a caret inside or at either end.

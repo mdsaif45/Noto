@@ -32,6 +32,23 @@ public sealed class MarkdownDocument
     /// <summary>Every block's spans: by start, then longest first, then kind.</summary>
     public IReadOnlyList<MarkdownSpan> Spans { get; }
 
+    /// <summary>
+    /// Where the destination of the link at <paramref name="position"/> is written (the caret in its text, or just after
+    /// it): its target span, or for a bare address the address itself. <see langword="null"/> when there is no link.
+    /// </summary>
+    public MarkdownSpan? LinkAt(int position)
+    {
+        foreach (MarkdownBlock block in Blocks.Where(b => b.Start <= position && position <= b.End))
+        {
+            foreach (MarkdownSpan link in block.Spans.Where(s => s.Kind == MarkdownSpanKind.Link && s.Start <= position && position <= s.End))
+            {
+                return block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start == link.End + 2).Cast<MarkdownSpan?>().FirstOrDefault() ?? link;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Describes <paramref name="source"/>. Never throws for any string.</summary>
     public static MarkdownDocument Parse(string source)
     {

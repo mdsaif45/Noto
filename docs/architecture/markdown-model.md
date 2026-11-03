@@ -95,7 +95,8 @@ Noto departs from CommonMark in three places, each deliberately:
 | Blocks inside quotes (`> - item`), lazy quote continuation | Deferred | a quote whose text is `- item` |
 | Tables | Deferred (ADR-004) | paragraphs |
 | Images `![alt](src)` | P3.0 (attachments) | text |
-| Reference links, autolinks `<…>`, bare URLs | Bare URLs are P3.5; the others are deferred | text |
+| Reference links, autolinks `<…>` | Deferred | text |
+| Bare URLs (`https://…`, `http://…`, `www.…`) | **Recognised** (ADR-019 §3, GFM's extended autolinks): a `Link` span with no markup, its own destination; trailing `?!.,:;*_~"'` and an unbalanced `)` stay outside; never inside code, a written link or markup | — |
 | Link titles `[t](u "title")` | Deferred | text (the space ends the destination) |
 | `::mark::` highlight | Deferred; not in the agreed v0.1 editor list | text |
 | `#rrggbb` colour swatches | P3.6 | text |

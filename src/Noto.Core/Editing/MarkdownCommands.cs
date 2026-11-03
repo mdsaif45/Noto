@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Noto.Core.Links;
 using Noto.Core.Markdown;
 
 namespace Noto.Core.Editing;
@@ -186,6 +187,45 @@ public static class MarkdownCommands
 
         string label = text[from..to];
         return new TextEdit(from, to - from, "[" + label + "]()", TextSelection.Caret(from + label.Length + 3));
+    }
+
+    /// <summary>
+    /// A web or mail address pasted over a selection on one line makes the selection that link's text (D53), the caret
+    /// after it. <see langword="null"/> for anything else: the paste is an ordinary one.
+    /// </summary>
+    public static TextEdit? LinkSelection(string text, TextSelection selection, string pasted)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(pasted);
+        string address = pasted.Trim();
+
+        if (selection.IsCaret || LinkTarget.Classify(address) is not (LinkKind.Web or LinkKind.Mail)
+            || text.AsSpan(selection.Start, selection.Length).IndexOfAny('\r', '\n') >= 0)
+        {
+            return null;
+        }
+
+        string link = "[" + text[selection.Start..selection.End] + "](" + address + ")";
+        return new TextEdit(selection.Start, selection.Length, link, TextSelection.Caret(selection.Start + link.Length));
+    }
+
+    /// <summary>
+    /// Links to local files and folders (D34), one per line, replacing the selection: each reads as its name and opens
+    /// its full path. The caret goes after the last.
+    /// </summary>
+    public static TextEdit LinkPaths(string text, TextSelection selection, IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(paths);
+
+        string links = string.Join('\n', paths.Select(p =>
+        {
+            string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(p));
+            string label = (name.Length > 0 ? name : p).Replace("[", "\\[", StringComparison.Ordinal).Replace("]", "\\]", StringComparison.Ordinal);
+            return "[" + label + "](" + LinkTarget.ForPath(p) + ")";
+        }));
+
+        return new TextEdit(selection.Start, selection.Length, links, TextSelection.Caret(selection.Start + links.Length));
     }
 
     /// <summary>

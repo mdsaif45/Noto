@@ -54,6 +54,9 @@ public sealed class HtmlToMarkdownTests
     [InlineData("<a href=\"data:text/html,x\">data</a>", "data")]
     [InlineData("<a href=\"https://x.y/a b\">space</a>", "space")]
     [InlineData("<a href=\"https://x.y\"></a>after", "after")]
+    [InlineData("<a href=\"file:///C:/Docs/a.pdf\">doc</a>", "[doc](file:///C:/Docs/a.pdf)")]
+    [InlineData("<a href=\"file://server/share/a.pdf\">unc</a>", "unc")]
+    [InlineData("<a href=\"ms-settings:privacy\">settings</a>", "settings")]
     public void Links_keep_safe_addresses_only(string html, string markdown)
     {
         Assert.Equal(markdown, HtmlToMarkdown.Convert(html));
