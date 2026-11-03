@@ -140,6 +140,9 @@ public sealed class RollingFileLog : IStorageLog, IAppLog
     public void EventSubscriberFailed(ExceptionSummary failure) =>
         Write(LogLevel.Warning, "EventSubscriberFailed", w => WriteFailure(w, failure));
 
+    public void ShutdownOverran(int waitedMs) =>
+        Write(LogLevel.Warning, "ShutdownOverran", w => w.WriteNumber("waitedMs", waitedMs));
+
     // The declared name only: a family member's scope is opaque text, possibly a row name read from the database.
     private static void WriteKey(Utf8JsonWriter w, SettingKey key)
     {

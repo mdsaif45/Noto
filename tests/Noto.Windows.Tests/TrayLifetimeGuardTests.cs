@@ -86,8 +86,8 @@ public sealed class TrayLifetimeGuardTests
     [Fact]
     public void Cleanup_runs_once_on_closed_icon_first()
     {
-        // The window's Closed releases through the one method the failure paths use too (#10).
-        Assert.Contains("_window.Closed += (_, _) => ReleaseResources();", Code(App), StringComparison.Ordinal);
+        // The window's Closed releases through the one method the failure paths use too (#10), then bounds the exit.
+        Assert.Matches(@"_window\.Closed \+= \(_, _\) =>\s*\{\s*ReleaseResources\(\);\s*ExitWatchdog\.Arm\(", Code(App));
         string closed = Body(App, "ReleaseResources");
         int tray = Index(closed, "_tray?.Dispose()");
         int hotkey = Index(closed, "_hotkey?.Dispose()");

@@ -110,6 +110,13 @@ internal static unsafe partial class NativeMethods
         public fixed char DeviceKey[128];
     }
 
+    [LibraryImport("kernel32.dll")]
+    internal static partial nint GetCurrentProcess();
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool TerminateProcess(nint process, uint exitCode);
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool EnumDisplayMonitors(

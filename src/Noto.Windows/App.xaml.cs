@@ -337,8 +337,17 @@ public partial class App : Application
     /// <summary>How long a failure on another thread waits for the UI thread to save the open note.</summary>
     private static readonly TimeSpan FailureSaveTimeout = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How long the process may take to end once the window has closed and everything is saved and released
+    /// (ExitWatchdog). Measured: a normal exit takes about 120 ms (Invoke-ExitCycles.ps1).
+    /// </summary>
+    private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(5);
+
     /// <summary>The last-chance boundaries' one handling of a failure (#10).</summary>
     private FailureBoundary? _failures;
+
+    /// <summary>The application's event log, for the exit watchdog's record of an overrun.</summary>
+    private RollingFileLog? _appLog;
 
     /// <summary>
     /// The notification-area icon (#16 slice 7), or <see langword="null"/> when
@@ -402,6 +411,7 @@ public partial class App : Application
         // lines elsewhere are a separate channel: the runtime validation
         // harness reads them.
         var log = new RollingFileLog(paths.LogsDirectory);
+        _appLog = log;
 
         // #10: the last-chance boundaries. The first failure is recorded, the
         // open note saved once and the application ended through its one
@@ -636,7 +646,13 @@ public partial class App : Application
         // Close, the tray's Quit and the session ending all arrive here,
         // through AppWindow.Closing. Raised once, when the window is
         // destroyed; every disposal below is idempotent besides.
-        _window.Closed += (_, _) => ReleaseResources();
+        _window.Closed += (_, _) =>
+        {
+            ReleaseResources();
+
+            // Everything is saved and released: the process may end no later than this (ExitWatchdog).
+            ExitWatchdog.Arm(ShutdownGrace, () => _appLog?.ShutdownOverran((int)ShutdownGrace.TotalMilliseconds));
+        };
 
         // After MainWindow's own Closing handler, which may cancel the close
         // to keep unsaved text: only a close that goes ahead stops activation.
