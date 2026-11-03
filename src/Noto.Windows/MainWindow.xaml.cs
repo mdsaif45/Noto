@@ -1068,6 +1068,8 @@ public sealed partial class MainWindow : Window
     /// <param name="noticeSuffix">Appended to the failure notice, if any.</param>
     private bool TrySaveCard(string noticeSuffix = "")
     {
+        _editor?.ReadBack();
+
         if (!_stack.IsDirty)
         {
             StopAutosave();
@@ -1317,6 +1319,8 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
+        _editor?.ReadBack();
+
         if (!_stack.IsDirty || _stack.Editing is not { } editing)
         {
             return;

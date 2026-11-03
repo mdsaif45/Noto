@@ -59,6 +59,40 @@ public sealed class PersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Release_frees_the_file_with_every_write_in_it()
+    {
+        // What Noto does as it ends (App.ReleaseResources): no handle on the file survives, and the WAL is folded
+        // into it, so the file alone holds the last write.
+        string id = Ulid.NewId();
+        var database = new NotoDatabase(_temp.DatabasePath);
+        database.Initialize();
+
+        using (var connection = database.OpenConnection())
+        {
+            using var insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO Notes (Id, FolderId, Content, CreatedAt, UpdatedAt) VALUES ($id, $folder, 'last write', $now, $now);";
+            insert.Parameters.AddWithValue("$id", id);
+            insert.Parameters.AddWithValue("$folder", SeedFolder(connection));
+            insert.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
+            insert.ExecuteNonQuery();
+        }
+
+        // The pool still holds the file open: it cannot be moved.
+        string moved = Path.Join(Path.GetDirectoryName(_temp.DatabasePath), "moved.db");
+        Assert.Throws<IOException>(() => File.Move(_temp.DatabasePath, moved));
+
+        database.Release();
+
+        File.Move(_temp.DatabasePath, moved);
+        using var verify = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = moved }.ToString());
+        verify.Open();
+        using var select = verify.CreateCommand();
+        select.CommandText = "SELECT Content FROM Notes WHERE Id = $id;";
+        select.Parameters.AddWithValue("$id", id);
+        Assert.Equal("last write", select.ExecuteScalar());
+    }
+
+    [Fact]
     public void Foreign_keys_are_enforced()
     {
         // OFF by default in SQLite. Without the pragma the schema's declared

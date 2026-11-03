@@ -29,6 +29,7 @@
     17  Ctrl+V pastes a browser's HTML as Markdown; Ctrl+Shift+V pastes the same clipboard as plain text
     18  switching to the next note: Noto's own first-frame trace
     19  in the 100 KB note, Ctrl+End and Ctrl+Home: from the key to the caret being there
+    20  a key typed and Escape in the same input batch: the leave's save holds the key
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -359,6 +360,16 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     Add-Result $run '18 switching to the next note: first frame recorded' ($null -ne $switched -and (Editor-Value) -eq 'A plain note with no markup at all.') "first frame: $(Ms $switched) ms"
     Send-ToNoto @(0x11, 0x12) 0x26 1200
     Send-ToNoto @() 0x1B 900
+
+    # 20 - a keystroke the editor has not yet reported, then Escape at once: one SendInput, read before autosave could
+    Edit-Card 'Groceries'
+    Send-ToNoto @(0x11) 0x23 300
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to send keys: Noto is not the foreground window' }
+    [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x5A, $false), [NotoVal.Win32]::Vk(0x5A, $true), [NotoVal.Win32]::Vk(0x1B, $false), [NotoVal.Win32]::Vk(0x1B, $true)))
+    Start-Sleep -Milliseconds 400
+    $kept = Stored $Groceries
+    Add-Result $run '20 a key typed and Escape at once: the save on leaving holds the key' ($kept.EndsWith('z')) "stored tail='$(($kept.Substring([Math]::Max(0, $kept.Length - 25))) -replace "`n", '
+')'"
 
     # 13 - cost on realistic notes
     # The long notes follow the three short ones; Ctrl+Alt+Down (G12) edits the next card, scrolling it into view, so

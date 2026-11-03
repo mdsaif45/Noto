@@ -48,6 +48,17 @@ public sealed class NotoDatabase
 
     public string DatabasePath { get; }
 
+    /// <summary>
+    /// Closes this database's pooled connections, so no handle on the file outlives the app's last write: the final
+    /// WAL checkpoint runs now, and the file is free when the process ends. Only this database's pool: the call is
+    /// keyed by its connection string. A later operation simply opens a new connection.
+    /// </summary>
+    public void Release()
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        SqliteConnection.ClearPool(connection);
+    }
+
     // SQLite's primary result codes for a file that is not a database, and for a damaged one.
     private const int SqliteNotADatabase = 26;
     private const int SqliteCorrupt = 11;

@@ -60,6 +60,17 @@ public sealed class EditorHostGuardTests
     }
 
     [Fact]
+    public void Every_save_and_the_close_first_read_back_the_last_keystroke()
+    {
+        // Measured: a key and Escape in one input batch left the card without the key. Leave, hide, autosave, session
+        // end and close all save through TrySaveCard; the close decides whether anything is unsaved before it.
+        string main = Code(Path.Join(Windows, "MainWindow.xaml.cs"));
+        Assert.Matches(@"^\s*\{\s*_editor\?\.ReadBack\(\);\s*if \(!_stack\.IsDirty\)", Body(main, "TrySaveCard"));
+        Assert.Matches(@"^\s*\{\s*_editor\?\.ReadBack\(\);\s*if \(!_stack\.IsDirty \|\| _stack\.Editing", Body(main, "OnAppWindowClosing"));
+        Assert.Contains("internal void ReadBack() => Flush();", Host, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Tab_nests_a_list_item_and_otherwise_moves_focus()
     {
         // The P1 accessibility contract: Tab never types a tab character; outside a list it moves focus.
