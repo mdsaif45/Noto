@@ -61,7 +61,7 @@ list bottom bar:  "12 notes"  ·  +  ·  list menu ▾   (B18, C19)
 | Focused | read view + focus ring; the card is the list's focused item | Tab into the stack, Up/Down, Esc from Editing |
 | Editing | the editor host, caret placed | click, Enter or F2 on a focused card, Ctrl+N (new card) |
 
-- **One card is Editing at a time.** Entering Editing on another card leaves the current one, which saves first: the existing save-on-leave rule, unchanged until P2.1.
+- **One card is Editing at a time.** Entering Editing on another card leaves the current one, which saves first: the existing save-on-leave rule. Since P2.1, typed text is also written while the user types (ADR-017 §8).
 - Editing a folded card unfolds it, and the unfold is persisted: one rule, no hidden "temporarily unfolded" state. This is provisional until SideNotes' behaviour is observed; it can change without touching the domain.
 
 ### 3. The editor-host seam (the P2 boundary)

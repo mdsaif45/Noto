@@ -1,7 +1,8 @@
 #Requires -Version 7.4
 <#
 .SYNOPSIS
-  Unsaved editor text and closing the window: saved, kept on failure, discarded only on the second close.
+  Unsaved editor text: written while typing (P2.1), saved on close, kept on failure, discarded only on the second
+  close, and not lost when the process is killed.
 
 .DESCRIPTION
   Each case gets a fresh isolated data root seeded with one folder and one note. The editor's text is set
@@ -10,13 +11,18 @@
 
     1  unsaved text, Alt+F4          -> saved, process exits, row holds the new text
     2  clean editor, close           -> exits, row untouched (UpdatedAt unchanged)
-    3  save fails (note binned), Alt+F4 -> close cancelled, window stays, text kept, notice shown, row untouched
+    3  save fails (note binned before the typing, so autosave cannot write it first), Alt+F4
+                                      -> close cancelled, window stays, text kept, notice shown, row untouched
        ... note restored, close again  -> exits WITHOUT a second save attempt: the text is discarded although a
                                          retry would now succeed, so a retrying implementation fails this case
     4  save fails, text edited, note restored, close -> the edit is a new unsaved state and gets its normal single
                                          save attempt: saved, exits
     5  close from the note list      -> exits
     6  close from the folder list    -> exits
+    7  autosave: a second after the typing the row holds the text, the card still editing; the process killed
+       (Stop-Process -Force): the row still holds it, the database passes its integrity check, Noto starts again
+    8  steady typing (a change every 250 ms, so never a quiet second): the row holds typed text by the 5 s bound,
+       while the typing goes on; once it stops, the last text
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-EditorSaveOnClose.ps1 -NotoExe <path>\Noto.exe
@@ -88,6 +94,12 @@ function New-SeededRoot([string] $Name) {
     $data
 }
 
+# Autosave (P2.1) writes after a second without a change: the row is given that, plus margin, to hold the text.
+function Row-Becomes($Data, [string] $Text) {
+    $deadline = (Get-Date).AddSeconds(4)
+    while ((Get-Date) -lt $deadline) { if ((Row $Data 'Content') -eq $Text) { return $true }; Start-Sleep -Milliseconds 200 }
+    $false
+}
 function Row($Data, [string] $Column) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $Data -Sql "SELECT $Column FROM Notes WHERE Id = `$n" -Parameters @{ '$n' = $NoteId } }
 
 # Starts Noto on a seeded root and walks it to the requested surface: 'folders', 'notes' or 'editor'.
@@ -146,9 +158,9 @@ try { $code = Invoke-IsolatedRun $run -Title 'Editor: save before the window clo
     # 3 - save fails; the second close discards without another save attempt
     $data = New-SeededRoot 'case3'
     $noto = Open-At $data 'editor' $target
+    Bin-Note $data
     $text = "cannot be saved $([guid]::NewGuid().ToString('N').Substring(0, 6))"
     Set-Editor $noto $text
-    Bin-Note $data
     Close-AltF4 $noto
     $open = Still-Open $noto
     Add-Result $run '3  save fails + Alt+F4 -> close cancelled, window still visible' $open "pid $($noto.Pid)"
@@ -166,8 +178,8 @@ try { $code = Invoke-IsolatedRun $run -Title 'Editor: save before the window clo
     # 4 - an edit after the failure is a new unsaved state: its close gets the normal single save attempt
     $data = New-SeededRoot 'case4'
     $noto = Open-At $data 'editor' $target
-    Set-Editor $noto 'first unsaved text'
     Bin-Note $data
+    Set-Editor $noto 'first unsaved text'
     Close-SysCommand $noto
     Add-Result $run '4  first failed close is cancelled' (Still-Open $noto) ''
     $edited = "edited after the failure $([guid]::NewGuid().ToString('N').Substring(0, 6))"
@@ -188,6 +200,37 @@ try { $code = Invoke-IsolatedRun $run -Title 'Editor: save before the window clo
     $noto = Open-At $data 'folders' $target
     Close-AltF4 $noto
     Add-Result $run '6  close from the folder list -> exits' (Exited $noto) ''
+
+    # 7 - autosave writes while the card is still editing, and a kill loses none of it
+    $data = New-SeededRoot 'case7'
+    $noto = Open-At $data 'editor' $target
+    $text = "written while typing $([guid]::NewGuid().ToString('N').Substring(0, 6))"
+    Set-Editor $noto $text
+    $written = Row-Becomes $data $text
+    Add-Result $run '7  a second after the typing, the row holds the text while the card is still editing' ($written -and (Editor-Value $noto) -eq $text) "content='$(Row $data 'Content')'"
+    Stop-Process -Id $noto.Pid -Force
+    Add-Result $run '7  the process killed -> exits' (Exited $noto) "pid $($noto.Pid)"
+    Add-Result $run '7  after the kill the row still holds the text' ((Row $data 'Content') -eq $text) "content='$(Row $data 'Content')'"
+    $check = Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'PRAGMA integrity_check'
+    Add-Result $run '7  the database passes its integrity check after the kill' ($check -eq 'ok') "integrity_check=$check"
+    $again = Start-Noto $run -Exe $NotoExe -DataRoot $data
+    Add-Result $run '7  Noto starts again on that data and exits cleanly' (Stop-Noto $again) "pid $($again.Pid)"
+
+    # 8 - steady typing never leaves a quiet second: the 5 s bound writes it anyway, while the typing goes on
+    $data = New-SeededRoot 'case8'
+    $noto = Open-At $data 'editor' $target
+    $value = (Find-ById $noto 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    $t0 = Get-Date; $i = 0; $firstWritten = $null
+    while (((Get-Date) - $t0).TotalSeconds -lt 7.5) {
+        $i++; $value.SetValue("steady typing $i")
+        Start-Sleep -Milliseconds 250
+        if ($null -eq $firstWritten -and (Row $data 'Content') -like 'steady typing *') { $firstWritten = ((Get-Date) - $t0).TotalSeconds }
+    }
+    $last = "steady typing $i"
+    Add-Result $run '8  steady typing is written by the 5 s bound while it goes on' ($null -ne $firstWritten -and $firstWritten -le 6.0) "first written after $([math]::Round([double]$firstWritten, 2)) s of $i changes"
+    Add-Result $run '8  once the typing stops, the row holds the last text' (Row-Becomes $data $last) "content='$(Row $data 'Content')' last='$last'"
+    Close-SysCommand $noto
+    Add-Result $run '8  then close -> exits' (Exited $noto) ''
 } }
 finally {
     $log.Dispose()

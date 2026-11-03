@@ -17,8 +17,10 @@
      5  choosing another card while editing (focus it, Enter): the first saved, the second edits, one editor
      6  Ctrl+Alt+Up back to it: its saved text, not the text read before the save
      7  Ctrl+N in the editor: the card saved exactly, one new note, editing, focused, one editor
-     8  scrolling the stack to the end and back while editing: the unsaved text intact, nothing saved by scrolling
-     9  a failed save: the card stays editing with its text, a notice, the editor usable, no navigation; then it saves
+     8  scrolling the stack to the end and back while editing: the text intact, and written by autosave (P2.1) while the
+        card is still editing
+     9  a failed save (the note binned before the typing): autosave fails without being asked, the card stays editing
+        with its text, a notice, no navigation; Escape fails the same way; the editor usable; once it can, it saves
     10  Tab and Shift+Tab: out of the editor and back, the text intact
     11  Ctrl+Alt+Backspace in the editor: binned; focus stays in the stack
     12  Shift+F10 on a card: Edit, New note, Move to the Recycle Bin; Escape closes it
@@ -41,7 +43,7 @@
     29  far down the scrolled stack, Ctrl+Alt+Left folds the focused card and focus stays on it
     30  the folder menu's Pin and Unpin: the folder goes first with help text "Pinned", focus follows it
     31  Ctrl+Alt+Shift+Up on a focused card: it moves above the one before, stored, focus stays on it, nothing edits
-    32  Ctrl+Alt+Shift+Down in the editor: moved down one, still editing with its unsaved text, focus in the editor
+    32  Ctrl+Alt+Shift+Down in the editor: moved down one, still editing with its text (written by autosave), focus in it
     33  the card menu's Move to top and Move to bottom
     34  the pin boundary: the first unpinned card does not rise above a pinned one; nothing is written
     35  at an edge, the menu's move is disabled
@@ -49,12 +51,15 @@
     37  dragging a card above another: it lands there, stored, selected and focused
     38  dropping a card where it was: nothing is written
     39  dragging an unpinned card above a pinned one: refused, nothing written, the stack snaps back
-    40  dragging the card being edited: it moves and keeps editing with its unsaved text
+    40  dragging the card being edited: it moves and keeps editing with its text (written by autosave)
     41  dragging far down the scrolled stack
     42  dragging a folder above another, then back
     43  one click on a card still edits it (drag enabled)
     44  holding Ctrl on the stack and on the folder list shows no automatic key-tip tooltip (B6, F1)
     45  from a folder row, Tab reaches the Recycle Bin button and Shift+Tab returns
+
+  Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
+  that second of setting its text, so the save it checks is the leave's own, not autosave's.
 
   Command announcements are UI Automation notification events, which the managed UI Automation client this harness
   uses cannot subscribe to: NOT RUN here, listened for in the release candidate's Narrator pass.
@@ -112,6 +117,12 @@ function Set-EditorText([string] $Text) {
     if (-not $e) { throw 'no editor to set text in' }
     $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text)
     Start-Sleep -Milliseconds 300
+}
+# Autosave (P2.1) writes after a second without a change: the row is given that, plus margin, to hold the text.
+function Stored-Becomes([string] $Id, [string] $Text) {
+    $deadline = (Get-Date).AddSeconds(4)
+    while ((Get-Date) -lt $deadline) { if ((Stored $Id) -eq $Text) { return $true }; Start-Sleep -Milliseconds 200 }
+    $false
 }
 function Cards { @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) }
 function Card([string] $Name) { Cards | Where-Object { $_.Current.Name -eq $Name } | Select-Object -First 1 }
@@ -283,20 +294,24 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $scroll.SetScrollPercent(-1, 100); Start-Sleep -Milliseconds 800
     $farEditors = (Editors | Where-Object { -not $_.Current.IsOffscreen }).Count
     $scroll.SetScrollPercent(-1, 0); Start-Sleep -Milliseconds 800
-    Add-Result $run '8  scrolling away and back keeps the unsaved text; scrolling saves nothing' ((Editor-Value) -eq 'Alpha draft while scrolling' -and (Stored $A) -eq 'Alpha · edited ✓' -and (Editors).Count -eq 1) "value=$(Editor-Value) db=$(Stored $A) editors=$((Editors).Count) visibleAtEnd=$farEditors focus=$(Focused)"
+    $written = Stored-Becomes $A 'Alpha draft while scrolling'
+    Add-Result $run '8  scrolling away and back keeps the text, and autosave writes it while the card is still editing' ((Editor-Value) -eq 'Alpha draft while scrolling' -and $written -and (Editors).Count -eq 1) "value=$(Editor-Value) db=$(Stored $A) editors=$((Editors).Count) visibleAtEnd=$farEditors focus=$(Focused)"
     $inStack = (Focused) -match 'id=NoteEditor|ListItem|id=NoteList'
     Add-Result $run '8  focus stays in the stack after scrolling' $inStack "focus=$(Focused)"
     (Editors | Select-Object -First 1).SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @() 0x1B
-    Add-Result $run '8  ... then Escape saves the scrolled draft' ((Stored $A) -eq 'Alpha draft while scrolling') "db=$(Stored $A)"
+    Add-Result $run '8  ... then Escape leaves with the scrolled draft stored' ((Stored $A) -eq 'Alpha draft while scrolling' -and (Editors).Count -eq 0) "db=$(Stored $A) editors=$((Editors).Count)"
 
-    # 9 - a failed save: the note binned underneath the editor
+    # 9 - a failed save: the note binned underneath the editor before the typing, so autosave meets it first
     Edit-Card 'Gamma'
-    Set-EditorText 'Gamma unsaved'
     $null = Sql $script:data 'UPDATE Notes SET DeletedAt = $t WHERE Id = $n' @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$n' = $C }
+    Set-EditorText 'Gamma unsaved'
+    Start-Sleep -Milliseconds 1700
+    $notice = Notice
+    Add-Result $run '9  autosave meets a failed save unasked: still editing, text kept, a notice, nothing written' ((Editors).Count -eq 1 -and (Editor-Value) -eq 'Gamma unsaved' -and $notice -ne '' -and (Stored $C) -eq 'Gamma' -and (Focused) -match 'id=NoteEditor') "notice=$notice value=$(Editor-Value) db=$(Stored $C) focus=$(Focused)"
     Send-ToNoto @() 0x1B
     $notice = Notice
-    Add-Result $run '9  a failed save: still editing, text kept, a notice, no navigation' ((Editors).Count -eq 1 -and (Editor-Value) -eq 'Gamma unsaved' -and $notice -ne '' -and (Visible-Id 'BackButton') -and -not (Visible-Id 'FolderList') -and (Focused) -match 'id=NoteEditor') "notice=$notice value=$(Editor-Value) focus=$(Focused)"
+    Add-Result $run '9  Escape fails the same way: still editing, text kept, a notice, no navigation' ((Editors).Count -eq 1 -and (Editor-Value) -eq 'Gamma unsaved' -and $notice -ne '' -and (Visible-Id 'BackButton') -and -not (Visible-Id 'FolderList') -and (Focused) -match 'id=NoteEditor') "notice=$notice value=$(Editor-Value) focus=$(Focused)"
     Set-EditorText 'Gamma unsaved, still typing'
     Add-Result $run '9  ... the editor stays usable' ((Editor-Value) -eq 'Gamma unsaved, still typing') "value=$(Editor-Value)"
     $null = Sql $script:data 'UPDATE Notes SET DeletedAt = NULL WHERE Id = $n' @{ '$n' = $C }
@@ -479,12 +494,13 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x11, 0x12, 0x10) 0x26
     Add-Result $run '31 Ctrl+Alt+Shift+Up moves the card above the one before; focus stays; nothing edits' ($wasAbove -and (Above 'Filler 9' 'Filler 8') -and (Focused-Name) -eq 'Filler 9' -and (Editors).Count -eq 0) "before=$wasAbove now=$(Above 'Filler 9' 'Filler 8') focus=$(Focused) editors=$((Editors).Count)"
 
-    # 32 - Ctrl+Alt+Shift+Down in the editor keeps editing and the unsaved text
+    # 32 - Ctrl+Alt+Shift+Down in the editor keeps editing and the text; autosave writes it, so the order is read by it
     $id10 = IdOf 'Filler 10'
     Edit-Card 'Filler 10'
     Set-EditorText 'Filler 10 unsaved while moving'
     Send-ToNoto @(0x11, 0x12, 0x10) 0x28
-    Add-Result $run '32 Ctrl+Alt+Shift+Down in the editor: moved down, still editing, unsaved text kept, focus in it' ((Above 'Filler 11' 'Filler 10') -and (Editors).Count -eq 1 -and (Editor-Value) -eq 'Filler 10 unsaved while moving' -and (Stored $id10) -eq 'Filler 10' -and (Focused) -match 'id=NoteEditor') "moved=$(Above 'Filler 11' 'Filler 10') value=$(Editor-Value) db=$(Stored $id10) focus=$(Focused)"
+    $written = Stored-Becomes $id10 'Filler 10 unsaved while moving'
+    Add-Result $run '32 Ctrl+Alt+Shift+Down in the editor: moved down, still editing, text kept and written by autosave, focus in it' ((Above 'Filler 11' 'Filler 10 unsaved while moving') -and $written -and (Editors).Count -eq 1 -and (Editor-Value) -eq 'Filler 10 unsaved while moving' -and (Focused) -match 'id=NoteEditor') "moved=$(Above 'Filler 11' 'Filler 10 unsaved while moving') value=$(Editor-Value) db=$(Stored $id10) focus=$(Focused)"
     Send-ToNoto @() 0x1B
 
     # 33 - Move to top and Move to bottom from the card menu
@@ -567,8 +583,9 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $card = Cards | Where-Object { $_.Current.Name -eq $editingName } | Select-Object -First 1
     $from = Grip $card; $to = UpperEdge (Card $o[2])
     Drag-To $from[0] $from[1] $to[0] $to[1]
+    $written = Stored-Becomes $editId "$editingName, unsaved while dragged"
     $after = Order
-    Add-Result $run '40 the card being edited moves and keeps editing with its unsaved text' ($after[2] -eq $editingName -and (Editors).Count -eq 1 -and (Editor-Value) -eq "$editingName, unsaved while dragged" -and (Stored $editId) -eq $editingName) "order=$(($after | Select-Object -First 5) -join ',') editors=$((Editors).Count) value=$(Editor-Value) db=$(Stored $editId)"
+    Add-Result $run '40 the card being edited moves and keeps editing with its text, written by autosave' ($after[2] -eq "$editingName, unsaved while dragged" -and $written -and (Editors).Count -eq 1 -and (Editor-Value) -eq "$editingName, unsaved while dragged") "order=$(($after | Select-Object -First 5) -join ',') editors=$((Editors).Count) value=$(Editor-Value) db=$(Stored $editId)"
     Send-ToNoto @() 0x1B
 
     # 41 - far down the scrolled stack

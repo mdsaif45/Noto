@@ -65,6 +65,31 @@ public sealed class NoteStackGuardTests
     }
 
     [Fact]
+    public void Typing_arms_a_one_shot_autosave_and_every_save_attempt_settles_it()
+    {
+        // P2.1 (parity B19): each change goes to the session and then arms the write, which saves as leaving does.
+        Assert.Matches(@"_stack\.UpdateDraft\(note, host\.Markdown\);\s*ArmAutosave\(\);", Body(Main, "OnEditorContentChanged"));
+        Assert.Contains("_autosave.IsRepeating = false;", Main, StringComparison.Ordinal);
+        Assert.Contains("_autosave.Tick += OnAutosaveTick;", Main, StringComparison.Ordinal);
+        Assert.Contains("private void OnAutosaveTick(DispatcherQueueTimer sender, object args) => _ = TrySaveCard();", Main, StringComparison.Ordinal);
+
+        // The delay is the policy's, counted from when the text first became unsaved; text typed back to what is
+        // stored arms nothing.
+        string arm = Body(Main, "ArmAutosave");
+        Assert.Matches(@"^\{\s*if \(!_stack\.IsDirty\)\s*\{\s*StopAutosave\(\);\s*return;", arm);
+        Assert.Matches(@"if \(_unsavedSince == 0\)\s*\{\s*_unsavedSince = Stopwatch\.GetTimestamp\(\);", arm);
+        Assert.Matches(@"_autosave\.Stop\(\);\s*_autosave\.Interval = Autosave\.Delay\(Stopwatch\.GetElapsedTime\(_unsavedSince\)\);\s*_autosave\.Start\(\);", arm);
+
+        // Any attempt, explicit or timed, takes the pending write's place. Success clears the bound; failure restarts
+        // it, so a note that cannot be saved is not retried on every key and no timer replaces the failure's notice.
+        string save = Body(Main, "TrySaveCard");
+        Assert.Matches(@"^\{\s*if \(!_stack\.IsDirty\)\s*\{\s*StopAutosave\(\);\s*return true;", save);
+        Assert.Matches(@"_autosave\.Stop\(\);\s*_unsavedSince = started;\s*try", save);
+        Assert.Matches(@"if \(result\.IsSuccess\)\s*\{\s*StopAutosave\(\);", save);
+        Assert.Matches(@"^\{\s*_autosave\.Stop\(\);\s*_unsavedSince = 0;\s*\}$", Body(Main, "StopAutosave"));
+    }
+
+    [Fact]
     public void Every_way_out_of_editing_saves_first_and_a_failed_save_stays()
     {
         // Leaving the folder, editing another card and creating a note each end the current edit, and stop if it fails.
