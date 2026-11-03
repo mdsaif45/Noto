@@ -40,7 +40,7 @@ public sealed class LinkTargetTests
     {
         // ADR-019 §1: other schemes, network paths, bare paths, white space. A bare drive path is refused too: a note
         // links a file through file:, which is what Noto writes.
-        Assert.Equal((LinkKind.Refused, (string?)null), LinkTarget.Resolve(destination));
+        Assert.Equal<(LinkKind, string?)>((LinkKind.Refused, null), LinkTarget.Resolve(destination));
         Assert.Equal(LinkKind.Refused, LinkTarget.Classify(destination));
     }
 

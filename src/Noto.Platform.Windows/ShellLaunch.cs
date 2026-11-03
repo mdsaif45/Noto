@@ -57,7 +57,7 @@ public static class ShellLaunch
 
         LinkOpening outcome = check switch
         {
-            { Kind: LinkKind.Refused } or { Address: null } => LinkOpening.Refused,
+            { Address: null } => LinkOpening.Refused,
             { Exists: false } => LinkOpening.Missing,
             { AsksFirst: true } when !confirmed => LinkOpening.NotConfirmed,
             _ => Open(check.Address) ? LinkOpening.Opened : LinkOpening.Failed,

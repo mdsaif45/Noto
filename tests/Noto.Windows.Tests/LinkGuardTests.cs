@@ -43,6 +43,7 @@ public sealed class LinkGuardTests
 
         string open = Body(Links, "OpenLink");
         Assert.Contains("LinkCheck check = ShellLaunch.Inspect(destination);", open, StringComparison.Ordinal);
+        Assert.Matches(@"if \(check\.AsksFirst\)\s*\{\s*var dialog = new ContentDialog", open);
         Assert.Contains("DefaultButton = ContentDialogButton.Close,", open, StringComparison.Ordinal);
         Assert.Matches(@"confirmed = await dialog\.ShowAsync\(\) == ContentDialogResult\.Primary;\s*if \(!confirmed\)\s*\{\s*return;", open);
         Assert.Contains("switch (ShellLaunch.OpenLink(destination, confirmed))", open, StringComparison.Ordinal);

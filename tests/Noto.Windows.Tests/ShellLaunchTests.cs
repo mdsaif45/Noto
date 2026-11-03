@@ -90,6 +90,30 @@ public sealed class ShellLaunchTests
     }
 
     [Fact]
+    public void Opening_a_link_traces_its_kind_and_outcome_never_its_address()
+    {
+        // Quality gates: no user paths or content in traces. The one trace OpenLink writes names no address.
+        string code = File.ReadAllText(System.IO.Path.Join(SourceRoot(), "Noto.Platform.Windows", "ShellLaunch.cs"));
+        var traces = System.Text.RegularExpressions.Regex.Matches(code, @"Trace\.WriteLine\([^;]*;").Select(m => m.Value).ToList();
+        Assert.Contains(traces, t => t.Contains("Noto.Link open", StringComparison.Ordinal));
+        Assert.All(traces, t => Assert.DoesNotMatch(@"Address|destination|target|\{check\}", t));
+    }
+
+    private static string SourceRoot()
+    {
+        for (var d = new DirectoryInfo(Path.GetDirectoryName(typeof(ShellLaunchTests).Assembly.Location)!); d is not null; d = d.Parent)
+        {
+            string src = Path.Join(d.FullName, "src");
+            if (Directory.Exists(Path.Join(src, "Noto.Windows")))
+            {
+                return src;
+            }
+        }
+
+        throw new DirectoryNotFoundException("src");
+    }
+
+    [Fact]
     public void Every_launch_of_a_note_link_goes_through_OpenLink()
     {
         // The one checked entry point (ADR-019 §2): nothing else in the application hands a destination to the shell.
