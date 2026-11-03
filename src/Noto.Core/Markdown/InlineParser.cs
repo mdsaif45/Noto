@@ -3,8 +3,8 @@ using System.Text;
 namespace Noto.Core.Markdown;
 
 /// <summary>
-/// One line's inline markup (markdown-model.md §2): escapes, code spans, links, and the emphasis family through
-/// CommonMark's delimiter-run algorithm. Nothing crosses the line; unmatched syntax is text.
+/// One line's inline markup (markdown-model.md §2): escapes, code spans, links, bare web addresses (ADR-019 §3), and
+/// the emphasis family through CommonMark's delimiter-run algorithm. Nothing crosses the line; unmatched syntax is text.
 /// </summary>
 internal static class InlineParser
 {
@@ -12,6 +12,7 @@ internal static class InlineParser
 
     public static void Parse(string source, int start, int end, List<MarkdownSpan> spans)
     {
+        int first = spans.Count;
         var delimiters = new List<Delimiter>();
         var brackets = new List<Bracket>();
         int i = start;
@@ -55,6 +56,90 @@ internal static class InlineParser
         }
 
         Emphasis(delimiters, 0, spans);
+        Autolinks(source, start, end, spans, first);
+    }
+
+    /// <summary>
+    /// Bare web addresses (GFM's extended autolinks): "http://", "https://" or "www." at the start of a word, through
+    /// the next white space, without the punctuation that ends a sentence or an unbalanced ')'. Never inside code, a
+    /// link or markup. The address is its own destination: a <see cref="MarkdownSpanKind.Link"/> with no markup.
+    /// </summary>
+    private static void Autolinks(string source, int start, int end, List<MarkdownSpan> spans, int first)
+    {
+        var taken = new bool[end - start];
+        for (int k = first; k < spans.Count; k++)
+        {
+            if (spans[k].Kind is MarkdownSpanKind.Code or MarkdownSpanKind.Link or MarkdownSpanKind.LinkTarget or MarkdownSpanKind.Markup)
+            {
+                for (int p = spans[k].Start; p < spans[k].End; p++)
+                {
+                    taken[p - start] = true;
+                }
+            }
+        }
+
+        int i = start;
+        while (i < end)
+        {
+            bool wordStart = i == start || char.IsWhiteSpace(source[i - 1]) || source[i - 1] is '*' or '_' or '~' or '(';
+            int prefix = wordStart && !taken[i - start] ? AutolinkPrefix(source, i, end) : 0;
+
+            if (prefix == 0)
+            {
+                i++;
+                continue;
+            }
+
+            int stop = i + prefix;
+            while (stop < end && !char.IsWhiteSpace(source[stop]) && source[stop] != '<' && !taken[stop - start])
+            {
+                stop++;
+            }
+
+            stop = TrimAutolink(source, i + prefix, stop);
+            if (stop > i + prefix && char.IsLetterOrDigit(source[i + prefix]))
+            {
+                spans.Add(new MarkdownSpan(MarkdownSpanKind.Link, i, stop - i));
+            }
+
+            i = Math.Max(stop, i + 1);
+        }
+    }
+
+    private static int AutolinkPrefix(string source, int at, int end)
+    {
+        foreach (string prefix in (ReadOnlySpan<string>)["https://", "http://", "www."])
+        {
+            if (end - at > prefix.Length && source.AsSpan(at, prefix.Length).Equals(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return prefix.Length;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>GFM's trailing rule: ?!.,:*_~ end a sentence, not an address; a ')' without its '(' is the text's.</summary>
+    private static int TrimAutolink(string source, int from, int stop)
+    {
+        while (stop > from)
+        {
+            char last = source[stop - 1];
+            if (last is '?' or '!' or '.' or ',' or ':' or '*' or '_' or '~' or ';' or '"' or '\'')
+            {
+                stop--;
+            }
+            else if (last == ')' && source.AsSpan(from, stop - from).Count('(') < source.AsSpan(from, stop - from).Count(')'))
+            {
+                stop--;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return stop;
     }
 
     /// <summary>A run of n backticks closed by the next run of exactly n on the line; otherwise the run is text.</summary>

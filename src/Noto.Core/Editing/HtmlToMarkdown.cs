@@ -1,13 +1,14 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using Noto.Core.Links;
 
 namespace Noto.Core.Editing;
 
 /// <summary>
 /// Formatted paste (P2.7): HTML from the clipboard, a browser's or an office app's, as the Markdown subset Noto
 /// speaks (markdown-model.md §2). Text, never code: no script runs and no resource is fetched; script and style
-/// content is dropped, and a link whose address is not http, https, mailto or file keeps only its text.
+/// content is dropped, and a link whose address ADR-019's allow-list refuses keeps only its text.
 /// </summary>
 /// <remarks>
 /// Tolerant by design: clipboard HTML is often a fragment with unclosed or stray tags. Unknown tags are ignored and
@@ -15,8 +16,6 @@ namespace Noto.Core.Editing;
 /// </remarks>
 public static class HtmlToMarkdown
 {
-    private static readonly string[] SafeSchemes = ["http:", "https:", "mailto:", "file:"];
-
     /// <summary>The fragment as Markdown: one line per block, list nesting by indent, trailing space trimmed.</summary>
     public static string Convert(string html)
     {
@@ -290,7 +289,8 @@ public static class HtmlToMarkdown
         {
             if (!tag.Closing)
             {
-                string? href = tag.Href is { } h && SafeSchemes.Any(s => h.TrimStart().StartsWith(s, StringComparison.OrdinalIgnoreCase)) && !h.Any(char.IsWhiteSpace) ? h.Trim() : null;
+                // ADR-019 §1's one allow-list: anything it refuses keeps only its text.
+                string? href = tag.Href is { } h && LinkTarget.Classify(h.Trim()) != LinkKind.Refused ? h.Trim() : null;
                 _links.Push(href);
                 _linkStart = href is null ? -1 : _line.Length;
                 if (href is not null)

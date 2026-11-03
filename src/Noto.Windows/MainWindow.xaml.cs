@@ -139,6 +139,9 @@ public sealed partial class MainWindow : Window
         _autosave.IsRepeating = false;
         _autosave.Tick += OnAutosaveTick;
 
+        // A card's links open through the same checks as the editor's (ADR-019 §2).
+        MarkdownReadView.OpenLink = QueueOpenLink;
+
         // Slice 1.3: the content's motion; the coordinator runs the drawer's, the navigation below a surface's.
         Motion = new ContentMotion(WorkspaceContent);
 
@@ -1183,8 +1186,10 @@ public sealed partial class MainWindow : Window
         host.Load(NoteId.From(card.Id), _stack.Draft);
         host.ContentChanged -= OnEditorContentChanged;
         host.LeaveRequested -= OnEditorLeaveRequested;
+        host.LinkOpenRequested -= OnEditorLinkOpenRequested;
         host.ContentChanged += OnEditorContentChanged;
         host.LeaveRequested += OnEditorLeaveRequested;
+        host.LinkOpenRequested += OnEditorLinkOpenRequested;
 
         if (_pendingCaret is { } caret)
         {
@@ -1205,6 +1210,7 @@ public sealed partial class MainWindow : Window
         {
             host.ContentChanged -= OnEditorContentChanged;
             host.LeaveRequested -= OnEditorLeaveRequested;
+            host.LinkOpenRequested -= OnEditorLinkOpenRequested;
 
             if (_editor == host)
             {

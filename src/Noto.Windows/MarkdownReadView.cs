@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Windows.UI.Text;
 
@@ -27,6 +28,12 @@ internal sealed partial class MarkdownReadView : UserControl
     private readonly RichTextBlock _view = new() { TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = false };
 
     public MarkdownReadView() => Content = _view;
+
+    /// <summary>
+    /// Opens a link a card's reader clicked (ADR-019 §2): set once by the window, which checks and opens it. A click on
+    /// a card's link has nothing else to do, the card being a read view.
+    /// </summary>
+    internal static Action<string>? OpenLink { get; set; }
 
     public string? Source
     {
@@ -76,13 +83,13 @@ internal sealed partial class MarkdownReadView : UserControl
         foreach (MarkdownBlock block in document.Blocks)
         {
             var paragraph = new Paragraph();
-            Inlines(source, block, paragraph, markup, link, code);
+            Inlines(document, block, paragraph, markup, link, code);
             view.Blocks.Add(paragraph);
         }
     }
 
     /// <summary>The block's text, cut where its spans start and end, each run styled by the spans over it.</summary>
-    private static void Inlines(string source, MarkdownBlock block, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
+    private static void Inlines(MarkdownDocument document, MarkdownBlock block, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
     {
         var cuts = new SortedSet<int> { block.Start, block.End };
         foreach (MarkdownSpan span in block.Spans)
@@ -96,15 +103,16 @@ internal sealed partial class MarkdownReadView : UserControl
         {
             if (previous >= 0 && cut > previous)
             {
-                Piece(source, block, previous, cut, paragraph, markup, link, code);
+                Piece(document, block, previous, cut, paragraph, markup, link, code);
             }
 
             previous = cut;
         }
     }
 
-    private static void Piece(string source, MarkdownBlock block, int start, int end, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
+    private static void Piece(MarkdownDocument document, MarkdownBlock block, int start, int end, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
     {
+        string source = document.Source;
         var over = block.Spans.Where(s => s.Start <= start && end <= s.End).ToList();
 
         if (over.Any(s => s.Kind is MarkdownSpanKind.Markup or MarkdownSpanKind.LinkTarget))
@@ -158,7 +166,6 @@ internal sealed partial class MarkdownReadView : UserControl
                     break;
                 case MarkdownSpanKind.Link:
                     Tint(run, link);
-                    run.TextDecorations |= TextDecorations.Underline;
                     break;
                 case MarkdownSpanKind.Quote:
                     run.FontStyle = FontStyle.Italic;
@@ -172,6 +179,22 @@ internal sealed partial class MarkdownReadView : UserControl
                     Tint(run, markup);
                     break;
             }
+        }
+
+        // A link opens on a click: a Hyperlink, its own underline, never a tab stop (the stack's keys stay the stack's;
+        // the keyboard opens a link from the editor, with Ctrl+Enter).
+        if (over.Any(s => s.Kind == MarkdownSpanKind.Link) && LinkTarget.At(document, start) is { } destination)
+        {
+            var hyperlink = new Hyperlink { IsTabStop = false, UnderlineStyle = UnderlineStyle.Single };
+            if (link is not null)
+            {
+                hyperlink.Foreground = link;
+            }
+
+            hyperlink.Inlines.Add(run);
+            hyperlink.Click += (_, _) => OpenLink?.Invoke(destination);
+            paragraph.Inlines.Add(hyperlink);
+            return;
         }
 
         paragraph.Inlines.Add(run);
