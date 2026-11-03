@@ -165,10 +165,18 @@ public sealed class DesignSystemGuardTests
         {
             XElement view = window.Descendants().Single(e => (string?)e.Attribute(X + "Name") == list);
             var texts = view.Descendants(Xaml + "TextBlock").ToList();
-            Assert.Single(texts, t => ((string?)t.Attribute("Text"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true);
+            var rendered = view.Descendants("{using:Noto}MarkdownReadView").ToList();
+            Assert.Equal(1, texts.Count(t => ((string?)t.Attribute("Text"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true)
+                + rendered.Count(r => ((string?)r.Attribute("Source"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true));
             Assert.Single(texts, t => (string?)t.Attribute("Text") == "●" && (string?)t.Attribute("Visibility") == "{x:Bind PinnedMarkerVisibility}");
-            Assert.All(texts, t => Assert.Null(t.Attribute("Foreground")));
+            Assert.All(texts.Concat(rendered), t => Assert.Null(t.Attribute("Foreground")));
         }
+
+        // A card's rendered read view (ADR-017) colours markers and links in Light and Dark, and none in high contrast,
+        // where the row's text colour must win on a selected row.
+        string readView = File.ReadAllText(Path.Join(Path.GetDirectoryName(AppPath)!, "MarkdownReadView.cs"));
+        Assert.Matches(@"bool highContrast = new Windows\.UI\.ViewManagement\.AccessibilitySettings\(\)\.HighContrast;\s*Brush\? markup = highContrast \? null : MarkupBrush;\s*Brush\? link = highContrast \? null : LinkBrush;", readView);
+        Assert.DoesNotMatch(@"run\.Foreground = (markup|link);", readView);
 
         // Secondary text elsewhere keeps its brush: it is still a token in every theme, used by the design system.
         Assert.All(Themes, theme => Assert.Single(ThemeDictionary(theme).Elements(), e => KeyOf(e) == "TextSecondaryBrush"));

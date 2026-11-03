@@ -90,6 +90,14 @@
     <x:Double x:Key="FontSizeHeading">20</x:Double>
     <x:Double x:Key="LineHeightHeading">28</x:Double>
 
+    <!--
+        The editor's type (ADR-017): headings 1-3 step down from the heading size to just above body; levels 4-6
+        share level 3's. Code in the system's monospace, which Windows 11 ships; Consolas where it does not.
+    -->
+    <x:Double x:Key="FontSizeHeading2">17</x:Double>
+    <x:Double x:Key="FontSizeHeading3">15</x:Double>
+    <FontFamily x:Key="FontFamilyCode">Cascadia Mono, Consolas</FontFamily>
+
     <FontWeight x:Key="FontWeightRegular">Normal</FontWeight>
     <FontWeight x:Key="FontWeightEmphasis">SemiBold</FontWeight>
 

@@ -1142,19 +1142,37 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>The editing card's editor was realised (x:Load).</summary>
+    private void OnEditorHostLoaded(object sender, RoutedEventArgs e) => AttachEditor(sender as NoteEditorHost);
+
     /// <summary>
-    /// The editing card's editor was realised (x:Load): it loads the stack's text for that card, which survives the
-    /// card's container being recycled, and takes focus if editing was just asked for.
+    /// A recycled container can be realised with its previous card's data and given the editing card's only after it
+    /// has loaded, and no second Loaded follows (measured: Ctrl+Alt+Down onto a long card far down the stack left an
+    /// empty editor). So a loaded editor also attaches when its card arrives.
     /// </summary>
-    private void OnEditorHostLoaded(object sender, RoutedEventArgs e)
+    private void OnEditorHostDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
-        if (sender is not NoteEditorHost host || host.DataContext is not NoteCard card || _stack.Editing?.Value != card.Id)
+        if (sender is NoteEditorHost { IsLoaded: true } host)
+        {
+            AttachEditor(host);
+        }
+    }
+
+    /// <summary>
+    /// Loads the stack's text for the editing card into its editor, once: the text survives the card's container
+    /// being recycled. Takes focus if editing was just asked for.
+    /// </summary>
+    private void AttachEditor(NoteEditorHost? host)
+    {
+        if (host is null || host.DataContext is not NoteCard card || _stack.Editing?.Value != card.Id || host.Note?.Value == card.Id)
         {
             return;
         }
 
         _editor = host;
         host.Load(NoteId.From(card.Id), _stack.Draft);
+        host.ContentChanged -= OnEditorContentChanged;
+        host.LeaveRequested -= OnEditorLeaveRequested;
         host.ContentChanged += OnEditorContentChanged;
         host.LeaveRequested += OnEditorLeaveRequested;
 
@@ -1224,6 +1242,19 @@ public sealed partial class MainWindow : Window
     {
         _autosave.Stop();
         _unsavedSince = 0;
+    }
+
+    /// <summary>
+    /// The card's Format menu: the same commands as the editor's keys, run on its selection, then the editor has focus
+    /// again so typing goes on where it was.
+    /// </summary>
+    private void OnFormatClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem { Tag: string name } && _editor is { } editor && Enum.TryParse(name, out EditorCommand command))
+        {
+            _ = editor.Run(command);
+            editor.TakeFocus();
+        }
     }
 
     /// <summary>Escape follows the stored behaviour; Ctrl+Alt+Up/Down edit the previous or next card (G11, G12).</summary>

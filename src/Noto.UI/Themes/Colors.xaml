@@ -171,6 +171,12 @@
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
+
+            <!-- The editor (ADR-017): a link's text, and the surface behind inline and fenced code. -->
+            <Color x:Key="TextLinkColor">#0B5CAD</Color>
+            <Color x:Key="SurfaceCodeColor">#F0F0F0</Color>
+            <SolidColorBrush x:Key="TextLinkBrush" Color="{StaticResource TextLinkColor}" />
+            <SolidColorBrush x:Key="SurfaceCodeBrush" Color="{StaticResource SurfaceCodeColor}" />
         </ResourceDictionary>
 
         <!--
@@ -279,6 +285,12 @@
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
+
+            <!-- The editor (ADR-017): a link's text, and the surface behind inline and fenced code. -->
+            <Color x:Key="TextLinkColor">#8CC2FF</Color>
+            <Color x:Key="SurfaceCodeColor">#3A3A3A</Color>
+            <SolidColorBrush x:Key="TextLinkBrush" Color="{StaticResource TextLinkColor}" />
+            <SolidColorBrush x:Key="SurfaceCodeBrush" Color="{StaticResource SurfaceCodeColor}" />
         </ResourceDictionary>
 
         <!--
@@ -387,6 +399,12 @@
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="InteractionHoverBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
+
+            <!-- The editor (ADR-017): a link in the system's hyperlink colour, code with no fill. -->
+            <StaticResource x:Key="TextLinkColor" ResourceKey="SystemColorHotlightColor" />
+            <StaticResource x:Key="SurfaceCodeColor" ResourceKey="SystemColorWindowColor" />
+            <SolidColorBrush x:Key="TextLinkBrush" Color="{ThemeResource SystemColorHotlightColor}" />
+            <SolidColorBrush x:Key="SurfaceCodeBrush" Color="{ThemeResource SystemColorWindowColor}" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

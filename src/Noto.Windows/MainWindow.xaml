@@ -372,13 +372,17 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
-                                <!-- The read view: the whole note, or its title when folded. -->
-                                <TextBlock
+                                <!--
+                                    The read view: the whole note rendered from the same parse the editor styles with,
+                                    markup left out (ADR-017), or its title when folded. Not selectable: a click edits.
+                                -->
+                                <local:MarkdownReadView
                                     x:Name="CardReadView"
                                     x:Load="{x:Bind IsReading, Mode=OneWay}"
                                     Grid.Column="0"
-                                    Text="{x:Bind ReadText, Mode=OneWay}"
-                                    TextWrapping="Wrap" />
+                                    MarkupBrush="{ThemeResource TextSecondaryBrush}"
+                                    LinkBrush="{ThemeResource TextLinkBrush}"
+                                    Source="{x:Bind ReadText, Mode=OneWay}" />
 
                                 <!-- The editor, only on the card being edited. -->
                                 <local:NoteEditorHost
@@ -386,6 +390,7 @@
                                     x:Load="{x:Bind IsEditing, Mode=OneWay}"
                                     Grid.Column="0"
                                     Loaded="OnEditorHostLoaded"
+                                    DataContextChanged="OnEditorHostDataContextChanged"
                                     Unloaded="OnEditorHostUnloaded" />
 
                                 <!--
@@ -419,6 +424,36 @@
                                     HorizontalAlignment="Right"
                                     Orientation="Horizontal"
                                     Spacing="{StaticResource SpaceXS}">
+                                    <!--
+                                        Formatting (ADR-017): one quiet button, every command with its key, so the menu
+                                        teaches the keys. Keyboard formatting never needs it.
+                                    -->
+                                    <Button
+                                        x:Name="CardFormatButton"
+                                        Style="{StaticResource HeaderButtonStyle}"
+                                        ToolTipService.ToolTip="Format"
+                                        AutomationProperties.Name="Format">
+                                        <FontIcon Glyph="&#xE8D2;" FontSize="{StaticResource IconSize}" />
+                                        <Button.Flyout>
+                                            <MenuFlyout Placement="TopEdgeAlignedRight">
+                                                <MenuFlyoutItem Text="Bold" Tag="Bold" KeyboardAcceleratorTextOverride="Ctrl+B" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Italic" Tag="Italic" KeyboardAcceleratorTextOverride="Ctrl+I" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Underline" Tag="Underline" KeyboardAcceleratorTextOverride="Ctrl+U" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Strikethrough" Tag="Strikethrough" KeyboardAcceleratorTextOverride="Ctrl+Shift+E" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Code" Tag="Code" KeyboardAcceleratorTextOverride="Ctrl+E" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Link" Tag="Link" KeyboardAcceleratorTextOverride="Ctrl+K" Click="OnFormatClick" />
+                                                <MenuFlyoutSeparator />
+                                                <MenuFlyoutItem Text="Heading" Tag="Heading" KeyboardAcceleratorTextOverride="Ctrl+Shift+H" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Bulleted list" Tag="Bullets" KeyboardAcceleratorTextOverride="Ctrl+L" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Numbered list" Tag="Numbers" KeyboardAcceleratorTextOverride="Ctrl+Shift+L" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Checklist" Tag="Tasks" KeyboardAcceleratorTextOverride="Ctrl+T" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Check or uncheck" Tag="TaskDone" KeyboardAcceleratorTextOverride="Ctrl+." Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Code block" Tag="CodeBlock" Click="OnFormatClick" />
+                                                <MenuFlyoutSeparator />
+                                                <MenuFlyoutItem Text="Show or hide markup" Tag="ShowMarkup" KeyboardAcceleratorTextOverride="Ctrl+Shift+R" Click="OnFormatClick" />
+                                            </MenuFlyout>
+                                        </Button.Flyout>
+                                    </Button>
                                     <Button
                                         Style="{StaticResource HeaderButtonStyle}"
                                         Click="OnDeleteCardClick"
