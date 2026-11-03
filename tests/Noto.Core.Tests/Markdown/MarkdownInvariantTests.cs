@@ -132,7 +132,7 @@ public sealed class MarkdownInvariantTests
 
                 if (previous is { } p)
                 {
-                    Assert.True(p.Start < span.Start || (p.Start == span.Start && (p.Length > span.Length || (p.Length == span.Length && p.Kind <= span.Kind))), $"{p} then {span}: out of order");
+                    Assert.True(InOrder(p, span), $"{p} then {span}: out of order");
                 }
 
                 previous = span;
@@ -153,6 +153,17 @@ public sealed class MarkdownInvariantTests
         var outsideBefore = before.Spans.Where(s => s.End <= start || s.Start >= end - shift).Select(s => s.Start >= end - shift ? s with { Start = s.Start + shift } : s).ToList();
 
         Assert.Equal(outsideBefore, outsideAfter);
+    }
+
+    /// <summary>The documented order: by start, then longest first, then kind.</summary>
+    private static bool InOrder(MarkdownSpan first, MarkdownSpan second)
+    {
+        if (first.Start != second.Start)
+        {
+            return first.Start < second.Start;
+        }
+
+        return first.Length != second.Length ? first.Length > second.Length : first.Kind <= second.Kind;
     }
 
     private static bool SplitsPair(string source, int at) =>
