@@ -459,7 +459,8 @@ try {
             Add-Result $run '7  on: one click enters a folder; one click on a card edits it (as with the setting off)' ($entered -and $opened -and (Stored 'workspace.single-click-open') -eq 'True') "entered=$entered opened=$opened"
             To-FolderList
             $xy = Centre (Items 'FolderList')[0]; Click-At $xy[0] $xy[1] -Double
-            Add-Result $run '7  on: a double click enters the folder and opens no note it was not aimed at' ((Until { Visible-Id 'NoteList' }) -and -not (Visible-Id 'NoteEditor')) ''
+            $entered = Until { Visible-Id 'NoteList' }; $editing = Visible-Id 'NoteEditor'
+            Add-Result $run '7  on: a double click enters the folder and opens no note it was not aimed at' ($entered -and -not $editing) "entered=$entered editing=$editing"
 
             To-FolderList; Open-Settings-ByButton; Set-Toggle 'SingleClickSetting' $false; Close-Settings-ByBack
             $xy = Centre (Items 'FolderList')[0]; Click-At $xy[0] $xy[1]
