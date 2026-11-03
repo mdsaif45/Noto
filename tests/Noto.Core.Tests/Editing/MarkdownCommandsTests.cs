@@ -66,6 +66,7 @@ public sealed class MarkdownCommandsTests
     [InlineData("- it|em", "it|em")]
     [InlineData("[a\n\nb]", "[- a\n\n- b]")]
     [InlineData("[- a\n- b]", "[a\nb]")]
+    [InlineData("[- a\nb]", "[- a\n- b]")]
     [InlineData("1. it|em", "- it|em")]
     [InlineData("  it|em", "  - it|em")]
     [InlineData("- [ ] it|em", "- it|em")]
