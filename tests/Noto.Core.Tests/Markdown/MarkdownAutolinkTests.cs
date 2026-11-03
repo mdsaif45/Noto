@@ -23,6 +23,7 @@ public sealed class MarkdownAutolinkTests
 
     [Theory]
     [InlineData("`https://example.com`", "Markup[`] Code[https://example.com] Markup[`]")]
+    [InlineData("`see https://example.com`", "Markup[`] Code[see https://example.com] Markup[`]")]
     [InlineData("[site](https://example.com)", "Markup[[] Link[site] Markup[](] LinkTarget[https://example.com] Markup[)]")]
     [InlineData("[see https://x.com](https://y.com)", "Markup[[] Link[see https://x.com] Markup[](] LinkTarget[https://y.com] Markup[)]")]
     public void Never_inside_code_or_a_written_link(string source, string shape)

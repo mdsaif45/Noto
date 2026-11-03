@@ -55,7 +55,7 @@ public static class LinkTarget
         for (int i = 0; i < written.Length; i++)
         {
             // CommonMark: a backslash before ASCII punctuation is an escape.
-            if (written[i] == '\\' && i + 1 < written.Length && char.IsAscii(written[i + 1]) && char.IsPunctuation(written[i + 1]) | char.IsSymbol(written[i + 1]))
+            if (written[i] == '\\' && i + 1 < written.Length && char.IsAscii(written[i + 1]) && (char.IsPunctuation(written[i + 1]) || char.IsSymbol(written[i + 1])))
             {
                 i++;
             }
@@ -89,7 +89,7 @@ public static class LinkTarget
 
         if (uri.Scheme is "http" or "https")
         {
-            return uri.Host.Length > 0 ? (LinkKind.Web, uri.AbsoluteUri) : (LinkKind.Refused, null);
+            return (LinkKind.Web, uri.AbsoluteUri);
         }
 
         if (uri.Scheme == "mailto")
@@ -97,8 +97,8 @@ public static class LinkTarget
             return (LinkKind.Mail, uri.OriginalString);
         }
 
-        // A file: URI only, of a path on a drive: never a server (\\host\share opens a connection silently).
-        if (uri.IsFile && !uri.IsUnc && written.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
+        // A file: URI only, of a path on a drive letter: never a server (\\host\share opens a connection silently).
+        if (uri.IsFile && written.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
             && Path.IsPathFullyQualified(uri.LocalPath) && uri.LocalPath.Length >= 3 && char.IsAsciiLetter(uri.LocalPath[0]) && uri.LocalPath[1] == ':')
         {
             return (LinkKind.Local, uri.LocalPath);

@@ -8,6 +8,9 @@ namespace Noto.Core.Markdown;
 /// </summary>
 internal static class InlineParser
 {
+    /// <summary>What starts a bare web address (ADR-019 §3).</summary>
+    private static readonly string[] AutolinkPrefixes = ["https://", "http://", "www."];
+
     private const string AsciiPunctuation = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
 
     public static void Parse(string source, int start, int end, List<MarkdownSpan> spans)
@@ -108,7 +111,7 @@ internal static class InlineParser
 
     private static int AutolinkPrefix(string source, int at, int end)
     {
-        foreach (string prefix in (ReadOnlySpan<string>)["https://", "http://", "www."])
+        foreach (string prefix in AutolinkPrefixes)
         {
             if (end - at > prefix.Length && source.AsSpan(at, prefix.Length).Equals(prefix, StringComparison.OrdinalIgnoreCase))
             {
