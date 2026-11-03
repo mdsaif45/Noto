@@ -148,6 +148,11 @@ public sealed partial class MainWindow : Window
         openSettings.Invoked += OnSettingsAccelerator;
         WorkspaceRoot.KeyboardAccelerators.Add(openSettings);
 
+        // Ctrl+F opens Search (G45, ADR-018) from every surface the same way; the editor hands it on (NoteEditorHost).
+        var openSearch = new KeyboardAccelerator { Key = VirtualKey.F, Modifiers = VirtualKeyModifiers.Control };
+        openSearch.Invoked += OnSearchAccelerator;
+        WorkspaceRoot.KeyboardAccelerators.Add(openSearch);
+
         // The shortcut recorder never listens while Noto is not in front: losing activation cancels it (Slice 1).
         Activated += (_, e) =>
         {
@@ -1132,6 +1137,7 @@ public sealed partial class MainWindow : Window
         }
 
         _pendingCaret = caret;
+        _pendingCaretAt = null;
         NoteList.SelectedItem = card;
         NoteList.ScrollIntoView(card);
 
@@ -1184,6 +1190,12 @@ public sealed partial class MainWindow : Window
         {
             _pendingCaret = null;
             host.PlaceCaret(caret);
+        }
+
+        if (_pendingCaretAt is { } at)
+        {
+            _pendingCaretAt = null;
+            host.PlaceCaretAt(at);
         }
     }
 
@@ -1406,7 +1418,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        UIElement from = RecycleBinSurface is { } bin ? bin : NoteRoot.Visibility == Visibility.Visible ? NoteRoot : PaneRoot;
+        UIElement from = RecycleBinSurface is { } bin ? bin
+            : SearchSurface is { } search ? search
+            : NoteRoot.Visibility == Visibility.Visible ? NoteRoot
+            : PaneRoot;
 
         _settingsReturn = from;
         _settingsReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;
@@ -1483,6 +1498,12 @@ public sealed partial class MainWindow : Window
 
     private void OnSettingsBackRequested(object? sender, EventArgs e) => CloseSettings();
 
+    private void OnSearchAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        OpenSearch();
+    }
+
     /// <summary>Escape in Settings follows the stored behaviour: by default it goes back (Slice 1, ADR-007).</summary>
     private void OnSettingsKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -1539,6 +1560,10 @@ public sealed partial class MainWindow : Window
 
             case EscapeAction.LeaveRecycleBin:
                 CloseRecycleBin();
+                return true;
+
+            case EscapeAction.LeaveSearch:
+                CloseSearch();
                 return true;
 
             default:

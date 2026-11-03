@@ -31,6 +31,10 @@ public sealed class WorkspaceEscapeTests
     [InlineData(EscapeBehavior.LeaveFolder, WorkspaceSurface.RecycleBin, EscapeAction.LeaveRecycleBin)]
     [InlineData(EscapeBehavior.Hide, WorkspaceSurface.RecycleBin, EscapeAction.Hide)]
     [InlineData(EscapeBehavior.None, WorkspaceSurface.RecycleBin, EscapeAction.None)]
+    [InlineData(EscapeBehavior.LeaveFolderOrHide, WorkspaceSurface.Search, EscapeAction.LeaveSearch)]
+    [InlineData(EscapeBehavior.LeaveFolder, WorkspaceSurface.Search, EscapeAction.LeaveSearch)]
+    [InlineData(EscapeBehavior.Hide, WorkspaceSurface.Search, EscapeAction.Hide)]
+    [InlineData(EscapeBehavior.None, WorkspaceSurface.Search, EscapeAction.None)]
     public void Each_behaviour_on_each_surface(EscapeBehavior behavior, WorkspaceSurface surface, EscapeAction expected)
     {
         Assert.Equal(expected, WorkspaceEscape.Resolve(behavior, surface));

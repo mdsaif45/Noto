@@ -32,6 +32,7 @@ These records are the defense against that.
 | [ADR-015](ADR-015-run-at-login.md) | Run at login | Accepted |
 | [ADR-016](ADR-016-card-stack-workspace.md) | The card-stack workspace | Accepted |
 | [ADR-017](ADR-017-editor-model.md) | The editor model: hidden markup over the source | Accepted |
+| [ADR-018](ADR-018-search.md) | Search: one FTS5 index, one keyboard-first surface | Accepted |
 
 ### Why two are Proposed
 

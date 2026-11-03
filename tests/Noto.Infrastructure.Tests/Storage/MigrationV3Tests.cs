@@ -115,7 +115,7 @@ public sealed class MigrationV3Tests : IDisposable
         {
             firstStamp = Scalar(db, "SELECT DeletedAt FROM Notes;", null)!;
             Assert.Equal(MigrationRunner.LatestVersion, MigrationRunner.GetSchemaVersion(db));
-            Assert.Equal(3, MigrationRunner.LatestVersion);
+            Assert.True(MigrationRunner.LatestVersion >= 3);
         }
 
         string directory = Path.GetDirectoryName(_temp.DatabasePath)!;

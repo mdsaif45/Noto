@@ -60,9 +60,11 @@ public sealed class MigrationTests : IDisposable
         var tables = QueryTableNames(connection);
 
         Assert.DoesNotContain("Attachments", tables);
-        Assert.DoesNotContain("NotesFts", tables);
         Assert.DoesNotContain("NotePresentations", tables);
         Assert.DoesNotContain("ContextBindings", tables);
+
+        // Arrived with search (ADR-018, migration 4).
+        Assert.Contains("NotesFts", tables);
     }
 
     [Fact]

@@ -95,12 +95,12 @@ public sealed partial class NoteEditorHost : UserControl
     {
         InitializeComponent();
 
-        // Ctrl+, opens Settings from the editor too. The edit control marks Ctrl+, handled in its own KeyDown, so no
-        // ancestor's accelerator ever sees it: its accelerator pass runs first, so the chord is handed to the window
-        // root's accelerators from there.
+        // Ctrl+, opens Settings and Ctrl+F opens Search from the editor too. The edit control marks both handled in its
+        // own KeyDown, so no ancestor's accelerator ever sees them: its accelerator pass runs first, so the chord is
+        // handed to the window root's accelerators from there.
         NoteEditor.ProcessKeyboardAccelerators += (_, args) =>
         {
-            if (args.Key == (VirtualKey)0xBC && args.Modifiers == VirtualKeyModifiers.Control && XamlRoot?.Content is UIElement root)
+            if (args.Key is (VirtualKey)0xBC or VirtualKey.F && args.Modifiers == VirtualKeyModifiers.Control && XamlRoot?.Content is UIElement root)
             {
                 root.TryInvokeKeyboardAccelerator(args);
             }
@@ -197,6 +197,33 @@ public sealed partial class NoteEditorHost : UserControl
         int at = placement == CaretPlacement.Start ? 0 : _text.Length;
         Set(() => NoteEditor.Document.Selection.SetRange(at, at));
         _selection = TextSelection.Caret(at);
+    }
+
+    /// <summary>
+    /// Takes keyboard focus with the caret at <paramref name="offset"/> in the source: where a search found the note
+    /// (ADR-018 §3). The stack scrolls the caret into view once the editor has laid out its text.
+    /// </summary>
+    internal void PlaceCaretAt(int offset)
+    {
+        _ = NoteEditor.Focus(FocusState.Programmatic);
+        int at = Math.Clamp(offset, 0, _text.Length);
+        Set(() => NoteEditor.Document.Selection.SetRange(at, at));
+        _selection = TextSelection.Caret(at);
+
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            // RichEdit's client coordinates start inside the border and padding (as TaskMarks and the click mapping say).
+            NoteEditor.Document.Selection.GetRect(PointOptions.ClientCoordinates, out Windows.Foundation.Rect caret, out _);
+            NoteEditor.StartBringIntoView(new BringIntoViewOptions
+            {
+                TargetRect = new Windows.Foundation.Rect(
+                    caret.X + NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left,
+                    caret.Y + NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top,
+                    Math.Max(1, caret.Width),
+                    Math.Max(1, caret.Height)),
+                VerticalAlignmentRatio = 0.3,
+            });
+        });
     }
 
     /// <summary>
