@@ -112,6 +112,18 @@ public sealed class EditingTests
     }
 
     [Fact]
+    public void Two_commands_in_a_row_are_two_steps()
+    {
+        var history = new EditHistory();
+        var bold = new TextEdit(0, 1, "**a**", TextSelection.Range(2, 3));
+        history.Record("a", bold, EditKind.Other, TextSelection.Range(0, 1));
+        var italic = new TextEdit(2, 1, "*a*", TextSelection.Range(3, 4));
+        history.Record("**a**", italic, EditKind.Other, TextSelection.Range(2, 3));
+
+        Assert.Equal("**a**", history.Undo()!.Value.ApplyTo("***a***"));
+    }
+
+    [Fact]
     public void Backspace_and_delete_runs_are_each_one_step_and_undo_puts_back_exactly_what_went()
     {
         var history = new EditHistory();
