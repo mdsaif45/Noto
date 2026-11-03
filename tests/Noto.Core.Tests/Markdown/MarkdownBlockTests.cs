@@ -221,9 +221,8 @@ public sealed class MarkdownBlockTests
             "[t](u \"title\")",
         ];
 
-        foreach (string source in sources)
+        foreach (MarkdownDocument document in sources.Select(MarkdownDocument.Parse))
         {
-            MarkdownDocument document = MarkdownDocument.Parse(source);
             Assert.All(document.Blocks, b => Assert.Equal(MarkdownBlockKind.Paragraph, b.Kind));
             Assert.Empty(document.Spans);
         }

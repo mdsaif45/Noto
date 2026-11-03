@@ -149,7 +149,8 @@ internal static class MarkdownCorpus
         var text = new StringBuilder();
         for (int i = 0; text.Length < chars; i++)
         {
-            text.Append(string.Format(CultureInfo.InvariantCulture, templates[i % templates.Length], i)).Append('\n');
+            // Not string.Format: most templates have no placeholder, and the fence lines must stay exactly as written.
+            text.Append(templates[i % templates.Length].Replace("{0}", i.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)).Append('\n');
         }
 
         return text.ToString();
