@@ -53,10 +53,11 @@ public sealed class AppActivationEventArgs(bool active, bool landed) : EventArgs
 /// alternative: <c>OverlappedPresenter</c>'s preferred sizes cannot restrict
 /// which edges resize, cannot refuse a snap or a move, give no drag-end
 /// signal, and bound the outer size in units this machine cannot determine.
-/// Four messages do the work:
+/// Five messages do the work:
 /// </para>
 /// <list type="table">
 ///   <item><term><c>WM_NCHITTEST</c></term><description>only the inner edge is a resize edge; the docked edge, top and bottom behave as client area</description></item>
+///   <item><term><c>WM_NCCALCSIZE</c></term><description>the client area reaches the window's top edge, so the workspace's own surface is drawn there</description></item>
 ///   <item><term><c>WM_SIZING</c></term><description>every drag step is refitted: docked edge fixed, full work-area height, width clamped by <see cref="WorkspaceWidth.Clamp"/></description></item>
 ///   <item><term><c>WM_WINDOWPOSCHANGING</c></term><description>any move or resize Noto did not make itself — a snap, <c>Win+Arrow</c>, another process — is rewritten back to the dock</description></item>
 ///   <item><term><c>WM_EXITSIZEMOVE</c></term><description>the drag has ended: <see cref="Resized"/> reports the visible width, once</description></item>
@@ -221,6 +222,18 @@ public sealed unsafe class DockedWindow
         }
 
         docked.IsAttached = true;
+
+        // The client area is recalculated only when the frame changes: ask for it now, so the top edge is the
+        // workspace's from the first frame rather than from the first resize.
+        _ = NativeMethods.SetWindowPos(
+            docked._hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
+
         docked.CapturePlacedInset();
         return docked;
     }
@@ -570,6 +583,31 @@ public sealed unsafe class DockedWindow
     }
 
     /// <summary>
+    /// The client area, with its top where the window's top is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A resizable window without a title bar keeps its top sizing border, and from Windows 10 on that is the one
+    /// sizing border drawn inside the visible frame (its measured inset is 0): a strip along the top in the frame's
+    /// colour, which follows neither Noto's theme nor high contrast. Light over a dark workspace, measured.
+    /// </para>
+    /// <para>
+    /// The default calculation is kept for the other three edges, so the inner edge still resizes; only the top is
+    /// handed back to the client, where the workspace's own surface, in the current theme, is drawn. The hit test
+    /// already treats the top as client area. Either form of the message carries the proposed rectangle first:
+    /// <c>NCCALCSIZE_PARAMS.rgrc[0]</c>, or the <c>RECT</c> itself.
+    /// </para>
+    /// </remarks>
+    private static nint KeepClientTop(nint hwnd, uint msg, nint wParam, nint lParam)
+    {
+        var proposed = (NativeMethods.RECT*)lParam;
+        int top = proposed->Top;
+        nint result = WindowSubclass.CallDefault(hwnd, msg, wParam, lParam);
+        proposed->Top = top;
+        return result;
+    }
+
+    /// <summary>
     /// The window procedure.
     /// </summary>
     /// <remarks>
@@ -593,6 +631,9 @@ public sealed unsafe class DockedWindow
             {
                 case NativeMethods.WM_NCHITTEST:
                     return MapHitTest(self.Edge, (int)WindowSubclass.CallDefault(hwnd, msg, wParam, lParam));
+
+                case NativeMethods.WM_NCCALCSIZE:
+                    return KeepClientTop(hwnd, msg, wParam, lParam);
 
                 case NativeMethods.WM_ENTERSIZEMOVE:
                     self.OnEnterSizeMove();

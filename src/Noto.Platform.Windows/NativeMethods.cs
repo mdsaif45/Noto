@@ -41,6 +41,7 @@ internal static unsafe partial class NativeMethods
     // Messages the docked-window subclass handles (#16 slice 3).
     internal const uint WM_WINDOWPOSCHANGING = 0x0046;
     internal const uint WM_NCDESTROY = 0x0082;
+    internal const uint WM_NCCALCSIZE = 0x0083;
     internal const uint WM_NCHITTEST = 0x0084;
     internal const uint WM_SIZING = 0x0214;
     internal const uint WM_ENTERSIZEMOVE = 0x0231;
@@ -62,6 +63,9 @@ internal static unsafe partial class NativeMethods
 
     internal const uint SWP_NOSIZE = 0x0001;
     internal const uint SWP_NOMOVE = 0x0002;
+    internal const uint SWP_NOZORDER = 0x0004;
+    internal const uint SWP_NOACTIVATE = 0x0010;
+    internal const uint SWP_FRAMECHANGED = 0x0020;
 
     /// <summary><c>SW_RESTORE</c>: activates and restores a minimized window to its normal placement.</summary>
     internal const int SW_RESTORE = 9;
@@ -155,6 +159,10 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool GetWindowRect(nint hWnd, out RECT lpRect);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetWindowPos(nint hWnd, nint hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
     [LibraryImport("user32.dll", EntryPoint = "CreateWindowExW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     internal static partial nint CreateWindowEx(
