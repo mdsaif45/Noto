@@ -686,6 +686,7 @@ Markdown parsing is written by hand, for SideNotes' subset only:
 | R14 | Printing from an unpackaged WinUI 3 app (`PrintManager` needs HWND interop) | I6 / B21 | Spike in P5.8; fallback is export then system print | P5.8 |
 | R15 | Pending carry-overs: the #107 High Contrast runtime check; `fix/folder-entry-focus` (local only, no PR); #16 still open | P0 not formally closed | Decisions 5 and 11 | P0 |
 | R16 | **The Slice 1 PR branches on GitHub are stale.** The rebased #107–#109 and the #106 High Contrast fix exist locally only | GitHub reviews old code | Push when you ask (never automatic) | merge |
+| R17 | **An exit hang with an unknown root cause.** Seen once (2026-11-03), after Noto's last trace, in Windows App SDK teardown; not reproduced in 60 measured cycles (`Invoke-ExitCycles.ps1`). `ExitWatchdog` bounds it (ADR-017 §10) but does not explain it | A process that outlives its window: the next launch's single-instance handoff waits on it | Run `Invoke-ExitCycles.ps1` in the RC campaign, with the dump on overrun; analyse any dump or `ShutdownOverran` log entry. Closed only by a found cause, or by the RC cycles passing with no overrun | RC |
 
 ---
 

@@ -199,6 +199,12 @@ public sealed partial class NoteEditorHost : UserControl
         _selection = TextSelection.Caret(at);
     }
 
+    /// <summary>
+    /// Delivers a keystroke TextChanged has not reported yet, so a save reads every key typed (measured: a key and
+    /// Escape in one input batch left without the key).
+    /// </summary>
+    internal void ReadBack() => Flush();
+
     /// <summary>Gives the text keyboard focus without moving the caret.</summary>
     internal void TakeFocus() => _ = NoteEditor.Focus(FocusState.Programmatic);
 

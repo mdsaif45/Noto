@@ -90,7 +90,7 @@ public sealed class NoteStackGuardTests
         // Any attempt, explicit or timed, takes the pending write's place. Success clears the bound; failure restarts
         // it, so a note that cannot be saved is not retried on every key and no timer replaces the failure's notice.
         string save = Body(Main, "TrySaveCard");
-        Assert.Matches(@"^\{\s*if \(!_stack\.IsDirty\)\s*\{\s*StopAutosave\(\);\s*return true;", save);
+        Assert.Matches(@"^\{\s*_editor\?\.ReadBack\(\);\s*if \(!_stack\.IsDirty\)\s*\{\s*StopAutosave\(\);\s*return true;", save);
         Assert.Matches(@"_autosave\.Stop\(\);\s*_unsavedSince = started;\s*try", save);
         Assert.Matches(@"if \(result\.IsSuccess\)\s*\{\s*StopAutosave\(\);", save);
         Assert.Matches(@"^\{\s*_autosave\.Stop\(\);\s*_unsavedSince = 0;\s*\}$", Body(Main, "StopAutosave"));

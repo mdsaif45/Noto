@@ -349,6 +349,9 @@ public partial class App : Application
     /// <summary>The application's event log, for the exit watchdog's record of an overrun.</summary>
     private RollingFileLog? _appLog;
 
+    /// <summary>The note database, released last when Noto ends, so no handle on it outlives the final write.</summary>
+    private NotoDatabase? _database;
+
     /// <summary>
     /// The notification-area icon (#16 slice 7), or <see langword="null"/> when
     /// Windows refused its window. Removed first when the window closes.
@@ -449,6 +452,7 @@ public partial class App : Application
         StartActivationPipe();
 
         var database = new NotoDatabase(paths.DatabaseFile, log);
+        _database = database;
 
         // Creates the file on first run and applies any pending migration. A
         // database that cannot be opened or brought up to date is refused with
@@ -1214,6 +1218,10 @@ public partial class App : Application
         // icon never appears beside this one.
         _tray?.Dispose();
         _hotkey?.Dispose();
+
+        // Every save has run: close the database file before the mutex goes, so a successor never meets this
+        // process's handle and the exit watchdog can never end a process holding it.
+        _database?.Release();
 
         // The pipe first, then the mutex: a successor waiting on the
         // mutex must find the pipe's name free when it gets it.

@@ -91,11 +91,14 @@ public sealed class TrayLifetimeGuardTests
         string closed = Body(App, "ReleaseResources");
         int tray = Index(closed, "_tray?.Dispose()");
         int hotkey = Index(closed, "_hotkey?.Dispose()");
+        int database = Index(closed, "_database?.Release()");
         int pipe = Index(closed, "_activationPipe?.Dispose()");
         int ownership = Index(closed, "_ownership?.Dispose()");
 
-        Assert.True(tray < hotkey && hotkey < pipe && pipe < ownership, "Icon, hotkey, pipe, then the mutex.");
+        // The database file is closed before the mutex goes, and so before the exit watchdog arms.
+        Assert.True(tray < hotkey && hotkey < database && database < pipe && pipe < ownership, "Icon, hotkey, database, pipe, then the mutex.");
         Assert.Equal(1, Regex.Count(Code(App), @"_tray\?\.Dispose\(\)"));
+        Assert.Matches(@"var database = new NotoDatabase\(paths\.DatabaseFile, log\);\s*_database = database;", Code(App));
     }
 
     [Fact]
