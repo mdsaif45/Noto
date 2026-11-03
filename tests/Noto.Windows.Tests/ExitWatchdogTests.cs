@@ -6,50 +6,56 @@ using Xunit;
 namespace Noto.Windows.Tests;
 
 /// <summary>
-/// The process ends, however its teardown behaves (ADR-014): a process that will not end is ended by the watchdog
-/// within its grace, with exit code 0, and the overrun is recorded. Proved on a real child process that blocks.
+/// The bounded-shutdown safeguard (ADR-017 §10): after its grace the watchdog records the overrun, then ends the
+/// process with exit code 0; the end runs even if recording fails. The clock runs here on its own thread, as in Noto,
+/// with the end observed instead of performed; that the end Noto uses is TerminateProcess is guarded below.
 /// </summary>
 public sealed class ExitWatchdogTests
 {
     [Fact]
-    public void A_process_that_will_not_end_is_ended_within_the_grace_and_the_overrun_recorded()
+    public void After_the_grace_the_overrun_is_recorded_then_the_process_ended()
     {
-        string marker = Path.Join(Path.GetTempPath(), $"noto-watchdog-{Guid.NewGuid():N}.txt");
-        string assembly = typeof(ExitWatchdog).Assembly.Location;
+        var steps = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        using var ended = new ManualResetEventSlim();
+        var clock = Stopwatch.StartNew();
 
-        // The child arms the watchdog, then blocks its main (foreground) thread for 30 s: without the watchdog it
-        // would still be running long after the test's bound. The overrun callback is compiled code, not a script
-        // block: the watchdog's thread has no PowerShell runspace to run one.
-        string script = $"Add-Type -Path '{assembly}'; "
-            + $"Add-Type -TypeDefinition 'public static class Overran {{ public static void Record() {{ System.IO.File.WriteAllText(@\"{marker}\", \"overran\"); }} }}'; "
-            + "[Noto.Platform.Windows.ExitWatchdog]::Arm([TimeSpan]::FromMilliseconds(400), [Overran].GetMethod('Record').CreateDelegate([Action])); "
-            + "Start-Sleep -Seconds 30";
-        var start = new ProcessStartInfo("pwsh", ["-NoProfile", "-NonInteractive", "-Command", script])
+        ExitWatchdog.Arm(TimeSpan.FromMilliseconds(300), () => steps.Enqueue("overran"), () =>
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+            steps.Enqueue("ended");
+            ended.Set();
+        });
 
-        try
+        Assert.True(ended.Wait(TimeSpan.FromSeconds(10)), "the watchdog never ended the process");
+        Assert.True(clock.Elapsed >= TimeSpan.FromMilliseconds(300), $"ended after {clock.Elapsed.TotalMilliseconds} ms, before the grace");
+        Assert.Equal(["overran", "ended"], steps);
+    }
+
+    [Fact]
+    public void The_process_is_ended_even_when_recording_the_overrun_fails()
+    {
+        using var ended = new ManualResetEventSlim();
+
+        // In Noto the end ends the process before the failed record could be rethrown. Here the end parks the clock's
+        // background thread instead, so the rethrow never reaches the test host.
+        ExitWatchdog.Arm(TimeSpan.FromMilliseconds(50), () => throw new IOException("log unavailable"), () =>
         {
-            using Process child = Process.Start(start)!;
-            var clock = Stopwatch.StartNew();
-            bool ended = child.WaitForExit(15_000);
+            ended.Set();
+            Thread.Sleep(Timeout.Infinite);
+        });
 
-            if (!ended)
-            {
-                child.Kill();
-            }
+        Assert.True(ended.Wait(TimeSpan.FromSeconds(10)), "a failed record stopped the end");
+    }
 
-            Assert.True(ended, "the watchdog did not end the process");
-            Assert.Equal(0, child.ExitCode);
-            Assert.InRange(clock.Elapsed, TimeSpan.FromMilliseconds(400), TimeSpan.FromSeconds(15));
-            Assert.Equal("overran", File.ReadAllText(marker));
-        }
-        finally
-        {
-            File.Delete(marker);
-        }
+    [Fact]
+    public void Noto_ends_itself_with_TerminateProcess_and_exit_code_0()
+    {
+        string watchdog = File.ReadAllText(SourcePath("src", "Noto.Platform.Windows", "ExitWatchdog.cs"));
+
+        Assert.Matches(
+            @"public static void Arm\(TimeSpan grace, Action\? onOverrun\) =>\s*Arm\(grace, onOverrun, \(\) => NativeMethods\.TerminateProcess\(NativeMethods\.GetCurrentProcess\(\), 0\)\);",
+            watchdog);
+        Assert.Matches(@"try\s*\{\s*onOverrun\?\.Invoke\(\);\s*\}\s*finally\s*\{\s*end\(\);\s*\}", watchdog);
+        Assert.Matches(@"IsBackground = true,", watchdog);
     }
 
     [Fact]
