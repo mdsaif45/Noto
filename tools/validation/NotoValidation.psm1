@@ -242,8 +242,15 @@ function Start-ShortLived {
 }
 
 function Start-Noto {
-    param($Run, [Parameter(Mandatory)] [string] $Exe, [Parameter(Mandatory)] [string] $DataRoot)
+    <#
+      Starts Noto on an isolated data root and waits for its window. A data root with no database is a new workspace,
+      which opens with the welcome (ADR-021): it is skipped here, by its own Skip button through UI Automation (no keys),
+      so a run starts on the folder list as before. -KeepWelcome leaves it open (Invoke-Welcome.ps1). A new workspace
+      that does not open with the welcome is a failure of the rule, and stops the run.
+    #>
+    param($Run, [Parameter(Mandatory)] [string] $Exe, [Parameter(Mandatory)] [string] $DataRoot, [switch] $KeepWelcome)
     Assert-UnderRun $Run $DataRoot
+    $fresh = -not (Test-Path (Join-Path $DataRoot 'noto.db'))
     $p = Start-ViaShell $Run -File $Exe -Arguments "--data-root=`"$DataRoot`"" -Marker "--data-root=`"$DataRoot`""
     $deadline = (Get-Date).AddSeconds(30); $h = [IntPtr]::Zero
     while ((Get-Date) -lt $deadline -and $h -eq [IntPtr]::Zero) {
@@ -254,7 +261,24 @@ function Start-Noto {
     }
     if ($h -eq [IntPtr]::Zero) { throw "Noto $($p.Pid) showed no window" }
     Start-Sleep -Seconds 2   # docking completes after the first frame
+    if ($fresh -and -not $KeepWelcome) { Skip-NotoWelcome $h }
     [pscustomobject]@{ Pid = $p.Pid; Hwnd = $h; Parent = $p.Parent; DataRoot = $DataRoot }
+}
+
+function Skip-NotoWelcome {
+    <# Presses the welcome's Skip through UI Automation and waits until the welcome is gone. #>
+    param([Parameter(Mandatory)] [IntPtr] $Hwnd)
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $AE = [System.Windows.Automation.AutomationElement]
+    $byId = { param($id) $AE::FromHandle($Hwnd).FindFirst([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $id)) }
+    $deadline = (Get-Date).AddSeconds(15); $skip = $null
+    while ((Get-Date) -lt $deadline -and -not $skip) { $skip = & $byId 'WelcomeSkipButton'; if (-not $skip) { Start-Sleep -Milliseconds 200 } }
+    if (-not $skip) { throw 'a new workspace did not open with its welcome (ADR-021)' }
+    $skip.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $deadline = (Get-Date).AddSeconds(10)
+    while ((Get-Date) -lt $deadline -and (& $byId 'WelcomeRoot')) { Start-Sleep -Milliseconds 200 }
+    if (& $byId 'WelcomeRoot') { throw 'the welcome did not close when skipped' }
+    Start-Sleep -Milliseconds 500   # focus returns to the folder list on the next dispatcher pass
 }
 
 function Stop-Noto {

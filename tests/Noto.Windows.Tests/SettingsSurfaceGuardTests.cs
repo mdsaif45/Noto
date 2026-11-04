@@ -184,8 +184,9 @@ public sealed class SettingsSurfaceGuardTests
     {
         string open = Body(Main, "OpenSettings");
 
-        // Already open: focus moves into it, no second surface.
-        Assert.Matches(@"if \(SettingsSurface is \{ \} open\)\s*\{\s*open\.FocusFirst\(\);\s*return;", open);
+        // Already open: focus moves into it, no second surface; unless a welcome opened from it is in front, which is
+        // then left (ADR-021).
+        Assert.Matches(@"if \(SettingsSurface is \{ \} open\)\s*\{\s*if \(WelcomeSurface is not null && _welcomeReturn == open\)\s*\{\s*CloseWelcome\(\);\s*return;\s*\}\s*open\.FocusFirst\(\);\s*return;", open);
         Assert.True(Index(open, "if (SettingsSurface is { } open)") < Index(open, "new SettingsPage()"));
 
         // Created once per open, beside the surfaces, wired, and remembered before it is shown.
@@ -282,12 +283,12 @@ public sealed class SettingsSurfaceGuardTests
     // ---------------------------------------------------------------- structure and accessibility
 
     [Fact]
-    public void The_page_has_the_approved_ids_one_title_and_the_five_sections_in_order()
+    public void The_page_has_the_approved_ids_one_title_and_the_six_sections_in_order()
     {
         string[] ids =
         [
             "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "SideSetting",
-            "EscapeSetting", "ThemeSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton",
+            "EscapeSetting", "ThemeSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
 
@@ -297,7 +298,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var headings = PageXaml.Descendants().Where(e => e.Attribute("AutomationProperties.HeadingLevel") is not null).ToList();
         Assert.Equal(["Settings"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level1").Select(h => (string?)h.Attribute("Text")));
-        Assert.Equal(["General", "Sidebar", "Appearance", "Shortcuts", "Data"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2").Select(h => (string?)h.Attribute("Text")));
+        Assert.Equal(["General", "Sidebar", "Appearance", "Shortcuts", "Data", "Help"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2").Select(h => (string?)h.Attribute("Text")));
 
         // Messages announce themselves; the text is the name.
         foreach (string message in new[] { "HotkeyMessage", "SettingsNoticeText" })
@@ -322,7 +323,7 @@ public sealed class SettingsSurfaceGuardTests
         var rows = scroll.Descendants().Where(e => e.Name.LocalName == "Grid").ToList();
         var failures = new List<string>();
 
-        Assert.Equal(5, groups.Count);
+        Assert.Equal(6, groups.Count);
 
         foreach (XElement panel in groups.Select(group => Assert.Single(group.Elements())))
         {
@@ -330,8 +331,9 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // Nine settings, and the Data group's Back up, Restore, Export, Import and their progress line (ADR-020).
-        Assert.Equal(14, rows.Count);
+        // Nine settings, the Data group's Back up, Restore, Export, Import and their progress line (ADR-020), and Help's
+        // Welcome tour (ADR-021).
+        Assert.Equal(15, rows.Count);
 
         foreach (XElement row in rows)
         {

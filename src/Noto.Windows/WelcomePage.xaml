@@ -1,0 +1,111 @@
+<UserControl
+    x:Class="Noto.WelcomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    AutomationProperties.AutomationId="WelcomeRoot"
+    AutomationProperties.Name="Welcome to Noto">
+
+    <!--
+        The welcome (ADR-021): four short steps a new workspace opens with, and Settings > Help opens again. A surface
+        of the drawer like Settings, created when it opens and released when it is left; not a window, a dialog or a
+        navigation framework.
+
+        One column, centred and no wider than ReadingWidth: where the reader is ("Step 2 of 4", and a bar that says the
+        same by its length, so the step is never shown by colour alone), the step's title and one line under it, and
+        what the step says in a card, the notes' own card language. The actions sit under the card: Skip on the left,
+        apart from Back and the primary action, Next or Get started, on the right. The primary action is the only
+        button with a fill (FolderPaneButtonStyle); Back and Skip are subtle, the Back buttons' style. Tab order is
+        document order, which is the visual order.
+
+        Every visual value is a token.
+    -->
+
+    <Grid Background="{ThemeResource SurfaceSidebarBrush}" Padding="{StaticResource PanePadding}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel
+                x:Name="WelcomeLayout"
+                MaxWidth="{StaticResource ReadingWidth}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Center"
+                Spacing="{StaticResource SpaceL}">
+
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <!-- Where the reader is, in words. A change of step is announced by the page (WelcomePage.ShowStep). -->
+                    <TextBlock
+                        x:Name="WelcomeProgressText"
+                        Style="{StaticResource SettingDescriptionStyle}"
+                        AutomationProperties.AutomationId="WelcomeProgressText" />
+                    <!-- The same, by length: decoration, so the text above is the one thing read. -->
+                    <ProgressBar
+                        x:Name="WelcomeProgressBar"
+                        Minimum="0"
+                        AutomationProperties.AccessibilityView="Raw" />
+                </StackPanel>
+
+                <StackPanel Spacing="{StaticResource SpaceXS}">
+                    <TextBlock
+                        x:Name="WelcomeTitle"
+                        Style="{StaticResource SurfaceTitleStyle}"
+                        TextWrapping="Wrap"
+                        TextTrimming="None"
+                        AutomationProperties.AutomationId="WelcomeTitle"
+                        AutomationProperties.HeadingLevel="Level1" />
+                    <TextBlock
+                        x:Name="WelcomeSummary"
+                        Style="{StaticResource FolderPaneGuidanceStyle}"
+                        AutomationProperties.AutomationId="WelcomeSummary" />
+                </StackPanel>
+
+                <Border Style="{StaticResource SettingsGroupStyle}">
+                    <ItemsControl x:Name="WelcomeLines" IsTabStop="False" AutomationProperties.AutomationId="WelcomeLines">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="{StaticResource SpaceM}" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Text="{x:Bind}" Style="{StaticResource SettingLabelStyle}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <Grid ColumnSpacing="{StaticResource SpaceS}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        x:Name="WelcomeSkipButton"
+                        Grid.Column="0"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Content="Skip"
+                        Click="OnSkipClick"
+                        AutomationProperties.AutomationId="WelcomeSkipButton"
+                        AutomationProperties.Name="Skip the welcome" />
+                    <Button
+                        x:Name="WelcomeBackButton"
+                        Grid.Column="2"
+                        Visibility="Collapsed"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Content="Back"
+                        Click="OnBackClick"
+                        AutomationProperties.AutomationId="WelcomeBackButton"
+                        AutomationProperties.Name="Back" />
+                    <Button
+                        x:Name="WelcomeNextButton"
+                        Grid.Column="3"
+                        Style="{StaticResource FolderPaneButtonStyle}"
+                        Content="Next"
+                        Click="OnNextClick"
+                        AutomationProperties.AutomationId="WelcomeNextButton"
+                        AutomationProperties.Name="Next" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+
+</UserControl>

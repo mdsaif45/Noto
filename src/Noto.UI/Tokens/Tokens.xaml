@@ -83,6 +83,13 @@
     <x:Double x:Key="SettingSwitchWidth">44</x:Double>
 
     <!--
+        The widest a column of reading text grows (the welcome, ADR-021): about 60 characters of Body type. In the default
+        360 DIP drawer it is never reached; in a drawer widened past it, the column stays this wide and centred, so a
+        line stays short enough to read. Not a step of the scale: a measure of text, not of space.
+    -->
+    <x:Double x:Key="ReadingWidth">440</x:Double>
+
+    <!--
         The gap between an icon and its label, everywhere one leads a label: a folder row, the Recycle Bin button. One
         value, so every icon-and-label pair in the pane lines up the same way.
     -->

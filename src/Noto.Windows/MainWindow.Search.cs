@@ -34,7 +34,7 @@ public sealed partial class MainWindow
     /// </summary>
     internal void OpenSearch()
     {
-        if (Search is null || SettingsSurface is not null || RecycleBinSurface is not null)
+        if (Search is null || SettingsSurface is not null || RecycleBinSurface is not null || WelcomeSurface is not null)
         {
             return;
         }

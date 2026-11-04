@@ -42,7 +42,7 @@ public sealed class SearchGuardTests
     public void Opening_Search_saves_first_and_never_covers_Settings_or_the_bin()
     {
         string open = Body(Search, "OpenSearch");
-        Assert.Contains("if (Search is null || SettingsSurface is not null || RecycleBinSurface is not null)", open, StringComparison.Ordinal);
+        Assert.Contains("if (Search is null || SettingsSurface is not null || RecycleBinSurface is not null || WelcomeSurface is not null)", open, StringComparison.Ordinal);
         Assert.True(open.IndexOf("_ = TrySaveCard();", StringComparison.Ordinal) is var save and >= 0 && save < open.IndexOf("new SearchPage()", StringComparison.Ordinal));
     }
 

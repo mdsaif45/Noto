@@ -4,6 +4,7 @@ using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
+using WelcomeState = Noto.Core.Workspace.WelcomeState;
 using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
 
 namespace Noto.Core.Settings;
@@ -216,6 +217,19 @@ public static class SettingKeys
         new("notes.recent-move-folders", string.Empty, RecentFolders.IsValid);
 
     /// <summary>
+    /// Where this workspace stands with its welcome (ADR-021).
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="WelcomeState.None"/>: a workspace with no row, one opened, upgraded or restored, never shows
+    /// the welcome. Only startup writes <see cref="WelcomeState.Due"/>, and only for a database it has just created;
+    /// finishing or skipping the welcome writes how it ended. Stored by member name; a value that is not a member is
+    /// refused when written and reads as the default. No settings row: Settings' Welcome tour opens it without
+    /// changing this.
+    /// </remarks>
+    public static readonly SettingKey<WelcomeState> OnboardingWelcome =
+        new("onboarding.welcome", WelcomeState.None, Enum.IsDefined);
+
+    /// <summary>
     /// How much Noto writes to its log (#7).
     /// </summary>
     /// <remarks>
@@ -248,6 +262,7 @@ public static class SettingKeys
         AppearanceTheme,
         NotesNewPlacement,
         NotesRecentMoveFolders,
+        OnboardingWelcome,
         DiagnosticsLogLevel,
     ];
 
