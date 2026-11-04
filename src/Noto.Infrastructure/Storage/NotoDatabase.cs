@@ -159,7 +159,12 @@ public sealed class NotoDatabase
     /// Brings the database to the current schema version. Safe to call on every
     /// start: it does nothing when already current.
     /// </summary>
-    public void Initialize()
+    /// <returns>
+    /// Whether the database was new: an empty file, created now, with no schema
+    /// before this call. A workspace opened, upgraded or restored returns
+    /// <see langword="false"/>. Its welcome is decided from this (ADR-021).
+    /// </returns>
+    public bool Initialize()
     {
         using var connection = OpenConnection();
 
@@ -187,5 +192,7 @@ public sealed class NotoDatabase
 
         var runner = new MigrationRunner(_log);
         runner.Run(connection);
+
+        return !hasExistingData;
     }
 }

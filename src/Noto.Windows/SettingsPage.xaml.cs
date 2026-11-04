@@ -71,6 +71,12 @@ public sealed partial class SettingsPage : UserControl
     /// <summary>The user asked to leave Settings: the Back button.</summary>
     public event EventHandler? BackRequested;
 
+    /// <summary>The user asked for the welcome tour (ADR-021): Help's Show tour.</summary>
+    public event EventHandler? WelcomeRequested;
+
+    /// <summary>Help's Show tour: where focus returns when the tour it opened is left.</summary>
+    internal Control HelpButton => ShowWelcomeButton;
+
     /// <summary>Shows every setting as it is stored now.</summary>
     internal void Show(SettingsContext context, string? hotkeyMessage)
     {
@@ -410,4 +416,6 @@ public sealed partial class SettingsPage : UserControl
         ShowNotice(_context is null || _context.OpenStartupApps() ? null : "Windows Settings could not be opened.");
 
     private void OnBackClick(object sender, RoutedEventArgs e) => BackRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnShowWelcomeClick(object sender, RoutedEventArgs e) => WelcomeRequested?.Invoke(this, EventArgs.Empty);
 }

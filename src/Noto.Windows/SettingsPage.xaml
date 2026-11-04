@@ -8,7 +8,7 @@
     <!--
         The settings surface (Slice 1, parity J table): the workspace's fourth
         surface, inside the drawer, opened from the header, Ctrl+, or the tray.
-        One scrolling page, five sections; no navigation view, no second window.
+        One scrolling page, six sections; no navigation view, no second window.
 
         Every control is WinUI's own (ToggleSwitch, ComboBox, Button), styled by
         the design system, so each has Noto's states in Light, Dark and High
@@ -418,6 +418,34 @@
                                     AutomationProperties.Name="Cancel" />
                             </Grid>
 
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- HELP -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Help" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Welcome tour" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Four short steps: showing Noto, folders, writing, your data." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="ShowWelcomeButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Show tour"
+                                    Click="OnShowWelcomeClick"
+                                    AutomationProperties.Name="Show the welcome tour" />
+                            </Grid>
                         </StackPanel>
                     </Border>
                 </StackPanel>

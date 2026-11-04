@@ -194,6 +194,7 @@ public sealed partial class MainWindow : Window
         PaneRoot.Loaded -= OnPaneFirstLoaded;
 
         Refresh();
+        OpenWelcomeAtStart();
     }
 
     /// <summary>
@@ -1431,11 +1432,19 @@ public sealed partial class MainWindow : Window
 
         if (SettingsSurface is { } open)
         {
+            // Under a welcome opened from it: leaving the welcome is going back to Settings.
+            if (WelcomeSurface is not null && _welcomeReturn == open)
+            {
+                CloseWelcome();
+                return;
+            }
+
             open.FocusFirst();
             return;
         }
 
-        UIElement from = RecycleBinSurface is { } bin ? bin
+        UIElement from = WelcomeSurface is { } welcome ? welcome
+            : RecycleBinSurface is { } bin ? bin
             : SearchSurface is { } search ? search
             : NoteRoot.Visibility == Visibility.Visible ? NoteRoot
             : PaneRoot;
@@ -1452,6 +1461,7 @@ public sealed partial class MainWindow : Window
         ((Panel)PaneRoot.Parent).Children.Add(page);
         SettingsSurface = page;
         page.Imported += OnSettingsImported;
+        page.WelcomeRequested += OnSettingsWelcomeRequested;
 
         page.Show(Settings, _hotkeyMessage);
         from.Visibility = Visibility.Collapsed;
@@ -1485,10 +1495,12 @@ public sealed partial class MainWindow : Window
         page.BackRequested -= OnSettingsBackRequested;
         SettingsSurface = null;
         page.Imported -= OnSettingsImported;
+        page.WelcomeRequested -= OnSettingsWelcomeRequested;
 
         Control restore = _settingsReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous
             ? previous
             : back == NoteRoot ? NoteList
+            : back is WelcomePage welcome ? welcome.PrimaryButton
             : FolderList;
 
         _settingsReturn = null;

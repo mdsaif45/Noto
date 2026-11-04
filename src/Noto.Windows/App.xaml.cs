@@ -455,10 +455,11 @@ public partial class App : Application
         // Creates the file on first run and applies any pending migration. A
         // database that cannot be opened or brought up to date is refused with
         // a message naming the file, never a crash (#10); the log records
-        // only why.
+        // only why. Whether it was created now decides the welcome (ADR-021).
+        bool created;
         try
         {
-            database.Initialize();
+            created = database.Initialize();
         }
         catch (StorageException ex)
         {
@@ -515,6 +516,14 @@ public partial class App : Application
         IClock clock = SystemClock.Instance;
 
         var preferences = new WorkspacePreferences(settings);
+
+        // The welcome (ADR-021): only a workspace created by this start, or one whose welcome is still owed, and only
+        // while it holds nothing. Whether it holds anything is asked only then, so every other start reads no row.
+        var onboarding = new Onboarding(settings);
+        bool welcome = onboarding.ShowAtStart(
+            created,
+            restored == RestoreOutcome.Applied,
+            () => Onboarding.HoldsAnything(folders, notes));
 
         // Start with Windows (#94): Windows' own registration, read and set by the tray and by Settings alike, so
         // there is one source of truth and it is Windows'.
@@ -633,6 +642,11 @@ public partial class App : Application
         };
 
         main.Portability = portability;
+
+        // The welcome, telling the shortcut as it is when it opens; how it ended is recorded, and only that.
+        main.WelcomeTour = () => WelcomeTour.For(preferences.HotkeyEnabled ? preferences.HotkeyBinding : null);
+        main.WelcomeEnded = outcome => _ = outcome == WelcomeState.Completed ? onboarding.Complete() : onboarding.Skip();
+        main.WelcomeAtStart = welcome;
 
         // What the last start's restore did, said where the user is looking when Noto opens.
         main.ShowRestoreOutcome(restored);

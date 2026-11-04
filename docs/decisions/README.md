@@ -35,6 +35,7 @@ These records are the defense against that.
 | [ADR-018](ADR-018-search.md) | Search: one FTS5 index, one keyboard-first surface | Accepted |
 | [ADR-019](ADR-019-rich-content.md) | Rich content: links that open safely, and images kept beside the text | Accepted |
 | [ADR-020](ADR-020-data-portability.md) | Data portability: backup, restore, export and import | Accepted |
+| [ADR-021](ADR-021-welcome.md) | The welcome: a four-step tour for a new workspace | Accepted |
 
 ### Why two are Proposed
 
