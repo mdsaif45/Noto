@@ -112,7 +112,16 @@ public sealed partial class NoteEditorHost : UserControl
         // RichEdit's undo records Noto's restyles (spike finding 8): Noto owns undo.
         NoteEditor.Document.UndoLimit = 0;
         NoteEditor.ValueSource = () => _text;
-        NoteEditor.ValueSink = value => Apply(new TextEdit(0, _text.Length, Normalize(value), TextSelection.Caret(Normalize(value).Length)), record: true);
+        // UI Automation's SetValue makes only the change, as typing does: replacing the whole document unstyled the note,
+        // and on a ~100 KB note reopened after one, the next large replace failed WinUI fast (measured: 0xC000027B).
+        NoteEditor.ValueSink = value =>
+        {
+            string now = Normalize(value);
+            if (TextDiff.Between(_text, now, TextSelection.Caret(now.Length)) is { } edit)
+            {
+                Apply(edit, record: true);
+            }
+        };
 
         NoteEditor.TextChanging += (_, e) =>
         {
