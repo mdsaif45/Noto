@@ -48,7 +48,9 @@ public sealed class AttachmentStoreTests : IDisposable
         // A renamed file is not taken for an image: an executable named .png stays outside the note.
         byte[] notImage = [0x4D, 0x5A, 0x90, 0x00, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        Assert.Equal((ImageKeeping.NotAnImage, (string?)null), _store.Keep(notImage, type));
+        (ImageKeeping outcome, string? reference) = _store.Keep(notImage, type);
+        Assert.Equal(ImageKeeping.NotAnImage, outcome);
+        Assert.Null(reference);
         Assert.Empty(Directory.Exists(Path.Join(_root, "attachments")) ? Directory.GetFiles(Path.Join(_root, "attachments")) : []);
     }
 
