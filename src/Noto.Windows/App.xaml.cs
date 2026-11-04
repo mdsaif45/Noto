@@ -14,6 +14,7 @@ using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
 using Noto.Infrastructure.Diagnostics;
+using Noto.Infrastructure.Portability;
 using Noto.Infrastructure.Storage;
 using Noto.Platform.Windows;
 using Noto.UseCases.Commands;
@@ -359,6 +360,9 @@ public partial class App : Application
     /// </summary>
     private LoginRegistration? _login;
 
+    // Set by Restart: the process starts Noto again once everything is released.
+    private bool _restartAfterRelease;
+
     public App()
     {
         InitializeComponent();
@@ -440,6 +444,10 @@ public partial class App : Application
         // Before the database and the window, so a launch arriving during
         // startup is taken now and acted on once the window exists.
         StartActivationPipe();
+
+        // A restore committed before the last restart replaces the workspace here (ADR-020 §3): this process owns the
+        // data root and nothing has opened the database yet. It is the old workspace or the new one, never a mix.
+        RestoreOutcome restored = PendingRestore.ApplyIfPending(paths, TimeProvider.System);
 
         var database = new NotoDatabase(paths.DatabaseFile, log);
         _database = database;
@@ -584,6 +592,17 @@ public partial class App : Application
         _ = events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, listFolders.Execute()));
 
         var dispatcher = new CommandDispatcher(commands, events);
+
+        // Backup, restore, export and import (ADR-020): the window and the editor are reached through the fields, set
+        // below, because they need it at construction.
+        var portability = new DataPortability(
+            paths,
+            database,
+            images,
+            () => _window is null ? 0 : WindowNative.GetWindowHandle(_window),
+            () => _main?.SaveBeforeHide(),
+            Restart);
+
         var main = new MainWindow(
             listFolders,
             new NoteStackSession(new ListNotesInFolderQuery(notes), dispatcher),
@@ -602,6 +621,7 @@ public partial class App : Application
                 new ListNotesInFolderQuery(notes),
                 dispatcher),
             Settings = new SettingsContext(
+                portability,
                 preferences,
                 () => _login?.State(),
                 SetLoginStartup,
@@ -611,6 +631,11 @@ public partial class App : Application
                 SuspendHotkey,
                 pressed => ObserveRecorderKeys(pressed, preferences)),
         };
+
+        main.Portability = portability;
+
+        // What the last start's restore did, said where the user is looking when Noto opens.
+        main.ShowRestoreOutcome(restored);
 
         // The theme before the first frame, so a chosen theme is never preceded by Windows' own.
         ApplyTheme(main, preferences.Theme);
@@ -1206,6 +1231,17 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// Quits, and starts Noto again on the same data root once everything is released (a restore applies at that
+    /// start, ADR-020 §3). The one end of the application stays the window's Closed; the new process starts at the end
+    /// of <see cref="ReleaseResources"/>, after the data root's claim is let go.
+    /// </summary>
+    private void Restart()
+    {
+        _restartAfterRelease = true;
+        Quit();
+    }
+
+    /// <summary>
     /// What the process holds, released when it ends: when the window is
     /// destroyed, or on the failure and startup-failure paths. Every disposal
     /// is idempotent.
@@ -1226,6 +1262,14 @@ public partial class App : Application
         Trace.WriteLine($"Noto.Instance released key={_instanceKey?.PathHash}");
         _activationPipe?.Dispose();
         _ownership?.Dispose();
+
+        // A restart (a restore committed): only the data root is passed on, so it is the same workspace, shown.
+        if (_restartAfterRelease)
+        {
+            _restartAfterRelease = false;
+            Trace.WriteLine("Noto.Portability restarting");
+            _ = Relaunch.Start(Environment.GetCommandLineArgs().Where(a => a.StartsWith(DataRootSwitch, StringComparison.Ordinal)));
+        }
     }
 
     /// <summary>

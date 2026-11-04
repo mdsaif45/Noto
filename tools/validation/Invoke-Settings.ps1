@@ -88,7 +88,19 @@ function Until([scriptblock] $Condition, [int] $Seconds = 5) {
 function Element([string] $Id) { $AE::FromHandle($noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) }
 function Visible-Id([string] $Id) { $e = Element $Id; [bool]($e -and -not $e.Current.IsOffscreen) }
 function Find-ById([string] $Id, [int] $Seconds = 10) {
-    if (-not (Until { Visible-Id $Id } $Seconds)) { throw "no visible element '$Id' within ${Seconds}s" }
+    if (-not (Until { Visible-Id $Id } $Seconds)) {
+        # The page is taller than the window since the Data rows (ADR-020): a control that is there but scrolled out
+        # of view is brought into it, as a person would scroll, by the page's own scroll pattern; never by focus.
+        $scroll = Element 'SettingsScroll'
+        if ((Element $Id) -and $scroll) {
+            foreach ($percent in 0, 100) {
+                $scroll.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, $percent)
+                if (Until { Visible-Id $Id } 2) { return Element $Id }
+            }
+        }
+
+        throw "no visible element '$Id' within ${Seconds}s"
+    }
     Element $Id
 }
 function Items([string] $ListId) {
@@ -353,7 +365,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'BackupButton', 'RestoreButton', 'ExportButton', 'ImportButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

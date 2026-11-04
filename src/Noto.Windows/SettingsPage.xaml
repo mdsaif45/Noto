@@ -308,6 +308,116 @@
                                     AutomationProperties.Name="Open the data folder in Explorer" />
                             </Grid>
 
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Back up" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Save every note, folder, picture and setting to one file." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="BackupButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Back up…"
+                                    Click="OnBackupClick"
+                                    AutomationProperties.Name="Back up everything to a file" />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Restore" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Replace everything with a backup. What is here now is saved first." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="RestoreButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Restore…"
+                                    Click="OnRestoreClick"
+                                    AutomationProperties.Name="Restore from a backup" />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Export" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Save every note as a Markdown file, with its pictures." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="ExportButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Export…"
+                                    Click="OnExportClick"
+                                    AutomationProperties.Name="Export all notes as Markdown" />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Import" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Add Markdown files and their pictures from a folder." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="ImportButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Import…"
+                                    Click="OnImportClick"
+                                    AutomationProperties.Name="Import Markdown from a folder" />
+                            </Grid>
+
+                            <!--
+                                The work in progress and its result (ADR-020 §6): a bar that says how far, the step in words,
+                                and Cancel. Announced politely; a failure is the page's notice line, above.
+                            -->
+                            <Grid x:Name="DataProgress" Style="{StaticResource SettingRowStyle}" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock
+                                        x:Name="DataStatusText"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        AutomationProperties.LiveSetting="Polite" />
+                                    <ProgressBar
+                                        x:Name="DataProgressBar"
+                                        Maximum="1"
+                                        AutomationProperties.Name="Progress" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="DataCancelButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Content="Cancel"
+                                    Click="OnDataCancelClick"
+                                    AutomationProperties.Name="Cancel" />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

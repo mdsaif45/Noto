@@ -123,11 +123,19 @@ public sealed class ShellLaunchTests
             string src = Path.Join(d.FullName, "src");
             if (Directory.Exists(Path.Join(src, "Noto.Windows")))
             {
-                string code = string.Join('\n', Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
+                var files = Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
                     .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-                    .Select(File.ReadAllText));
+                    .ToList();
+                string code = string.Join('\n', files.Where(f => Path.GetFileName(f) != "Relaunch.cs").Select(File.ReadAllText));
                 Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(code, @"Process\.Start\("));
                 Assert.DoesNotMatch(@"Launcher\.Launch(Uri|File|Folder)", code);
+
+                // The one other start is Noto's own executable after a restore (ADR-020 §3): never the shell, never a
+                // destination from a note.
+                string relaunch = File.ReadAllText(files.Single(f => Path.GetFileName(f) == "Relaunch.cs"));
+                Assert.Equal(1, System.Text.RegularExpressions.Regex.Count(relaunch, @"Process\.Start\("));
+                Assert.Contains("if (Environment.ProcessPath is not { } executable)", relaunch, StringComparison.Ordinal);
+                Assert.Contains("new ProcessStartInfo(executable) { UseShellExecute = false };", relaunch, StringComparison.Ordinal);
                 return;
             }
         }

@@ -169,6 +169,16 @@
                         AutomationProperties.LiveSetting="Assertive" />
 
                     <!--
+                        A result, said quietly: a restore that finished, an export that was written. The secondary
+                        colour, announced politely; a failure is the notice above.
+                    -->
+                    <TextBlock
+                        x:Name="StatusText"
+                        Style="{StaticResource FolderPaneGuidanceStyle}"
+                        Visibility="Collapsed"
+                        AutomationProperties.LiveSetting="Polite" />
+
+                    <!--
                         Recovery from Error. Only visible in Error, because there is
                         nothing to retry otherwise — and without it the pane is a dead
                         end: Error disables the list, the input and Create, so the
@@ -349,6 +359,12 @@
                         Style="{StaticResource FolderPaneNoticeStyle}"
                         Visibility="Collapsed"
                         AutomationProperties.LiveSetting="Assertive" />
+
+                    <TextBlock
+                        x:Name="NoteStatusText"
+                        Style="{StaticResource FolderPaneGuidanceStyle}"
+                        Visibility="Collapsed"
+                        AutomationProperties.LiveSetting="Polite" />
 
                     <Button
                         x:Name="NoteRetryButton"
