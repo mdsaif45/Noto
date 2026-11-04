@@ -334,6 +334,62 @@ against. This ADR is what makes that decision coherent.
   `WorkspaceToggle`, which turns a show during a hide into a reversal; ADR-007
   records the request rules (*Motion*).
 
+**2026-11-04 — the visual refresh (v0.1).**
+
+Informed by the qualities of a SideNotes review video (separated cards, a
+compact header, quiet chrome, neutral selection), not by its macOS look. Every
+value is a token; nothing here adds a literal.
+
+- **Notes are cards; lists stay rows.**
+  - The stack's notes use `NoteCardStyle`: `SurfaceCard` fill, a `BorderSubtle`
+    edge, `RadiusMedium`, `CardPadding` (16,12) and an 8 DIP `CardSpacing` gap.
+  - Search results and the Recycle Bin keep `NoteRowStyle`: they are lists to
+    scan.
+  - Settings groups take the same `SurfaceCard` fill, so every raised
+    container is one surface.
+- **Selection is neutral.**
+  - Rows: a neutral fill (Light `#E1E1E1`, Dark `#383838`), the primary text,
+    and the accent pill. The pill is now inset 4 DIP
+    (`SelectionIndicatorMargin`): measured, at the row's edge the focus ring
+    covered it.
+  - Cards: a selected card keeps its fill and takes the accent on its whole
+    edge, with no pill.
+  - Weight no longer changes on selection: it reflowed the row. Selection is
+    still never colour alone (pill or edge, and the fill).
+  - This supersedes Slice 1's accent-tinted selection fill. In high contrast,
+    hover and selection are still Highlight under HighlightText, now for cards
+    too (`SurfaceCardHover`, `SurfaceCardSelected`); a card at rest is Window.
+- **The editor is the card.**
+  - `NoteEditorStyle` has the card's fill, and no border or padding of its own,
+    so text does not move when editing starts.
+  - The card fill is the input surface in Light and Dark, so the RichEdit's
+    focused fill adds no box.
+- **Every surface is headed alike.**
+  - The stack, Settings and the Recycle Bin each have a Back icon button and
+    one `SurfaceTitleStyle` title (Heading size, SemiBold, ellipsis). The
+    stack's "‹ Folder" text button became that pair.
+  - The header shows the application's name in `AppTitleStyle` (caption,
+    secondary), read once as the window title, not again by a screen reader.
+- **Dark is deeper.** The sidebar is `#202020` (was `#272727`), so a `#2D2D2D`
+  card reads as raised.
+- **Decoration follows the theme.**
+  - The folder, pin and fold markers are icon-font glyphs in the row's own
+    colour.
+  - A card's checkboxes use `FontFamilySymbol`: in the body font, ☑ fell back
+    to colour emoji and drew purple.
+  - Pictures have `RadiusSmall` corners.
+- **Verification.** `VisualRefreshGuardTests` holds these decisions. Contrast
+  pairs for the card fills are in the design-system guard.
+  `Invoke-Visual.ps1` measures, in Light and Dark:
+  - the top edge;
+  - folder row heights, the pill and the selected fill;
+  - card gaps and alignment;
+  - the title and body sizes;
+  - the edited card's accent edge;
+  - the Settings controls' right edge.
+
+  It also captures every surface for review.
+
 ---
 
 ## Alternatives rejected

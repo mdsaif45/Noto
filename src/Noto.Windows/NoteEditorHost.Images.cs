@@ -168,7 +168,7 @@ public sealed partial class NoteEditorHost
         }
 
         (double drawnWidth, double drawnHeight) = ImageSize.Fit(shown.Width, shown.Height, width, ImageMaxHeight);
-        return (new Image { Source = shown.Bitmap, Width = drawnWidth, Height = drawnHeight, Stretch = Stretch.Uniform }, drawnHeight);
+        return (ImageFiles.Picture(shown.Bitmap, drawnWidth, drawnHeight), drawnHeight);
     }
 
     /// <summary>Reads the image's size and starts decoding it at the width it is drawn; then the images are placed again.</summary>

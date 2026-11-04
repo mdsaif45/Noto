@@ -21,14 +21,6 @@
     </ResourceDictionary.MergedDictionaries>
 
     <!-- The page title: Heading type. Announced as a level-1 heading by the page. -->
-    <Style x:Key="SettingsTitleStyle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeHeading}" />
-        <Setter Property="LineHeight" Value="{StaticResource LineHeightHeading}" />
-        <Setter Property="FontWeight" Value="{StaticResource FontWeightEmphasis}" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
 
     <!-- A section heading: body size at the emphasis weight (BodyStrong). -->
     <Style x:Key="SettingsSectionHeaderStyle" TargetType="TextBlock">
@@ -45,7 +37,7 @@
         belong together.
     -->
     <Style x:Key="SettingsGroupStyle" TargetType="Border">
-        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="Background" Value="{ThemeResource SurfaceCardBrush}" />
         <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
         <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
         <Setter Property="CornerRadius" Value="{StaticResource RadiusMedium}" />

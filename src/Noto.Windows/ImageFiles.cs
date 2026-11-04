@@ -1,4 +1,7 @@
 using System.Runtime.InteropServices;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
@@ -26,6 +29,18 @@ internal static class ImageFiles
             return null;
         }
     }
+
+    /// <summary>
+    /// The picture as the editor and the cards draw it: <paramref name="width"/> by <paramref name="height"/>, its
+    /// corners rounded as a control's are (RadiusSmall), so a picture sits on a card as a part of it.
+    /// </summary>
+    internal static Border Picture(BitmapImage bitmap, double width, double height) => new()
+    {
+        Width = width,
+        Height = height,
+        CornerRadius = (CornerRadius)Application.Current.Resources["RadiusSmall"],
+        Background = new ImageBrush { ImageSource = bitmap, Stretch = Stretch.Uniform },
+    };
 
     /// <summary>The image decoded at the width it is drawn, never at full resolution.</summary>
     internal static BitmapImage Bitmap(string path, double width) => new()

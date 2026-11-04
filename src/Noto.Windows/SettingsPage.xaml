@@ -45,7 +45,7 @@
             </Button>
             <TextBlock
                 Text="Settings"
-                Style="{StaticResource SettingsTitleStyle}"
+                Style="{StaticResource SurfaceTitleStyle}"
                 AutomationProperties.HeadingLevel="Level1" />
         </StackPanel>
 

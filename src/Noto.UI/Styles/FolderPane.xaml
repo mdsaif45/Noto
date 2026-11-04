@@ -38,26 +38,16 @@
     </Style>
 
     <!--
-        The note editor's text surface.
-
-        A separate style from FolderNameInputStyle, but NOT a new set of design
-        values: every brush, radius, border and type token below is the one the
-        single-line input already uses. What differs is layout — it fills its
-        row and uses the body line height, because a multi-line surface needs
-        leading that a one-line box does not.
-
-        No new token was added. The editor needed a surface, a subtle border, a
-        small radius, input padding and body type, and all five already exist
-        (ADR-011 rule 4: add when a surface needs one, not because a surface
-        appeared).
+        The note editor's text surface: the card itself (the visual refresh). The note is edited where it is read, on
+        the card's own fill, with no box of its own and no padding of its own: the card's padding is the editor's, so the
+        text does not move when editing starts. The card's accent edge says which note is being edited.
     -->
     <Style x:Key="NoteEditorStyle" TargetType="RichEditBox">
-        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="Background" Value="{ThemeResource SurfaceCardBrush}" />
         <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
-        <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
-        <Setter Property="Padding" Value="{StaticResource InputPadding}" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
         <Setter Property="MinHeight" Value="0" />
@@ -87,6 +77,33 @@
         Guidance shown in the empty state and while loading. Secondary rather
         than danger: an empty folder list is an ordinary state, not a fault.
     -->
+    <!--
+        A surface's title, beside its Back button: the folder in the stack, Settings, the Recycle Bin. One style, so every
+        surface's heading has the same size, weight and line, and a long folder name ends in an ellipsis.
+    -->
+    <Style x:Key="SurfaceTitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeHeading}" />
+        <Setter Property="LineHeight" Value="{StaticResource LineHeightHeading}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightEmphasis}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!--
+        The application's name at the head of the window, where Windows puts a title: quiet chrome, caption size and
+        the secondary colour, so the surface title below it is the first thing read.
+    -->
+    <Style x:Key="AppTitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
+        <Setter Property="LineHeight" Value="{StaticResource LineHeightCaption}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightEmphasis}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <Style x:Key="FolderPaneGuidanceStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />

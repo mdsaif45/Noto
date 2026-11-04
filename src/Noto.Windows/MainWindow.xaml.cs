@@ -656,7 +656,7 @@ public sealed partial class MainWindow : Window
         // A folder is entered fresh: no card is selected or edited.
         _selectedNoteId = null;
 
-        BackButton.Content = $"‹ {item.Name}";
+        NoteFolderTitle.Text = item.Name;
 
         PaneRoot.Visibility = Visibility.Collapsed;
         NoteRoot.Visibility = Visibility.Visible;

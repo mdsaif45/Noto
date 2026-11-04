@@ -51,4 +51,135 @@
         <Setter Property="Template" Value="{StaticResource ListRowTemplate}" />
     </Style>
 
+    <!--
+        NoteCard: a note in the stack (the visual refresh). A note is a page, not a line, so in the stack it is a card
+        raised off the sidebar: its own fill, a subtle edge, the container radius and a step of space below it. Search
+        results and the Recycle Bin stay rows (NoteRowStyle): they are lists to scan.
+
+        States, every one in Light, Dark and High Contrast:
+          Normal              the card's fill and subtle edge
+          PointerOver         the card's hover fill, InteractionText
+          Pressed             as PointerOver
+          Selected            the card's selected fill, the accent edge, the selected text: in Light and Dark
+                              the fill stays the card's, so the note being edited reads as the same page; in high
+                              contrast it is Highlight under HighlightText, as a selected row is
+          PointerOverSelected as Selected
+          PressedSelected     as Selected
+          Disabled            disabled text
+          Focused             the two-tone ring, keyboard focus only
+
+        A card has no pill: its whole edge takes the accent, which a row has no edge to do.
+
+        Every visual value is a semantic token (ADR-011 rule 1).
+    -->
+    <ControlTemplate x:Key="NoteCardTemplate" TargetType="ListViewItem">
+        <Grid x:Name="Root"
+              Background="{ThemeResource SurfaceCardBrush}"
+              BorderBrush="{ThemeResource BorderSubtleBrush}"
+              BorderThickness="{StaticResource BorderThicknessSubtle}"
+              CornerRadius="{StaticResource RadiusMedium}">
+
+            <ContentPresenter x:Name="Content"
+                              Padding="{TemplateBinding Padding}"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              TextWrapping="NoWrap" />
+
+            <Border x:Name="FocusRing"
+                    BorderBrush="{ThemeResource BorderFocusBrush}"
+                    BorderThickness="{StaticResource BorderThicknessFocus}"
+                    CornerRadius="{StaticResource RadiusMedium}"
+                    Opacity="0">
+                <Border BorderBrush="{ThemeResource BorderFocusInnerBrush}"
+                        BorderThickness="{StaticResource BorderThicknessFocusInner}"
+                        CornerRadius="{StaticResource RadiusMedium}" />
+            </Border>
+
+            <VisualStateManager.VisualStateGroups>
+
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource SurfaceCardHoverBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource SurfaceCardHoverBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="Selected">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource SurfaceCardSelectedBrush}" />
+                            <Setter Target="Root.BorderBrush" Value="{ThemeResource SelectionIndicatorBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="PointerOverSelected">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource SurfaceCardSelectedBrush}" />
+                            <Setter Target="Root.BorderBrush" Value="{ThemeResource SelectionIndicatorBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="PressedSelected">
+                        <VisualState.Setters>
+                            <Setter Target="Root.Background" Value="{ThemeResource SurfaceCardSelectedBrush}" />
+                            <Setter Target="Root.BorderBrush" Value="{ThemeResource SelectionIndicatorBrush}" />
+                            <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+
+                <VisualStateGroup x:Name="DisabledStates">
+                    <VisualState x:Name="Enabled" />
+
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Target="Content.Foreground" Value="{ThemeResource TextDisabledBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+
+                <VisualStateGroup x:Name="FocusStates">
+                    <VisualState x:Name="Unfocused" />
+
+                    <VisualState x:Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Target="FocusRing.Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+
+                    <VisualState x:Name="PointerFocused" />
+                </VisualStateGroup>
+
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+    </ControlTemplate>
+
+    <Style x:Key="NoteCardStyle" TargetType="ListViewItem">
+        <Setter Property="Padding" Value="{StaticResource CardPadding}" />
+        <Setter Property="Margin" Value="{StaticResource CardSpacing}" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeightRegular}" />
+        <Setter Property="UseSystemFocusVisuals" Value="False" />
+        <Setter Property="Template" Value="{StaticResource NoteCardTemplate}" />
+    </Style>
+
 </ResourceDictionary>
