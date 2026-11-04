@@ -18,7 +18,9 @@ namespace Noto.UseCases.Workspace;
 /// </para>
 /// <para>
 /// <b>Owed until it ends.</b> Only finishing or skipping records an end. A start that stops before either (Noto ended,
-/// or crashed, while the welcome was open) leaves it owed, and the next start shows it again.
+/// or crashed, while the welcome was open) leaves it owed, and the next start shows it again. A workspace still owed it
+/// that has come to hold data is no longer new: it owes nothing from then on, so it never reads its data at start again,
+/// and emptying it later does not bring the welcome back.
 /// </para>
 /// <para>
 /// <b>Never in the way of starting.</b> A setting that cannot be written is not an error here: the decision for this
@@ -59,7 +61,26 @@ public sealed class Onboarding(ISettingsStore settings)
             _ = TryWrite(WelcomeState.Due);
         }
 
-        return (created || State == WelcomeState.Due) && !Holds(holdsData);
+        if (!created && State != WelcomeState.Due)
+        {
+            return false;
+        }
+
+        switch (Holds(holdsData))
+        {
+            case false:
+                return true;
+
+            case true:
+                // The user's own notes arrived before the welcome ended (an import while it was open, then a crash): the
+                // workspace is no longer new, and is not owed the welcome again, however empty it later becomes.
+                _ = TryWrite(WelcomeState.None);
+                return false;
+
+            default:
+                // It could not say: not shown now, and still owed, so the next start decides.
+                return false;
+        }
     }
 
     /// <summary>
@@ -82,8 +103,9 @@ public sealed class Onboarding(ISettingsStore settings)
     /// <returns>Whether it was stored.</returns>
     public bool Skip() => TryWrite(WelcomeState.Skipped);
 
-    // A workspace that cannot say whether it holds anything is not shown the welcome: it may hold the user's notes.
-    private static bool Holds(Func<bool> holdsData)
+    // Whether the workspace holds anything, or null when it cannot say: it may hold the user's notes, so it is not shown
+    // the welcome, and nothing is settled on a failed read.
+    private static bool? Holds(Func<bool> holdsData)
     {
         try
         {
@@ -91,7 +113,7 @@ public sealed class Onboarding(ISettingsStore settings)
         }
         catch (StorageException)
         {
-            return true;
+            return null;
         }
     }
 
