@@ -17,15 +17,15 @@
           Normal              transparent
           PointerOver         hover fill, InteractionText
           Pressed             pressed fill, InteractionText
-          Selected            selected fill and text, SemiBold, the accent pill
+          Selected            selected fill and text, the accent pill
           PointerOverSelected as Selected
           PressedSelected     as Selected
           Disabled            disabled text
           Focused             the two-tone ring, keyboard focus only
 
-        Selection is the pill, the fill AND the weight, so it never depends on
+        Selection is the pill AND the fill, so it never depends on
         hue alone. In high contrast the hover and selected fills are both
-        Highlight, as in WinUI's own list; the pill and the weight tell them
+        Highlight, as in WinUI's own list; the pill tells them
         apart, and the text on either is HighlightText.
 
         Every visual value is a semantic token (ADR-011 rule 1). The
@@ -54,6 +54,7 @@
                               TextWrapping="NoWrap" />
 
             <Border x:Name="SelectionIndicator"
+                    Margin="{StaticResource SelectionIndicatorMargin}"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
                     Width="{StaticResource SelectionIndicatorWidth}"
@@ -97,7 +98,6 @@
                         <VisualState.Setters>
                             <Setter Target="Root.Background" Value="{ThemeResource InteractionSelectedBrush}" />
                             <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
-                            <Setter Target="Content.FontWeight" Value="{StaticResource FontWeightEmphasis}" />
                             <Setter Target="SelectionIndicator.Opacity" Value="1" />
                         </VisualState.Setters>
                     </VisualState>
@@ -106,7 +106,6 @@
                         <VisualState.Setters>
                             <Setter Target="Root.Background" Value="{ThemeResource InteractionSelectedBrush}" />
                             <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
-                            <Setter Target="Content.FontWeight" Value="{StaticResource FontWeightEmphasis}" />
                             <Setter Target="SelectionIndicator.Opacity" Value="1" />
                         </VisualState.Setters>
                     </VisualState>
@@ -115,7 +114,6 @@
                         <VisualState.Setters>
                             <Setter Target="Root.Background" Value="{ThemeResource InteractionSelectedBrush}" />
                             <Setter Target="Content.Foreground" Value="{ThemeResource InteractionSelectedTextBrush}" />
-                            <Setter Target="Content.FontWeight" Value="{StaticResource FontWeightEmphasis}" />
                             <Setter Target="SelectionIndicator.Opacity" Value="1" />
                         </VisualState.Setters>
                     </VisualState>

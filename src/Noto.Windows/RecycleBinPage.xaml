@@ -34,8 +34,7 @@
             </Button>
             <TextBlock
                 Text="Recycle Bin"
-                VerticalAlignment="Center"
-                FontSize="{StaticResource FontSizeHeading}"
+                Style="{StaticResource SurfaceTitleStyle}"
                 AutomationProperties.HeadingLevel="Level1" />
         </StackPanel>
 

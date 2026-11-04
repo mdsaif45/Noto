@@ -37,6 +37,11 @@
                               In Light and Dark it is the primary text; in high contrast it
                               is HighlightText, because the hover fill there is Highlight and
                               the OS pairs the two (WinUI's own list does the same).
+          SurfaceCard*        A note's card, raised off the sidebar (the visual refresh): its
+                              fill, its fill under the pointer, and its fill when it is the
+                              selected or edited card. In Light and Dark a selected card keeps
+                              its fill and takes the accent edge and pill; in high contrast it
+                              is Highlight under HighlightText, as a selected row is.
           SelectionIndicator  The pill on a selected row: the user's accent, as Windows'
                               own lists draw it (SystemAccentColorDark1 on light,
                               SystemAccentColorLight2 on dark). In high contrast,
@@ -82,15 +87,19 @@
             <Color x:Key="BorderFocusInnerColor">#B3FFFFFF</Color>
 
             <Color x:Key="InteractionHoverColor">#EAEAEA</Color>
-            <Color x:Key="InteractionSelectedColor">#DCE9F7</Color>
-            <Color x:Key="InteractionSelectedTextColor">#12395E</Color>
+            <Color x:Key="InteractionSelectedColor">#E1E1E1</Color>
+            <StaticResource x:Key="InteractionSelectedTextColor" ResourceKey="TextPrimaryColor" />
             <StaticResource x:Key="InteractionTextColor" ResourceKey="TextPrimaryColor" />
 
             <Color x:Key="SurfaceInputColor">#FFFFFF</Color>
             <Color x:Key="TextDangerColor">#B42318</Color>
 
-            <Color x:Key="InteractionPressedColor">#DEDEDE</Color>
+            <Color x:Key="InteractionPressedColor">#DADADA</Color>
             <Color x:Key="TextDisabledColor">#9A9A9A</Color>
+
+            <StaticResource x:Key="SurfaceCardColor" ResourceKey="SurfaceInputColor" />
+            <Color x:Key="SurfaceCardHoverColor">#F9F9F9</Color>
+            <StaticResource x:Key="SurfaceCardSelectedColor" ResourceKey="SurfaceCardColor" />
 
             <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{StaticResource SurfaceWindowColor}" />
             <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{StaticResource SurfaceSidebarColor}" />
@@ -108,6 +117,9 @@
             <SolidColorBrush x:Key="TextDangerBrush" Color="{StaticResource TextDangerColor}" />
             <SolidColorBrush x:Key="InteractionPressedBrush" Color="{StaticResource InteractionPressedColor}" />
             <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabledColor}" />
+            <SolidColorBrush x:Key="SurfaceCardBrush" Color="{StaticResource SurfaceCardColor}" />
+            <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="{StaticResource SurfaceCardHoverColor}" />
+            <SolidColorBrush x:Key="SurfaceCardSelectedBrush" Color="{StaticResource SurfaceCardSelectedColor}" />
 
             <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
             <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
@@ -191,8 +203,8 @@
             the elevation cue a slightly lighter sidebar gives.
         -->
         <ResourceDictionary x:Key="Dark">
-            <Color x:Key="SurfaceWindowColor">#1F1F1F</Color>
-            <Color x:Key="SurfaceSidebarColor">#272727</Color>
+            <Color x:Key="SurfaceWindowColor">#1C1C1C</Color>
+            <Color x:Key="SurfaceSidebarColor">#202020</Color>
 
             <Color x:Key="TextPrimaryColor">#F2F2F2</Color>
             <Color x:Key="TextSecondaryColor">#A8A8A8</Color>
@@ -201,16 +213,20 @@
             <Color x:Key="BorderFocusColor">#FFFFFF</Color>
             <Color x:Key="BorderFocusInnerColor">#B3000000</Color>
 
-            <Color x:Key="InteractionHoverColor">#333333</Color>
-            <Color x:Key="InteractionSelectedColor">#1E3A52</Color>
-            <Color x:Key="InteractionSelectedTextColor">#DCE9F7</Color>
+            <Color x:Key="InteractionHoverColor">#2D2D2D</Color>
+            <Color x:Key="InteractionSelectedColor">#383838</Color>
+            <StaticResource x:Key="InteractionSelectedTextColor" ResourceKey="TextPrimaryColor" />
             <StaticResource x:Key="InteractionTextColor" ResourceKey="TextPrimaryColor" />
 
             <Color x:Key="SurfaceInputColor">#2D2D2D</Color>
             <Color x:Key="TextDangerColor">#FF99A4</Color>
 
-            <Color x:Key="InteractionPressedColor">#3D3D3D</Color>
-            <Color x:Key="TextDisabledColor">#6E6E6E</Color>
+            <Color x:Key="InteractionPressedColor">#333333</Color>
+            <Color x:Key="TextDisabledColor">#767676</Color>
+
+            <StaticResource x:Key="SurfaceCardColor" ResourceKey="SurfaceInputColor" />
+            <Color x:Key="SurfaceCardHoverColor">#323232</Color>
+            <StaticResource x:Key="SurfaceCardSelectedColor" ResourceKey="SurfaceCardColor" />
 
             <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{StaticResource SurfaceWindowColor}" />
             <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{StaticResource SurfaceSidebarColor}" />
@@ -228,6 +244,9 @@
             <SolidColorBrush x:Key="TextDangerBrush" Color="{StaticResource TextDangerColor}" />
             <SolidColorBrush x:Key="InteractionPressedBrush" Color="{StaticResource InteractionPressedColor}" />
             <SolidColorBrush x:Key="TextDisabledBrush" Color="{StaticResource TextDisabledColor}" />
+            <SolidColorBrush x:Key="SurfaceCardBrush" Color="{StaticResource SurfaceCardColor}" />
+            <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="{StaticResource SurfaceCardHoverColor}" />
+            <SolidColorBrush x:Key="SurfaceCardSelectedBrush" Color="{StaticResource SurfaceCardSelectedColor}" />
 
             <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
             <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
@@ -330,6 +349,9 @@
             <StaticResource x:Key="TextDangerColor" ResourceKey="SystemColorWindowTextColor" />
 
             <StaticResource x:Key="InteractionPressedColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="SurfaceCardColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="SurfaceCardHoverColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="SurfaceCardSelectedColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="TextDisabledColor" ResourceKey="SystemColorGrayTextColor" />
 
             <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -347,6 +369,9 @@
             <SolidColorBrush x:Key="SurfaceInputBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="TextDangerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="InteractionPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="SurfaceCardBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="SurfaceCardSelectedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="TextDisabledBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
 
             <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />

@@ -61,6 +61,10 @@
                 Grid.Row="0"
                 Background="{ThemeResource SurfaceSidebarBrush}"
                 Padding="{StaticResource PanePadding}">
+                <TextBlock
+                    Text="Noto"
+                    Style="{StaticResource AppTitleStyle}"
+                    AutomationProperties.AccessibilityView="Raw" />
                 <StackPanel
                     HorizontalAlignment="Right"
                     Orientation="Horizontal"
@@ -223,30 +227,35 @@
                                 that grouping visible; without it the order looks
                                 arbitrary to the user.
                             -->
-                            <Grid ColumnSpacing="{StaticResource SpaceXS}"
+                            <Grid ColumnSpacing="{StaticResource IconLabelSpacing}"
                                   AutomationProperties.Name="{x:Bind Name}"
                                   AutomationProperties.HelpText="{x:Bind HelpText}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <!--
-                                    A text glyph rather than an emoji: a colour emoji
-                                    renders from the font's own palette, so it ignores
-                                    the theme and stays the same pink in high contrast,
-                                    where the user's chosen colours must win.
+                                    Glyphs from the system's icon font, in the row's own colour: a colour emoji keeps its
+                                    own palette, so it would ignore the theme and high contrast, where the user's colours
+                                    must win. The pin marker is after the name, as the stack's cards place theirs.
                                 -->
-                                <TextBlock
+                                <FontIcon
                                     Grid.Column="0"
-                                    Text="●"
-                                    FontSize="{StaticResource FontSizeCaption}"
-                                    VerticalAlignment="Center"
-                                    Visibility="{x:Bind PinnedMarkerVisibility}"
+                                    Glyph="&#xE8B7;"
+                                    FontSize="{StaticResource IconSize}"
                                     AutomationProperties.AccessibilityView="Raw" />
                                 <TextBlock
                                     Grid.Column="1"
                                     Text="{x:Bind Name}"
+                                    VerticalAlignment="Center"
                                     TextTrimming="CharacterEllipsis" />
+                                <FontIcon
+                                    Grid.Column="2"
+                                    Glyph="&#xE718;"
+                                    FontSize="{StaticResource FontSizeCaption}"
+                                    Visibility="{x:Bind PinnedMarkerVisibility}"
+                                    AutomationProperties.AccessibilityView="Raw" />
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
@@ -261,7 +270,7 @@
                     Click="OnRecycleBinClick"
                     ToolTipService.ToolTip="Deleted notes and folders"
                     AutomationProperties.Name="Recycle Bin">
-                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource SpaceXS}">
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource IconLabelSpacing}">
                         <FontIcon Glyph="&#xE74D;" FontSize="{StaticResource IconSize}" />
                         <TextBlock Text="Recycle Bin" />
                     </StackPanel>
@@ -300,14 +309,29 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Back is the pointer route out; Escape is the keyboard's (C5). -->
-                <Button
-                    x:Name="BackButton"
-                    Grid.Row="0"
-                    HorizontalAlignment="Left"
-                    Style="{StaticResource SubtleButtonStyle}"
-                    Click="OnBackClick"
-                    AutomationProperties.Name="Back to folders" />
+                <!--
+                    The stack's heading: Back, then the folder's name, as Settings and the Recycle Bin head theirs. Back is
+                    the pointer route out; Escape is the keyboard's (C5).
+                -->
+                <Grid Grid.Row="0" ColumnSpacing="{StaticResource SpaceXS}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        x:Name="BackButton"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        Click="OnBackClick"
+                        ToolTipService.ToolTip="Back to folders (Esc)"
+                        AutomationProperties.Name="Back to folders">
+                        <FontIcon Glyph="&#xE72B;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <TextBlock
+                        x:Name="NoteFolderTitle"
+                        Grid.Column="1"
+                        Style="{StaticResource SurfaceTitleStyle}"
+                        AutomationProperties.HeadingLevel="Level1" />
+                </Grid>
 
                 <StackPanel Grid.Row="1" Spacing="{StaticResource SpaceXS}">
 
@@ -345,7 +369,7 @@
                     x:Name="NoteList"
                     Grid.Row="2"
                     ItemsSource="{x:Bind Notes}"
-                    ItemContainerStyle="{StaticResource NoteRowStyle}"
+                    ItemContainerStyle="{StaticResource NoteCardStyle}"
                     SelectionMode="Single"
                     SelectionChanged="OnNoteSelectionChanged"
                     PreviewKeyDown="OnNoteListPreviewKeyDown"
@@ -394,16 +418,16 @@
                                     Unloaded="OnEditorHostUnloaded" />
 
                                 <!--
-                                    A text glyph rather than an emoji: a colour emoji keeps its own palette, so it
-                                    would ignore high contrast, where the user's colours must win.
+                                    Glyphs from the system's icon font, in the card's own colour: a colour emoji keeps its
+                                    own palette, so it would ignore high contrast, where the user's colours must win.
                                 -->
                                 <StackPanel
                                     Grid.Column="1"
                                     Orientation="Horizontal"
                                     VerticalAlignment="Top"
                                     Spacing="{StaticResource SpaceXS}">
-                                    <TextBlock
-                                        Text="●"
+                                    <FontIcon
+                                        Glyph="&#xE718;"
                                         FontSize="{StaticResource FontSizeCaption}"
                                         Visibility="{x:Bind PinnedMarkerVisibility}"
                                         AutomationProperties.AccessibilityView="Raw" />

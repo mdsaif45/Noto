@@ -135,7 +135,11 @@ internal sealed partial class MarkdownReadView : UserControl
         {
             (double width, double height) = ImageSize.Fit(size.Width, size.Height, room, ImageMaxHeight);
             var bitmap = ImageFiles.Bitmap(path, width);
-            var image = new Image { Source = bitmap, Width = width, Height = height, Stretch = Stretch.Uniform, Margin = new Thickness(0, 4, 0, 4) };
+            double gap = (double)Application.Current.Resources["SpaceXS"];
+            // A card may be rendered before it is laid out, its width unknown: the picture then only shrinks to the
+            // width it is given, its shape kept (measured: drawn at its height's fit, it overflowed the card's padding).
+            Border picture = ImageFiles.Picture(bitmap, width, height);
+            var image = new Viewbox { Child = picture, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(0, gap, 0, gap) };
             AutomationProperties.SetAccessibilityView(image, AccessibilityView.Raw);
             bitmap.ImageFailed += (_, _) => holder.Child = Notice("This image can't be shown", markup);
             holder.Child = image;
@@ -208,6 +212,10 @@ internal sealed partial class MarkdownReadView : UserControl
         }
 
         var run = new Run { Text = text };
+        if (over.Any(s => s.Kind == MarkdownSpanKind.TaskBox))
+        {
+            run.FontFamily = (FontFamily)Application.Current.Resources["FontFamilySymbol"];
+        }
 
         foreach (MarkdownSpan span in over)
         {

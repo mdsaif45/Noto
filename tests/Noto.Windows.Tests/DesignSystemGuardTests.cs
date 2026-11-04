@@ -16,6 +16,8 @@ public sealed class DesignSystemGuardTests
     private static readonly XNamespace Xaml = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
     private static readonly XNamespace X = "http://schemas.microsoft.com/winfx/2006/xaml";
     private static readonly string[] Themes = ["Light", "Dark", "HighContrast"];
+    private static readonly string[] LightAndDark = ["Light", "Dark"];
+    private static readonly string[] SelectedStates = ["Selected", "PointerOverSelected", "PressedSelected"];
 
     private static readonly string DesignSystem = Path.GetDirectoryName(Path.GetDirectoryName(SourcePath("src", "Noto.UI", "Themes", "Generic.xaml")))!;
     private static readonly string MainWindowPath = SourcePath("src", "Noto.Windows", "MainWindow.xaml");
@@ -77,6 +79,12 @@ public sealed class DesignSystemGuardTests
             ("InteractionTextColor", "InteractionHoverColor", 4.5),
             ("InteractionTextColor", "InteractionPressedColor", 4.5),
             ("InteractionSelectedTextColor", "InteractionSelectedColor", 4.5),
+            ("TextPrimaryColor", "SurfaceCardColor", 4.5),
+            ("TextSecondaryColor", "SurfaceCardColor", 4.5),
+            ("InteractionTextColor", "SurfaceCardHoverColor", 4.5),
+            ("InteractionSelectedTextColor", "SurfaceCardSelectedColor", 4.5),
+            ("TextLinkColor", "SurfaceCardColor", 4.5),
+            ("BorderFocusColor", "SurfaceCardColor", 3),
             ("BorderFocusColor", "SurfaceSidebarColor", 3),
             ("BorderFocusColor", "SurfaceInputColor", 3),
             ("BorderFocusColor", "InteractionHoverColor", 3),
@@ -144,22 +152,28 @@ public sealed class DesignSystemGuardTests
             .ToList();
         Assert.True(overridden.Count == 0, "Overrides the application's high-contrast adjustment: " + string.Join(", ", overridden));
 
-        // A selected row, in all three of its states, is the selected fill with the selected text on it ...
-        var template = Load(Path.Join(DesignSystem, "Styles", "ListRow.xaml")).Descendants(Xaml + "ControlTemplate").Single();
-        foreach (string state in new[] { "Selected", "PointerOverSelected", "PressedSelected" })
+        // A selected row, and a selected card, in all three of their states, is the selected fill with the selected
+        // text on it ...
+        var row = Load(Path.Join(DesignSystem, "Styles", "ListRow.xaml")).Descendants(Xaml + "ControlTemplate").Single();
+        var card = Load(Path.Join(DesignSystem, "Styles", "NoteRow.xaml")).Descendants(Xaml + "ControlTemplate").Single(t => (string?)t.Attribute(X + "Key") == "NoteCardTemplate");
+        foreach (var (template, fill) in new[] { (row, "InteractionSelectedBrush"), (card, "SurfaceCardSelectedBrush") })
         {
-            var setters = Setters(State(template, state));
-            Assert.Contains(("Root.Background", "{ThemeResource InteractionSelectedBrush}"), setters);
-            Assert.Contains(("Content.Foreground", "{ThemeResource InteractionSelectedTextBrush}"), setters);
+            foreach (var setters in SelectedStates.Select(state => Setters(State(template, state))))
+            {
+                Assert.Contains(("Root.Background", $"{{ThemeResource {fill}}}"), setters);
+                Assert.Contains(("Content.Foreground", "{ThemeResource InteractionSelectedTextBrush}"), setters);
+            }
         }
 
         // ... which in high contrast are Highlight and HighlightText ...
         var hc = ThemeDictionary("HighContrast");
         Assert.Equal("SystemColorHighlightColor", Target(hc, "InteractionSelectedBrush"));
+        Assert.Equal("SystemColorHighlightColor", Target(hc, "SurfaceCardSelectedBrush"));
         Assert.Equal("SystemColorHighlightTextColor", Target(hc, "InteractionSelectedTextBrush"));
 
-        // ... and everything in the row takes that text: in both lists neither the bound title nor the pin marker sets a
-        // colour of its own. Measured: a marker in TextSecondary was GrayText on Highlight in high contrast, 1.37:1.
+        // ... and everything in the row takes that text: in both lists neither the bound title nor a marker glyph (the
+        // pin; the folder; the fold) sets a colour of its own. Measured: a marker in TextSecondary was GrayText on
+        // Highlight in high contrast, 1.37:1.
         XDocument window = Load(MainWindowPath);
         foreach (string list in new[] { "FolderList", "NoteList" })
         {
@@ -168,8 +182,9 @@ public sealed class DesignSystemGuardTests
             var rendered = view.Descendants("{using:Noto}MarkdownReadView").ToList();
             Assert.Equal(1, texts.Count(t => ((string?)t.Attribute("Text"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true)
                 + rendered.Count(r => ((string?)r.Attribute("Source"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true));
-            Assert.Single(texts, t => (string?)t.Attribute("Text") == "●" && (string?)t.Attribute("Visibility") == "{x:Bind PinnedMarkerVisibility}");
-            Assert.All(texts.Concat(rendered), t => Assert.Null(t.Attribute("Foreground")));
+            var glyphs = view.Descendants(Xaml + "FontIcon").Where(g => g.Ancestors(Xaml + "Button").FirstOrDefault() is null).ToList();
+            Assert.Single(glyphs, g => (string?)g.Attribute("Glyph") == "\uE718" && (string?)g.Attribute("Visibility") == "{x:Bind PinnedMarkerVisibility}");
+            Assert.All(texts.Concat(rendered).Concat(glyphs), t => Assert.Null(t.Attribute("Foreground")));
         }
 
         // A card's rendered read view (ADR-017) colours markers and links in Light and Dark, and none in high contrast,
@@ -182,11 +197,13 @@ public sealed class DesignSystemGuardTests
         Assert.All(Themes, theme => Assert.Single(ThemeDictionary(theme).Elements(), e => KeyOf(e) == "TextSecondaryBrush"));
         Assert.Contains(DesignSystemFiles(), f => File.ReadAllText(f).Contains("{ThemeResource TextSecondaryBrush}", StringComparison.Ordinal));
 
-        // Light and Dark are unchanged by it: their selection is still Noto's own colours.
-        Assert.Equal("#DCE9F7", ThemeDictionary("Light").Elements().Single(e => KeyOf(e) == "InteractionSelectedColor").Value.Trim());
-        Assert.Equal("#12395E", ThemeDictionary("Light").Elements().Single(e => KeyOf(e) == "InteractionSelectedTextColor").Value.Trim());
-        Assert.Equal("#1E3A52", ThemeDictionary("Dark").Elements().Single(e => KeyOf(e) == "InteractionSelectedColor").Value.Trim());
-        Assert.Equal("#DCE9F7", ThemeDictionary("Dark").Elements().Single(e => KeyOf(e) == "InteractionSelectedTextColor").Value.Trim());
+        // Light and Dark are unchanged by it: their selection is still Noto's own colours, a neutral fill under the
+        // primary text (the visual refresh: the accent is the pill's and the card's edge, not the fill's).
+        Assert.Equal("#E1E1E1", ThemeDictionary("Light").Elements().Single(e => KeyOf(e) == "InteractionSelectedColor").Value.Trim());
+        Assert.Equal("#383838", ThemeDictionary("Dark").Elements().Single(e => KeyOf(e) == "InteractionSelectedColor").Value.Trim());
+        Assert.All(LightAndDark, theme => Assert.Equal(
+            "TextPrimaryColor",
+            (string?)ThemeDictionary(theme).Elements().Single(e => KeyOf(e) == "InteractionSelectedTextColor").Attribute("ResourceKey")));
     }
 
     [Fact]
@@ -479,16 +496,23 @@ public sealed class DesignSystemGuardTests
     public void Hover_and_press_set_the_text_that_belongs_on_their_fill_in_every_template()
     {
         // In high contrast the hover and pressed fills are Highlight; text left as WindowText on Highlight is the
-        // pairing the OS never makes. Every template sets InteractionText with the fill.
+        // pairing the OS never makes. Every template sets InteractionText with the fill. A row fills with the
+        // interaction fills; a card with its own (SurfaceCardHover), which high contrast also makes Highlight.
         var failures = new List<string>();
+        var hc = ThemeDictionary("HighContrast");
+        string[] rowFills = ["{ThemeResource InteractionHoverBrush}", "{ThemeResource InteractionPressedBrush}"];
+        Assert.Equal("SystemColorHighlightColor", Target(hc, "SurfaceCardHoverBrush"));
 
         foreach (XElement template in DesignSystemFiles().SelectMany(f => Load(f).Descendants(Xaml + "ControlTemplate")))
         {
+            bool card = (string?)template.Attribute(X + "Key") == "NoteCardTemplate";
+
             foreach (string state in new[] { "PointerOver", "Pressed" })
             {
                 var setters = Setters(State(template, state));
+                string fill = card ? "{ThemeResource SurfaceCardHoverBrush}" : rowFills[state == "Pressed" ? 1 : 0];
 
-                if (!setters.Contains(("Root.Background", $"{{ThemeResource Interaction{(state == "Pressed" ? "Pressed" : "Hover")}Brush}}"))
+                if (!setters.Contains(("Root.Background", fill))
                     || !setters.Contains(("Content.Foreground", "{ThemeResource InteractionTextBrush}")))
                 {
                     failures.Add($"{(string?)template.Attribute(X + "Key") ?? (string?)template.Attribute("TargetType")} {state}");

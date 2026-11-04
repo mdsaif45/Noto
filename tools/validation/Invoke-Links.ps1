@@ -93,10 +93,15 @@ function Bring-Forward {
     throw "the hotkey did not bring Noto forward (foreground: $((Get-Process -Id $owner -ErrorAction SilentlyContinue).ProcessName) '$title')"
 }
 function Set-FileClipboard([string[]] $Paths) {
-    <# Files and folders on the clipboard as Explorer's Copy puts them (CF_HDROP), through Windows PowerShell, which is STA. #>
+    <#
+      Files and folders on the clipboard as Explorer's Copy puts them (CF_HDROP), through Windows PowerShell, which is
+      STA. Retried while another program holds the clipboard, and read back: measured, a set that lost that race left
+      the clipboard empty and case 9 failed as if the paste had; now the run stops, naming the clipboard instead.
+    #>
     $file = Join-Path $run.Root 'file-clipboard.ps1'
-    Set-Content $file "Add-Type -AssemblyName System.Windows.Forms; `$c = New-Object System.Collections.Specialized.StringCollection; foreach (`$p in `$args) { [void]`$c.Add(`$p) }; [System.Windows.Forms.Clipboard]::SetFileDropList(`$c)"
+    Set-Content $file "Add-Type -AssemblyName System.Windows.Forms; `$c = New-Object System.Collections.Specialized.StringCollection; foreach (`$p in `$args) { [void]`$c.Add(`$p) }; `$d = New-Object System.Windows.Forms.DataObject; `$d.SetFileDropList(`$c); [System.Windows.Forms.Clipboard]::SetDataObject(`$d, `$true, 10, 100); if (-not [System.Windows.Forms.Clipboard]::ContainsFileDropList()) { exit 1 }"
     & powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File $file @Paths
+    if ($LASTEXITCODE -ne 0) { throw 'the clipboard did not take the files (another program held it)' }
 }
 function Traces([string] $Pattern) { @($script:log.Lines($script:noto.Pid) | Where-Object { $_ -match $Pattern }) }
 function Opened-Since([int] $Mark) { @(Traces 'Noto\.Link open' | Select-Object -Skip $Mark) }
