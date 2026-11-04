@@ -116,10 +116,22 @@ public sealed class WelcomeLifecycleTests : IDisposable
             _ = command.ExecuteNonQuery();
         }
 
-        // Owed, but no longer empty (Import from Settings while the welcome was open, then a crash).
+        // Owed, but no longer empty (Import from Settings while the welcome was open, then a crash): not new any more.
         (bool show, Onboarding onboarding) = Start();
         Assert.False(show);
-        Assert.Equal(WelcomeState.Due, onboarding.State);
+        Assert.Equal(WelcomeState.None, onboarding.State);
+        Stop();
+
+        // Emptied, it still never shows it.
+        using (var connection = new SqliteConnection($"Data Source={_paths.DatabaseFile};Pooling=False"))
+        {
+            connection.Open();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM Folders;";
+            _ = command.ExecuteNonQuery();
+        }
+
+        Assert.False(Start().Show);
     }
 
     [Theory]

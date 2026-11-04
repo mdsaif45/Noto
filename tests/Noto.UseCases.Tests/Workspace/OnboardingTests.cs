@@ -58,23 +58,29 @@ public sealed class OnboardingTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void A_workspace_that_holds_anything_is_not_shown_it(bool created)
+    public void A_workspace_that_holds_anything_is_not_shown_it_and_owes_it_no_more(bool created)
     {
         var store = new FakeSettings();
         store.Seed(SettingKeys.OnboardingWelcome.Name, WelcomeState.Due);
 
         Assert.False(new Onboarding(store).ShowAtStart(created, restored: false, Holding));
+        Assert.Equal(WelcomeState.None, new Onboarding(store).State);
+
+        // Emptied later, it is still not new, and its data is not even asked about.
+        bool asked = false;
+        Assert.False(new Onboarding(store).ShowAtStart(created: false, restored: false, () => asked = true));
+        Assert.False(asked);
     }
 
     [Fact]
-    public void A_workspace_that_cannot_say_what_it_holds_is_not_shown_it_and_startup_goes_on()
+    public void A_workspace_that_cannot_say_what_it_holds_is_not_shown_it_now_but_still_owes_it()
     {
         var store = new FakeSettings();
+        Func<bool> failing = () => throw new StorageException(StorageFailure.Corrupt, "Simulated failure.");
 
-        Assert.False(new Onboarding(store).ShowAtStart(
-            created: true,
-            restored: false,
-            () => throw new StorageException(StorageFailure.Corrupt, "Simulated failure.")));
+        Assert.False(new Onboarding(store).ShowAtStart(created: true, restored: false, failing));
+        Assert.Equal(WelcomeState.Due, new Onboarding(store).State);
+        Assert.True(new Onboarding(store).ShowAtStart(created: false, restored: false, Empty));
     }
 
     [Theory]

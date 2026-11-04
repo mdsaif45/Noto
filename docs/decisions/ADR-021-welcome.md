@@ -44,13 +44,15 @@ start ─► PendingRestore.ApplyIfPending ─► created = NotoDatabase.Initial
                  ▼
           created ──yes──► write Due
                  ▼
-          (created or Due) and the workspace holds nothing ─► welcome
+          (created or Due) ─► holds nothing ─► welcome
+                          holds data ───► write None, no welcome (no longer new)
+                          cannot say ───► no welcome now, still owed
 ```
 
 - **Owed only by creation.** `Due` is written only when this start created the database. A data root opened by an older Noto (no row) reads `None`, empty or not: an upgrade never shows it.
 - **A restore never shows it.** A restored workspace is an existing one; a `Due` it carries (a backup taken while its own welcome was open) is settled to `None`.
 - **Nothing of the user's.** Shown only while no folder or note exists, in the Recycle Bin or out of it (`Onboarding.HoldsAnything`; three reads, made only when the welcome is owed). A workspace that cannot answer is treated as holding data.
-- **Owed until it ends.** Only Get started (`Completed`) and Skip or Escape (`Skipped`) record an end. A start that ends or crashes with the welcome open leaves it owed, and the next start shows it again.
+- **Owed until it ends.** Only Get started (`Completed`) and Skip or Escape (`Skipped`) record an end. A start that ends or crashes with the welcome open leaves it owed, and the next start shows it again. A workspace still owed it that has come to hold data (an import while it was open, then a crash) is settled to `None`: it is no longer new, emptying it later does not bring the welcome back, and its data is never read at start again.
 - **Never in the way.** A setting that cannot be written changes nothing for this start and throws nothing (#9: settings never stop startup). At worst the welcome shows once more, or not at all.
 
 ### 2. What it is: one surface, four steps
@@ -87,7 +89,7 @@ Moving is bounded by the tour: Back on the first step and Next on the last do no
 ## Consequences
 
 - One new setting key, one Core enum and model, one use case, one surface. `NotoDatabase.Initialize` now says whether it created the database.
-- **Performance.** An ordinary start adds one read of the in-memory settings cache; the three table reads happen only while the welcome is owed (a new, empty workspace). Measured in the PR.
+- **Performance.** An ordinary start adds one read of the in-memory settings cache; the three table reads happen only while the welcome is owed, and a workspace that turns out to hold data stops owing it, so they never repeat on a workspace with notes. Measured in the PR.
 - The validation harness skips the welcome when it starts Noto on a new data root (`Start-Noto`; `-KeepWelcome` keeps it), and stops a run if a new data root does not show it.
 
 ## Alternatives rejected
