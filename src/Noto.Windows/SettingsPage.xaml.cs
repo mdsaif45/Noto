@@ -13,6 +13,7 @@ namespace Noto;
 /// <summary>
 /// What the settings surface may change, and the one way it changes each (Slice 1).
 /// </summary>
+/// <param name="Portability">Backup, restore, export and import (ADR-020): the Data rows run each through it.</param>
 /// <param name="Preferences">Every stored preference: read here, written only through its typed setter.</param>
 /// <param name="LoginState">Start with Windows, read from Windows itself (#94); <see langword="null"/> when unavailable.</param>
 /// <param name="SetLogin">Turns Start with Windows on or off through the same registration the tray uses; returns what Windows has after.</param>
@@ -22,6 +23,7 @@ namespace Noto;
 /// <param name="SuspendHotkey">Has the hotkey's owner ignore the chord (true) or act on it again (false) while the recorder listens.</param>
 /// <param name="ObserveRecorderKeys">Reports, until disposed, each chord pressed while Noto is in front that another application holds, which never reaches the page; <see langword="null"/> when that is unavailable.</param>
 internal sealed record SettingsContext(
+    DataPortability Portability,
     WorkspacePreferences Preferences,
     Func<LoginStartupState?> LoginState,
     Func<bool, LoginStartupState?> SetLogin,

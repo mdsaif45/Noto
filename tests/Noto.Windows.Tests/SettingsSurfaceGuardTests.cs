@@ -330,7 +330,8 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        Assert.Equal(9, rows.Count);
+        // Nine settings, and the Data group's Back up, Restore, Export, Import and their progress line (ADR-020).
+        Assert.Equal(14, rows.Count);
 
         foreach (XElement row in rows)
         {

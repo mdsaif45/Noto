@@ -61,6 +61,41 @@ public sealed class AttachmentStoreTests : IDisposable
     }
 
     [Fact]
+    public void An_image_is_kept_under_its_own_Noto_name_when_that_name_is_free_or_already_holds_it()
+    {
+        const string reference = "attachments/01J00000000000000000000A01.png";
+
+        Assert.Equal(ImageKeeping.Kept, _store.KeepAs(Png, reference));
+        Assert.Equal(Png, File.ReadAllBytes(_store.PathOf(reference)!));
+
+        // The same bytes again: kept as they are. Other bytes under that name: refused, the file untouched.
+        Assert.Equal(ImageKeeping.Kept, _store.KeepAs(Png, reference));
+        byte[] other = [.. Png[..8], 9, 9, 9, 9];
+        Assert.Equal(ImageKeeping.Failed, _store.KeepAs(other, reference));
+        Assert.Equal(Png, File.ReadAllBytes(_store.PathOf(reference)!));
+    }
+
+    [Theory]
+    [InlineData("attachments/my photo.png")]
+    [InlineData("attachments/01J00000000000000000000A01.svg")]
+    [InlineData("../01J00000000000000000000A01.png")]
+    [InlineData("attachments/01J00000000000000000000A01.jpg")]
+    public void Only_a_Noto_name_whose_type_matches_the_bytes_is_kept_as_given(string reference)
+    {
+        Assert.Equal(ImageKeeping.NotAnImage, _store.KeepAs(Png, reference));
+        Assert.Empty(Directory.Exists(Path.Join(_root, "attachments")) ? Directory.GetFiles(Path.Join(_root, "attachments")) : []);
+    }
+
+    [Fact]
+    public void An_image_kept_as_given_still_has_the_size_limit()
+    {
+        byte[] large = new byte[ImageReference.MaxBytes + 1];
+        Png.CopyTo(large, 0);
+
+        Assert.Equal(ImageKeeping.TooLarge, _store.KeepAs(large, "attachments/01J00000000000000000000A01.png"));
+    }
+
+    [Fact]
     public void An_image_over_the_limit_is_refused_and_one_at_the_limit_kept()
     {
         byte[] large = new byte[ImageReference.MaxBytes + 1];

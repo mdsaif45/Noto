@@ -211,6 +211,11 @@ function Invoke-Sta([string] $Name, [string] $Body, [string[]] $Arguments) {
     $file = Join-Path $run.Root "$Name.ps1"; Assert-UnderRun $run $file
     Set-Content $file $Body
     & powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File $file @Arguments
+
+    # A clipboard just set by another process has not settled for the others yet: Noto, asked to paste in the same
+    # instant, read the state from before the change (measured, with paste traces: no file, no text, no picture). A
+    # person cannot change applications and paste that fast; the harness waits as long as one would.
+    if ($Name -like 'set-*') { Start-Sleep -Milliseconds 500 }
 }
 $SetImage = 'Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $b = New-Object System.Drawing.Bitmap ([int]$args[0]), ([int]$args[1]); $g = [System.Drawing.Graphics]::FromImage($b); $g.Clear([System.Drawing.Color]::Red); $g.Dispose(); $d = New-Object System.Windows.Forms.DataObject; $d.SetImage($b); if ($args.Count -gt 2) { $d.SetText($args[2]) }; [System.Windows.Forms.Clipboard]::SetDataObject($d, $true, 10, 100); if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) { throw "the clipboard did not take the picture" }'
 $SetFiles = 'Add-Type -AssemblyName System.Windows.Forms; $c = New-Object System.Collections.Specialized.StringCollection; foreach ($p in $args) { [void]$c.Add($p) }; $d = New-Object System.Windows.Forms.DataObject; $d.SetFileDropList($c); [System.Windows.Forms.Clipboard]::SetDataObject($d, $true, 10, 100); if (-not [System.Windows.Forms.Clipboard]::ContainsFileDropList()) { throw "the clipboard did not take the files" }'
@@ -337,9 +342,10 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
         Invoke-Sta 'set-image-text' $SetImage @('30', '30', 'plain words')
         Send-ToNoto @(0x11) 0x56 1500
         $added = @(Attachments | Where-Object { $before -notcontains $_ })
-        $textPasted = (Editor-Value).EndsWith('last lineplain words')
+        $pastedValue = Editor-Value
+        $textPasted = $pastedValue.EndsWith('last lineplain words')
         Send-ToNoto @(0x11) 0x5A 900
-        Add-Result $run '10 a clipboard with text and a picture pastes the text' ($textPasted -and $added.Count -eq 0) "text=$textPasted new files=$($added.Count)"
+        Add-Result $run '10 a clipboard with text and a picture pastes the text' ($textPasted -and $added.Count -eq 0) "text=$textPasted new files=$($added.Count) tail='$(($pastedValue.Split("`n"))[-2..-1] -join ' | ')'"
 
         # 11 - copied files
         $photo = Join-Path $run.Root 'holiday.png'; New-RedPng $photo 80 40

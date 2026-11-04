@@ -290,8 +290,15 @@ public sealed partial class MainWindow : Window
 
             // A successful read answers whatever the last failure said, so the
             // notice must not outlive it — otherwise a recovered Retry still
-            // shows "could not read the folders" above a working list.
+            // shows "could not read the folders" above a working list. A
+            // restore that rolled back at this start is not such a failure:
+            // it is said once more, after the first load (ADR-020 §3).
             HideNotice();
+            if (_restoreNotice is { } restored)
+            {
+                _restoreNotice = null;
+                ShowNotice(restored);
+            }
 
             // Selection survives the re-query only if the folder still exists.
             // A folder deleted elsewhere leaves a stale id that must not keep
@@ -1444,6 +1451,7 @@ public sealed partial class MainWindow : Window
         page.BackRequested += OnSettingsBackRequested;
         ((Panel)PaneRoot.Parent).Children.Add(page);
         SettingsSurface = page;
+        page.Imported += OnSettingsImported;
 
         page.Show(Settings, _hotkeyMessage);
         from.Visibility = Visibility.Collapsed;
@@ -1476,6 +1484,7 @@ public sealed partial class MainWindow : Window
         page.KeyDown -= OnSettingsKeyDown;
         page.BackRequested -= OnSettingsBackRequested;
         SettingsSurface = null;
+        page.Imported -= OnSettingsImported;
 
         Control restore = _settingsReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous
             ? previous
@@ -1744,6 +1753,8 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("Move to top", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Top), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Top)));
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Bottom), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Bottom)));
         menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(MenuItem("Export as Markdown…", string.Empty, () => ExportFromMenu(new Infrastructure.Portability.ExportScope.Note(card.Id), fromStack: true), Portability is { Busy: false }));
+        menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 
         ShowMenu(menu, container, args);
@@ -1896,6 +1907,8 @@ public sealed partial class MainWindow : Window
         IReadOnlyList<Folder> folders = Execute(_listFolders.Execute);
         menu.Items.Add(MenuItem("Move to top", string.Empty, () => MoveFolder(folder.Id, RepositionDirection.Top), FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Top).Moves));
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => MoveFolder(folder.Id, RepositionDirection.Bottom), FolderReposition.For(folders, FolderId.From(folder.Id), RepositionDirection.Bottom).Moves));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(MenuItem("Export as Markdown…", string.Empty, () => ExportFromMenu(new Infrastructure.Portability.ExportScope.Folder(folder.Id), fromStack: false), Portability is { Busy: false }));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Delete", "Delete", () => ConfirmDeleteFolder(folder.Id)));
         ShowMenu(menu, container, args);

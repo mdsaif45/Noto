@@ -430,13 +430,17 @@ A write of a malformed binding is rejected and writes nothing.
   ├── noto.db                 SQLite: notes, folders, tags, bindings
   ├── noto.db-wal             write-ahead log
   ├── noto.db-shm             shared memory
+  ├── noto-premigration-v<n>-<stamp>.db   the copy taken before a data migration
   ├── attachments\
-  │   └── <guid>.<ext>        GUID-named; original name is in the DB
+  │   └── <ULID>.<type>       images, named by Noto; referred to only from note text (ADR-019)
   ├── backups\
-  │   └── noto-<timestamp>.db
+  │   └── before-restore-<stamp>.notobackup   what was there before a restore (ADR-020)
   └── logs\
-      └── noto-<date>.log     never contains note content
+      └── noto-<stamp>-<seq>.log   never contains note content
 ```
+
+A restore in progress also uses `restore-staging\` and `restore-pending.json` under the root, and removes both
+when it is applied or abandoned (ADR-020 §3).
 
 `%LOCALAPPDATA%` rather than `%APPDATA%`: roaming profiles must not attempt to
 replicate a live SQLite database.
@@ -445,7 +449,7 @@ replicate a live SQLite database.
 > OneDrive or Dropbox tree, the sync client can corrupt the database by copying
 > `-wal` and `-shm` out from under SQLite. This is a known hazard, it is the
 > reason ADR-002 requires testing before any sync feature ships, and it is why
-> **backups are plain `.db` snapshots** rather than a live folder copy.
+> **a backup's database is a snapshot through SQLite's backup API** (ADR-020) rather than a copy of the live files.
 
 ---
 
@@ -469,8 +473,9 @@ Rules, binding:
 2. **Every migration is tested as an upgrade**, not only against an empty
    database. A migration that works on a fresh install and corrupts an existing
    one is the worst bug this product can have.
-3. **Back up before migrating.** Snapshot to `backups\` first; restore on
-   failure.
+3. **Back up before migrating.** A migration that transforms user data takes a
+   snapshot beside the database first (`MigrationSafetyCopy`); a failed migration
+   rolls back and keeps the old database.
 4. **Never leave a half-migrated database.** Roll back and keep the old one.
 5. SQLite cannot drop or alter a column in place — such changes require an
    explicit table rebuild, written out and reviewed.
@@ -480,28 +485,22 @@ Rules, binding:
 ## Export
 
 ADR-002 requires that Noto never be the only thing that can read a user's
-notes.
+notes. ADR-020 decides it: an export is a folder of Markdown, each note's source
+**byte for byte**, one directory per folder, the images a note refers to beside
+it so its references resolve unchanged, and `noto-export.json` for what Markdown
+cannot carry (order, pins, folds, colours). Front matter is not written: it would
+change the note's text, and the text is the truth (ADR-004).
 
 ```
-  export/
-  ├── <folder>/
-  │   └── <note-title>.md      YAML front matter + markdown body
-  └── attachments/
+  Noto export <yyyy-MM-dd HHmm>/
+  ├── noto-export.json
+  └── <folder>/
+      ├── <note title>.md
+      └── attachments/<ULID>.<type>
 ```
 
-Lossless by construction: content is already markdown, and the metadata that
-does not fit the body goes in front matter.
-
-```yaml
----
-title: API notes
-tags: [work, api]
-created: 2026-09-14T10:30:00Z
-updated: 2026-09-14T14:22:00Z
-pinned: true
-bound-to: Code.exe
----
-```
+A full **backup** (`*.notobackup`) is a different thing: one archive of the
+database snapshot and every image, hashed, restored only as a whole (ADR-020).
 
 ---
 
@@ -511,5 +510,5 @@ bound-to: Code.exe
 | -------- | --------- |
 | Attachment size limit, and behavior when exceeded | M1 |
 | Whether `Position` JSON should become typed columns once window binding lands | v0.6 |
-| Backup retention policy | M1 |
+| Automatic backups and their retention (parity I8) | after v0.1 (ADR-020) |
 | Whether `Color` palette keys need to be user-extensible | M1 |

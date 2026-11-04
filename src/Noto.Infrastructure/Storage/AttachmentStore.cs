@@ -46,6 +46,44 @@ public sealed class AttachmentStore(string directory) : IImageStore
         }
     }
 
+    /// <summary>
+    /// Keeps <paramref name="content"/> under <paramref name="reference"/>, a name Noto made, when that name is free
+    /// (ADR-020 §5: an exported note's images come back under their own names, so its text needs no rewriting). The same
+    /// bytes already there are kept as they are; a name that holds other bytes is refused.
+    /// </summary>
+    /// <returns><see cref="ImageKeeping.Kept"/>, or why not; <see cref="ImageKeeping.Failed"/> when the name is taken.</returns>
+    public ImageKeeping KeepAs(byte[] content, string reference)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        if (!ImageReference.TryFileName(reference, out string name) || ImageReference.TypeOf(name) is not { } type || !LooksLike(content, type))
+        {
+            return ImageKeeping.NotAnImage;
+        }
+
+        if (content.LongLength > ImageReference.MaxBytes)
+        {
+            return ImageKeeping.TooLarge;
+        }
+
+        string path = Path.Join(_directory, name);
+        try
+        {
+            Directory.CreateDirectory(_directory);
+            if (File.Exists(path))
+            {
+                return File.ReadAllBytes(path).AsSpan().SequenceEqual(content) ? ImageKeeping.Kept : ImageKeeping.Failed;
+            }
+
+            using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+            file.Write(content);
+            return ImageKeeping.Kept;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ImageKeeping.Failed;
+        }
+    }
+
     /// <summary>Keeps a copy of the image file at <paramref name="path"/>; the reference to write in the note.</summary>
     public (ImageKeeping Outcome, string? Reference) KeepCopyOf(string path)
     {

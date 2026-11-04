@@ -102,6 +102,9 @@ function Set-FileClipboard([string[]] $Paths) {
     Set-Content $file "Add-Type -AssemblyName System.Windows.Forms; `$c = New-Object System.Collections.Specialized.StringCollection; foreach (`$p in `$args) { [void]`$c.Add(`$p) }; `$d = New-Object System.Windows.Forms.DataObject; `$d.SetFileDropList(`$c); [System.Windows.Forms.Clipboard]::SetDataObject(`$d, `$true, 10, 100); if (-not [System.Windows.Forms.Clipboard]::ContainsFileDropList()) { exit 1 }"
     & powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File $file @Paths
     if ($LASTEXITCODE -ne 0) { throw 'the clipboard did not take the files (another program held it)' }
+
+    # Let the change settle for other processes before Noto pastes, as a person's switch of applications would.
+    Start-Sleep -Milliseconds 500
 }
 function Traces([string] $Pattern) { @($script:log.Lines($script:noto.Pid) | Where-Object { $_ -match $Pattern }) }
 function Opened-Since([int] $Mark) { @(Traces 'Noto\.Link open' | Select-Object -Skip $Mark) }
@@ -229,7 +232,7 @@ exit (Invoke-IsolatedRun $run -Title 'Links (ADR-019)' -Body {
     try {
         (Range-Of 'spec today').Select(); Start-Sleep -Milliseconds 200
         $word = Range-Of 'spec today'; [void]$word.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, [System.Windows.Automation.Text.TextUnit]::Character, -6); $word.Select(); Start-Sleep -Milliseconds 300
-        Set-Clipboard -Value 'https://example.com/the-spec'
+        Set-Clipboard -Value 'https://example.com/the-spec'; Start-Sleep -Milliseconds 500
         Send-ToNoto @(0x11) 0x56 900
         $linkedWord = (Editor-Value).Contains('read the [spec](https://example.com/the-spec) today')
         Add-Result $run '8  a web address pasted over a selected word makes the word its link' $linkedWord "tail='$(((Editor-Value).Split("`n"))[-1])'"
