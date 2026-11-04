@@ -60,7 +60,11 @@ namespace NotoVal
             return list.ToArray();
         }
         public static void Keys(INPUT[] inputs) { SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT))); }
-        public static INPUT Vk(ushort vk, bool up) { var i = new INPUT(); i.type = 1; i.wVk = vk; i.dwFlags = up ? 2u : 0u; return i; }
+        // The dedicated navigation keys (Page Up/Down, End, Home, the arrows, Insert, Delete) are extended keys, as a real
+        // keyboard sends them. Without the flag Windows takes them for the numeric keypad's, and with NumLock on it
+        // releases Shift around them: Shift+Left moved without selecting, Ctrl+Alt+Shift+Left arrived as Ctrl+Alt+Left
+        // (measured, 2026-11-04).
+        public static INPUT Vk(ushort vk, bool up) { var i = new INPUT(); i.type = 1; i.wVk = vk; i.dwFlags = (up ? 2u : 0u) | (((vk >= 0x21 && vk <= 0x28) || vk == 0x2D || vk == 0x2E) ? 1u : 0u); return i; }
         public static INPUT Uni(char c, bool up) { var i = new INPUT(); i.type = 1; i.wScan = c; i.dwFlags = 4u | (up ? 2u : 0u); return i; }
     }
 
