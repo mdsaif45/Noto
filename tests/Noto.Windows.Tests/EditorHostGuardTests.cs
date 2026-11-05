@@ -198,7 +198,12 @@ public sealed class EditorHostGuardTests
         // through the parent and not their own shifted canvas, and shifted by the scroll; a pointer adds it; a caret shown
         // on the card subtracts it.
         Assert.Contains("NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);", Host, StringComparison.Ordinal);
-        Assert.Contains("scroller.ViewChanged += (_, _) => FollowScroll();", Body(Host, "FollowScrollOf"), StringComparison.Ordinal);
+        Assert.Matches(@"scroller\.ViewChanged \+= \(_, e\) =>\s*\{\s*FollowScroll\(\);\s*if \(!e\.IsIntermediate && !_marksQueued && \(ScrolledBy < _marksBand\.Top \|\| ScrolledBy \+ NoteEditor\.ActualHeight > _marksBand\.Bottom\)\)\s*\{\s*PlaceTaskMarks\(null, EventArgs\.Empty\);", Body(Host, "FollowScrollOf"));
+
+        // Only the tasks near the view get a checkbox: the view and one view's height above and below (0.25 ms a task a keystroke).
+        string marks = Body(Host, "PlaceTaskMarks");
+        Assert.Contains("_marksBand = view > 0 ? (ScrolledBy - view, ScrolledBy + (2 * view)) : (double.NegativeInfinity, double.PositiveInfinity);", marks, StringComparison.Ordinal);
+        Assert.Contains("foreach (MarkdownBlock task in tasks.Where(t => t.End >= from && t.Start <= to))", marks, StringComparison.Ordinal);
         Assert.Contains("private double ScrolledBy => _scroller?.VerticalOffset ?? 0;", Host, StringComparison.Ordinal);
         Assert.Matches(@"double shift = -ScrolledBy;\s*TaskMarksShift\.Y = shift;\s*ImageMarksShift\.Y = shift;", Body(Host, "FollowScroll"));
         Assert.Matches(@"_marksQueued = false;\s*FollowScroll\(\);\s*TaskMarks\.Children\.Clear\(\);", Body(Host, "PlaceTaskMarks"));
