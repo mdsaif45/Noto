@@ -244,7 +244,7 @@ public sealed partial class NoteEditorHost : UserControl
             {
                 TargetRect = new Windows.Foundation.Rect(
                     caret.X + NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left,
-                    caret.Y + NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top,
+                    caret.Y - ScrolledBy + NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top,
                     Math.Max(1, caret.Width),
                     Math.Max(1, caret.Height)),
                 VerticalAlignmentRatio = 0.3,
@@ -486,8 +486,12 @@ public sealed partial class NoteEditorHost : UserControl
     // RichEdit's own scroller: a note taller than the stack scrolls in it while edited (the stack caps the editor's height).
     private ScrollViewer? _scroller;
 
-    // The scroller's offset when the checkboxes and pictures were placed.
-    private double _marksOffset;
+    /// <summary>
+    /// How far the note has scrolled inside its card. RichEdit's client coordinates are the document's (measured: a line's
+    /// rectangle is the same at every scroll offset), so a point on the card adds this and a rectangle shown on it
+    /// subtracts it.
+    /// </summary>
+    private double ScrolledBy => _scroller?.VerticalOffset ?? 0;
 
     /// <summary>Finds RichEdit's own scroller, once its template is up, and has the overlays follow it.</summary>
     private void FollowScrollOf(DependencyObject parent)
@@ -515,10 +519,10 @@ public sealed partial class NoteEditorHost : UserControl
         }
     }
 
-    /// <summary>Moves the checkboxes and pictures with the text, by how far it has scrolled since they were placed.</summary>
+    /// <summary>Moves the checkboxes and pictures, placed in the document's coordinates, with the text as it scrolls.</summary>
     private void FollowScroll()
     {
-        double shift = _marksOffset - (_scroller?.VerticalOffset ?? 0);
+        double shift = -ScrolledBy;
         TaskMarksShift.Y = shift;
         ImageMarksShift.Y = shift;
     }
@@ -550,8 +554,6 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.LayoutUpdated -= PlaceTaskMarks;
         _marksQueued = false;
 
-        // Placed from RichEdit's view as it is scrolled now; FollowScroll moves them as it scrolls on.
-        _marksOffset = _scroller?.VerticalOffset ?? 0;
         FollowScroll();
         TaskMarks.Children.Clear();
         PlaceImages();
@@ -568,7 +570,7 @@ public sealed partial class NoteEditorHost : UserControl
         }
 
         // RichEdit measures from inside the control's border and padding (measured: 13 and 9 px off without them).
-        var toMarks = NoteEditor.TransformToVisual(TaskMarks);
+        var toMarks = NoteEditor.TransformToVisual(EditorRoot);
         double left = NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left;
         double top = NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top;
 
@@ -811,11 +813,11 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
-        // RichEdit's client coordinates start inside the control's border and padding.
+        // RichEdit's client coordinates start inside the control's border and padding, and are the document's.
         var point = e.GetCurrentPoint(NoteEditor).Position;
         point = new Windows.Foundation.Point(
             point.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left,
-            point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top);
+            point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top + ScrolledBy);
         int at = NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition;
 
         // Ctrl+Click on a link opens it (ADR-019 §2); a plain click only places the caret.
