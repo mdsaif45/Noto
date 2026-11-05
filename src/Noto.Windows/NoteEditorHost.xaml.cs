@@ -315,11 +315,18 @@ public sealed partial class NoteEditorHost : UserControl
     private void Apply(TextEdit edit, bool record)
     {
         string before = _text;
-        Set(() =>
+
+        // A large edit (a paste over the note, its undo) is never made in place: the whole note is set again, styled,
+        // in Commit. In place, RichEdit's range replace of ~100 KB took 6.5 s, the UI frozen (measured 2026-11-05).
+        bool whole = edit.Length >= WholeNote || edit.Replacement.Length >= WholeNote;
+        if (!whole)
         {
-            NoteEditor.Document.GetRange(edit.Start, edit.Start + edit.Length).SetText(TextSetOptions.None, edit.Replacement);
-            NoteEditor.Document.Selection.SetRange(edit.After.Start, edit.After.End);
-        });
+            Set(() =>
+            {
+                NoteEditor.Document.GetRange(edit.Start, edit.Start + edit.Length).SetText(TextSetOptions.None, edit.Replacement);
+                NoteEditor.Document.Selection.SetRange(edit.After.Start, edit.After.End);
+            });
+        }
 
         if (record)
         {
@@ -327,7 +334,7 @@ public sealed partial class NoteEditorHost : UserControl
         }
 
         _selection = edit.After;
-        Commit(edit.ApplyTo(before));
+        Commit(edit.ApplyTo(before), whole);
     }
 
     /// <summary>
@@ -402,22 +409,58 @@ public sealed partial class NoteEditorHost : UserControl
         ContentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>The text is now <paramref name="now"/>: parse it, restyle only what changed, tell the stack.</summary>
-    private void Commit(string now)
+    /// <summary>
+    /// The text is now <paramref name="now"/>: parse it, restyle only what changed, tell the stack. With
+    /// <paramref name="whole"/> the control does not hold <paramref name="now"/> yet: the whole note is set.
+    /// </summary>
+    private void Commit(string now, bool whole = false)
     {
         long started = Stopwatch.GetTimestamp();
         MarkdownDocument was = _document;
         _text = now;
         _document = MarkdownDocument.Parse(now);
         (int start, int length) region = MarkdownDocument.ChangedRegion(was, _document);
-        Restyle(region);
+        if (whole)
+        {
+            SetWhole(_selection);
+        }
+        else
+        {
+            Restyle(region);
+        }
+
         QueueTaskMarks();
-        Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Editor change chars={_text.Length} restyled={region.length} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
+        Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Editor change chars={_text.Length} restyled={region.length} whole={whole || region.length >= WholeNote} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
         ContentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void Restyle((int Start, int Length) region) =>
+    /// <summary>
+    /// The size, in characters, from which a change is made or restyled by setting the whole note again, styled in one
+    /// call as loading does, instead of in place. Measured on a 98,866-character note (2,242 spans): loading it takes
+    /// 190–220 ms, while restyling all of it span by span took 7.3 s and replacing it in place 6.5 s. Restyling stays
+    /// cheaper below this size (2 K characters restyle in about 150 ms at the measured rate).
+    /// </summary>
+    private const int WholeNote = 2_048;
+
+    /// <summary>Restyles <paramref name="region"/>, or the whole note when the region is large (<see cref="WholeNote"/>).</summary>
+    private void Restyle((int Start, int Length) region)
+    {
+        if (region.Length >= WholeNote)
+        {
+            SetWhole(_selection);
+            return;
+        }
+
         Set(() => MarkdownStyling.Restyle(NoteEditor.Document, _document, region.Start, region.Start + region.Length, Palette()));
+    }
+
+    /// <summary>Sets the whole note, styled in one call (as <see cref="Load"/> does), then <paramref name="keep"/> as the selection.</summary>
+    private void SetWhole(TextSelection keep) =>
+        Set(() =>
+        {
+            NoteEditor.Document.SetText(TextSetOptions.FormatRtf, MarkdownStyling.Rtf(_document, Palette()));
+            NoteEditor.Document.Selection.SetRange(keep.Start, keep.End);
+        });
 
     /// <summary>A theme switch or Show markup: the whole note again, the selection kept.</summary>
     private void RestyleAll()
@@ -427,6 +470,7 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
+        _selection = CurrentSelection();
         Restyle((0, _text.Length));
         QueueTaskMarks();
     }

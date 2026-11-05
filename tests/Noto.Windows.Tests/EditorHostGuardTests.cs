@@ -170,6 +170,34 @@ public sealed class EditorHostGuardTests
         Assert.Equal(["Bold", "Italic", "Underline", "Strikethrough", "Code", "Link", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "CodeBlock", "ShowMarkup"], items);
     }
 
+    [Fact]
+    public void A_large_change_sets_the_whole_note_styled_in_one_call_never_in_place()
+    {
+        // Measured on a ~100 KB note: a paste over all of it took 6.5 s in place and restyling it span by span 7.3 s,
+        // the UI frozen; setting it whole, styled, as opening does, about 200 ms (the performance and stability slice).
+        Assert.Contains("private const int WholeNote = 2_048;", Host, StringComparison.Ordinal);
+
+        string apply = Body(Host, "Apply");
+        Assert.Contains("bool whole = edit.Length >= WholeNote || edit.Replacement.Length >= WholeNote;", apply, StringComparison.Ordinal);
+        Assert.Matches(@"if \(!whole\)\s*\{\s*Set\(\(\) =>\s*\{\s*NoteEditor\.Document\.GetRange\(edit\.Start, edit\.Start \+ edit\.Length\)\.SetText\(", apply);
+        Assert.Contains("Commit(edit.ApplyTo(before), whole);", apply, StringComparison.Ordinal);
+
+        Assert.Matches(@"if \(whole\)\s*\{\s*SetWhole\(_selection\);\s*\}\s*else\s*\{\s*Restyle\(region\);\s*\}", Body(Host, "Commit"));
+        Assert.Matches(@"if \(region\.Length >= WholeNote\)\s*\{\s*SetWhole\(_selection\);\s*return;\s*\}", Body(Host, "Restyle"));
+        Assert.Matches(@"NoteEditor\.Document\.SetText\(TextSetOptions\.FormatRtf, MarkdownStyling\.Rtf\(_document, Palette\(\)\)\);\s*NoteEditor\.Document\.Selection\.SetRange\(keep\.Start, keep\.End\);", Body(Host, "SetWhole"));
+
+        // A theme switch or Show markup keeps the caret where it is, read from the control first.
+        Assert.Matches(@"_selection = CurrentSelection\(\);\s*Restyle\(\(0, _text\.Length\)\);", Body(Host, "RestyleAll"));
+    }
+
+    [Fact]
+    public void UI_Automations_SetValue_makes_only_the_change_as_typing_does()
+    {
+        // A screen reader, dictation or a test sets the whole value; the editor applies only what differs.
+        Assert.Matches(@"NoteEditor\.ValueSink = value =>\s*\{\s*string now = Normalize\(value\);\s*if \(TextDiff\.Between\(_text, now, TextSelection\.Caret\(now\.Length\)\) is \{ \} edit\)\s*\{\s*Apply\(edit, record: true\);", Host);
+        Assert.DoesNotContain("new TextEdit(0, _text.Length", Host, StringComparison.Ordinal);
+    }
+
     private static string Code(string path) => Regex.Replace(File.ReadAllText(path), @"^\s*//.*$", string.Empty, RegexOptions.Multiline);
 
     private static string Body(string source, string method)

@@ -397,6 +397,18 @@
                     DragItemsStarting="OnNoteDragStarting"
                     DragItemsCompleted="OnNoteDragCompleted"
                     AutomationProperties.Name="Notes">
+                    <!--
+                        Virtualised, keeping its scroll offset when a card changes size. The default (KeepItemsInView)
+                        re-anchors on the items as they change, and a card being edited can be tens of thousands of
+                        pixels tall: replacing all of a ~100 KB note's text twice in a folder of 50 cards ended Noto
+                        inside WinUI (0xC000027B, measured 2026-11-05; never with this mode, 10 cycles at 100 KB and 6
+                        at 150 KB). The caret is still brought into view by the editor.
+                    -->
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsStackPanel ItemsUpdatingScrollMode="KeepScrollOffset" />
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="local:NoteCard">
                             <Grid ColumnSpacing="{StaticResource SpaceXS}"

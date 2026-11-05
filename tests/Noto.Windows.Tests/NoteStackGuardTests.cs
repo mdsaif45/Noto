@@ -315,6 +315,21 @@ public sealed class NoteStackGuardTests
     private static XElement Named(XElement scope, string name) =>
         scope.Descendants().Single(e => (string?)e.Attribute(X + "Name") == name);
 
+    [Fact]
+    public void The_stack_is_virtualised_and_keeps_its_scroll_offset_when_a_card_changes_size()
+    {
+        // The default re-anchors on items as they change: with a ~100 KB card being edited among 50, replacing all of its
+        // text twice ended Noto inside WinUI (0xC000027B); keeping the offset never did (the performance and stability
+        // slice, measured).
+        XElement list = MainXaml.Descendants().Single(e => (string?)e.Attribute(X + "Name") == "NoteList");
+        XElement panel = Assert.Single(
+            list.Descendants(),
+            e => e.Name.LocalName is "ItemsStackPanel" or "StackPanel" or "VirtualizingStackPanel" or "ItemsWrapGrid"
+                && e.Ancestors().Any(a => a.Name.LocalName == "ListView.ItemsPanel"));
+        Assert.Equal("ItemsStackPanel", panel.Name.LocalName);
+        Assert.Equal("KeepScrollOffset", (string?)panel.Attribute("ItemsUpdatingScrollMode"));
+    }
+
     private static string Code(string path) => Regex.Replace(File.ReadAllText(path), @"^\s*//.*$", string.Empty, RegexOptions.Multiline);
 
     private static string Body(string source, string method)
