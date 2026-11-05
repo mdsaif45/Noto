@@ -183,6 +183,15 @@ public sealed partial class MainWindow : Window
         EnterLoading();
 
         PaneRoot.Loaded += OnPaneFirstLoaded;
+
+        // The card being edited is never taller than the stack: a longer note scrolls inside its card.
+        NoteList.SizeChanged += (_, _) =>
+        {
+            if (_editor is { } editor)
+            {
+                editor.MaxHeight = EditingHeight();
+            }
+        };
     }
 
     /// <summary>
@@ -1204,6 +1213,22 @@ public sealed partial class MainWindow : Window
     /// Loads the stack's text for the editing card into its editor, once: the text survives the card's container
     /// being recycled. Takes focus if editing was just asked for.
     /// </summary>
+    /// <summary>
+    /// The tallest a card's editor grows: the stack's own height less the editing card's padding, the space between
+    /// its editor and its bar, the bar and the gap below the card, so the whole card fits in view. Grown without a
+    /// limit, every keystroke laid out the whole note (259 ms a key at 100 KB, 18 ms capped: the performance and
+    /// stability slice). Not laid out yet: no cap, until the stack's size arrives.
+    /// </summary>
+    private double EditingHeight()
+    {
+        ResourceDictionary tokens = Application.Current.Resources;
+        var padding = (Thickness)tokens["CardPadding"];
+        var spacing = (Thickness)tokens["CardSpacing"];
+        double chrome = padding.Top + padding.Bottom + spacing.Top + spacing.Bottom + (double)tokens["SpaceXS"] + (double)tokens["ControlHeightCompact"];
+        double height = NoteList.ActualHeight - chrome;
+        return height > 0 ? height : double.PositiveInfinity;
+    }
+
     private void AttachEditor(NoteEditorHost? host)
     {
         // Not this card's editor, or it already shows this card.
@@ -1213,6 +1238,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        host.MaxHeight = EditingHeight();
         _editor = host;
         host.Images = Images;
         host.Load(NoteId.From(card.Id), _stack.Draft);
@@ -1342,10 +1368,13 @@ public sealed partial class MainWindow : Window
     private void LeaveEditor()
     {
         string? editing = _stack.Editing?.Value;
+        long started = Stopwatch.GetTimestamp();
+        int chars = _stack.Draft.Length;
 
         if (editing is not null && TryEndEdit())
         {
             FocusNoteRow(editing);
+            TraceShown("Noto.Editor left", string.Create(CultureInfo.InvariantCulture, $"chars={chars}"), started);
         }
     }
 

@@ -150,6 +150,8 @@ public sealed partial class NoteEditorHost : UserControl
         ActualThemeChanged += (_, _) => RestyleAll();
         NoteEditor.PreviewKeyDown += OnPreviewKeyDown;
         NoteEditor.SizeChanged += (_, _) => QueueTaskMarks();
+        NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);
+        EditorRoot.SizeChanged += (_, e) => EditorRoot.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
         NoteEditor.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnPointerReleased), handledEventsToo: true);
         NoteEditor.AddHandler(DragEnterEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
         NoteEditor.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
@@ -213,7 +215,11 @@ public sealed partial class NoteEditorHost : UserControl
     {
         _ = NoteEditor.Focus(FocusState.Programmatic);
         int at = placement == CaretPlacement.Start ? 0 : _text.Length;
-        Set(() => NoteEditor.Document.Selection.SetRange(at, at));
+        Set(() =>
+        {
+            NoteEditor.Document.Selection.SetRange(at, at);
+            NoteEditor.Document.Selection.ScrollIntoView(PointOptions.None);
+        });
         _selection = TextSelection.Caret(at);
     }
 
@@ -230,7 +236,9 @@ public sealed partial class NoteEditorHost : UserControl
 
         _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
-            // RichEdit's client coordinates start inside the border and padding (as TaskMarks and the click mapping say).
+            // Inside the card first (a long note scrolls there), then the card's caret into the stack's view. RichEdit's
+            // client coordinates start inside the border and padding (as TaskMarks and the click mapping say).
+            NoteEditor.Document.Selection.ScrollIntoView(PointOptions.None);
             NoteEditor.Document.Selection.GetRect(PointOptions.ClientCoordinates, out Windows.Foundation.Rect caret, out _);
             NoteEditor.StartBringIntoView(new BringIntoViewOptions
             {
@@ -475,6 +483,46 @@ public sealed partial class NoteEditorHost : UserControl
         QueueTaskMarks();
     }
 
+    // RichEdit's own scroller: a note taller than the stack scrolls in it while edited (the stack caps the editor's height).
+    private ScrollViewer? _scroller;
+
+    // The scroller's offset when the checkboxes and pictures were placed.
+    private double _marksOffset;
+
+    /// <summary>Finds RichEdit's own scroller, once its template is up, and has the overlays follow it.</summary>
+    private void FollowScrollOf(DependencyObject parent)
+    {
+        if (_scroller is not null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+            if (child is ScrollViewer scroller)
+            {
+                _scroller = scroller;
+                scroller.ViewChanged += (_, _) => FollowScroll();
+                return;
+            }
+
+            FollowScrollOf(child);
+            if (_scroller is not null)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>Moves the checkboxes and pictures with the text, by how far it has scrolled since they were placed.</summary>
+    private void FollowScroll()
+    {
+        double shift = _marksOffset - (_scroller?.VerticalOffset ?? 0);
+        TaskMarksShift.Y = shift;
+        ImageMarksShift.Y = shift;
+    }
+
     /// <summary>The most tasks drawn as checkboxes; a note with more keeps its boxes as text (still clickable).</summary>
     private const int TaskMarkLimit = 300;
 
@@ -501,6 +549,10 @@ public sealed partial class NoteEditorHost : UserControl
     {
         NoteEditor.LayoutUpdated -= PlaceTaskMarks;
         _marksQueued = false;
+
+        // Placed from RichEdit's view as it is scrolled now; FollowScroll moves them as it scrolls on.
+        _marksOffset = _scroller?.VerticalOffset ?? 0;
+        FollowScroll();
         TaskMarks.Children.Clear();
         PlaceImages();
 

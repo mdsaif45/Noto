@@ -191,6 +191,27 @@ public sealed class EditorHostGuardTests
     }
 
     [Fact]
+    public void A_note_taller_than_the_stack_scrolls_in_its_card_with_its_checkboxes_and_pictures()
+    {
+        // The stack caps the editor's height (NoteStackGuardTests); RichEdit's own scroller then moves the text, and the
+        // overlays, placed from RichEdit's view at one offset, are shifted by how far it has scrolled since, and clipped.
+        Assert.Contains("NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);", Host, StringComparison.Ordinal);
+        Assert.Contains("scroller.ViewChanged += (_, _) => FollowScroll();", Body(Host, "FollowScrollOf"), StringComparison.Ordinal);
+        Assert.Matches(@"double shift = _marksOffset - \(_scroller\?\.VerticalOffset \?\? 0\);\s*TaskMarksShift\.Y = shift;\s*ImageMarksShift\.Y = shift;", Body(Host, "FollowScroll"));
+        Assert.Matches(@"_marksQueued = false;\s*_marksOffset = _scroller\?\.VerticalOffset \?\? 0;\s*FollowScroll\(\);\s*TaskMarks\.Children\.Clear\(\);", Body(Host, "PlaceTaskMarks"));
+        Assert.Contains("EditorRoot.SizeChanged += (_, e) => EditorRoot.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };", Host, StringComparison.Ordinal);
+
+        foreach (string shift in new[] { "ImageMarksShift", "TaskMarksShift" })
+        {
+            Assert.Single(HostXaml.Root!.Descendants(), e => e.Name.LocalName == "TranslateTransform" && (string?)e.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == shift);
+        }
+
+        // The caret is brought into view inside the card first, then the card into the stack's view.
+        Assert.Matches(@"Selection\.SetRange\(at, at\);\s*NoteEditor\.Document\.Selection\.ScrollIntoView\(PointOptions\.None\);", Body(Host, "PlaceCaret"));
+        Assert.Matches(@"NoteEditor\.Document\.Selection\.ScrollIntoView\(PointOptions\.None\);\s*NoteEditor\.Document\.Selection\.GetRect\(", Body(Host, "PlaceCaretAt"));
+    }
+
+    [Fact]
     public void UI_Automations_SetValue_makes_only_the_change_as_typing_does()
     {
         // A screen reader, dictation or a test sets the whole value; the editor applies only what differs.

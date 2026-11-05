@@ -330,6 +330,25 @@ public sealed class NoteStackGuardTests
         Assert.Equal("KeepScrollOffset", (string?)panel.Attribute("ItemsUpdatingScrollMode"));
     }
 
+    [Fact]
+    public void The_card_being_edited_is_never_taller_than_the_stack()
+    {
+        // Grown without a limit, every keystroke laid out the whole note: 259 ms a key at 100 KB, 18 ms capped (the
+        // performance and stability slice). The cap is the stack's height less the card's own chrome, from the tokens.
+        Assert.Matches(@"host\.MaxHeight = EditingHeight\(\);\s*_editor = host;", Body(Main, "AttachEditor"));
+        Assert.Matches(@"NoteList\.SizeChanged \+= \(_, _\) =>\s*\{\s*if \(_editor is \{ \} editor\)\s*\{\s*editor\.MaxHeight = EditingHeight\(\);", Main);
+
+        string height = Body(Main, "EditingHeight");
+        foreach (string token in new[] { "\"CardPadding\"", "\"CardSpacing\"", "\"SpaceXS\"", "\"ControlHeightCompact\"" })
+        {
+            Assert.Contains(token, height, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("double chrome = padding.Top + padding.Bottom + spacing.Top + spacing.Bottom + (double)tokens[\"SpaceXS\"] + (double)tokens[\"ControlHeightCompact\"];", height, StringComparison.Ordinal);
+        Assert.Contains("double height = NoteList.ActualHeight - chrome;", height, StringComparison.Ordinal);
+        Assert.Contains("return height > 0 ? height : double.PositiveInfinity;", height, StringComparison.Ordinal);
+    }
+
     private static string Code(string path) => Regex.Replace(File.ReadAllText(path), @"^\s*//.*$", string.Empty, RegexOptions.Multiline);
 
     private static string Body(string source, string method)

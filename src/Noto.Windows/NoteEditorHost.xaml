@@ -9,14 +9,17 @@
         Markdown, ContentChanged, LeaveRequested, PlaceCaret and the formatting commands; nothing else.
 
         P2 (ADR-017): a RichEditBox whose text is the markdown source, its markup hidden by format and styled from
-        Core's parse. RichEdit's own undo and formatting chords are off: Noto owns both. It grows with its text
-        inside the card; the stack scrolls, not the editor. The brushes are theme resources, so a theme switch
+        Core's parse. RichEdit's own undo and formatting chords are off: Noto owns both. It grows with its text inside
+        the card up to the stack's own height (MaxHeight, set by the stack), and a longer note scrolls inside its card
+        while it is edited (ADR-017, amended by the performance and stability slice: grown without a limit, every
+        keystroke laid out the whole note, 259 ms a key at 100 KB). The brushes are theme resources, so a theme switch
         restyles the note.
 
         TaskMarks draws a checkbox over each task's marker and box, which the editor keeps in the text (the source)
-        but draws invisibly. It takes no input: a click reaches the editor, which toggles the task it hit.
+        but draws invisibly; ImageMarks draws the pictures. Neither takes input: a click reaches the editor, which
+        toggles the task it hit. Both follow the editor's own scroll (their shifts) and are clipped to it (EditorRoot).
     -->
-    <Grid>
+    <Grid x:Name="EditorRoot">
         <local:EditorBox
             x:Name="NoteEditor"
             Style="{StaticResource NoteEditorStyle}"
@@ -33,11 +36,19 @@
         <Canvas
             x:Name="ImageMarks"
             IsHitTestVisible="False"
-            AutomationProperties.AccessibilityView="Raw" />
+            AutomationProperties.AccessibilityView="Raw">
+            <Canvas.RenderTransform>
+                <TranslateTransform x:Name="ImageMarksShift" />
+            </Canvas.RenderTransform>
+        </Canvas>
         <Canvas
             x:Name="TaskMarks"
             IsHitTestVisible="False"
-            AutomationProperties.AccessibilityView="Raw" />
+            AutomationProperties.AccessibilityView="Raw">
+            <Canvas.RenderTransform>
+                <TranslateTransform x:Name="TaskMarksShift" />
+            </Canvas.RenderTransform>
+        </Canvas>
     </Grid>
 
 </UserControl>
