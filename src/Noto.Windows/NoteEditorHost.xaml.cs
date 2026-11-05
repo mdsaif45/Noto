@@ -507,7 +507,16 @@ public sealed partial class NoteEditorHost : UserControl
             if (child is ScrollViewer scroller)
             {
                 _scroller = scroller;
-                scroller.ViewChanged += (_, _) => FollowScroll();
+                scroller.ViewChanged += (_, e) =>
+                {
+                    FollowScroll();
+
+                    // Scrolled past the band whose checkboxes are placed: the ones now near the view are placed.
+                    if (!e.IsIntermediate && !_marksQueued && (ScrolledBy < _marksBand.Top || ScrolledBy + NoteEditor.ActualHeight > _marksBand.Bottom))
+                    {
+                        PlaceTaskMarks(null, EventArgs.Empty);
+                    }
+                };
                 return;
             }
 
@@ -526,6 +535,9 @@ public sealed partial class NoteEditorHost : UserControl
         TaskMarksShift.Y = shift;
         ImageMarksShift.Y = shift;
     }
+
+    // The part of the note, in its own coordinates, whose checkboxes are placed (PlaceTaskMarks).
+    private (double Top, double Bottom) _marksBand = (double.NegativeInfinity, double.PositiveInfinity);
 
     /// <summary>The most tasks drawn as checkboxes; a note with more keeps its boxes as text (still clickable).</summary>
     private const int TaskMarkLimit = 300;
@@ -574,7 +586,15 @@ public sealed partial class NoteEditorHost : UserControl
         double left = NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left;
         double top = NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top;
 
-        foreach (MarkdownBlock task in tasks)
+        // Only the tasks near the view: the view, and one view's height above and below it. Placing every task of a note
+        // on every keystroke cost about 0.25 ms a task: 51 ms a key in a note of 160 tasks, against 21 ms in one of
+        // none (the performance and stability slice). A note no taller than its card is all in view.
+        double view = NoteEditor.ActualHeight;
+        _marksBand = view > 0 ? (ScrolledBy - view, ScrolledBy + (2 * view)) : (double.NegativeInfinity, double.PositiveInfinity);
+        int from = view > 0 ? NoteEditor.Document.GetRangeFromPoint(new Windows.Foundation.Point(0, Math.Max(0, _marksBand.Top)), PointOptions.ClientCoordinates).StartPosition : 0;
+        int to = view > 0 ? NoteEditor.Document.GetRangeFromPoint(new Windows.Foundation.Point(NoteEditor.ActualWidth, _marksBand.Bottom), PointOptions.ClientCoordinates).EndPosition : _text.Length;
+
+        foreach (MarkdownBlock task in tasks.Where(t => t.End >= from && t.Start <= to))
         {
             MarkdownSpan marker = task.Spans.First(s => s.Kind == MarkdownSpanKind.ListMarker);
             MarkdownSpan box = task.Spans.First(s => s.Kind == MarkdownSpanKind.TaskBox);
