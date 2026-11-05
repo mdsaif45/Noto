@@ -27,6 +27,8 @@
     12  an image file dropped on the editor is kept and written where it was dropped
     13  a picture removed and older than a week is swept at the next start
     14  cost: a note with five 1200x800 images, Noto's own load, first-frame and images-drawn traces
+    15  a note taller than the stack scrolls inside its card: scrolled to the end, its picture is drawn below its line
+        and inside the card; back at the top, nothing of it is drawn over the text (it follows the scroll, clipped)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Images.ps1 -NotoExe <path>\Noto.exe
@@ -76,6 +78,7 @@ $Notes = [ordered]@{
     '01J00000000000000000000N64' = "Gone`n![gone](attachments/$Gone.png)"
     '01J00000000000000000000N65' = "Broken`n![broken](attachments/$Broken.png)"
     '01J00000000000000000000N66' = "Five`n" + (($Five | ForEach-Object { "![photo](attachments/$_.png)" }) -join "`n")
+    '01J00000000000000000000N68' = "Scrolled`n" + ((1..300 | ForEach-Object { "line $_ of a note taller than the stack" }) -join "`n") + "`n![far red square](attachments/$Red.png)`nafter the far picture`n- [ ] far task"
 }
 
 function Sql($Data, [string] $Text, [hashtable] $Parameters = @{}, [switch] $Scalar) {
@@ -168,6 +171,16 @@ function Red-Box($Element) {
     }
     finally { $bmp.Dispose() }
 }
+function Click-At([int] $X, [int] $Y) {
+    <# A real left click, only while Noto is in front and only where the window under the point is Noto (as Invoke-Editor.ps1). #>
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to click: Noto is not the foreground window' }
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
+    if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing to click at ($X,$Y): it is not Noto" }
+    [void][NotoVal.Win32]::SetCursorPos($X, $Y); Start-Sleep -Milliseconds 150
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 60
+    [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 600
+}
+function Centre-Of($Range) { $r = @($Range.GetBoundingRectangles())[0]; @([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2)) }
 function Shot([string] $Name) {
     <# Noto's window as drawn, saved in the run for review. #>
     $w = New-Object NotoVal.ImageCapture+RECT; [void][NotoVal.ImageCapture]::GetWindowRect($script:noto.Hwnd, [ref]$w)
@@ -190,8 +203,15 @@ function Raw-Find($Root, [string] $Name) {
 }
 
 function Card([string] $Title) {
-    $items = (Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))
-    $card = @($items | Where-Object { $_.Current.Name -eq $Title })[0]
+    # A virtualised list realises only the cards near the view: scrolled down, then from the top, until the card is there.
+    $list = Find-ById 'NoteList'; $card = $null
+    foreach ($pass in 0..30) {
+        $items = $list.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))
+        $card = @($items | Where-Object { $_.Current.Name -eq $Title })[0]
+        if ($card) { break }
+        try { $sp = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern); if ($pass -eq 15) { $sp.SetScrollPercent(-1, 0) } else { $sp.Scroll('NoAmount', 'LargeIncrement') } } catch { }
+        Start-Sleep -Milliseconds 200
+    }
     if (-not $card) { throw "no card '$Title' (cards: $(@($items | ForEach-Object { $_.Current.Name }) -join ' | '))" }
     try { $card.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView() } catch { }
     Start-Sleep -Milliseconds 700
@@ -292,6 +312,30 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
     Start-Sleep -Milliseconds 800
     $box = Red-Box (Editor)
     Add-Result $run '5  a tall image is drawn at most 320 tall, its shape kept' ($box -and $box.H -le [Math]::Ceiling(320 * $s) + 1 -and $box.H -ge [Math]::Floor(320 * $s) - 2 -and [Math]::Abs($box.W / $box.H - 0.4) -lt 0.02) "box=$(Box-Text $box)"
+    Leave-Editor
+
+    # 15 - a note taller than the stack: the picture follows the card's own scroll, clipped to the card
+    Edit-Note 'Scrolled'
+    Caret-End; Start-Sleep -Milliseconds 1200
+    $editorRect = (Editor).Current.BoundingRectangle
+    $box = Red-Box (Editor)
+    $far = @((Range-Of 'far red square').GetBoundingRectangles())[0]
+    $next = @((Range-Of 'after the far picture').GetBoundingRectangles())[0]
+    $inCard = $box -and $box.Y -ge $editorRect.Y - 1 -and $box.Y + $box.H -le $editorRect.Y + $editorRect.Height + 1
+    $placed = $box -and $far -and $next -and $box.Y -gt $far.Y -and $next.Y -ge $box.Y + $box.H - 1
+    $capped = $editorRect.Height -lt (Find-ById 'NoteList').Current.BoundingRectangle.Height
+    Shot 'scrolled-end'
+    # the far task: a click on its drawn checkbox, scrolled in the card, checks it; a click on its text does not
+    $boxRange = Range-Of '[ ] far task'
+    [void]$boxRange.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, [System.Windows.Automation.Text.TextUnit]::Character, -9)
+    $box = Centre-Of $boxRange; Click-At $box[0] $box[1]
+    $checked = (Editor-Value).EndsWith('- [x] far task')
+    $text = Centre-Of (Range-Of 'far task'); Click-At $text[0] $text[1]
+    $kept = (Editor-Value).EndsWith('- [x] far task')
+    Send-ToNoto @(0x11) 0x24 300; Start-Sleep -Milliseconds 1200
+    $atTop = Red-Box (Editor)
+    Shot 'scrolled-top'
+    Add-Result $run '15 a note taller than the stack scrolls in its card: its picture follows, clipped; its far checkbox toggles on click' ($capped -and $inCard -and $placed -and $null -eq $atTop -and $checked -and $kept) "capped=$capped editor=$([int]$editorRect.Y)+$([int]$editorRect.Height) box=$(Box-Text $box) far.top=$(if ($far) { [int]$far.Y }) next.top=$(if ($next) { [int]$next.Y }) at-top=$(Box-Text $atTop) task: checked=$checked text-click-kept=$kept"
     Leave-Editor
 
     # 6 - small
