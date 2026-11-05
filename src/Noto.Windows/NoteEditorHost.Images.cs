@@ -108,7 +108,7 @@ public sealed partial class NoteEditorHost
         }
 
         // RichEdit measures from inside the control's border and padding, as the checkbox overlay does.
-        var toMarks = NoteEditor.TransformToVisual(ImageMarks);
+        var toMarks = NoteEditor.TransformToVisual(EditorRoot);
         double left = NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left;
         double top = NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top;
 
@@ -316,7 +316,7 @@ public sealed partial class NoteEditorHost
             var point = e.GetPosition(NoteEditor);
             point = new Windows.Foundation.Point(
                 point.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left,
-                point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top);
+                point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top + ScrolledBy);
             int at = NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition;
 
             IReadOnlyList<string> paths = [.. (await e.DataView.GetStorageItemsAsync()).Select(i => i.Path).Where(Path.IsPathFullyQualified)];

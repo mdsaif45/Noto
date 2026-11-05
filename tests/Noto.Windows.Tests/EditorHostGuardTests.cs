@@ -193,12 +193,21 @@ public sealed class EditorHostGuardTests
     [Fact]
     public void A_note_taller_than_the_stack_scrolls_in_its_card_with_its_checkboxes_and_pictures()
     {
-        // The stack caps the editor's height (NoteStackGuardTests); RichEdit's own scroller then moves the text, and the
-        // overlays, placed from RichEdit's view at one offset, are shifted by how far it has scrolled since, and clipped.
+        // The stack caps the editor's height (NoteStackGuardTests); RichEdit's own scroller then moves the text. RichEdit's
+        // client coordinates are the document's (measured: the same at every offset), so the overlays are placed in them,
+        // through the parent and not their own shifted canvas, and shifted by the scroll; a pointer adds it; a caret shown
+        // on the card subtracts it.
         Assert.Contains("NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);", Host, StringComparison.Ordinal);
         Assert.Contains("scroller.ViewChanged += (_, _) => FollowScroll();", Body(Host, "FollowScrollOf"), StringComparison.Ordinal);
-        Assert.Matches(@"double shift = _marksOffset - \(_scroller\?\.VerticalOffset \?\? 0\);\s*TaskMarksShift\.Y = shift;\s*ImageMarksShift\.Y = shift;", Body(Host, "FollowScroll"));
-        Assert.Matches(@"_marksQueued = false;\s*_marksOffset = _scroller\?\.VerticalOffset \?\? 0;\s*FollowScroll\(\);\s*TaskMarks\.Children\.Clear\(\);", Body(Host, "PlaceTaskMarks"));
+        Assert.Contains("private double ScrolledBy => _scroller?.VerticalOffset ?? 0;", Host, StringComparison.Ordinal);
+        Assert.Matches(@"double shift = -ScrolledBy;\s*TaskMarksShift\.Y = shift;\s*ImageMarksShift\.Y = shift;", Body(Host, "FollowScroll"));
+        Assert.Matches(@"_marksQueued = false;\s*FollowScroll\(\);\s*TaskMarks\.Children\.Clear\(\);", Body(Host, "PlaceTaskMarks"));
+        Assert.Contains("var toMarks = NoteEditor.TransformToVisual(EditorRoot);", Body(Host, "PlaceTaskMarks"), StringComparison.Ordinal);
+        string images = Code(Path.Join(Windows, "NoteEditorHost.Images.cs"));
+        Assert.Contains("var toMarks = NoteEditor.TransformToVisual(EditorRoot);", images, StringComparison.Ordinal);
+        Assert.Contains("point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top + ScrolledBy);", Body(Host, "OnPointerReleased"), StringComparison.Ordinal);
+        Assert.Contains("point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top + ScrolledBy);", images, StringComparison.Ordinal);
+        Assert.Contains("caret.Y - ScrolledBy + NoteEditor.BorderThickness.Top + NoteEditor.Padding.Top,", Body(Host, "PlaceCaretAt"), StringComparison.Ordinal);
         Assert.Contains("EditorRoot.SizeChanged += (_, e) => EditorRoot.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };", Host, StringComparison.Ordinal);
 
         foreach (string shift in new[] { "ImageMarksShift", "TaskMarksShift" })
