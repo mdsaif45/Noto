@@ -78,9 +78,8 @@ public sealed class WelcomeTourTests
     {
         Assert.Contains("Press Ctrl+Shift+N in any app to show or hide Noto.", WelcomeTour.For("Ctrl+Shift+N").Steps[0].Lines);
 
-        foreach (string? off in new[] { null, "", "  " })
+        foreach (IReadOnlyList<string> lines in new[] { null, "", "  " }.Select(off => WelcomeTour.For(off).Steps[0].Lines))
         {
-            IReadOnlyList<string> lines = WelcomeTour.For(off).Steps[0].Lines;
             Assert.Contains("Turn on Show and hide Noto in Settings to bring Noto up from any app.", lines);
             Assert.DoesNotContain(lines, l => l.StartsWith("Press", StringComparison.Ordinal));
         }
