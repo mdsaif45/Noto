@@ -277,6 +277,8 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     private void Refresh()
     {
+        long started = Stopwatch.GetTimestamp();
+
         try
         {
             IReadOnlyList<Folder> folders = _listFolders.Execute();
@@ -306,6 +308,7 @@ public sealed partial class MainWindow : Window
             // a phantom row selected.
             RestoreSelection();
             ApplyState();
+            TraceShown("Noto.Folders shown", $"folders={Folders.Count}", started);
         }
         catch (StorageException ex)
         {
@@ -745,15 +748,20 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        long started = Stopwatch.GetTimestamp();
+
         try
         {
-            ShowCards(_stack.Read());
+            IReadOnlyList<Note> notes = _stack.Read();
+            double readMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            ShowCards(notes);
             _noteState = NoteState.Loaded;
 
             // A successful read answers whatever the last failure said.
             HideNoteNotice();
             RestoreNoteSelection();
             ApplyNoteState();
+            TraceShown("Noto.Stack shown", string.Create(CultureInfo.InvariantCulture, $"notes={notes.Count} read-ms={readMs:F2}"), started);
         }
         catch (StorageException ex)
         {
@@ -761,6 +769,21 @@ public sealed partial class MainWindow : Window
             ApplyNoteState();
             ShowNoteNotice($"Could not read the notes: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Traces <paramref name="what"/> once the next frame is drawn: how long the user waited from <paramref name="started"/>
+    /// to seeing it. Timing and counts only, never content (the validation channel, like the editor's "rendered").
+    /// </summary>
+    private static void TraceShown(string what, string counts, long started)
+    {
+        EventHandler<object>? rendered = null;
+        rendered = (_, _) =>
+        {
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= rendered;
+            Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{what} {counts} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
+        };
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += rendered;
     }
 
     /// <summary>Replaces the cards with <paramref name="notes"/>, the editing one marked.</summary>
