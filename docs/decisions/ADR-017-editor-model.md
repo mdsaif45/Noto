@@ -304,6 +304,19 @@ Still to come (editor polish, §10): Tab to indent list items and Alt+Up/Down to
 - High Contrast and reduced motion;
 - realistic large-note performance on the reference machine (confirms or removes §5's constraints).
 
+## Amendment: large notes (2026-11-05, the performance and stability slice)
+
+Measured on frozen Release builds with the release baseline (`Invoke-Baseline.ps1`), on a 98,866-character note in a folder of other cards:
+
+| Finding | Before | Now |
+|---|---|---|
+| A change of 2,048 characters or more (a paste over the note, its undo, a theme switch, Show markup, a fence opened over the rest of the note) | made in place and restyled span by span: 6.5–10.8 s, the UI frozen | the whole note set again, styled in one call as loading does: about 200 ms |
+| Replacing all of the note twice, among 50 cards | Noto ended inside WinUI (0xC000027B), the stack's `ListView` re-anchoring on a card tens of thousands of pixels tall | the stack keeps its scroll offset (`ItemsUpdatingScrollMode="KeepScrollOffset"`): no crash in 10 cycles at 100 KB and 6 at 150 KB |
+| A keystroke, key to change (user-visible) | 104 ms at 50 KB, 259 ms at 100 KB: the card grew with its text, so each keystroke laid out the whole note to report its height | 21 ms and 18 ms |
+| UI Automation's SetValue (a screen reader, dictation) | replaced the whole document | makes only the change, as typing does |
+
+So §4's "it grows with its text inside the card; the stack scrolls" changes to: **it grows with its text up to the stack's own height; a longer note scrolls inside its card while it is edited.** Short notes look and behave as before. The checkbox and picture overlays are placed from RichEdit's view as before and follow its scroll by one shift, clipped to the card. A caret placed by search or by entering a card is brought into view inside the card first, then the card into the stack's view. The decision was the owner's (2026-11-05), between this, a cap for large notes only, and keeping the design with a documented limit.
+
 ## Future reconsideration criteria
 
 Revisit if:

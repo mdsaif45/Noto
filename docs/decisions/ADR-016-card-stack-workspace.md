@@ -84,7 +84,7 @@ The **read view** has the same kind of seam: one method builds a card's body fro
 
 ### 4. List mechanics
 
-- The stack is a WinUI `ListView`, reusing `ListRow`'s states from Slice 1, with variable-height containers. `ListView` is kept, not `ItemsRepeater`, because it brings:
+- The stack is a WinUI `ListView`, reusing `ListRow`'s states from Slice 1, with variable-height containers. Its `ItemsStackPanel` keeps its scroll offset when a card changes size, and the card being edited is never taller than the stack (ADR-017's 2026-11-05 amendment: the default re-anchoring crashed WinUI on a ~100 KB card replaced twice). `ListView` is kept, not `ItemsRepeater`, because it brings:
   - virtualisation;
   - single selection;
   - keyboard focus movement;
