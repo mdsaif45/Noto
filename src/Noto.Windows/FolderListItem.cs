@@ -46,11 +46,12 @@ public sealed class FolderListItem
     {
     }
 
-    public FolderListItem(string id, string name, bool isPinned)
+    public FolderListItem(string id, string name, bool isPinned, int noteCount)
     {
         Id = id;
         Name = name;
         IsPinned = isPinned;
+        NoteCount = noteCount;
     }
 
     /// <summary>
@@ -120,8 +121,17 @@ public sealed class FolderListItem
     /// announce "Noto.FolderListItem" to a screen reader for every row.
     /// Observed with UI Automation against the running application.
     /// </remarks>
-    /// <summary>The folder's state for assistive technology: the ● marker is not its only sign.</summary>
-    public string HelpText => IsPinned ? "Pinned" : string.Empty;
+    /// <summary>How many active notes the folder holds (#147); the recycle bin's are not counted.</summary>
+    public int NoteCount { get; set; }
+
+    /// <summary>The count as the row shows it.</summary>
+    public string CountText => NoteCount.ToString(System.Globalization.CultureInfo.CurrentCulture);
+
+    /// <summary>
+    /// The folder's state for assistive technology: the pin marker and the count are not read from the screen, so
+    /// both are said here.
+    /// </summary>
+    public string HelpText => (IsPinned ? "Pinned, " : string.Empty) + (NoteCount == 1 ? "1 note" : $"{CountText} notes");
 
     public override string ToString() => Name;
 }

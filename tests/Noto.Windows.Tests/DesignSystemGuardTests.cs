@@ -181,12 +181,16 @@ public sealed class DesignSystemGuardTests
             XElement view = window.Descendants().Single(e => (string?)e.Attribute(X + "Name") == list);
             var texts = view.Descendants(Xaml + "TextBlock").ToList();
             var rendered = view.Descendants("{using:Noto}MarkdownReadView").ToList();
-            Assert.Equal(1, texts.Count(t => ((string?)t.Attribute("Text"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true)
+            // The bound title, and on a folder row its note count (#147), whose style sets no colour either.
+            Assert.Equal(list == "FolderList" ? 2 : 1, texts.Count(t => ((string?)t.Attribute("Text"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true)
                 + rendered.Count(r => ((string?)r.Attribute("Source"))?.StartsWith("{x:Bind", StringComparison.Ordinal) == true));
             var glyphs = view.Descendants(Xaml + "FontIcon").Where(g => g.Ancestors(Xaml + "Button").FirstOrDefault() is null).ToList();
             Assert.Single(glyphs, g => (string?)g.Attribute("Glyph") == "\uE718" && (string?)g.Attribute("Visibility") == "{x:Bind PinnedMarkerVisibility}");
             Assert.All(texts.Concat(rendered).Concat(glyphs), t => Assert.Null(t.Attribute("Foreground")));
         }
+
+        XElement count = Load(Path.Join(DesignSystem, "Styles", "FolderPane.xaml")).Descendants(Xaml + "Style").Single(s => (string?)s.Attribute(X + "Key") == "FolderRowCountStyle");
+        Assert.DoesNotContain(count.Elements(Xaml + "Setter"), s => (string?)s.Attribute("Property") == "Foreground");
 
         // A card's rendered read view (ADR-017) colours markers and links in Light and Dark, and none in high contrast,
         // where the row's text colour must win on a selected row.

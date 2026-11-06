@@ -851,6 +851,40 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         }
     }
 
+    public IReadOnlyDictionary<FolderId, int> CountActiveByFolder()
+    {
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var command = connection.CreateCommand();
+
+            // One grouped read over IX_Notes_Folder (active rows only), not one count per folder.
+            command.CommandText =
+                """
+                SELECT FolderId, COUNT(*)
+                FROM Notes
+                WHERE FolderId IS NOT NULL AND DeletedAt IS NULL
+                GROUP BY FolderId;
+                """;
+
+            var counts = new Dictionary<FolderId, int>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                counts[FolderId.From(reader.GetString(0))] = reader.GetInt32(1);
+            }
+
+            return counts;
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                "Could not count the notes in each folder.",
+                ex);
+        }
+    }
+
     public IReadOnlyList<Note> ListForTag(TagId tagId)
     {
         try

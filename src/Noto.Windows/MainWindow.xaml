@@ -246,6 +246,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <!--
                                     Glyphs from the system's icon font, in the row's own colour: a colour emoji keeps its
@@ -267,6 +268,12 @@
                                     Glyph="&#xE718;"
                                     FontSize="{StaticResource FontSizeCaption}"
                                     Visibility="{x:Bind PinnedMarkerVisibility}"
+                                    AutomationProperties.AccessibilityView="Raw" />
+                                <!-- The note count (#147): read by screen readers in the row's help text, not twice. -->
+                                <TextBlock
+                                    Grid.Column="3"
+                                    Text="{x:Bind CountText}"
+                                    Style="{StaticResource FolderRowCountStyle}"
                                     AutomationProperties.AccessibilityView="Raw" />
                             </Grid>
                         </DataTemplate>

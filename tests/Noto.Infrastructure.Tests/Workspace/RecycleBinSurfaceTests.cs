@@ -53,7 +53,7 @@ public sealed class RecycleBinSurfaceTests : IDisposable
         _bin = new RecycleBin(
             new ListDeletedFoldersQuery(_folders),
             new ListDeletedNotesQuery(_notes),
-            new ListFoldersQuery(_folders),
+            new ListFoldersQuery(_folders, _notes),
             new ListNotesInFolderQuery(_notes),
             dispatcher);
         _deleteNote = note => dispatcher.Dispatch(new DeleteNote(note));

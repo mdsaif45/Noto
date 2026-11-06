@@ -619,7 +619,7 @@ public partial class App : Application
 
         // Recent folders (B11) are a move's after-effect, not part of it: recorded once the move has committed, so a
         // settings write never extends the move's transaction and a failed one never fails the move.
-        var listFolders = new ListFoldersQuery(folders);
+        var listFolders = new ListFoldersQuery(folders, notes);
         _ = events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, listFolders.Execute()));
 
         var dispatcher = new CommandDispatcher(commands, events);

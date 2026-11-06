@@ -280,6 +280,18 @@ public interface INoteRepository
     IReadOnlyList<Note> ListInFolder(FolderId? folderId);
 
     /// <summary>
+    /// How many <b>active</b> notes each folder holds (#147, the folder list's counts), in one read.
+    /// </summary>
+    /// <returns>
+    /// One entry per folder holding at least one active note; a folder holding none is absent, which reads as zero.
+    /// </returns>
+    /// <remarks>
+    /// I1 applies: notes in the recycle bin are not counted. Root notes (no folder) belong to no row, so they are not
+    /// counted either.
+    /// </remarks>
+    IReadOnlyDictionary<FolderId, int> CountActiveByFolder();
+
+    /// <summary>
     /// The <b>active</b> notes in active folders that match <paramref name="query"/> (ADR-018 §2), best first by the
     /// index's rank, then the most recently updated; at most <paramref name="limit"/>.
     /// </summary>

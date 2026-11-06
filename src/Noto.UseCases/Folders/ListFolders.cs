@@ -1,4 +1,5 @@
 using Noto.Core.Folders;
+using Noto.Core.Notes;
 
 namespace Noto.UseCases.Folders;
 
@@ -11,10 +12,16 @@ namespace Noto.UseCases.Folders;
 /// <c>ListDeletedFolders</c> (I2). No failure case — §11 gives this query an
 /// empty failure column, and an empty collection is an answer.
 /// </remarks>
-public sealed class ListFoldersQuery(IFolderRepository folders)
+public sealed class ListFoldersQuery(IFolderRepository folders, INoteRepository notes)
 {
     private readonly IFolderRepository _folders = folders
         ?? throw new ArgumentNullException(nameof(folders));
 
+    private readonly INoteRepository _notes = notes
+        ?? throw new ArgumentNullException(nameof(notes));
+
     public IReadOnlyList<Folder> Execute() => _folders.ListActive();
+
+    /// <summary>How many active notes each folder holds, for the folder list's rows (#147). Absent means none.</summary>
+    public IReadOnlyDictionary<FolderId, int> NoteCounts() => _notes.CountActiveByFolder();
 }

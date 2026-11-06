@@ -112,4 +112,18 @@
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
 
+    <!--
+        A folder row's note count (#147): at the row's right edge, as SideNotes shows it, quiet by its caption size.
+        No colour of its own: everything in a row takes the row's text colour, so it holds on the selected fill in
+        every theme (a secondary colour measured 1.37:1 on Highlight in high contrast, DesignSystemGuardTests). Tabular
+        figures, so counts in a column line up whatever their digits.
+    -->
+    <Style x:Key="FolderRowCountStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyBody}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
+        <Setter Property="LineHeight" Value="{StaticResource LineHeightCaption}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+    </Style>
+
 </ResourceDictionary>

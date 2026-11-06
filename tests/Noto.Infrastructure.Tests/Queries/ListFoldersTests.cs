@@ -13,7 +13,41 @@ public sealed class ListFoldersTests : IDisposable
 
     public void Dispose() => _context.Dispose();
 
-    private ListFoldersQuery Query() => new(_context.Folders);
+    private ListFoldersQuery Query() => new(_context.Folders, _context.Notes);
+
+    // ---- note counts (#147) -------------------------------------------------
+
+    [Fact]
+    public void Counts_each_folders_active_notes_and_leaves_out_folders_with_none()
+    {
+        var two = _context.SeedFolder("two", sortOrder: 1);
+        var one = _context.SeedFolder("one", sortOrder: 2);
+        var none = _context.SeedFolder("none", sortOrder: 3);
+        _context.SeedNote(folderId: two);
+        _context.SeedNote(folderId: two);
+        _context.SeedNote(folderId: one);
+
+        var counts = Query().NoteCounts();
+
+        Assert.Equal(2, counts[two]);
+        Assert.Equal(1, counts[one]);
+        Assert.False(counts.ContainsKey(none));
+    }
+
+    [Fact]
+    public void Counts_leave_out_notes_in_the_recycle_bin()
+    {
+        var folder = _context.SeedFolder("f", sortOrder: 1);
+        var binned = _context.SeedFolder("only binned", sortOrder: 2);
+        _context.SeedNote(folderId: folder);
+        _context.SeedNote(folderId: folder, deletedAt: _context.Clock.UtcNow);
+        _context.SeedNote(folderId: binned, deletedAt: _context.Clock.UtcNow);
+
+        var counts = Query().NoteCounts();
+
+        Assert.Equal(1, counts[folder]);
+        Assert.False(counts.ContainsKey(binned));
+    }
 
     [Fact]
     public void Returns_an_empty_list_when_no_folders_exist()

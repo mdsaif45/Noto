@@ -13,6 +13,7 @@ format or behavior. Breaking changes are always called out explicitly.
 ### Added
 
 - `Ctrl+D` turns *Keep Noto open* on and off, from anywhere inside Noto (#146).
+- Each folder in the list shows how many notes it holds (#147).
 
 ## [0.1.0] - 2026-11-06
 
