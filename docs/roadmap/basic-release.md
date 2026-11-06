@@ -102,6 +102,6 @@ The #11 measurements are the baseline. Budgets in [quality-gates.md](../architec
    - crash and recovery;
    - migrations, backup and restore;
    - large datasets.
-3. Then, in order: the parity score, the progress update, the release checklist, the installer and signing, and **v0.1**.
+3. Then, in order: the parity score, the progress update, the release checklist, the installer and signing, and **v0.1**. The checklist, the owner's remaining steps and the decisions taken are in [release-v0.1.md](release-v0.1.md).
 
 v0.2's new-ideas milestone does not start until v0.1 is genuinely shippable.
