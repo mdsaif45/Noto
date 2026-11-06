@@ -338,6 +338,23 @@ after it.
   1.2.161 (velopack#1039). It is fixed only in a pre-release, so Noto does not
   use it; a silent install starts nothing.
 
+### v0.1 ships unsigned (owner decision)
+
+> **Added 2026-11-06.** This decides two of the *Release prerequisites* above
+> for v0.1 only.
+
+- **No certificate for v0.1.** The first public release is unsigned. Users
+  click through SmartScreen; a PC with Smart App Control on blocks it. The
+  CHANGELOG says so. Signing (#5) is decided when the owner judges it needed.
+- **Clean-machine installs (Windows 10 22H2, Windows 11 24H2) wait until after
+  v0.1.** The owner will remove every Noto trace from the development PC after
+  the release and install v0.1 there, as a new user would
+  ([release-v0.1.md](../roadmap/release-v0.1.md) §3).
+
+The upgrade and uninstall prerequisites are met: `Invoke-Install.ps1` checks
+the upgrade with an existing notes database, and that uninstall leaves the
+notes. Uninstall never removes them, so it has nothing to ask.
+
 ## Future reconsideration criteria
 
 Revisit if:

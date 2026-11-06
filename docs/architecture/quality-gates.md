@@ -51,7 +51,7 @@ traces and the latency from the key to them; *median / p90* unless marked. Same 
 | Warm start: hotkey registered | ≤ 350 ms | 299–318 ms | met |
 | Warm start: hidden `--login` start, first chord served | ≤ 750 ms | 581 ms | met |
 | Warm start: process → folder list drawn | ≤ 1,000 ms p90 | S 672 / L 687 (p90 750) ms; the list itself read and drawn in 64 ms at 105 folders | met |
-| First start after install (unbuffered copy, antivirus scan) | ≤ 4 s | **As installed** (self-contained, packaging slice): L folder list median 3,613 ms, 5 runs 3,328–4,228. The build measured before shared the machine's .NET: 2,874–3,207 ms. Warm starts unchanged (S 637–682, L 650–676 ms either way) | **met at the median; 2 of 5 runs over** |
+| First start after install (unbuffered copy, antivirus scan) | ≤ 4 s | **As installed** (self-contained, packaging slice): L folder list median 3,613 ms, 5 runs 3,328–4,228. The build measured before shared the machine's .NET: 2,874–3,207 ms. Warm starts unchanged (S 637–682, L 650–676 ms either way) | **met at the median; 2 of 5 runs over** (the owner judges it on the installed v0.1, 2026-11-06: [release-v0.1.md](../roadmap/release-v0.1.md) §2) |
 | A folder opened: 500 cards / ~100 cards | ≤ 200 ms p90 | 58 / 155 · 21 / 42 ms | met |
 | Scrolling 500 cards (End, Home) | ≤ 100 ms p90 | 19 / 80 · 49 / 69 ms | met |
 | A note opened, Enter → first frame drawn | ≤ 100 ms to 20 KB · ≤ 300 ms to 100 KB · ≤ 1 s at 250 KB | 5 KB 48 · 20 KB 78 · 50 KB 139 · 100 KB 264 · 250 KB 611 ms | met |

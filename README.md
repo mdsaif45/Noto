@@ -8,22 +8,24 @@ Native, local-first, keyboard-first, and quiet.
 
 [![CI](https://github.com/mdsaif45/Noto/actions/workflows/ci.yml/badge.svg)](https://github.com/mdsaif45/Noto/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)](docs/roadmap/roadmap.md)
+[![Status](https://img.shields.io/badge/status-v0.1%20release%20candidate-orange.svg)](docs/roadmap/release-v0.1.md)
 
 </div>
 
 ---
 
-> **Status: pre-alpha. There is nothing to install yet.**
+> **Status: release candidate for v0.1, the Basic Release.** It is not
+> published yet. What is in it, and what is not yet, is in the
+> [CHANGELOG](CHANGELOG.md). What is left before release is in the
+> [v0.1 release checklist](docs/roadmap/release-v0.1.md).
 >
-> The note engine and SQLite storage are built, and so is the Windows shell:
-> a topmost drawer docked to a screen edge, shown and hidden by a global hotkey
-> and a tray icon, one instance per data root. On top of it are three plain
-> surfaces (folders, notes, and a raw-markdown editor). It is **not usable
-> daily yet**: there are no settings, no search, no markdown rendering, no
-> recycle bin and no export.
-> Current status is in [progress.md](docs/project/progress.md); the plan is in
-> the [roadmap](docs/roadmap/roadmap.md).
+> Noto is a drawer docked to a screen edge, shown and hidden by a global hotkey
+> and a tray icon. It holds folders of notes as cards, a Markdown editor with
+> the markup hidden, search as you type, pictures, safe links, a Recycle Bin,
+> backup, restore, export and import, and settings. An installer is built by
+> `tools/packaging/New-Release.ps1` (see *Development* below).
+>
+> The plan is in the [roadmap](docs/roadmap/roadmap.md).
 >
 > **The first product is SideNotes parity on Windows** —
 > [SideNotes](https://www.apptorium.com/sidenotes/) is macOS-only, and nothing
