@@ -51,7 +51,7 @@ traces and the latency from the key to them; *median / p90* unless marked. Same 
 | Warm start: hotkey registered | ≤ 350 ms | 299–318 ms | met |
 | Warm start: hidden `--login` start, first chord served | ≤ 750 ms | 581 ms | met |
 | Warm start: process → folder list drawn | ≤ 1,000 ms p90 | S 672 / L 687 (p90 750) ms; the list itself read and drawn in 64 ms at 105 folders | met |
-| First start after install (unbuffered copy, antivirus scan) | ≤ 4 s | hotkey registered 2,066 · window 2,326 · L folder list 3,207 ms | met |
+| First start after install (unbuffered copy, antivirus scan) | ≤ 4 s | **As installed** (self-contained, packaging slice): L folder list median 3,613 ms, 5 runs 3,328–4,228. The build measured before shared the machine's .NET: 2,874–3,207 ms. Warm starts unchanged (S 637–682, L 650–676 ms either way) | **met at the median; 2 of 5 runs over** |
 | A folder opened: 500 cards / ~100 cards | ≤ 200 ms p90 | 58 / 155 · 21 / 42 ms | met |
 | Scrolling 500 cards (End, Home) | ≤ 100 ms p90 | 19 / 80 · 49 / 69 ms | met |
 | A note opened, Enter → first frame drawn | ≤ 100 ms to 20 KB · ≤ 300 ms to 100 KB · ≤ 1 s at 250 KB | 5 KB 48 · 20 KB 78 · 50 KB 139 · 100 KB 264 · 250 KB 611 ms | met |
@@ -75,6 +75,9 @@ traces and the latency from the key to them; *median / p90* unless marked. Same 
   machine (the window alone is about 500 ms, on every build since #11).
 - *Cold start < 1 s* assumed a cold start after sign-in, which cannot be measured from inside a session (#11). What is
   measured is the first start after an install, files uncached and scanned: it gets the budget it can be held to (≤ 4 s).
+  The installed Noto carries its own .NET runtime (ADR-008: nothing to install first), about 100 more files to read
+  and scan on a first start than a build using the machine's .NET, which the earlier measurement was. Same machine,
+  runs interleaved: +0.6 s at the median. Warm starts do not change.
 - *Note switch < 50 ms* and *large note render < 200 ms* predate the styled editor (ADR-017), which styles the note in one
   RTF call: they become budgets per note size, the ones a user feels (≤ 100 ms to 20 KB, ≤ 300 ms to 100 KB).
 - *Search < 100 ms at 10,000 notes* is unchanged and now measured: met.
