@@ -218,4 +218,3 @@ function Invoke-Sta([string] $Name, [string] $Body, [string[]] $Arguments) {
     Start-Sleep -Milliseconds 500   # a clipboard just set by another process settles first (Invoke-Images.ps1)
 }
 $SetImage = 'Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $b = New-Object System.Drawing.Bitmap ([int]$args[0]), ([int]$args[1]); $g = [System.Drawing.Graphics]::FromImage($b); $g.Clear([System.Drawing.Color]::SteelBlue); $g.Dispose(); $d = New-Object System.Windows.Forms.DataObject; $d.SetImage($b); [System.Windows.Forms.Clipboard]::SetDataObject($d, $true, 10, 100); if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) { throw "the clipboard did not take the picture" }'
-
