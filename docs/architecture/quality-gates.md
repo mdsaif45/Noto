@@ -36,6 +36,78 @@ Noto is a background utility competing with a scratch file that is **already
 open**. The moment a user weighs whether opening Noto is worth it, Noto has
 lost.
 
+### v0.1 budgets (2026-11-06, the performance and stability slice)
+
+Measured on frozen Release `4cbd0f4` (the slice's final product code), on AC power, with `Invoke-Baseline.ps1 -Repeat 5`
+(`baseline-20261106-123717-530951`) and `Invoke-Performance.ps1` (`performance-20261106-124259-114b9a`). Workspaces:
+**S** 5 folders / 50 notes; **L** 105 folders / 10,512 notes (+200 in the Recycle Bin), a 500-card folder, notes of 5, 20,
+50, 100 and 250 KB, a note of 20 real PNGs (one 4000 × 3000), 14 MB database, 12 MB of pictures. Times are Noto's own
+traces and the latency from the key to them; *median / p90* unless marked. Same machine as #11 (20 logical processors,
+24 GB, Windows 11, one display, Defender on); a browser was open and idle.
+
+| Path | v0.1 budget | Measured | Verdict |
+| ---- | ----------- | -------- | ------- |
+| Hotkey: hidden → shown, in front | < 100 ms | 14 / 29 ms (17 in `Invoke-Performance`) | met |
+| Warm start: hotkey registered | ≤ 350 ms | 299–318 ms | met |
+| Warm start: hidden `--login` start, first chord served | ≤ 750 ms | 581 ms | met |
+| Warm start: process → folder list drawn | ≤ 1,000 ms p90 | S 672 / L 687 (p90 750) ms; the list itself read and drawn in 64 ms at 105 folders | met |
+| First start after install (unbuffered copy, antivirus scan) | ≤ 4 s | hotkey registered 2,066 · window 2,326 · L folder list 3,207 ms | met |
+| A folder opened: 500 cards / ~100 cards | ≤ 200 ms p90 | 58 / 155 · 21 / 42 ms | met |
+| Scrolling 500 cards (End, Home) | ≤ 100 ms p90 | 19 / 80 · 49 / 69 ms | met |
+| A note opened, Enter → first frame drawn | ≤ 100 ms to 20 KB · ≤ 300 ms to 100 KB · ≤ 1 s at 250 KB | 5 KB 48 · 20 KB 78 · 50 KB 139 · 100 KB 264 · 250 KB 611 ms | met |
+| A keystroke, key → change seen, any size to 250 KB | ≤ 50 ms p90 | p90 23 (5 KB) · 27 (20 KB) · 21 (50 KB) · 26 (100 KB) · 32 (250 KB) ms | met |
+| Bold on a word | ≤ 50 ms | 10–19 ms | met |
+| A paste over the whole note | ≤ 300 ms to 100 KB · ≤ 1 s at 250 KB | 50 KB 164 · 100 KB 237 · 250 KB 503 ms | met |
+| A save (the save alone) | ≤ 10 ms | 0.8 (5 KB) – 4.3 (250 KB) ms | met |
+| Leaving the editor, to the first frame drawn | ≤ 150 ms to 100 KB · ≤ 500 ms at 250 KB | 50 · 127 · 65 · 115 · 307 ms | met |
+| Search at 10,000 notes, key → results drawn | ≤ 100 ms p90 | common word 41 / 55–61 · rare 9 / 18 · none 9–11 / 13–16 ms (the query itself 17–18 / 41–43 ms) | met |
+| A note of 20 pictures: all drawn | ≤ 200 ms p90 | 73 / 96 ms | met |
+| A 2400 × 1600 picture pasted, into the note | ≤ 300 ms p90 | 132 / 195 ms | met |
+| Backup, export, import, restore: 2,000 notes, 150 MB of pictures (end to end, Windows' file dialog included) | recorded | 2.4 · 4.0 · 3.1 · 3.2 s (restore: confirm → the new window) | recorded |
+| Idle CPU, hidden and shown | < 0.1% | 0 ms in 60 s | met |
+| Idle memory | < 150 MB working set | hidden 152.1 MB (private 76.8) · shown 171.0 MB (private 92.3) | **not met** (deferred by the owner, 2026-11-06) |
+
+**Why some budgets changed from #11 (decisions, not conveniences):**
+
+- *Warm start < 300 ms* was one number for four different moments. #11 measured them apart (hotkey registered, first chord
+  served, window, folder list); the user's need is that the hotkey answers soon after sign-in. The hotkey keeps a 300-class
+  budget (≤ 350 ms); the list on screen gets its own (≤ 1 s p90), which a WinUI 3 window cannot reach in 300 ms on this
+  machine (the window alone is about 500 ms, on every build since #11).
+- *Cold start < 1 s* assumed a cold start after sign-in, which cannot be measured from inside a session (#11). What is
+  measured is the first start after an install, files uncached and scanned: it gets the budget it can be held to (≤ 4 s).
+- *Note switch < 50 ms* and *large note render < 200 ms* predate the styled editor (ADR-017), which styles the note in one
+  RTF call: they become budgets per note size, the ones a user feels (≤ 100 ms to 20 KB, ≤ 300 ms to 100 KB).
+- *Search < 100 ms at 10,000 notes* is unchanged and now measured: met.
+- New budgets where the slice found defects: a keystroke (was 104 ms at 50 KB and 264 ms at 100 KB), a paste over the
+  note (was 4.5 s at 50 KB and 15.1 s at 100 KB), and stability (below).
+
+**Before and after this slice** (`Invoke-Baseline.ps1 -Repeat 5` on `main` `3b6a3ac` with only the slice's two timing
+traces, `baseline-20261105-160821-9a8a6b`, against the final build; same machine):
+
+| Path | Before | After |
+| ---- | ------ | ----- |
+| A keystroke, 20 / 50 / 100 KB (median, key → change) | 70 / 103 / 264 ms | 16 / 16 / 20 ms |
+| A paste over the whole note, 50 / 100 KB | 4,520 / 15,107 ms | 164 / 237 ms |
+| 250 KB note | the run could not measure it (no save within 60 s) | open 611 · key 23 · paste 503 ms |
+| Replacing all of a ~100 KB note twice among 50 cards | Noto ended (0xC000027B) | 10 cycles at 100 KB, 6 at 150 KB: none |
+
+**Stability** (`Invoke-Stability.ps1` on the same final build: `stability-20261105-173347-8b5c41`, plus the earlier
+build in `stability-20261105-162208-48f44a`): 20 starts and closes (close 84 ms median), 20 edits saved by leaving (20/20
+in the database), 100 hide/show, 60 note switches over 5 to 250 KB, 60 folder switches, 20 searches typed, 20 opens of a
+20-picture note, and 5 kills while editing followed by a start (database intact, autosaved text kept, 5/5). After every
+step the window answered within 2 s. **0 crash events and 0 hangs**; the whole campaign (15 runtime harnesses, 457
+checks, the baseline, stability and performance runs) logged 0 crash events for Noto.
+
+**Memory, measured, not yet a budget.** Handles, GDI and USER objects do not grow (100 hide/show: handles +29, GDI +0,
+USER −1; folders and search flat). The managed heap stays under 15 MB (9 MB after a full collection, 70 switches). The
+rest is WinUI's native memory: about 150 MB of working set for the framework at idle; ordinary use (20 notes edited)
+settles at about 225 MB working set / 130 MB private. **A very large note costs a lot and keeps it**: opening and
+leaving a 250 KB note repeatedly rises to about 600 MB private and stays there (a high-water mark, not growth: flat from
+the 20th to the 40th time); its read view alone, never edited, about 240–340 MB. Every card renders its whole note,
+however large. The owner deferred this (2026-11-06); the measured candidate is a preview of very large notes in the stack.
+
+#### The #11 budgets, kept as history (2026-10-13)
+
 | Measure | Budget | Baseline (#11), median of 5 (first chord served: 4) | Verdict |
 | ------- | ------ | --------------------------- | ------- |
 | Cold start to usable | < 1s | **First start after an install or update** (none of Noto's files cached; antivirus scans them first): hotkey registered 1,878 · window 2,128 · tray added 2,338 ms. **A cold start after sign-in is not measured** (see below) | **not met** for a first start after install |
