@@ -32,6 +32,15 @@ This is the release path to a published v0.1, and what follows it. A box is tick
 
 ## After the release (owner)
 
+These are tracked in the [v0.2 milestone](https://github.com/mdsaif45/Noto/milestone/11), with [release-v0.2.md](release-v0.2.md):
+
+| Section | Issue |
+|---|---|
+| §1 accessibility check | #161 |
+| §1, multiple monitors | #30 |
+| §3 clean machines and Windows 10 | #32 |
+| §4 the parity score and progress | #162 |
+
 ### 1. Accessibility check (when the second monitor arrives)
 
 On 2026-11-06 the owner moved this after the release. Until it is done, v0.1 has not been checked by hand with assistive technology. The CHANGELOG says so.

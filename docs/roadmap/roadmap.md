@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** Proposed — milestone status reconciled with the code on 2026-10-13
-**Last updated:** 2026-10-13
+**Last updated:** 2026-11-06: the *Releases* section
 **Strategy:** [strategy-audit-2026-09.md](../product/strategy-audit-2026-09.md)
 
 Milestones are **capability targets, not dates.** Noto has no external deadline,
@@ -23,7 +23,34 @@ prepared for them (ADR-009); the schedule does not chase them.
 
 ---
 
+## Releases
+
+Releases ship slices of the capability milestones below. On GitHub, a release is a milestone of its own (`v0.2`), and each issue's body names the capability milestone it advances.
+
+| Release | State | Plan | What it is |
+|---|---|---|---|
+| **v0.1** | released 2026-11-06 | [basic-release.md](basic-release.md), [release-v0.1.md](release-v0.1.md) | The Basic Release: M0, M1 and M2, and the core of M3 |
+| **v0.2** | planned | [release-v0.2.md](release-v0.2.md), [milestone](https://github.com/mdsaif45/Noto/milestone/11) | The v0.1 scope that was not built, the owner's feedback and the gaps found with it; mostly M3, with M0, M1, M2 and M4 items |
+
+```
+  v0.2 by capability milestone
+  M0  F16 crash-loop detection (#10)
+  M1  F15 automatic backups (#15)
+  M2  F2 slide-in from the edge (#145) · F12 dock spike (#153) · V2 mixed DPI (#30)
+  M3  F3 pin shortcut · F4 folder counts · F5 + and search buttons · F6 fold pill
+      F7 note colours · F8 format toolbar · F9 drop to import · F13 fonts · F14 chips
+      F17 new-note hotkey · F18 note from clipboard · F19 clear tasks · F21 search hotkey
+      V4 parity score (#146-#159, #162)
+  M4  F1 Settings fix (#144) · F22 idle memory (#160) · V1 accessibility (#161) · V3 Windows 10 (#32)
+```
+
+The owner's feedback also named two items that belong to later milestones: F10, a screenshot that keeps its source (M5, #163), and F11, notes that come back with their site or document (M6, #164).
+
+---
+
 ## Where it stands (2026-10-13)
+
+> This block predates v0.1. It is refreshed when the parity table is scored against v0.1 (#162).
 
 Every item below carries one status, from this vocabulary only:
 
@@ -291,7 +318,7 @@ parity rows, acceptance criteria and runtime validation:
 - File Explorer integration
 - Windows Search
 - clipboard capture beyond parity B3 / D38 (which are M3)
-- screenshot capture via `Windows.Graphics.Capture`
+- screenshot capture via `Windows.Graphics.Capture`, keeping the picture's source: the app and the page or document it came from (#163)
 - Windows Hello for locked notes
 - **screen-capture exclusion** — one API call, high perceived value (ADR-007)
 
@@ -311,6 +338,7 @@ protocol activation was listed here; it is parity H5, a MUST, so it moved to M3.
   disqualifying for this feature
 - window-level binding and durable identity
 - `detached` as a first-class, non-alarming state
+- beyond applications: notes that come back when you return to a web page or a document, as the new Sticky Notes does (#164)
 
 **Before this milestone begins:**
 
