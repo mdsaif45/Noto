@@ -18,6 +18,7 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="ms-appx:///Noto.UI/Themes/Colors.xaml" />
         <ResourceDictionary Source="ms-appx:///Noto.UI/Tokens/Tokens.xaml" />
+        <ResourceDictionary Source="ms-appx:///Noto.UI/Styles/Buttons.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <!-- The page title: Heading type. Announced as a level-1 heading by the page. -->
@@ -70,10 +71,29 @@
         <Setter Property="OffContent" Value="" />
     </Style>
 
-    <!-- A setting's choice of one, at the row's right edge, as wide as its longest item. -->
+    <!--
+        A setting's choice of one, at the row's right edge, rounded as its group is (#144).
+
+        At least SettingChoiceMinWidth wide, so it never changes width when it opens. WinUI moves the selected item into
+        the open list, a right-aligned ComboBox sized to its content then shrinks and moves right, and the list opens
+        against the moved field, overhanging the screen edge (microsoft-ui-xaml #9567; measured, Invoke-Settings case
+        15). One width for every choice also keeps their left edges in a column, whichever item is selected.
+    -->
     <Style x:Key="SettingComboBoxStyle" TargetType="ComboBox">
         <Setter Property="HorizontalAlignment" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="{StaticResource SettingChoiceMinWidth}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMedium}" />
+    </Style>
+
+    <!-- A setting's button, rounded as its group is (#144). -->
+    <Style x:Key="SettingButtonStyle" TargetType="Button" BasedOn="{StaticResource FolderPaneButtonStyle}">
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMedium}" />
+    </Style>
+
+    <!-- A setting's quiet button (a link to Windows' own settings), rounded as its group is (#144). -->
+    <Style x:Key="SettingSubtleButtonStyle" TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMedium}" />
     </Style>
 
     <!-- A setting's name. -->

@@ -45,6 +45,9 @@
        its own; Escape, losing activation and closing Settings cancel and give the chord back; every recording
        installs the keyboard observation once and removes it once; a restart keeps the new binding; the default is
        restored through the recorder
+    15 layout (#144): no setting reaches under the scroll bar (every group ends the bar's 16 DIP before the viewer's
+       edge); each drop-down's open list lines up with its field, never shifted or past the screen edge; a screenshot
+       of each open list
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -55,6 +58,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing
 if (-not ('NotoVal.Instance' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'helpers/single-instance.cs') }
+if (-not ('NotoVal.Dpi' -as [type])) { Add-Type -Namespace NotoVal -Name Dpi -MemberDefinition '[DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);' }
 $NotoExe = (Resolve-Path $NotoExe).Path
 
 $run = New-ValidationRun 'settings'
@@ -286,6 +290,32 @@ try {
         $script:target = Start-TargetApp $run
         $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
         Noto-Front 'start'
+
+        # ------------------------------------------------ 15 layout: the scroll bar's room, the drop-down lists
+        if (Want 15) {
+            To-FolderList; Open-Settings-ByButton; Start-Sleep -Milliseconds 400
+            $scale = [NotoVal.Dpi]::GetDpiForWindow($noto.Hwnd) / 96.0
+            $scroll = (Find-ById 'SettingsScroll').Current.BoundingRectangle
+            # Every control sits GroupPadding (12) inside its group, and the group must end before the scroll bar's
+            # 16 DIP: so no control's right edge passes the viewer's right edge less 28 DIP (1px rounding allowed).
+            $limit = $scroll.Right - (16 + 12) * $scale + 1
+            $over = @($SettingsControls | ForEach-Object { $e = Element $_; if ($e -and -not $e.Current.IsOffscreen -and $e.Current.BoundingRectangle.Right -gt $limit) { "$_ right=$($e.Current.BoundingRectangle.Right)" } })
+            Add-Result $run '15 no setting reaches under the scroll bar: every group ends 16 DIP before the viewer edge' ($over.Count -eq 0) "viewer right=$($scroll.Right) limit=$limit scale=$scale over: $($over -join '; ')"
+            foreach ($id in 'SideSetting', 'EscapeSetting', 'ThemeSetting') {
+                $box = Find-ById $id; $field = $box.Current.BoundingRectangle
+                $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 500
+                $items = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.AndCondition]::new([System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem), [System.Windows.Automation.PropertyCondition]::new($AE::ProcessIdProperty, $noto.Pid))) | Where-Object { -not $_.Current.IsOffscreen -and $_.Current.BoundingRectangle.Top -ge $field.Top - 400 * $scale -and $_.Current.ClassName -eq 'ComboBoxItem' })
+                $shot = Screenshot "15-open-$id"
+                $left = ($items | ForEach-Object { $_.Current.BoundingRectangle.Left } | Measure-Object -Minimum).Minimum
+                $right = ($items | ForEach-Object { $_.Current.BoundingRectangle.Right } | Measure-Object -Maximum).Maximum
+                try { $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
+                Start-Sleep -Milliseconds 400
+                # The list lines up with its field: its items neither start left of the field nor end right of it.
+                $aligned = $items.Count -gt 0 -and $left -ge $field.Left - 1 -and $right -le $field.Right + 1
+                Add-Result $run "15 $id's open list lines up with its field" $aligned "field=$($field.Left)..$($field.Right) items=$left..$right count=$($items.Count) scale=$scale shot=$shot"
+            }
+            Close-Settings-ByBack
+        }
 
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {

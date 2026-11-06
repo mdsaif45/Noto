@@ -57,7 +57,7 @@
             Visibility="Collapsed"
             AutomationProperties.LiveSetting="Assertive" />
 
-        <ScrollViewer x:Name="SettingsScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="SettingsScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="{StaticResource ScrollBarGutter}">
             <StackPanel Spacing="{StaticResource SpaceXL}">
 
                 <!-- GENERAL -->
@@ -79,7 +79,7 @@
                                         Visibility="Collapsed" />
                                     <Button
                                         x:Name="OpenStartupAppsButton"
-                                        Style="{StaticResource SubtleButtonStyle}"
+                                        Style="{StaticResource SettingSubtleButtonStyle}"
                                         Content="Open Startup apps"
                                         Visibility="Collapsed"
                                         Click="OnOpenStartupAppsClick"
@@ -269,7 +269,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Click="OnRecorderClick"
                                     PreviewKeyDown="OnRecorderKeyDown"
                                     LostFocus="OnRecorderLostFocus"
@@ -302,7 +302,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Open in Explorer"
                                     Click="OnRevealDataFolderClick"
                                     AutomationProperties.Name="Open the data folder in Explorer" />
@@ -322,7 +322,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Back up…"
                                     Click="OnBackupClick"
                                     AutomationProperties.Name="Back up everything to a file" />
@@ -342,7 +342,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Restore…"
                                     Click="OnRestoreClick"
                                     AutomationProperties.Name="Restore from a backup" />
@@ -362,7 +362,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Export…"
                                     Click="OnExportClick"
                                     AutomationProperties.Name="Export all notes as Markdown" />
@@ -382,7 +382,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Import…"
                                     Click="OnImportClick"
                                     AutomationProperties.Name="Import Markdown from a folder" />
@@ -412,7 +412,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Cancel"
                                     Click="OnDataCancelClick"
                                     AutomationProperties.Name="Cancel" />
@@ -441,7 +441,7 @@
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
-                                    Style="{StaticResource FolderPaneButtonStyle}"
+                                    Style="{StaticResource SettingButtonStyle}"
                                     Content="Show tour"
                                     Click="OnShowWelcomeClick"
                                     AutomationProperties.Name="Show the welcome tour" />
