@@ -291,11 +291,12 @@ public sealed partial class MainWindow : Window
         try
         {
             IReadOnlyList<Folder> folders = _listFolders.Execute();
+            IReadOnlyDictionary<FolderId, int> counts = _listFolders.NoteCounts();
 
             Folders.Clear();
             foreach (Folder folder in folders)
             {
-                Folders.Add(new FolderListItem(folder.Id.Value, folder.Name, folder.IsPinned));
+                Folders.Add(new FolderListItem(folder.Id.Value, folder.Name, folder.IsPinned, counts.GetValueOrDefault(folder.Id)));
             }
 
             _state = PaneState.Loaded;
@@ -721,6 +722,10 @@ public sealed partial class MainWindow : Window
         NoteRoot.Visibility = Visibility.Collapsed;
         PaneRoot.Visibility = Visibility.Visible;
         Motion.EnterSurface(PaneRoot, forward: false);
+
+        // Notes were created, moved or deleted inside: the rows' counts are read again (#147). The same rows, in the
+        // same order, so the selection and focus below still apply.
+        Refresh();
 
         // The folder list was left intact, so its selection is still correct;
         // focus has to be put back explicitly.

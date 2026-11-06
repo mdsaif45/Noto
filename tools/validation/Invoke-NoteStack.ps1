@@ -41,7 +41,8 @@
     27  Ctrl+Alt+Shift+Left folds every card, focus kept; Ctrl+Alt+Shift+Right unfolds every card
     28  pin a folded card: still folded, first; unpin: still folded
     29  far down the scrolled stack, Ctrl+Alt+Left folds the focused card and focus stays on it
-    30  the folder menu's Pin and Unpin: the folder goes first with help text "Pinned", focus follows it
+    30  back on the folder list, the folder's row says its current note count, changed by the moves (#147); the folder
+        menu's Pin and Unpin: the folder goes first with help text "Pinned", focus follows it
     31  Ctrl+Alt+Shift+Up on a focused card: it moves above the one before, stored, focus stays on it, nothing edits
     32  Ctrl+Alt+Shift+Down in the editor: moved down one, still editing with its text (written by autosave), focus in it
     33  the card menu's Move to top and Move to bottom
@@ -247,6 +248,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
     Bring-Forward
 
+    $countAtStart = ActiveCount
     # 1 - enter the folder
     $folderName = (Find-ById 'FolderList').FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)).Current.Name
     Enter-Folder
@@ -476,6 +478,11 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
 
     # 30 - the folder menu's Pin and Unpin
     (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    # The folder rows' note counts (#147) are read again on the way back: cases 19-21 moved notes out of Stack, so its
+    # count has changed since the folder list was first shown.
+    $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
+    $count = ActiveCount; $help = ($rows | Where-Object { $_.Current.Name -eq 'Stack' }).Current.HelpText
+    Add-Result $run '30 back on the folder list, Stack says its current note count, changed since the start' ($count -ne $countAtStart -and $help -eq $(if ($count -eq 1) { '1 note' } else { "$count notes" })) "help='$help' active now=$count at start=$countAtStart"
     $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
     ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' }).SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79

@@ -114,6 +114,8 @@ public sealed class RecycleBinRaceTests
 
         public IReadOnlyList<Note> ListInFolder(FolderId? folderId) => throw new NotSupportedException();
 
+        public IReadOnlyDictionary<FolderId, int> CountActiveByFolder() => throw new NotSupportedException();
+
         public IReadOnlyList<Note> ListForTag(TagId tagId) => throw new NotSupportedException();
 
         public IReadOnlyList<Note> FindMatching(Noto.Core.Search.SearchQuery query, FolderId? folderId, int limit) => throw new NotSupportedException();
