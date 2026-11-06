@@ -55,6 +55,8 @@ These do not delay v0.1:
 - automatic backups and their retention (#15);
 - crash-loop detection (#10).
 
+They are planned, with the owner's feedback on v0.1, in [release-v0.2.md](release-v0.2.md).
+
 ---
 
 ## Order
