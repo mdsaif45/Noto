@@ -87,10 +87,10 @@ public sealed class PackagingGuardTests
     public void Only_the_windows_app_sdk_parts_noto_uses_are_shipped()
     {
         // The whole SDK would put its AI, machine-learning, search and widgets libraries (about 50 MB) in the installer.
-        foreach (string project in new[] { SourcePath("src", "Noto.Windows", "Noto.Windows.csproj"), SourcePath("src", "Noto.UI", "Noto.UI.csproj") })
-        {
-            string text = File.ReadAllText(project);
+        string[] projects = [SourcePath("src", "Noto.Windows", "Noto.Windows.csproj"), SourcePath("src", "Noto.UI", "Noto.UI.csproj")];
 
+        foreach (string text in projects.Select(File.ReadAllText))
+        {
             Assert.DoesNotContain("Include=\"Microsoft.WindowsAppSDK\"", text, StringComparison.Ordinal);
             Assert.Contains("Include=\"Microsoft.WindowsAppSDK.WinUI\"", text, StringComparison.Ordinal);
             Assert.DoesNotMatch(@"Microsoft\.WindowsAppSDK\.(AI|ML|Search|Widgets|DWrite)\b", text);
