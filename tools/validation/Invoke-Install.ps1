@@ -196,7 +196,15 @@ exit (Invoke-IsolatedRun $run -Title 'Install, upgrade and uninstall (ADR-008)' 
         Add-Result $run '5  Windows'' Startup apps setting byte-identical throughout (never written)' (Same $before.Approved (Registry-Snapshot $ApprovedPath)) ''
       }
       finally {
-        # Whatever happened: the Run value, the Apps entry and the shortcut are as they were before this run.
+        # Whatever happened, no Noto from this run's install outlives it, recorded or not (a start that aborted before
+        # it was seen is not in $run.Started): a leftover would hold the hotkey every later run needs.
+        if ($script:install) {
+            $stray = @(Any-Installed)
+            $stray | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Milliseconds 500
+            Add-Result $run 'hygiene: no Noto from this run''s install left running' ((Any-Installed).Count -eq 0) "stopped at the end: $($stray.Count)"
+        }
+        # The Run value, the Apps entry and the shortcut are as they were before this run.
         $k = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($RunPath, $true)
         try { if (-not $before.Run.Contains('Noto')) { $k.DeleteValue('Noto', $false) } } finally { $k.Dispose() }
         if ($script:install -and (Uninstall-Entry) -and "$((Uninstall-Entry).InstallLocation)".TrimEnd('\') -eq $script:install) { [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($UninstallPath, $false) }

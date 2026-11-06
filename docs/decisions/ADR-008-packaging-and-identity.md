@@ -273,6 +273,8 @@ attaches them to the draft release.
   InteractiveExperiences parts, not the whole SDK. The AI, machine-learning,
   search and widgets libraries (about 50 MB that Noto never loads) are not in
   the installer. Setup went from 101.1 MB to 76.7 MB.
+- **On disk: 244 MB.** Noto itself is 175 MB. Velopack also keeps the 70 MB
+  release package in `packages\` as the base a later delta update applies to.
 
 **The pack id is `Noto.App`, never `Noto`.** Velopack installs to
 `%LOCALAPPDATA%\<packId>` and an uninstall deletes that folder. The notes live
@@ -319,7 +321,7 @@ parameters>"`.
 package and `StartupTask` arrive with signing.
 
 **Verified.** `Invoke-Install.ps1` runs real installs from the shell, silent,
-into a scratch folder with an isolated data root. Its 23 checks:
+into a scratch folder with an isolated data root. Its 24 checks:
 - the clean install, its Apps entry, the shortcut and its identity;
 - an ordinary start writing nothing to Velopack's log;
 - the upgrade while Noto runs, with the notes intact and shown;
