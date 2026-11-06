@@ -1,18 +1,19 @@
 name: Build artifacts
 
+# The installer and release packages (ADR-008), by tools/packaging/New-Release.ps1: a self-contained publish packed by
+# Velopack. Unsigned: no certificate yet, so Windows SmartScreen warns on the installer's first run.
 on:
   workflow_dispatch:
     inputs:
-      configuration:
-        description: Build configuration
-        type: choice
-        options: [Release, Debug]
-        default: Release
+      version:
+        description: Version to build (e.g. 0.1.0, without the leading v)
+        required: true
+        type: string
   workflow_call:
     inputs:
-      configuration:
+      version:
         type: string
-        default: Release
+        required: true
     outputs:
       artifact-name:
         description: Name of the uploaded artifact
@@ -28,40 +29,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Detect solution
-        id: detect
-        shell: pwsh
-        run: |
-          $sln = Get-ChildItem -Path . -Filter *.sln -Recurse -File -ErrorAction SilentlyContinue |
-                 Select-Object -First 1
-          if ($sln) {
-            "found=true"            | Out-File $env:GITHUB_OUTPUT -Append
-            "path=$($sln.FullName)" | Out-File $env:GITHUB_OUTPUT -Append
-          } else {
-            "found=false" | Out-File $env:GITHUB_OUTPUT -Append
-            Write-Host "::warning::No solution to package yet."
-          }
-
       - name: Setup .NET
-        if: steps.detect.outputs.found == 'true'
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Publish
-        if: steps.detect.outputs.found == 'true'
-        run: >
-          dotnet publish src/Noto.App/Noto.App.csproj
-          --configuration ${{ inputs.configuration || 'Release' }}
-          --runtime win-x64
-          --self-contained false
-          --output ./artifacts/publish
+      - name: Build the installer
+        shell: pwsh
+        run: tools/packaging/New-Release.ps1 -Version '${{ inputs.version }}'
 
       - name: Upload build artifact
-        if: steps.detect.outputs.found == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: noto-windows
-          path: ./artifacts/publish
+          path: ./artifacts/release
           if-no-files-found: error
           retention-days: 14

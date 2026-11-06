@@ -162,6 +162,18 @@ dotnet build
 dotnet test
 ```
 
+**The installer** ([ADR-008](docs/decisions/ADR-008-packaging-and-identity.md)):
+
+```bash
+pwsh tools/packaging/New-Release.ps1 -Version 0.1.0
+```
+
+This writes `artifacts/release/Noto.App-win-Setup.exe`, a per-user install with
+no administrator and no wizard. Uninstall it from Settings › Apps; your notes in
+`%LOCALAPPDATA%\Noto` are always kept. The installer is unsigned for now, so on
+first run Windows shows *Windows protected your PC*: choose *More info → Run
+anyway*.
+
 Noto is developed with heavy AI assistance, which makes architectural drift the
 main long-term risk. The defense is
 [ADRs](docs/decisions/): significant decisions are recorded before they are

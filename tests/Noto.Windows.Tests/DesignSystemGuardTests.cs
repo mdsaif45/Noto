@@ -140,7 +140,8 @@ public sealed class DesignSystemGuardTests
         // turns it off for the application, which every element defers to by default (ElementHighContrastAdjustment.
         // Application), so the design system's high-contrast brushes are what is drawn.
         string app = File.ReadAllText(AppPath);
-        Assert.Matches(@"public App\(\)\s*\{\s*InitializeComponent\(\);[^}]*\bHighContrastAdjustment = ApplicationHighContrastAdjustment\.None;\s*\}", app);
+        // (Only the installer's hooks and the installed identity come before InitializeComponent: PackagingGuardTests.)
+        Assert.Matches(@"public App\(\)\s*\{[\s\S]*?\n        InitializeComponent\(\);[^}]*\bHighContrastAdjustment = ApplicationHighContrastAdjustment\.None;\s*\}", app);
 
         // Nothing turns it back on: one assignment, no Auto anywhere, and no element of Noto's own overriding its default.
         string code = string.Join('\n', Directory.EnumerateFiles(Path.GetDirectoryName(AppPath)!, "*.cs").Select(f => Regex.Replace(File.ReadAllText(f), @"//.*", string.Empty)));

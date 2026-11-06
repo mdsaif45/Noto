@@ -159,6 +159,22 @@ public sealed class LoginRegistration
         return State();
     }
 
+    /// <summary>
+    /// Removes the registration only when it starts this executable: what an uninstall does (ADR-008). A <c>Run</c>
+    /// value that starts another copy of Noto is left alone.
+    /// </summary>
+    /// <returns>Whether a registration of this executable was removed.</returns>
+    public bool RemoveIfThis()
+    {
+        if (State() == LoginStartupState.Off)
+        {
+            return false;
+        }
+
+        _ = Disable();
+        return true;
+    }
+
     /// <summary>The registered command: the quoted full path and the login switch. Never a data root.</summary>
     internal static string CommandFor(string executable) => $"\"{executable}\" {LoginSwitch}";
 
