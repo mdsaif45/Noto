@@ -388,6 +388,43 @@ public sealed class SettingsSurfaceGuardTests
     }
 
     [Fact]
+    public void Settings_leaves_room_for_its_scroll_bar_and_its_controls_are_rounded_as_their_groups_are()
+    {
+        // #144. The scroll bar overlays its viewer's content, so the viewer pads its content by the bar's width. A
+        // choice never changes width when it opens (WinUI shrinks a content-sized ComboBox and opens its list against
+        // the moved field). Every control in a group takes the group's radius, through a template that honours it.
+        // What this looks like and where the list opens is Invoke-Settings.ps1 case 15's to measure.
+        var styles = XDocument.Load(SourcePath("src", "Noto.UI", "Styles", "Settings.xaml")).Descendants()
+            .Where(e => e.Name.LocalName == "Style" && e.Attribute(X + "Key") is not null)
+            .ToDictionary(e => (string)e.Attribute(X + "Key")!);
+        string Setter(string style, string property) =>
+            (string)styles[style].Elements().Single(s => (string?)s.Attribute("Property") == property).Attribute("Value")!;
+        XElement scroll = Named(PageXaml, "SettingsScroll");
+
+        Assert.Equal("{StaticResource ScrollBarGutter}", (string?)scroll.Attribute("Padding"));
+        Assert.Equal("{StaticResource SettingChoiceMinWidth}", Setter("SettingComboBoxStyle", "MinWidth"));
+
+        foreach (string style in new[] { "SettingComboBoxStyle", "SettingButtonStyle", "SettingSubtleButtonStyle" })
+        {
+            Assert.Equal("{StaticResource RadiusMedium}", Setter(style, "CornerRadius"));
+        }
+
+        var unrounded = scroll.Descendants()
+            .Where(e => e.Name.LocalName is "Button" or "ComboBox")
+            .Select(e => (string?)e.Attribute("Style"))
+            .Where(s => s is not ("{StaticResource SettingButtonStyle}" or "{StaticResource SettingSubtleButtonStyle}" or "{StaticResource SettingComboBoxStyle}"))
+            .ToList();
+        Assert.True(unrounded.Count == 0, "A control in a settings group without a settings style: " + string.Join(", ", unrounded));
+
+        // The shared button template draws the radius it is given, so the style's setter is what the user sees.
+        XDocument buttons = XDocument.Load(SourcePath("src", "Noto.UI", "Styles", "Buttons.xaml"));
+        XElement template = buttons.Descendants().Single(e => (string?)e.Attribute(X + "Key") == "FolderPaneButtonStyle");
+        var radii = template.Descendants().Select(e => (string?)e.Attribute("CornerRadius")).Where(r => r is not null).ToList();
+        Assert.Equal(3, radii.Count);
+        Assert.All(radii, r => Assert.Equal("{TemplateBinding CornerRadius}", r));
+    }
+
+    [Fact]
     public void The_page_itself_is_the_settings_root_ui_automation_can_see()
     {
         // Measured on the frozen Release build: SettingsRoot on the page's inner grid never reached UI Automation; a

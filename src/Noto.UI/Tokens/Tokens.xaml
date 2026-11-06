@@ -74,6 +74,12 @@
     <Thickness x:Key="GroupPadding">12</Thickness>
 
     <!--
+        Room for a scroll bar beside scrolled content, so the bar is never drawn over it. WinUI's scroll bar overlays
+        its viewer's content and widens to ScrollBarSize (16) when the pointer reaches it.
+    -->
+    <Thickness x:Key="ScrollBarGutter">0,0,16,0</Thickness>
+
+    <!--
         A settings switch as wide as its track as drawn. WinUI's switch template lays the track out from its left and
         keeps the On/Off text's column after it: measured (UI Automation, Settings page), a switch that sized itself
         stopped 86px short of the row's right edge. As wide as the track, it is flush with the other controls. The track
@@ -81,6 +87,12 @@
         template clipped the track's rounded end. Not a step of the scale: the template's.
     -->
     <x:Double x:Key="SettingSwitchWidth">44</x:Double>
+
+    <!--
+        The narrowest a setting's choice (a ComboBox) is: its longest item today, "Use Windows setting", measured 174
+        wide with its chevron (Invoke-Settings case 15), and a little room. See SettingComboBoxStyle for why it is fixed.
+    -->
+    <x:Double x:Key="SettingChoiceMinWidth">180</x:Double>
 
     <!--
         The widest a column of reading text grows (the welcome, ADR-021): about 60 characters of Body type. In the default
@@ -142,7 +154,11 @@
         a surface uses are declared.
     -->
     <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
-    <!-- A group of settings: a container, a step rounder than the controls inside it. -->
+    <!--
+        A group of settings, a note's card, and the controls inside a settings group: the owner chose one radius for a
+        group and its controls (2026-11-06, #144), as a step down read as a sharp corner inside the rounder group.
+    -->
+
     <CornerRadius x:Key="RadiusMedium">8</CornerRadius>
 
     <!--
