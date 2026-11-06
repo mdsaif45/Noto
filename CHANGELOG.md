@@ -10,7 +10,7 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ## [Unreleased]
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-11-06
 
 The Basic Release. Noto is a notes drawer for Windows: quick to reach, usable
 entirely from the keyboard, and it keeps everything on this computer.
@@ -96,15 +96,20 @@ newer version, run its installer; your notes are kept.
 
 **No automatic backups yet.** Back up from Settings > Data.
 
-**Not in this version:**
+**Planned for v0.2:**
 - note colours;
 - font and text size settings;
 - colour chips for `#rrggbb`;
-- tags in the interface;
-- sync;
-- nested folders.
+- automatic backups;
+- detecting and stopping a crash loop (Noto failing at every start).
 
-**Windows 10 22H2 has not been tested yet.**
+**Not planned yet:** tags in the interface, sync, nested folders.
+
+**Not yet checked by hand:**
+- Narrator, High Contrast, display scaling, multiple monitors and input
+  methods have not been checked by a person. The automated checks hold the
+  names, focus order and High Contrast colours.
+- Windows 10 22H2 has not been tested.
 
 Your notes are stored in `%LOCALAPPDATA%\Noto`.
 

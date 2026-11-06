@@ -28,9 +28,9 @@ Every feature is judged by one question:
 | Notes | Create, edit, delete and restore, move, reorder, pin, fold, empty states |
 | Editor | Markdown-backed storage with hidden markup:<br>• headings, bold, italic, underline, strike<br>• lists, tasks, links, code, separators<br>• undo and redo<br>• paste normalisation<br>• selection-aware and quick formatting<br>SideNotes 1.5–1.6 is the quality bar, not the implementation template. The WinUI control never owns the model. |
 | Search | Global and in the current folder; highlighted results; keyboard navigation; quick copy. SQLite-backed |
-| Rich content | Images (including clipboard images and drops), file and folder shortcuts, URLs, `#rrggbb` colours |
-| Personalisation | Light and dark, themes, fonts, text size, note colours |
-| Safety | Automatic backups, restore, crash-safe saves, migration safety, corruption detection |
+| Rich content | Images (including clipboard images and drops), file and folder shortcuts, URLs. ~~`#rrggbb` colours~~: moved to v0.2 |
+| Personalisation | Light and dark, themes. ~~Fonts, text size, note colours~~: moved to v0.2 |
+| Safety | Restore, crash-safe saves, migration safety, corruption detection. ~~Automatic backups~~: moved to v0.2 |
 | UX polish | The card stack, clean empty states, context menus, confirmations, focus correctness, tooltips, keyboard hints, reduced motion, High Contrast, UI Automation |
 
 ## Deferred to v0.2+
@@ -46,6 +46,14 @@ These do not delay v0.1:
 - nested folders and tables;
 - localisation;
 - contextual and competitor-only features.
+
+**Moved from v0.1 to v0.2 by the owner, 2026-11-06.** These were v0.1 scope that was not built when the release candidate was ready:
+
+- note colours: the engine has them (`NoteColor`), with no UI;
+- font and text size settings;
+- colour chips for `#rrggbb`;
+- automatic backups and their retention (#15);
+- crash-loop detection (#10).
 
 ---
 
