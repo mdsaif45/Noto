@@ -40,6 +40,7 @@
         -->
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Key="W" Modifiers="Control" Invoked="OnDismissAccelerator" />
+            <KeyboardAccelerator Key="D" Modifiers="Control" Invoked="OnKeepOpenAccelerator" />
         </Grid.KeyboardAccelerators>
 
         <Grid x:Name="WorkspaceContent">
@@ -83,8 +84,9 @@
                         Style="{StaticResource HeaderToggleButtonStyle}"
                         Checked="OnPinToggled"
                         Unchecked="OnPinToggled"
-                        ToolTipService.ToolTip="Keep Noto open"
-                        AutomationProperties.Name="Keep Noto open">
+                        ToolTipService.ToolTip="Keep Noto open (Ctrl+D)"
+                        AutomationProperties.Name="Keep Noto open"
+                        AutomationProperties.AcceleratorKey="Control+D">
                         <FontIcon Glyph="&#xE718;" FontSize="{StaticResource IconSize}" />
                     </ToggleButton>
                 </StackPanel>

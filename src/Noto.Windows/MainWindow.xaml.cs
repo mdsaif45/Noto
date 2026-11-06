@@ -1679,6 +1679,18 @@ public sealed partial class MainWindow : Window
     /// </summary>
     internal void SetPinned(bool pinned) => PinToggle.IsChecked = pinned;
 
+    /// <summary>
+    /// <c>Ctrl+D</c> toggles Keep Noto open from any surface (#146; inside Noto only, never a global hotkey). Through the
+    /// toggle, as the tray is, so it takes the one pin path; the new state is announced, as nothing else on screen moves.
+    /// </summary>
+    private void OnKeepOpenAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        bool pinned = PinToggle.IsChecked != true;
+        SetPinned(pinned);
+        Announce(pinned ? "Keep Noto open on" : "Keep Noto open off", PinToggle);
+    }
+
     /// <summary>The new-note placement setting (B5, J8), set by the composition root from the stored value.</summary>
     public NewNotePlacement NewNotePlacement { get; set; }
 

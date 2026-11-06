@@ -88,11 +88,11 @@ ADR-007 already says "slide-in and auto-hide implemented by Noto"; only the toke
 
 **Today:** the pin toggle in the header (`PinToggle`) has no keyboard shortcut. The global hotkey only shows and hides Noto.
 
-**Build:** an in-app shortcut, **Ctrl+P**, that toggles it and announces the new state.
+**Build:** an in-app shortcut, **Ctrl+D**, that toggles it and announces the new state.
 
 **Decided (owner, 2026-11-06):** inside Noto only, never global. In-app shortcuts stay short; only global hotkeys need long chords.
 
-Ctrl+K was the owner's first choice, but it is the editor's *link* shortcut. Ctrl+P is free and reads as *pin*: Noto does not print.
+Ctrl+K was the owner's first choice, but it is the editor's *link* shortcut. Ctrl+P is reserved for printing (parity B21, G25). Ctrl+D is free in the chord map ([implementation-plan.md](implementation-plan.md)), and the owner chose it on 2026-11-06. It is not the note pin, which has no chord (decision 3).
 
 ### F4. Note counts on folder rows (#147)
 

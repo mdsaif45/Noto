@@ -817,7 +817,7 @@ The owners of `L` and `X` on this machine are unknown. They are treated as reser
 | G3 | Search | `Ctrl+Alt+Win+F` | **`Ctrl+Shift+Win+F`** | Decision 2; measured free |
 | G4 | Note from clipboard | `Ctrl+Alt+Win+V` | **`Ctrl+Shift+Win+V`** | Decision 2; measured free |
 | G5 | Change side | unbound | unbound | Parity |
-| G6 | Pin window | unbound | unbound | Parity |
+| G6 | Pin window | unbound | unbound globally; **`Ctrl+D` inside Noto** | Owner, 2026-11-06 (#146): inside Noto only, a short key. `Ctrl+P` stays reserved for printing (G25) |
 
 ### 10.2 In-app
 
