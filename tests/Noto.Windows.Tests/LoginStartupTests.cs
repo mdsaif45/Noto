@@ -231,6 +231,54 @@ public sealed class LoginStartupTests : IDisposable
         Assert.Null(Registry.CurrentUser.OpenSubKey(ApprovedKey));
     }
 
+    // ------------------------------------------------ an uninstall (ADR-008)
+
+    [Fact]
+    public void An_uninstall_removes_this_executables_registration()
+    {
+        LoginRegistration registration = Registration();
+        _ = registration.Enable();
+
+        Assert.True(registration.RemoveIfThis());
+        Assert.Equal(LoginStartupState.Off, registration.State());
+
+        using RegistryKey run = Registry.CurrentUser.OpenSubKey(RunKey)!;
+        Assert.Empty(run.GetValueNames());
+    }
+
+    [Fact]
+    public void An_uninstall_removes_a_registration_windows_has_turned_off_too()
+    {
+        WriteApproval(Approval(0x03), RegistryValueKind.Binary);
+        LoginRegistration registration = Registration();
+        _ = registration.Enable();
+
+        Assert.True(registration.RemoveIfThis());
+
+        using RegistryKey run = Registry.CurrentUser.OpenSubKey(RunKey)!;
+        Assert.Empty(run.GetValueNames());
+    }
+
+    [Theory]
+    [InlineData("\"C:\\Elsewhere\\Noto.exe\" --login")]
+    [InlineData("\"C:\\Program Files\\Noto\\Noto.exe\" --login --data-root=C:\\x")]
+    public void An_uninstall_leaves_another_noto_registration_alone(string command)
+    {
+        WriteRun(command, RegistryValueKind.String);
+
+        Assert.False(Registration().RemoveIfThis());
+
+        using RegistryKey run = Registry.CurrentUser.OpenSubKey(RunKey)!;
+        Assert.Equal(command, run.GetValue("Noto"));
+    }
+
+    [Fact]
+    public void An_uninstall_with_nothing_registered_removes_nothing()
+    {
+        Assert.False(Registration().RemoveIfThis());
+        Assert.Null(Registry.CurrentUser.OpenSubKey(RunKey));
+    }
+
     private LoginRegistration Registration() => new(Exe, RunKey, ApprovedKey);
 
     private void WriteRun(object value, RegistryValueKind kind)

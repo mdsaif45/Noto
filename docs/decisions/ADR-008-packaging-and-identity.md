@@ -241,6 +241,101 @@ Sources, read 2026-10-13:
 - [SignPath Foundation terms](https://signpath.org/terms);
 - DigiCert, [code signing validity change (CSC-31)](https://www.digicert.com/blog/understanding-the-new-code-signing-certificate-validity-change).
 
+### The installer, unsigned (packaging slice)
+
+> **Added 2026-11-06 by the packaging slice.** The owner has no certificate and
+> will not buy one until it is needed, so the installer ships unsigned and the
+> sparse package (which must be signed) waits for it. Velopack stays the
+> installer (confirmed by the owner on 2026-11-06 over a custom one).
+
+**What is built.** `tools/packaging/New-Release.ps1 -Version <semver>` makes:
+
+| File | What it is |
+| ---- | ---------- |
+| `Noto.App-win-Setup.exe` (76.7 MB) | The installer. Per user, no administrator, no wizard: a splash, then Noto starts |
+| `Noto.App-<version>-full.nupkg` (69.5 MB) | The release package |
+| `releases.win.json`, `assets.win.json`, `RELEASES` | Velopack's release feed. Nothing reads it in v0.1 |
+
+CI builds them on every change (`ci.yml` → `build.yml`); `release.yml`
+attaches them to the draft release.
+
+**How it is installed.**
+- **Where.** `%LOCALAPPDATA%\Noto.App\`, not Program Files: a per-user install
+  needs no administrator. Inside it: `current\` (Noto itself),
+  `Update.exe` (Velopack's), and a `Noto.exe` stub.
+- **Apps entry.** Settings › Apps lists *Noto*, with the version without its
+  pre-release part (Velopack writes it so).
+- **Start menu.** One shortcut, *Noto*, to `current\Noto.exe`; no desktop
+  shortcut.
+- **Self-contained.** The .NET runtime and the Windows App SDK ship inside
+  (the project's `PublishSelfContained`).
+- **Only the SDK parts Noto uses.** Noto references Windows App SDK's WinUI and
+  InteractiveExperiences parts, not the whole SDK. The AI, machine-learning,
+  search and widgets libraries (about 50 MB that Noto never loads) are not in
+  the installer. Setup went from 101.1 MB to 76.7 MB.
+
+**The pack id is `Noto.App`, never `Noto`.** Velopack installs to
+`%LOCALAPPDATA%\<packId>` and an uninstall deletes that folder. The notes live
+in `%LOCALAPPDATA%\Noto`. A guard test keeps the two names apart.
+
+**No update check in v0.1.** Noto has no network access in its first release
+(quality-gates.md), so it never uses Velopack's `UpdateManager`. A guard test
+holds this.
+- **To upgrade,** run the newer Setup. It ends a running Noto (a kill, which
+  the autosave covers), keeps the old folder until the new one is in place,
+  then installs.
+- **The notes are not in the install folder,** so they are never touched.
+- **Delta updates** arrive when an update check does, after v0.1.
+
+**Velopack's start-up code runs only for its hooks.** Velopack starts Noto with
+`--veloapp-install|updated|obsolete|uninstall`, and only those starts call
+`VelopackApp.Run()`. On every other start that code would append a timestamped
+line to `%LOCALAPPDATA%\velopack\velopack_Noto.App.log` (a record of each time
+Noto opened, never rotated) and hold the file open.
+- **The shortcut's identity.** Velopack gives the shortcut the identity
+  `velopack.Noto.App`, so an installed Noto takes the same one itself before
+  any window exists (`InstalledCopy`). The taskbar then treats the window and
+  the shortcut as one app.
+- **Builds are untouched.** A build or harness copy has no `sq.version` beside
+  it, so it keeps Windows' default.
+
+**Uninstall.** Settings › Apps › Noto › Uninstall ends Noto and removes:
+- the install folder;
+- the Apps entry;
+- the shortcut;
+- the `Run\Noto` value, **only if it starts this installed copy** (the
+  uninstall hook, `LoginRegistration.RemoveIfThis`).
+
+**It never removes the notes**, so it has nothing to ask about. Velopack's own
+log of the install and uninstall hooks stays in `%LOCALAPPDATA%\velopack\`.
+
+**Unsigned, and what that means for users.** The first run of a downloaded
+Setup shows SmartScreen's *Windows protected your PC*; *More info → Run
+anyway* goes on. A machine with Smart App Control on blocks it (see *Signing*
+above). Signing is one switch: `New-Release.ps1 -SignParams "<signtool
+parameters>"`.
+
+**Run at login** stays the registry `Run` key (ADR-015) until the sparse
+package and `StartupTask` arrive with signing.
+
+**Verified.** `Invoke-Install.ps1` runs real installs from the shell, silent,
+into a scratch folder with an isolated data root. Its 23 checks:
+- the clean install, its Apps entry, the shortcut and its identity;
+- an ordinary start writing nothing to Velopack's log;
+- the upgrade while Noto runs, with the notes intact and shown;
+- the uninstall, which keeps the data root and removes `Run\Noto`;
+- that no unused SDK library is carried.
+
+Real data, the `Run` and Startup apps keys and the Apps list are unchanged
+after it.
+
+**Not yet done, with the reason:**
+- **Clean Windows 10 22H2 and Windows 11 24H2 machines:** it was installed on
+  the development machine only. This is a release-campaign task.
+- **Velopack's `-- <args>`** (passing arguments to the first start) panics in
+  1.2.161 (velopack#1039). It is fixed only in a pre-release, so Noto does not
+  use it; a silent install starts nothing.
+
 ## Future reconsideration criteria
 
 Revisit if:

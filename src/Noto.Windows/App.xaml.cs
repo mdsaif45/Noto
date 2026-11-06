@@ -22,6 +22,7 @@ using Noto.UseCases.Folders;
 using Noto.UseCases.Lifetime;
 using Noto.UseCases.Notes;
 using Noto.UseCases.Workspace;
+using Velopack;
 using Windows.Graphics;
 using WinRT.Interop;
 
@@ -365,6 +366,27 @@ public partial class App : Application
 
     public App()
     {
+        // ADR-008: Velopack starts Noto with --veloapp-<hook> to run its install, update and uninstall hooks; they run
+        // here, first, and end the process. Only then: Velopack's start-up code logs every start it sees to a file of
+        // its own, which an ordinary start must not leave behind. No update is ever looked for or applied (v0.1 has no
+        // network access). Uninstall removes the start-with-Windows entry when it is this copy's, and never the notes:
+        // they are not in the install folder.
+        if (InstalledCopy.IsHook(Environment.GetCommandLineArgs()))
+        {
+            VelopackApp.Build()
+                .SetAutoApplyOnStartup(false)
+                .OnBeforeUninstallFastCallback(version =>
+                {
+                    if (Environment.ProcessPath is { } executable)
+                    {
+                        _ = LoginRegistration.ForCurrentUser(executable).RemoveIfThis();
+                    }
+                })
+                .Run();
+        }
+
+        _ = InstalledCopy.TakeShortcutIdentity(Environment.ProcessPath);
+
         InitializeComponent();
 
         // High contrast (ADR-011): the design system gives every text and fill its own system colour in the

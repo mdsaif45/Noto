@@ -11,19 +11,20 @@
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-InShell.ps1 -NotoExe <path>\Noto.exe Invoke-LoginStart -RealRegistry
+  pwsh -NoProfile -File tools/validation/Invoke-InShell.ps1 Invoke-Install -Arguments "-Setup <old>\Noto.App-win-Setup.exe -Upgrade <new>\Noto.App-win-Setup.exe"
 #>
-param([Parameter(Mandatory)] [string] $NotoExe, [Parameter(Mandatory, Position = 0)] [ValidatePattern('^Invoke-[A-Za-z]+$')] [string] $Script,
-      [switch] $RealRegistry, [int] $TimeoutMinutes = 30)
+param([string] $NotoExe, [Parameter(Mandatory, Position = 0)] [ValidatePattern('^Invoke-[A-Za-z]+$')] [string] $Script,
+      [switch] $RealRegistry, [string] $Arguments = '', [int] $TimeoutMinutes = 30)
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 
 $path = Join-Path $PSScriptRoot "$Script.ps1"
 if (-not (Test-Path -LiteralPath $path)) { throw "no validation script $path" }
-$NotoExe = (Resolve-Path $NotoExe).Path
+$exe = if ($NotoExe) { "-NotoExe '$((Resolve-Path $NotoExe).Path)'" } else { '' }
 $id = [guid]::NewGuid().ToString('N').Substring(0, 12)
 $log = Join-Path ([IO.Path]::GetTempPath()) "noto-inshell-$id.log"; $rc = "$log.rc"
 $switches = if ($RealRegistry) { '-RealRegistry' } else { '' }
-$command = "& '$path' -NotoExe '$NotoExe' $switches *> '$log'; Set-Content -LiteralPath '$rc' `$LASTEXITCODE # noto-inshell-$id"
+$command = "& '$path' $exe $switches $Arguments *> '$log'; Set-Content -LiteralPath '$rc' `$LASTEXITCODE # noto-inshell-$id"
 
 $view = [NotoVal.ShellLaunch]::DesktopViewDispatch()
 $view.Application.ShellExecute('pwsh.exe', "-NoProfile -WindowStyle Hidden -Command `"$command`"", (Split-Path $PSScriptRoot -Parent | Split-Path -Parent), 'open', 0)

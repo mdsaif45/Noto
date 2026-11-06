@@ -50,7 +50,7 @@ jobs:
     needs: validate
     uses: ./.github/workflows/build.yml
     with:
-      configuration: Release
+      version: ${{ inputs.version }}
 
   release:
     name: Create release
@@ -64,14 +64,14 @@ jobs:
         with:
           name: noto-windows
           path: ./artifacts
-        continue-on-error: true
 
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Draft, never auto-published. A human reviews and publishes it.
-          gh release create "v${{ inputs.version }}" \
+          # Draft, never auto-published. A human reviews and publishes it. The installer, its release package and
+          # Velopack's release feed (ADR-008) are attached; v0.1 never reads the feed (no network access).
+          gh release create "v${{ inputs.version }}" ./artifacts/* \
             --title "Noto v${{ inputs.version }}" \
             --notes-file <(awk "/## \[${{ inputs.version }}\]/{f=1;next}/^## \[/{f=0}f" CHANGELOG.md) \
             --draft \
