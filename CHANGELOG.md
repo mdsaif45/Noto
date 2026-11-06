@@ -10,6 +10,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+- `Ctrl+D` turns *Keep Noto open* on and off, from anywhere inside Noto (#146).
+
 ## [0.1.0] - 2026-11-06
 
 The Basic Release. Noto is a notes drawer for Windows: quick to reach, usable

@@ -35,7 +35,8 @@
     15 minimize -> not hidden (Deactivated -> None); the hotkey restores it, topmost
     16 a press on Noto's own taskbar button -> MEASURED: no deactivation, Noto stays shown (a deviation from the
        design gate's prediction of "hidden", accepted by the owner as measured)
-    17 pin by keyboard (focus + Space); pin is never stored: a relaunch starts unpinned
+    17 pin by keyboard (focus + Space, and Ctrl+D on the folder list, the note list and the editor, #146); pin is
+       never stored: a relaunch starts unpinned
     18 another application launched over a shown, unpinned Noto takes the foreground -> hidden, in each of 5 rounds
        (the shell-launch race PR #92 found: a deactivation judged before the foreground had changed was dropped)
     20 a refused foreign foreground request at a hidden Noto, then at a minimized one, 3 rounds each -> Noto stays
@@ -496,6 +497,15 @@ try {
         (Find-ById 'PinToggle').SetFocus(); Start-Sleep -Milliseconds 300
         Send-ToNoto @() 0x20
         Add-Result $run '17 the pin is reachable by keyboard: focused, Space toggles it on' ((Pin-State) -eq 'On') "pin=$(Pin-State)"
+        # Ctrl+D (#146) toggles it from every surface, and twice puts it back; in the editor it types nothing
+        foreach ($surface in 'FolderList', 'NoteList', 'Editor') {
+            To-Surface $surface
+            $before = Pin-State; $text = if ($surface -eq 'Editor') { Editor-Value } else { $null }
+            Send-ToNoto @(0x11) 0x44; $after = Pin-State
+            Send-ToNoto @(0x11) 0x44; $again = Pin-State
+            $untouched = $surface -ne 'Editor' -or (Editor-Value) -eq $text
+            Add-Result $run "17 Ctrl+D on the $surface toggles the pin, and again toggles it back" ($after -ne $before -and $again -eq $before -and $untouched) "before=$before after=$after again=$again editor-unchanged=$untouched"
+        }
         Restart-Noto @{}
         Add-Result $run '17 ... and is never stored: a relaunch starts unpinned' ((Pin-State) -eq 'Off') "pin=$(Pin-State)"
         Bring-NotoForward

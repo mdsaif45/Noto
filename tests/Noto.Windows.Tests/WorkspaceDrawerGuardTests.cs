@@ -202,6 +202,19 @@ public sealed partial class WorkspaceDrawerGuardTests
         Assert.DoesNotContain("SetPinned(", Body(App, "OnLaunched"), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Ctrl_D_toggles_keep_noto_open_from_the_window_root_through_the_one_pin_path()
+    {
+        // #146: inside Noto only. One accelerator, on the window's root so every surface reaches it, and it goes through
+        // SetPinned, as the tray does, so the header shows the state and PinChanged stays the one path. Announced.
+        Assert.Equal(1, Regex.Count(MainXaml, @"<KeyboardAccelerator Key=""D"" Modifiers=""Control"" Invoked=""OnKeepOpenAccelerator"" />"));
+        string handler = Body(Main, "OnKeepOpenAccelerator");
+        Assert.Contains("args.Handled = true;", handler, StringComparison.Ordinal);
+        Assert.Contains("SetPinned(pinned);", handler, StringComparison.Ordinal);
+        Assert.Contains("Announce(", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnKeepOpenAccelerator", App, StringComparison.Ordinal);
+    }
+
     /// <summary>The source without line comments, so a comment cannot satisfy or fail a guard.</summary>
     private static string Code(string source) => Regex.Replace(source, @"//.*", string.Empty);
 
