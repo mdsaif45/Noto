@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/branding/noto-icon.svg" alt="Noto's icon: a white drawer docked against the right edge of a warm sunrise tile" width="128" height="128">
+
 # Noto
 
 **A proper notes drawer for Windows.**
@@ -8,22 +10,24 @@ Native, local-first, keyboard-first, and quiet.
 
 [![CI](https://github.com/mdsaif45/Noto/actions/workflows/ci.yml/badge.svg)](https://github.com/mdsaif45/Noto/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1%20release%20candidate-orange.svg)](docs/roadmap/release-v0.1.md)
+[![Release](https://img.shields.io/github/v/release/mdsaif45/Noto?include_prereleases&label=release)](https://github.com/mdsaif45/Noto/releases/latest)
 
 </div>
 
 ---
 
-> **Status: release candidate for v0.1, the Basic Release.** It is not
-> published yet. What is in it, and what is not yet, is in the
-> [CHANGELOG](CHANGELOG.md). What is left before release is in the
-> [v0.1 release checklist](docs/roadmap/release-v0.1.md).
+> **Status: v0.1, the Basic Release.** What is in it, and what is not yet, is
+> in the [CHANGELOG](CHANGELOG.md).
 >
 > Noto is a drawer docked to a screen edge, shown and hidden by a global hotkey
-> and a tray icon. It holds folders of notes as cards, a Markdown editor with
-> the markup hidden, search as you type, pictures, safe links, a Recycle Bin,
-> backup, restore, export and import, and settings. An installer is built by
-> `tools/packaging/New-Release.ps1` (see *Development* below).
+> and a tray icon. It holds:
+> - folders of notes as cards;
+> - a Markdown editor with the markup hidden;
+> - search as you type;
+> - pictures and safe links;
+> - a Recycle Bin;
+> - backup, restore, export and import;
+> - settings.
 >
 > The plan is in the [roadmap](docs/roadmap/roadmap.md).
 >
@@ -31,6 +35,23 @@ Native, local-first, keyboard-first, and quiet.
 > [SideNotes](https://www.apptorium.com/sidenotes/) is macOS-only, and nothing
 > on Windows offers its edge-drawer model. Contextual notes, capture and
 > competitor-inspired features come after that foundation is solid.
+
+---
+
+## Install
+
+Download `Noto.App-win-Setup.exe` from the
+[latest release](https://github.com/mdsaif45/Noto/releases/latest) and run it.
+It needs 64-bit Windows 11.
+
+- **No administrator rights and no wizard.** It installs for you alone,
+  creates a *Noto* entry in the Start menu, and Noto starts.
+- **The installer is not signed yet.** The first time, Windows shows *Windows
+  protected your PC*: choose *More info*, then *Run anyway*. On a PC with Smart
+  App Control turned on, Windows blocks it.
+- **To upgrade,** run a newer installer. **To uninstall,** use Settings › Apps
+  › Noto. Neither touches your notes, which live in `%LOCALAPPDATA%\Noto`.
+- **Noto never uses the network.** It does not check for updates either.
 
 ---
 
