@@ -1,6 +1,6 @@
 # v0.2 plan
 
-**Status:** planned; the owner sets the order. **Recorded:** 2026-11-06.
+**Status:** planned. **Order set by the owner:** 2026-11-06. **Recorded:** 2026-11-06.
 **GitHub:** the [v0.2 milestone](https://github.com/mdsaif45/Noto/milestone/11).
 **Related:** [roadmap.md](roadmap.md) (the capability milestones), [basic-release.md](basic-release.md) (the rows moved from v0.1), [release-v0.1.md](release-v0.1.md), [sidenotes-parity.md](../product/sidenotes-parity.md)
 
@@ -17,23 +17,23 @@ Each item has one issue in the v0.2 milestone, and a **capability milestone**: t
 
 ## The order
 
-The proposal: fixes and safety first, then what you see every day, then the larger features. The owner reorders as they like.
+Set by the owner on 2026-11-06: the Settings fix, then the small daily wins, then the moved v0.1 scope, then the rest.
 
 | # | Item | Issue | Capability | Size | Source |
 |---|---|---|---|---|---|
 | 1 | F1 Settings: the scroll bar and the drop-downs | #144 | M4 | S | feedback |
-| 2 | F16 Crash-loop detection | #10 | M0 | M | moved from v0.1 |
-| 3 | F15 Automatic backups and retention | #15 | M1 | M | moved from v0.1 |
+| 2 | F3 A shortcut for *Keep Noto open* | #146 | M3 | S | feedback |
+| 3 | F4 Note counts on folder rows | #147 | M3 | S | feedback |
 | 4 | F2 The drawer slides in from its edge | #145 | M2 | M | feedback |
-| 5 | F3 A shortcut for *Keep Noto open* | #146 | M3 | S | feedback |
-| 6 | F4 Note counts on folder rows | #147 | M3 | S | feedback |
-| 7 | F5 A **+** button for new folders, and a search button | #148 | M3 | M | feedback |
-| 8 | F6 Fold: "+ N lines", and unfold in one click | #149 | M3 | S–M | feedback |
-| 9 | F7 Note colours | #150 | M3 | M | moved from v0.1, feedback |
-| 10 | F13 Font family and text size | #154 | M3 | M | moved from v0.1 |
-| 11 | F9 Drop files and pictures to import them | #152 | M3 | M | feedback |
-| 12 | F8 A quick-formatting toolbar | #151 | M3 | M–L | feedback |
-| 13 | F14 Colour chips for `#rrggbb` | #155 | M3 | S | moved from v0.1 |
+| 5 | F5 A **+** button for new folders, and a search button | #148 | M3 | M | feedback |
+| 6 | F7 Note colours | #150 | M3 | M | moved from v0.1, feedback |
+| 7 | F13 Font family and text size | #154 | M3 | M | moved from v0.1 |
+| 8 | F14 Colour chips for `#rrggbb` | #155 | M3 | S | moved from v0.1 |
+| 9 | F15 Automatic backups and retention | #15 | M1 | M | moved from v0.1 |
+| 10 | F16 Crash-loop detection | #10 | M0 | M | moved from v0.1 |
+| 11 | F6 Fold: "+ N lines", and unfold in one click | #149 | M3 | S–M | feedback |
+| 12 | F9 Drop files and pictures to import them | #152 | M3 | M | feedback |
+| 13 | F8 A quick-formatting toolbar | #151 | M3 | M–L | feedback |
 | 14 | F17 A global hotkey to create a note | #156 | M3 | M | gap |
 | 15 | F18 A new note from the clipboard | #157 | M3 | S–M | gap |
 | 16 | F19 Clear completed tasks | #158 | M3 | S | gap |
@@ -88,9 +88,11 @@ ADR-007 already says "slide-in and auto-hide implemented by Noto"; only the toke
 
 **Today:** the pin toggle in the header (`PinToggle`) has no keyboard shortcut. The global hotkey only shows and hides Noto.
 
-**Build:** an in-app shortcut that toggles it and announces the new state. **Ctrl+Shift+K** is proposed. It is free: the shortcuts in use are Ctrl+Shift+C, E, H, L, M, R and V.
+**Build:** an in-app shortcut, **Ctrl+P**, that toggles it and announces the new state.
 
-**Open question:** should it also work while Noto is hidden, as a second global hotkey? Principle 7 wants every global trigger to be one you can turn off.
+**Decided (owner, 2026-11-06):** inside Noto only, never global. In-app shortcuts stay short; only global hotkeys need long chords.
+
+Ctrl+K was the owner's first choice, but it is the editor's *link* shortcut. Ctrl+P is free and reads as *pin*: Noto does not print.
 
 ### F4. Note counts on folder rows (#147)
 
