@@ -82,7 +82,9 @@ V4 can add work. Every MUST that is still open after scoring gets an issue, and 
 - With *Animation effects* off, the drawer appears at once, as it does now.
 - **Check:** the drawer accepts typing on its first frame, and the show and startup budgets in [quality-gates.md](../architecture/quality-gates.md) still hold.
 
-ADR-007 already says "slide-in and auto-hide implemented by Noto"; only the tokens change.
+ADR-007 already says "slide-in and auto-hide implemented by Noto".
+
+**Built (#145):** the window still never moves. It is see-through, and the whole drawer, background and all, slides its own width inside the docked rectangle: in over 167 ms (`ControlFastAnimationDuration`), out over 83 ms (`ControlFasterAnimationDuration`), both on WinUI's fast-then-settling curve. The window's content is pinned Dark with no fill, because WinUI fills a Light content with opaque white under everything (measured); the chosen theme is set on the drawer below it, and *System* is read from Windows and followed live.
 
 ### F3. A shortcut for *Keep Noto open* (#146)
 

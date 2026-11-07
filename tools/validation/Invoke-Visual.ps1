@@ -20,6 +20,8 @@
      5  the edited card takes the accent on its edge
      6  Settings: every control in every group ends at the same right edge
     13  every surface captured in both themes: folders, stack, editor, image-rich note, search, settings, recycle bin
+    14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
+        content is pinned Dark under a see-through window, and the chosen theme is set on the drawer below it)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Visual.ps1 -NotoExe <path>\Noto.exe
@@ -181,6 +183,18 @@ function Switch-Track($Element) {
     }
     finally { $bmp.Dispose() }
 }
+function Screen-Pixel([int] $X, [int] $Y) {
+    $b = New-Object System.Drawing.Bitmap 1, 1
+    try { $g = [System.Drawing.Graphics]::FromImage($b); try { $g.CopyFromScreen($X, $Y, 0, 0, $b.Size) } finally { $g.Dispose() }; $b.GetPixel(0, 0) } finally { $b.Dispose() }
+}
+function Popup-Fill([string] $ClassName, [switch] $Right) {
+    <# The fill of the last open popup item of that class, read off the screen: a popup is not in the window's capture. #>
+    $items = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.AndCondition]::new([System.Windows.Automation.PropertyCondition]::new($AE::ClassNameProperty, $ClassName), [System.Windows.Automation.PropertyCondition]::new($AE::ProcessIdProperty, $script:noto.Pid))) | Where-Object { -not $_.Current.IsOffscreen })
+    if (-not $items.Count) { return $null }
+    $r = $items[-1].Current.BoundingRectangle
+    Screen-Pixel ([int]$(if ($Right) { $r.Right - 6 } else { $r.Left + 4 })) ([int]($r.Top + $r.Height / 2))
+}
+function In-Theme([string] $Theme, $Pixel) { if (-not $Pixel) { return $false }; $l = ($Pixel.R + $Pixel.G + $Pixel.B) / 3; if ($Theme -eq 'Light') { $l -gt 180 } else { $l -lt 90 } }
 function Distance([System.Drawing.Color] $a, [System.Drawing.Color] $b) { [Math]::Max([Math]::Abs($a.R - $b.R), [Math]::Max([Math]::Abs($a.G - $b.G), [Math]::Abs($a.B - $b.B))) }
 function Font-Size($Element) {
     try { [double]$Element.GetCurrentPattern($TP::Pattern).DocumentRange.GetAttributeValue($TP::FontSizeAttribute) } catch { $null }
@@ -248,6 +262,13 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         Add-Result $run "$($base + 2)  ${theme}: folder rows one height; the selected row has the pill and a fill, the other neither" ($sameHeight -and $selected.Accent -ge 10 -and $other.Accent -eq 0 -and (Distance $fillSelected $fillOther) -ge 8) "heights=$($heights -join ',') pill px selected=$($selected.Accent) other=$($other.Accent) fills=$($fillSelected.Name)/$($fillOther.Name)"
         $shots += Shot "$t-folders"
 
+        # 14 - a folder's context menu, opened by Shift+F10 on the first folder row
+        $folders[0].SetFocus(); Start-Sleep -Milliseconds 300
+        Send-ToNoto @(0x10) 0x79 700
+        $menuFill = Popup-Fill 'MenuFlyoutItem'
+        Send-ToNoto @() 0x1B 500
+        Add-Result $run "14 ${theme}: a folder's context menu is drawn in $theme" (In-Theme $theme $menuFill) "fill=$(if ($menuFill) { $menuFill.Name } else { 'no menu' })"
+
         # the Recycle Bin, from the folder list
         (Find-ById 'RecycleBinButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 1200
         $null = Find-ById 'RecycleBinRoot'
@@ -294,6 +315,11 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
                 Where-Object { -not $_.Current.IsOffscreen -and $_.Current.AutomationId -ne 'SettingsBackButton' -and $_.Current.BoundingRectangle.Width -gt 0 })
         $rows = @($controls | Where-Object { $_.Current.Name -ne 'Change' })   # the shortcut row's Change sits inside its own box
         $rights = @($rows | ForEach-Object { [int]($_.Current.BoundingRectangle.X + $_.Current.BoundingRectangle.Width) })
+        $side = Find-ById 'SideSetting'
+        $side.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600
+        $listFill = Popup-Fill 'ComboBoxItem' -Right
+        try { $side.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
+        Start-Sleep -Milliseconds 400
         $spread = if ($rights.Count) { ($rights | Measure-Object -Maximum).Maximum - ($rights | Measure-Object -Minimum).Minimum } else { -1 }
         # ... and, as drawn, an "on" switch is whole (both rounded ends) and its track ends at that edge: the element's
         # box alone measured flush while the template clipped the track's end (the visual refresh's review).
@@ -303,6 +329,7 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $drawn = ($tracks | ForEach-Object { if ($_) { "w$($_.Width) ends $($_.TopLeftInset)/$($_.TopRightInset) edge+$($_.FromEdge)" } else { 'none' } }) -join '; '
         Add-Result $run "$($base + 6)  ${theme}: every Settings control ends at the same right edge; a switch is drawn whole, flush with it" ($rights.Count -ge 6 -and $spread -le 1 -and $whole) "controls=$($rights.Count) right edges=$(($rights | Sort-Object -Unique) -join ',') spread=$spread; on switches: $drawn"
         $shots += Shot "$t-settings"
+        Add-Result $run "14 ${theme}: a Settings drop-down list is drawn in $theme" (In-Theme $theme $listFill) "fill=$(if ($listFill) { $listFill.Name } else { 'no list' })"
         Send-ToNoto @() 0x1B 900
 
         Send-ToNoto @(0x11) 0x46 900

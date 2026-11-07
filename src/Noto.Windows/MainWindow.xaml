@@ -22,17 +22,22 @@
         folder that was entered.
     -->
     <!--
-        Slice 1.3: the root is the drawer's unmoving surface; WorkspaceContent,
-        inside it, is what moves when the drawer is shown or hidden. The window
-        never moves, so the content slides and fades inside the docked
-        rectangle over the sidebar colour, never over nothing.
+        F2 (#145): WorkspaceContent is the whole drawer, background and all, and
+        slides its full width in from the docked edge and back out. The window
+        never moves and is see-through (TransparentBackdrop), so what the drawer
+        has not yet covered is the desktop, never an empty frame.
+
+        The root has no background and is pinned Dark: WinUI fills a window
+        whose content is Light with opaque white under everything (measured
+        2026-11-07), so the theme the user chose is set one level down, on
+        WorkspaceContent (App.ApplyTheme). Popups follow that element's theme.
     -->
     <!--
         KeyboardAcceleratorPlacementMode="Hidden" on every element that hosts accelerators (B6, F1): WinUI would
         otherwise pop an automatic key-tip tooltip ("Ctrl+N") when a modifier is held. Each button's own tooltip
         already names its key.
     -->
-    <Grid x:Name="WorkspaceRoot" Background="{ThemeResource SurfaceSidebarBrush}" KeyboardAcceleratorPlacementMode="Hidden">
+    <Grid x:Name="WorkspaceRoot" RequestedTheme="Dark" KeyboardAcceleratorPlacementMode="Hidden">
 
         <!--
             Ctrl+W hides the workspace from any surface (parity A10, G7). On
@@ -43,7 +48,7 @@
             <KeyboardAccelerator Key="D" Modifiers="Control" Invoked="OnKeepOpenAccelerator" />
         </Grid.KeyboardAccelerators>
 
-        <Grid x:Name="WorkspaceContent">
+        <Grid x:Name="WorkspaceContent" Background="{ThemeResource SurfaceSidebarBrush}">
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

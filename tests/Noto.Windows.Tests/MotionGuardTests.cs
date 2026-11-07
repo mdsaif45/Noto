@@ -5,9 +5,10 @@ using Xunit;
 namespace Noto.Windows.Tests;
 
 /// <summary>
-/// Slice 1.3 in the source: only the content moves, inside the docked rectangle and after the window is docked; the
-/// hide waits for the content; a show reverses a hide; reduced motion is read per transition with no subscription,
-/// timer or polling; motion holds no input and changes no focus; values are WinUI's, by key, and Noto's tokens.
+/// Slice 1.3 and F2 in the source: the whole drawer slides its own width, inside the docked rectangle of a see-through
+/// window and after the window is docked; the hide waits for the drawer; a show reverses a hide; reduced motion is read
+/// per transition with no subscription, timer or polling; motion holds no input and changes no focus; values are
+/// WinUI's, by key, and Noto's tokens.
 /// What the running application draws is the motion harness's to prove (Invoke-Motion.ps1).
 /// </summary>
 public sealed class MotionGuardTests
@@ -50,11 +51,33 @@ public sealed class MotionGuardTests
         Assert.DoesNotContain("redock: true", reverse, StringComparison.Ordinal);
         Assert.DoesNotMatch("MoveAndResize|Redock|redock: true", Body(Coordinator, "OnExitCompleted"));
 
-        // What moves is the content, inside the root's unmoving background.
+        // What moves is the whole drawer, its background with it.
         Assert.Contains("Motion = new ContentMotion(WorkspaceContent);", Main, StringComparison.Ordinal);
         XElement root = Named(MainXaml, "WorkspaceRoot");
-        Assert.NotNull(root.Attribute("Background"));
-        Assert.Equal("WorkspaceContent", (string?)root.Elements(Xaml + "Grid").Single().Attribute(X + "Name"));
+        XElement drawer = root.Elements(Xaml + "Grid").Single();
+        Assert.Equal("WorkspaceContent", (string?)drawer.Attribute(X + "Name"));
+        Assert.Equal("{ThemeResource SurfaceSidebarBrush}", (string?)drawer.Attribute("Background"));
+    }
+
+    [Fact]
+    public void The_window_is_see_through_so_the_drawer_slides_in_with_its_own_background_and_never_after_an_empty_frame()
+    {
+        // F2: what the drawer has not yet covered is the desktop. The backdrop is transparent and DWM honours alpha.
+        Assert.Contains("SystemBackdrop = new TransparentBackdrop();", Main, StringComparison.Ordinal);
+        string backdrop = Code(Path.Join(Windows, "TransparentBackdrop.cs"));
+        Assert.Matches(@"WindowTransparency\.Enable\(WindowHandle\.FromHwnd\(hwnd\)\);\s*connectedTarget\.SystemBackdrop = WindowTransparency\.ClearBrush\(\);", backdrop);
+
+        // Measured: WinUI fills a window whose content is Light with opaque white under everything. So the root has no
+        // fill of its own and is pinned Dark, and the user's theme is set on the drawer (App.ApplyTheme).
+        XElement root = Named(MainXaml, "WorkspaceRoot");
+        Assert.Null(root.Attribute("Background"));
+        Assert.Equal("Dark", (string?)root.Attribute("RequestedTheme"));
+
+        // The drawer slides opaque: only a surface fades. Nothing sets an opacity directly.
+        Assert.Contains("fade: false", Body(Motion, "Enter"), StringComparison.Ordinal);
+        Assert.Contains("fade: false", Body(Motion, "Exit"), StringComparison.Ordinal);
+        Assert.Contains("fade: true", Body(Motion, "EnterSurface"), StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"\.Opacity\s*=", Motion);
     }
 
     [Fact]
@@ -115,10 +138,12 @@ public sealed class MotionGuardTests
     [Fact]
     public void Each_transition_takes_its_own_direction_duration_and_distance()
     {
-        Assert.Contains("MotionPlan.EnterFrom(edge, _motion!.DrawerEnterDistance)", Body(Motion, "Enter"), StringComparison.Ordinal);
-        Assert.Contains("_motion.DrawerEnter,", Body(Motion, "Enter"), StringComparison.Ordinal);
-        Assert.Contains("MotionPlan.ExitTo(edge, _motion!.DrawerExitDistance)", Body(Motion, "Exit"), StringComparison.Ordinal);
-        Assert.Contains("_motion.DrawerExit,", Body(Motion, "Exit"), StringComparison.Ordinal);
+        // The drawer travels its own width, from and to just past its edge, so none of it shows before or after.
+        Assert.Contains("MotionPlan.EnterFrom(edge, _drawer.ActualWidth)", Body(Motion, "PrepareEnter"), StringComparison.Ordinal);
+        Assert.Contains("MotionPlan.EnterFrom(edge, _drawer.ActualWidth)", Body(Motion, "Enter"), StringComparison.Ordinal);
+        Assert.Contains("_motion!.DrawerEnter,", Body(Motion, "Enter"), StringComparison.Ordinal);
+        Assert.Contains("MotionPlan.ExitTo(edge, _drawer.ActualWidth)", Body(Motion, "Exit"), StringComparison.Ordinal);
+        Assert.Contains("_motion!.DrawerExit,", Body(Motion, "Exit"), StringComparison.Ordinal);
         Assert.Contains("MotionPlan.SurfaceFrom(forward, _motion!.SurfaceDistance)", Body(Motion, "EnterSurface"), StringComparison.Ordinal);
         Assert.Contains("_motion.Surface,", Body(Motion, "EnterSurface"), StringComparison.Ordinal);
 
@@ -131,16 +156,16 @@ public sealed class MotionGuardTests
     {
         var values = Tokens.Descendants().Where(e => e.Attribute(X + "Key") is not null).ToDictionary(e => (string)e.Attribute(X + "Key")!, e => e.Value);
 
-        Assert.Equal("ControlNormalAnimationDuration", values["MotionDrawerEnterDuration"]);
-        Assert.Equal("ControlFastAnimationDuration", values["MotionDrawerExitDuration"]);
+        // F2: in over 167 ms, out quicker over 83 ms, fast then settling.
+        Assert.Equal("ControlFastAnimationDuration", values["MotionDrawerEnterDuration"]);
+        Assert.Equal("ControlFasterAnimationDuration", values["MotionDrawerExitDuration"]);
         Assert.Equal("ControlFastAnimationDuration", values["MotionSurfaceDuration"]);
         Assert.Equal("ControlFastOutSlowInKeySpline", values["MotionEasing"]);
-        Assert.Equal("24", values["MotionDrawerEnterDistance"]);
-        Assert.Equal("16", values["MotionDrawerExitDistance"]);
         Assert.Equal("16", values["MotionSurfaceDistance"]);
 
-        // Only roles with a consumer: nothing for the 83 ms Faster duration.
-        Assert.DoesNotContain(values.Values, v => v == "ControlFasterAnimationDuration");
+        // Only roles with a consumer: nothing for the 250 ms Normal duration, no distance for the drawer.
+        Assert.DoesNotContain(values.Values, v => v == "ControlNormalAnimationDuration");
+        Assert.DoesNotContain(values.Keys, k => k.StartsWith("MotionDrawer", StringComparison.Ordinal) && k.EndsWith("Distance", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -459,6 +459,44 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 
+    // A window whose transparent pixels DWM leaves see-through (F2, #145): blur-behind over an empty region.
+    internal const uint DWM_BB_ENABLE = 0x00000001;
+    internal const uint DWM_BB_BLURREGION = 0x00000002;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct DWM_BLURBEHIND
+    {
+        public uint dwFlags;
+        public int fEnable;
+        public nint hRgnBlur;
+        public int fTransitionOnMaximized;
+    }
+
+    [LibraryImport("dwmapi.dll")]
+    internal static partial int DwmEnableBlurBehindWindow(nint hWnd, in DWM_BLURBEHIND pBlurBehind);
+
+    [LibraryImport("gdi32.dll")]
+    internal static partial nint CreateRectRgn(int x1, int y1, int x2, int y2);
+
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool DeleteObject(nint ho);
+
+    // A Windows.System dispatcher queue on the calling thread, which Windows.UI.Composition needs (F2, #145).
+    internal const int DQTYPE_THREAD_CURRENT = 2;
+    internal const int DQTAT_COM_STA = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct DispatcherQueueOptions
+    {
+        public int dwSize;
+        public int threadType;
+        public int apartmentType;
+    }
+
+    [LibraryImport("CoreMessaging.dll")]
+    internal static partial int CreateDispatcherQueueController(DispatcherQueueOptions options, out nint dispatcherQueueController);
+
     // Window subclassing, comctl32. Measured under this application's
     // manifest: comctl32 5.82 is loaded and exports all three, so no
     // Common-Controls v6 dependency is needed.
