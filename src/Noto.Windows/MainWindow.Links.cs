@@ -42,6 +42,9 @@ public sealed partial class MainWindow
             var dialog = new ContentDialog
             {
                 XamlRoot = Content.XamlRoot,
+
+                // A dialog takes the window content's theme, which is pinned Dark (F2): it takes the drawer's instead.
+                RequestedTheme = Drawer.ActualTheme,
                 Title = $"Open {Path.GetFileName(check.Address)}?",
                 Content = "It is a program, a script or a shortcut, or a kind of file Noto doesn't know. Open it only if you trust it.",
                 PrimaryButtonText = "Open",

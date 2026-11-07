@@ -15,6 +15,12 @@ format or behavior. Breaking changes are always called out explicitly.
 - `Ctrl+D` turns *Keep Noto open* on and off, from anywhere inside Noto (#146).
 - Each folder in the list shows how many notes it holds (#147).
 
+### Changed
+
+- The drawer slides in from its screen edge when it opens, background and all, and slides back out when it closes, a
+  little faster. Nothing is drawn before it arrives: until it has, you see your desktop. With Windows' *Animation
+  effects* off, it appears and goes at once, as before (#145).
+
 ## [0.1.0] - 2026-11-06
 
 The Basic Release. Noto is a notes drawer for Windows: quick to reach, usable

@@ -1,8 +1,9 @@
 #Requires -Version 7.4
 <#
 .SYNOPSIS
-  Slice 1.3 motion: the drawer's content entering and leaving, a hide reversed by a show, a surface entering in its
-  direction, reduced motion, and the window never moving.
+  Slice 1.3 and F2 motion: the whole drawer sliding in from its edge and back out, a hide reversed by a show, a surface
+  entering in its direction, reduced motion, the window never moving, and the desktop, not an empty frame, wherever
+  the sliding drawer has not yet covered.
 
 .DESCRIPTION
   One isolated data root seeded with a folder. Noto, the target app and every helper are started by the shell, on a
@@ -14,10 +15,10 @@
   Windows' "Animation effects" setting is READ, never changed: the run proves whichever path the machine is on (the
   other is covered by the unit tests), and says which.
 
-    1  show: the content enters (start, then done after about its 250 ms) or, with animation effects off, is shown at
+    1  show: the drawer enters (start, then done after about its 167 ms) or, with animation effects off, is shown at
        once (skipped); the window's frame is docked and identical at every sample through the transition
-    2  hide: the content leaves first and the window is hidden only when it has (start, done hidden=True, then not
-       visible); off, hidden at once with no exit
+    2  hide: the drawer leaves first, over its 83 ms, and the window is hidden only when it has (start, done
+       hidden=True, then not visible); off, hidden at once with no exit
     3  a show during the hide reverses it: the window is never hidden, it is in front, and the stale completion hides
        nothing (animations on only)
     4  surfaces: entering a folder slides in going forward, Escape back going back; Escape is pressed only once the
@@ -29,6 +30,12 @@
        saved, so the content comes back, the window stays shown and in front with the editor's notice and the text,
        and the editor still types; with the note restored, the next hide completes (never stuck Hiding) and saves.
        Off: the failed save keeps the window shown at once, with no exit and no completion to wait for
+    7  F2, in Light and in Dark: two screen pixels, the drawer's far side and its outermost column (where the
+       window's 1 px border is at rest), each sampled as fast as the screen can be read through a show and a hide,
+       are only ever the desktop behind or the drawer's own colours: desktop first, then the drawer once it has slid
+       in; drawer first, then desktop once it has slid out. A white or black fill under the drawer (an empty frame)
+       or the window's outline drawn before the drawer arrives is neither. Noto is restarted for each theme.
+       Animations on only
     The database is read in this process, read-only, every few milliseconds through a hide (Noto's database is in WAL
     mode, so the reader never blocks Noto's write).
 
@@ -40,6 +47,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 if (-not ('NotoVal.Instance' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'helpers/single-instance.cs') }
+Add-Type -AssemblyName System.Drawing
 if (-not ('NotoVal.Spi' -as [type])) {
     Add-Type -Namespace NotoVal -Name Spi -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, ref bool value, uint ini);'
 }
@@ -131,6 +139,26 @@ function Ctrl([string] $Label, [IntPtr] $Away) {
     $run.Controls.Add([pscustomobject]@{ Label = $Label; Refused = $neg.Refused; Detail = $neg.Detail })
     if (-not $neg.Refused) { Add-Invalid $run "$Label negative control was granted the foreground: $($neg.Detail)" }
 }
+function Screen-Pixel([int] $X, [int] $Y) {
+    $b = New-Object System.Drawing.Bitmap 1, 1
+    try { $g = [System.Drawing.Graphics]::FromImage($b); try { $g.CopyFromScreen($X, $Y, 0, 0, $b.Size) } finally { $g.Dispose() }; $b.GetPixel(0, 0) } finally { $b.Dispose() }
+}
+function Distance([System.Drawing.Color] $a, [System.Drawing.Color] $b) { [Math]::Max([Math]::Abs($a.R - $b.R), [Math]::Max([Math]::Abs($a.G - $b.G), [Math]::Abs($a.B - $b.B))) }
+function Sample-Column([int] $X, [int] $Y, [int] $Ms) {
+    <# The screen pixel at (X, Y), read as fast as the screen can be read, for $Ms milliseconds. #>
+    $sw = [Diagnostics.Stopwatch]::StartNew(); $out = [System.Collections.Generic.List[System.Drawing.Color]]::new()
+    while ($sw.ElapsedMilliseconds -lt $Ms) { $out.Add((Screen-Pixel $X $Y)) }
+    , $out.ToArray()
+}
+function Classify([System.Drawing.Color[]] $Samples, [System.Drawing.Color] $Behind, [System.Drawing.Color[]] $Drawer, [int] $Tolerance = 8) {
+    <#
+      B: the desktop behind; S: the drawer (any of its colours there); X: anything else. Runs collapsed, the X samples left out of them:
+      "BBXSS" -> "BS". One X is a sample straddling the moving edge; an empty frame lasts a frame and is several.
+    #>
+    $letters = @($Samples | ForEach-Object { $px = $_; if ((Distance $px $Behind) -le $Tolerance) { 'B' } elseif (@($Drawer | Where-Object { (Distance $_ $px) -le $Tolerance }).Count) { 'S' } else { 'X' } })
+    $odd = @(for ($i = 0; $i -lt $Samples.Count; $i++) { if ($letters[$i] -eq 'X') { $Samples[$i].Name } })
+    [pscustomobject]@{ Runs = ((($letters | Where-Object { $_ -ne 'X' }) -join '') -replace '(.)\1+', '$1'); Others = $odd.Count; Odd = ($odd -join ','); Count = $Samples.Count }
+}
 function Frames([int] $Count, [int] $EveryMs) { 1..$Count | ForEach-Object { $e = Ev; "$($e.WsVisible)|$($e.Frame)"; Start-Sleep -Milliseconds $EveryMs } }
 function Send-ToNoto([int[]] $Mods, [int] $Key) {
     if ((Fg) -ne $noto.Hwnd) { throw 'refusing keys: Noto is not the foreground window' }
@@ -173,9 +201,9 @@ try {
         $visible = @($frames | Where-Object { $_ -like 'True|*' })
         $still = @($visible | Select-Object -Unique).Count -eq 1 -and (Test-DockedAt (Ev) 'Right')
         if ($animations) {
-            $start = Stamp (First $m 'Noto\.Motion start kind=enter ms=250'); $done = Stamp (First $m 'Noto\.Motion done kind=enter')
+            $start = Stamp (First $m 'Noto\.Motion start kind=enter ms=167'); $done = Stamp (First $m 'Noto\.Motion done kind=enter')
             $took = if ($start -and $done) { ($done - $start).TotalMilliseconds } else { -1 }
-            Add-Result $run '1  show: the content enters (start ms=250, then done)' ($took -ge 150 -and $took -le 2000) "took=$took ms; trace: $(Trace-Since $m)"
+            Add-Result $run '1  show: the drawer enters (start ms=167, then done)' ($took -ge 100 -and $took -le 2000) "took=$took ms; trace: $(Trace-Since $m)"
         }
         else {
             Add-Result $run '1  show, animation effects off: shown at once, no enter' ((Trace-Since $m) -match 'skipped kind=enter reason=animations-off' -and (Trace-Since $m) -notmatch 'start kind=enter') "trace: $(Trace-Since $m)"
@@ -193,8 +221,8 @@ try {
             $done = Until { First $m 'done kind=exit step=HideNow hidden=True' } 3
             $hidden = -not (Ev).WsVisible
             $lines = Trace-Lines $m
-            $startAt = [array]::IndexOf($lines, (First $m 'start kind=exit ms=167')); $doneAt = [array]::IndexOf($lines, (First $m 'done kind=exit step=HideNow hidden=True'))
-            Add-Result $run '2  hide: the content leaves first, the window is hidden only when it has' ($duringVisible -and $done -and $hidden -and $startAt -ge 0 -and $doneAt -gt $startAt) "visible 40 ms in=$duringVisible start@$startAt done@$doneAt; trace: $(Trace-Since $m)"
+            $startAt = [array]::IndexOf($lines, (First $m 'start kind=exit ms=83')); $doneAt = [array]::IndexOf($lines, (First $m 'done kind=exit step=HideNow hidden=True'))
+            Add-Result $run '2  hide: the drawer leaves first, the window is hidden only when it has' ($duringVisible -and $done -and $hidden -and $startAt -ge 0 -and $doneAt -gt $startAt) "visible 40 ms in=$duringVisible start@$startAt done@$doneAt; trace: $(Trace-Since $m)"
         }
         else {
             $hidden = Until { -not (Ev).WsVisible } 3
@@ -325,6 +353,55 @@ try {
         finally { $reader.Close(); $reader.Dispose(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
 
         Add-Result $run 'teardown: Noto exited cleanly' (Stop-Noto $noto) ''
+
+        # 7 - F2: the desktop, never an empty frame or an outline, wherever the sliding drawer has not yet covered
+        if ($animations -and (Animations-On)) {
+            foreach ($theme in 'Light', 'Dark') {
+                Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'appearance.theme' -Value $theme
+                $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
+                Show-Noto "7 $theme ready"
+                $e = Ev; $mid = [int](($e.FrameTop + $e.FrameBottom) / 2)
+                # Candidate rows in the empty part of the folder list; each column is read on the row where the desktop
+                # behind differs most from the drawer there, so the two can be told apart whatever the wallpaper.
+                $rows = @(-5..5 | ForEach-Object { $mid + 24 * $_ })
+                # The far side, inside the drawer; and its outermost column, where at rest the window's 1 px border is.
+                # At the outermost column the window's edge shades the desktop faintly while the drawer moves (measured:
+                # 9 to 13 of 255 darker, 1 px); its border over the drawer at rest is 30 or more off. 16 allows the
+                # shading and fails a drawn outline.
+                foreach ($column in @(@{ Name = 'far side'; X = $e.FrameLeft + 4; Tolerance = 8 }, @{ Name = 'outermost column'; X = $e.FrameLeft; Tolerance = 16 })) {
+                    $x = $column.X
+                    if ((Fg) -ne $noto.Hwnd) { Show-Noto "7 $theme $($column.Name) ready" }
+                    $atRest = @{}; $inside = @{}
+                    foreach ($r in $rows) { $atRest[$r] = Screen-Pixel $x $r; $inside[$r] = Screen-Pixel ($e.FrameLeft + 4) $r }
+                    Chord-Now $noto.Hwnd
+                    if (-not (Until { -not (Ev).WsVisible })) { throw "7 $theme - the chord did not hide Noto" }
+                    $null = Set-ForegroundByKeyboard $target
+                    Start-Sleep -Milliseconds 300
+                    $y = $rows | Sort-Object { $b = Screen-Pixel $x $_; -[Math]::Min((Distance $b $inside[$_]), (Distance $b $atRest[$_])) } | Select-Object -First 1
+                    $behind = Screen-Pixel $x $y; $rest = $atRest[$y]; $surface = $inside[$y]
+                    if ((Distance $behind $surface) -le 2 * $column.Tolerance -or (Distance $behind $rest) -le $column.Tolerance + 4) { Add-Invalid $run "7 ${theme} $($column.Name): the desktop behind is the drawer's own colour ($($behind.Name) vs $($surface.Name)/$($rest.Name)); nothing to tell apart"; continue }
+                    Ctrl "7 $theme $($column.Name) show before" $noto.Hwnd
+                    Chord-Now $target.Hwnd
+                    $in = Classify (Sample-Column $x $y 400) $behind @($surface, $rest) $column.Tolerance
+                    if (-not (Until { (Fg) -eq $noto.Hwnd })) { throw "7 $theme - the chord did not bring Noto forward" }
+                    Ctrl "7 $theme $($column.Name) show after" $target.Hwnd
+                    Start-Sleep -Milliseconds 300
+                    Chord-Now $noto.Hwnd
+                    $out = Classify (Sample-Column $x $y 300) $behind @($surface, $rest) $column.Tolerance
+                    $null = Until { -not (Ev).WsVisible } 2
+                    if ($in.Count -lt 10 -or $out.Count -lt 10) { Add-Invalid $run "7 ${theme} $($column.Name): the screen could not be read fast enough (in=$($in.Count) out=$($out.Count) samples)"; continue }
+                    # One sample may straddle the drawer's moving edge; an empty frame or an outline lasts a frame and is several.
+                    # Both columns are on the drawer's inner side, the first uncovered on the way out (83 ms): they may read
+                    # as the desktop at once.
+                    Add-Result $run "7  ${theme}, $($column.Name): sliding in, the desktop, then the drawer; never an empty frame or an outline" ($in.Runs -eq 'BS' -and $in.Others -le 1) "runs=$($in.Runs) other=$($in.Others)/$($in.Count) [$($in.Odd)] behind=$($behind.Name) drawer=$($surface.Name)/$($rest.Name) at $x,$y"
+                    Add-Result $run "7  ${theme}, $($column.Name): sliding out, the drawer, then the desktop" ($out.Runs -in 'SB', 'B' -and $out.Others -le 1) "runs=$($out.Runs) other=$($out.Others)/$($out.Count) [$($out.Odd)]"
+                }
+                if (-not (Stop-Noto $script:noto)) { Add-Result $run "7  ${theme}: Noto exited cleanly" $false '' }
+            }
+        }
+        else {
+            Write-Host '  7 skipped: Windows animation effects are off (read, not changed); with them off the drawer appears at once'
+        }
     }
 }
 finally {

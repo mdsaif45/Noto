@@ -24,6 +24,7 @@ using Noto.UseCases.Notes;
 using Noto.UseCases.Workspace;
 using Velopack;
 using Windows.Graphics;
+using Windows.UI.ViewManagement;
 using WinRT.Interop;
 
 namespace Noto;
@@ -338,6 +339,9 @@ public partial class App : Application
 
     /// <summary>How long a failure on another thread waits for the UI thread to save the open note.</summary>
     private static readonly TimeSpan FailureSaveTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>Windows' colours, for the "System" theme (F2): read when applied, and its changes followed.</summary>
+    private static readonly UISettings SystemColors = new();
 
     /// <summary>The last-chance boundaries' one handling of a failure (#10).</summary>
     private FailureBoundary? _failures;
@@ -675,6 +679,9 @@ public partial class App : Application
 
         // The theme before the first frame, so a chosen theme is never preceded by Windows' own.
         ApplyTheme(main, preferences.Theme);
+
+        // "System" follows Windows when its app mode changes (F2). Raised off the UI thread.
+        SystemColors.ColorValuesChanged += (_, _) => _ = main.DispatcherQueue.TryEnqueueGuarded(() => ApplyTheme(main, preferences.Theme));
 
         // A chord refused at launch is reported where the user can act on it: in Settings (ADR-007).
         main.ShowHotkeyMessage(hotkeyRefusal);
@@ -1194,25 +1201,29 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// The workspace's theme (Slice 1, parity J21), set on the window's content: every brush is declared per theme
-    /// (ADR-011), so the whole tree, popups included, follows it. High contrast, when on, overrides all three.
+    /// The workspace's theme (Slice 1, parity J21), set on the drawer: every brush is declared per theme (ADR-011), so
+    /// the whole drawer, popups included, follows it. High contrast, when on, overrides all three.
     /// </summary>
+    /// <remarks>
+    /// The window's content is pinned Dark under a see-through window (F2), so "System" cannot be inherited: it is
+    /// Windows' own app mode, read here and followed live (<see cref="SystemColors"/>).
+    /// </remarks>
     private static void ApplyTheme(MainWindow window, WorkspaceTheme theme)
     {
-        if (window.Content is not FrameworkElement root)
-        {
-            return;
-        }
+        FrameworkElement drawer = window.Drawer;
 
-        root.RequestedTheme = theme switch
+        drawer.RequestedTheme = theme switch
         {
             WorkspaceTheme.Light => ElementTheme.Light,
             WorkspaceTheme.Dark => ElementTheme.Dark,
-            _ => ElementTheme.Default,
+            _ => SystemIsDark() ? ElementTheme.Dark : ElementTheme.Light,
         };
 
-        Trace.WriteLine($"Noto.Settings theme={theme} actual={root.ActualTheme}");
+        Trace.WriteLine($"Noto.Settings theme={theme} actual={drawer.ActualTheme}");
     }
+
+    /// <summary>Windows' app mode, as Windows documents reading it: a black background colour is dark mode.</summary>
+    private static bool SystemIsDark() => SystemColors.GetColorValue(UIColorType.Background) is { R: 0, G: 0, B: 0 };
 
     /// <summary>
     /// The show/hide hotkey turned on or off in Settings (Slice 1): registered or released now, through the same
