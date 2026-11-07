@@ -213,7 +213,7 @@ Drag and drop is **another way to ask for B3's reorder**, nothing more: the same
 - **Keys:** Tab reaches every control, the arrows move between entries, Shift+F10 or the Menu key opens an entry's menu. Enter restores where restore is offered; Delete deletes permanently, after the dialog.
 - **Assistive technology:** each entry's name is its title. Its help text is the kind and state: "Folder, 3 notes", "Note in Work", or "Note in Work, which is in the Recycle Bin". Results are announced.
 - **High Contrast:** controls and the design system's own templates only, with no new colours.
-- **Reduced motion:** the surface enters through the existing `ContentMotion`, which reads Windows' animation setting per transition.
+- **Reduced motion:** the surface enters through the existing `ContentMotion`, which reads Windows' animation setting per transition. The drawer itself slides its full width in from its edge (F2, #145) through the same class.
 
 **Where the code goes:**
 - `RecycleBin` (UseCases/Workspace, framework-free, tested against SQLite) lists the entries and dispatches the existing commands.

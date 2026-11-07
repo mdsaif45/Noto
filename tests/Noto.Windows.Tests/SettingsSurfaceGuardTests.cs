@@ -94,13 +94,22 @@ public sealed class SettingsSurfaceGuardTests
     }
 
     [Fact]
-    public void The_theme_is_set_on_the_windows_content_before_the_first_frame()
+    public void The_theme_is_set_on_the_drawer_before_the_first_frame_and_system_follows_windows()
     {
         string theme = Body(App, "ApplyTheme");
 
-        Assert.Contains("window.Content is not FrameworkElement root", theme, StringComparison.Ordinal);
-        Assert.Matches(@"WorkspaceTheme\.Light => ElementTheme\.Light,\s*WorkspaceTheme\.Dark => ElementTheme\.Dark,\s*_ => ElementTheme\.Default,", theme);
+        // On the drawer, not the window's content, which is pinned Dark under a see-through window (F2).
+        Assert.Contains("FrameworkElement drawer = window.Drawer;", theme, StringComparison.Ordinal);
+        Assert.Contains("internal FrameworkElement Drawer => WorkspaceContent;", Main, StringComparison.Ordinal);
         Assert.True(App.IndexOf("ApplyTheme(main, preferences.Theme);", StringComparison.Ordinal) < App.IndexOf("_window.Activate();", StringComparison.Ordinal));
+
+        // "System" is the Windows app mode, read when applied, never inherited from the pinned root; and followed live.
+        Assert.Matches(@"WorkspaceTheme\.Light => ElementTheme\.Light,\s*WorkspaceTheme\.Dark => ElementTheme\.Dark,\s*_ => SystemIsDark\(\) \? ElementTheme\.Dark : ElementTheme\.Light,", theme);
+        Assert.DoesNotContain("ElementTheme.Default", App, StringComparison.Ordinal);
+        Assert.Contains("SystemColors.ColorValuesChanged += (_, _) => _ = main.DispatcherQueue.TryEnqueueGuarded(() => ApplyTheme(main, preferences.Theme));", App, StringComparison.Ordinal);
+
+        // A dialog themes from the window's content, so it is given the drawer's theme.
+        Assert.Contains("RequestedTheme = Drawer.ActualTheme,", Code(Path.Join(Windows, "MainWindow.Links.cs")), StringComparison.Ordinal);
     }
 
     [Fact]

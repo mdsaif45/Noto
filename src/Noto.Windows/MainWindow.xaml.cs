@@ -142,7 +142,10 @@ public sealed partial class MainWindow : Window
         // A card's links open through the same checks as the editor's (ADR-019 §2).
         MarkdownReadView.OpenLink = QueueOpenLink;
 
-        // Slice 1.3: the content's motion; the coordinator runs the drawer's, the navigation below a surface's.
+        // F2: the window is see-through, so the drawer can slide in with its own background (TransparentBackdrop).
+        SystemBackdrop = new TransparentBackdrop();
+
+        // Slice 1.3, F2: the drawer's motion; the coordinator runs its slide, the navigation below a surface's.
         Motion = new ContentMotion(WorkspaceContent);
 
         // Ctrl+, opens Settings from every surface (Slice 1), wherever focus is. On the root, as Ctrl+W is. Added
@@ -1456,6 +1459,9 @@ public sealed partial class MainWindow : Window
 
     /// <summary>The workspace content's motion (Slice 1.3): the drawer's enter and exit, and a surface entering.</summary>
     internal ContentMotion Motion { get; }
+
+    /// <summary>The whole drawer: what carries the user's theme (App.ApplyTheme) and slides (F2).</summary>
+    internal FrameworkElement Drawer => WorkspaceContent;
 
     /// <summary>What the settings surface may change. Set once by the composition root; without it, Settings does not open.</summary>
     internal SettingsContext? Settings { get; set; }
