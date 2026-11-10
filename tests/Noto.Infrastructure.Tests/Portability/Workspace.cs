@@ -115,12 +115,12 @@ internal sealed class Workspace : IDisposable
         return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Closes the database as Noto does at exit, so its files can move (a restore applies at the next start).</summary>
-    public void Close()
-    {
-        Database.Release();
-        SqliteConnection.ClearAllPools();
-    }
+    /// <summary>
+    /// Closes the database as Noto does at exit, so its files can move (a restore applies at the next start). Its own
+    /// pool only, never <c>ClearAllPools()</c>: that disposes the live connections of test classes running in
+    /// parallel (see <see cref="Storage.TempDatabase.ReleaseOwnPools"/>).
+    /// </summary>
+    public void Close() => Database.Release();
 
     /// <summary>Opens the database again, as the next start does.</summary>
     public void Reopen()
