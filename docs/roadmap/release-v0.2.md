@@ -122,6 +122,13 @@ Ctrl+K was the owner's first choice, but it is the editor's *link* shortcut. Ctr
 - **Update:** the focus order and the welcome tour's steps.
 - **Check** [ADR-016](../decisions/ADR-016-card-stack-workspace.md) and [ADR-018](../decisions/ADR-018-search.md): no change is expected.
 
+**Built (#148):**
+- The **+** is at the foot, right of the Recycle Bin: the header is shared by every surface, and a new folder belongs to the folder list.
+- The name box is shown when there are no folders yet, when asked for (+, Ctrl+N, the menu's *New folder*) or while it holds a name. It closes once the folder is made, on Escape, or when focus leaves it empty.
+- The search button sits first in the header, so Tab reaches Search, Settings, then Pin.
+- The welcome tour names both.
+- ADR-016 and ADR-018 are unchanged: Search is still its own surface, opened the same way.
+
 ### F6. Fold: "+ N lines", and unfold in one click (#149)
 
 **Today:**

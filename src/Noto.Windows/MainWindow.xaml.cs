@@ -373,6 +373,8 @@ public sealed partial class MainWindow : Window
 
         FolderNameInput.IsEnabled = interactive;
         CreateButton.IsEnabled = interactive;
+        NewFolderButton.IsEnabled = interactive;
+        UpdateCreateRow();
         FolderList.IsEnabled = interactive;
 
         // Retry is the ONLY control offered in Error, and it is offered
@@ -412,6 +414,40 @@ public sealed partial class MainWindow : Window
 
     private void OnCreateFolderClick(object sender, RoutedEventArgs e) => SubmitCreate();
 
+    /// <summary>Whether the name box was asked for: by the + button, Ctrl+N or the menu (F5, #148).</summary>
+    private bool _creating;
+
+    /// <summary>
+    /// The name box is shown when there is nothing else to do (no folders yet), when it was asked for, or while it
+    /// holds a name; otherwise the list starts at the top (F5, #148).
+    /// </summary>
+    private void UpdateCreateRow() =>
+        CreateRow.Visibility = _creating || IsEmpty || FolderNameInput.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OnNewFolderClick(object sender, RoutedEventArgs e)
+    {
+        if (_state == PaneState.Loaded)
+        {
+            FocusInput();
+        }
+    }
+
+    /// <summary>
+    /// Focus leaving an empty name box closes it, unless it went to the box's own Create button. Checked once focus
+    /// has landed, since the element losing it cannot yet tell where it goes.
+    /// </summary>
+    private void OnCreateInputLostFocus(object sender, RoutedEventArgs e) =>
+        _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            object? focused = FocusManager.GetFocusedElement(Content.XamlRoot);
+
+            if (_creating && FolderNameInput.Text.Length == 0 && !ReferenceEquals(focused, FolderNameInput) && !ReferenceEquals(focused, CreateButton))
+            {
+                _creating = false;
+                UpdateCreateRow();
+            }
+        });
+
     /// <summary>
     /// Enter submits from the name box, so creating never requires the mouse.
     /// </summary>
@@ -427,6 +463,8 @@ public sealed partial class MainWindow : Window
             case VirtualKey.Escape:
                 e.Handled = true;
                 FolderNameInput.Text = string.Empty;
+                _creating = false;
+                UpdateCreateRow();
                 HideNotice();
                 MoveFocusToList();
                 break;
@@ -483,6 +521,7 @@ public sealed partial class MainWindow : Window
 
             _state = PaneState.Loaded;
             FolderNameInput.Text = string.Empty;
+            _creating = false;
             _selectedId = created;
 
             Refresh();
@@ -1614,6 +1653,9 @@ public sealed partial class MainWindow : Window
     }
 
     private void OnSettingsBackRequested(object? sender, EventArgs e) => CloseSettings();
+
+    /// <summary>The header's search button opens Search, as Ctrl+F does (F5, #148).</summary>
+    private void OnSearchClick(object sender, RoutedEventArgs e) => OpenSearch();
 
     private void OnSearchAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -2929,6 +2971,8 @@ public sealed partial class MainWindow : Window
 
     private void FocusInput()
     {
+        _creating = true;
+        UpdateCreateRow();
         _ = FolderNameInput.Focus(FocusState.Programmatic);
         FolderNameInput.SelectAll();
     }

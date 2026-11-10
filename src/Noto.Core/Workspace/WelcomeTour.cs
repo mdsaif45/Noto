@@ -61,7 +61,7 @@ public sealed class WelcomeTour
             "Organize",
             "Folders hold your notes.",
             [
-                "Type a name at the top of the folder list to make a folder. Double-click it, or press Ctrl+Down, to open it.",
+                "Press + at the foot of the folder list, or Ctrl+N, to make a folder. Double-click it, or press Ctrl+Down, to open it.",
                 "In a folder, Ctrl+N writes a new note.",
                 "Right-click a folder or a note to pin it to the top, fold a note, or move it to another folder.",
                 "Drag to put things in order, or press Ctrl+Alt+Shift+Up or Down.",
@@ -74,7 +74,7 @@ public sealed class WelcomeTour
                 "Markdown works as you type: # for a heading, - for a list, **bold** for bold.",
                 "Ctrl+B, Ctrl+I and Ctrl+K format text and add links. The Format button has the rest.",
                 "Paste or drop a picture into a note to keep it there.",
-                "Ctrl+F searches every note.",
+                "The search button, or Ctrl+F, searches every note.",
             ]),
         new(
             "Your data",
