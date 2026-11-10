@@ -222,11 +222,13 @@ public sealed class WelcomeLifecycleTests : IDisposable
         return (show, onboarding);
     }
 
-    /// <summary>The end of a start: the database released, so its files can move (a restore applies at the next).</summary>
+    /// <summary>
+    /// The end of a start: the database released, so its files can move (a restore applies at the next). Its own pool
+    /// only, as the application does; never <c>ClearAllPools()</c>, which kills other test classes' live connections.
+    /// </summary>
     private void Stop()
     {
         _database?.Release();
         _database = null;
-        SqliteConnection.ClearAllPools();
     }
 }
