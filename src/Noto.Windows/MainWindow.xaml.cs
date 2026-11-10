@@ -1463,6 +1463,29 @@ public sealed partial class MainWindow : Window
     /// <summary>The whole drawer: what carries the user's theme (App.ApplyTheme) and slides (F2).</summary>
     internal FrameworkElement Drawer => WorkspaceContent;
 
+    /// <summary>The docked side the drawer is shaped for; <see langword="null"/> until docked.</summary>
+    private DockEdge? _shapedFor;
+
+    /// <summary>
+    /// Shapes the drawer for the side it is docked to (F2, #145): its inner corners rounded and a 1 px border on its
+    /// inner edge, top and bottom, all on the drawer itself so they slide with it. Square and borderless on the docked
+    /// side, flush with the screen.
+    /// </summary>
+    internal void ShapeDrawer(DockEdge edge)
+    {
+        if (_shapedFor == edge)
+        {
+            return;
+        }
+
+        _shapedFor = edge;
+        double r = ((CornerRadius)Application.Current.Resources["RadiusMedium"]).TopLeft;
+        bool right = edge == DockEdge.Right;
+        DrawerEdge.BorderThickness = right ? new Thickness(1, 1, 0, 1) : new Thickness(0, 1, 1, 1);
+        DrawerEdge.CornerRadius = right ? new CornerRadius(r, 0, 0, r) : new CornerRadius(0, r, r, 0);
+        Motion.ClipToInnerCorners(edge, r);
+    }
+
     /// <summary>What the settings surface may change. Set once by the composition root; without it, Settings does not open.</summary>
     internal SettingsContext? Settings { get; set; }
 

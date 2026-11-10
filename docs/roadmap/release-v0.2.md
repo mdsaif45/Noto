@@ -86,6 +86,10 @@ ADR-007 already says "slide-in and auto-hide implemented by Noto".
 
 **Built (#145):** the window still never moves. It is see-through, and the whole drawer, background and all, slides its own width inside the docked rectangle: in over 167 ms (`ControlFastAnimationDuration`), out over 83 ms (`ControlFasterAnimationDuration`), both on WinUI's fast-then-settling curve. The window's content is pinned Dark with no fill, because WinUI fills a Light content with opaque white under everything (measured); the chosen theme is set on the drawer below it, and *System* is read from Windows and followed live.
 
+**Fixed after the owner's recording (2026-11-07):** a resizable window draws its top sizing border (a light strip) and an outline under transparent pixels, so both showed before the drawer arrived and as it left. The docked window now has no frame at all (no sizing border, caption or border), and the inner edge resizes from a 6 DIP grip inside the drawer (a WinUI non-client region) rather than from Windows' frame just outside it.
+
+**Owner's choice (2026-11-10):** look B, flush to the edge with the two inner corners rounded (`RadiusMedium`, 8) and a 1 px `BorderSubtleBrush` border on the inner edge, top and bottom, all drawn on the drawer so they slide with it. A start is kept off the screen (cloaked) until the drawer is docked and drawn, then slides in as a shortcut show does; before, it showed a black window with a frame line for about half a second (the owner's recording, 2026-11-10).
+
 ### F3. A shortcut for *Keep Noto open* (#146)
 
 **Today:** the pin toggle in the header (`PinToggle`) has no keyboard shortcut. The global hotkey only shows and hides Noto.

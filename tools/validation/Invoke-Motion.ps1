@@ -30,12 +30,15 @@
        saved, so the content comes back, the window stays shown and in front with the editor's notice and the text,
        and the editor still types; with the note restored, the next hide completes (never stuck Hiding) and saves.
        Off: the failed save keeps the window shown at once, with no exit and no completion to wait for
-    7  F2, in Light and in Dark: two screen pixels, the drawer's far side and its outermost column (where the
-       window's 1 px border is at rest), each sampled as fast as the screen can be read through a show and a hide,
-       are only ever the desktop behind or the drawer's own colours: desktop first, then the drawer once it has slid
-       in; drawer first, then desktop once it has slid out. A white or black fill under the drawer (an empty frame)
-       or the window's outline drawn before the drawer arrives is neither. Noto is restarted for each theme.
-       Animations on only
+    7  F2, in Light and in Dark: three screen points, the drawer's far side, its outermost column and its top rows,
+       each sampled as fast as the screen can be read through a show and a hide, are only ever the desktop behind or
+       the drawer's own colours: desktop first, then the drawer once it has slid in; drawer first, then desktop once
+       it has slid out. A white or black fill under the drawer (an empty frame), a window outline or a light top
+       strip drawn before the drawer arrives is neither. Noto is restarted for each theme. Animations on only
+    8  F2, in Light and in Dark: a start, read on the screen from just before it until 4 s after (the drawer's far side
+       and its top rows): only the desktop, then the drawer sliding in, and Noto traces "presented reason=drawn".
+       A start that showed its window before drawing it (black, with a frame line, for about half a second: the
+       owner's recording, 2026-11-10) is neither. Animations on only
     The database is read in this process, read-only, every few milliseconds through a hide (Noto's database is in WAL
     mode, so the reader never blocks Noto's write).
 
@@ -364,20 +367,24 @@ try {
                 # Candidate rows in the empty part of the folder list; each column is read on the row where the desktop
                 # behind differs most from the drawer there, so the two can be told apart whatever the wallpaper.
                 $rows = @(-5..5 | ForEach-Object { $mid + 24 * $_ })
-                # The far side, inside the drawer; and its outermost column, where at rest the window's 1 px border is.
-                # At the outermost column the window's edge shades the desktop faintly while the drawer moves (measured:
-                # 9 to 13 of 255 darker, 1 px); its border over the drawer at rest is 30 or more off. 16 allows the
-                # shading and fails a drawn outline.
-                foreach ($column in @(@{ Name = 'far side'; X = $e.FrameLeft + 4; Tolerance = 8 }, @{ Name = 'outermost column'; X = $e.FrameLeft; Tolerance = 16 })) {
+                # The far side, inside the drawer; its outermost column, where a window frame would draw an outline; and
+                # its top rows, where a resizable window's top sizing border would show as a light strip (measured on
+                # the first F2 build, #145: FFFFFF and D1D4D5 in rows 1 to 3 until the drawer covered them).
+                $points = @(
+                    @{ Name = 'far side'; X = $e.FrameLeft + 4; Rows = $rows },
+                    @{ Name = 'outermost column'; X = $e.FrameLeft; Rows = $rows },
+                    @{ Name = 'top rows'; X = $e.FrameLeft + 20; Rows = @($e.FrameTop, ($e.FrameTop + 1), ($e.FrameTop + 2)) })
+                foreach ($column in $points) {
+                    $column.Tolerance = 8
                     $x = $column.X
                     if ((Fg) -ne $noto.Hwnd) { Show-Noto "7 $theme $($column.Name) ready" }
                     $atRest = @{}; $inside = @{}
-                    foreach ($r in $rows) { $atRest[$r] = Screen-Pixel $x $r; $inside[$r] = Screen-Pixel ($e.FrameLeft + 4) $r }
+                    foreach ($r in $column.Rows) { $atRest[$r] = Screen-Pixel $x $r; $inside[$r] = Screen-Pixel ($e.FrameLeft + 4) $r }
                     Chord-Now $noto.Hwnd
                     if (-not (Until { -not (Ev).WsVisible })) { throw "7 $theme - the chord did not hide Noto" }
                     $null = Set-ForegroundByKeyboard $target
                     Start-Sleep -Milliseconds 300
-                    $y = $rows | Sort-Object { $b = Screen-Pixel $x $_; -[Math]::Min((Distance $b $inside[$_]), (Distance $b $atRest[$_])) } | Select-Object -First 1
+                    $y = $column.Rows | Sort-Object { $b = Screen-Pixel $x $_; -[Math]::Min((Distance $b $inside[$_]), (Distance $b $atRest[$_])) } | Select-Object -First 1
                     $behind = Screen-Pixel $x $y; $rest = $atRest[$y]; $surface = $inside[$y]
                     if ((Distance $behind $surface) -le 2 * $column.Tolerance -or (Distance $behind $rest) -le $column.Tolerance + 4) { Add-Invalid $run "7 ${theme} $($column.Name): the desktop behind is the drawer's own colour ($($behind.Name) vs $($surface.Name)/$($rest.Name)); nothing to tell apart"; continue }
                     Ctrl "7 $theme $($column.Name) show before" $noto.Hwnd
@@ -401,6 +408,43 @@ try {
         }
         else {
             Write-Host '  7 skipped: Windows animation effects are off (read, not changed); with them off the drawer appears at once'
+        }
+
+        # 8 - F2: a start shows the desktop, then the drawer sliding in; never a window not yet drawn
+        if ($animations -and (Animations-On)) {
+            $e8 = $e
+            $mid8 = [int](($e8.FrameTop + $e8.FrameBottom) / 2)
+            $points8 = @(@{ Name = 'far side'; X = $e8.FrameLeft + 4; Y = $mid8 }, @{ Name = 'top rows'; X = $e8.FrameLeft + 20; Y = $e8.FrameTop + 1 })
+            foreach ($theme in 'Light', 'Dark') {
+                Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'appearance.theme' -Value $theme
+                $behind8 = @{}; foreach ($pt in $points8) { $behind8[$pt.Name] = Screen-Pixel $pt.X $pt.Y }
+                # The screen read on another thread from just before the start until well after it: the start itself
+                # blocks while it waits for the process.
+                $job = Start-ThreadJob -ScriptBlock {
+                    $Points = $using:points8; $Ms = 4000
+                    Add-Type -AssemblyName System.Drawing
+                    $seen = @{}; foreach ($pt in $Points) { $seen[$pt.Name] = [System.Collections.Generic.List[System.Drawing.Color]]::new() }
+                    $b = New-Object System.Drawing.Bitmap 1, 1; $g = [System.Drawing.Graphics]::FromImage($b)
+                    $sw = [Diagnostics.Stopwatch]::StartNew()
+                    while ($sw.ElapsedMilliseconds -lt $Ms) { foreach ($pt in $Points) { $g.CopyFromScreen([int]$pt.X, [int]$pt.Y, 0, 0, [System.Drawing.Size]::new(1, 1)); $seen[[string]$pt.Name].Add($b.GetPixel(0, 0)) } }
+                    $g.Dispose(); $b.Dispose()
+                    $seen
+                }
+                Start-Sleep -Milliseconds 150
+                $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
+                $seen8 = Receive-Job $job -Wait -AutoRemoveJob
+                foreach ($pt in $points8) {
+                    $rest8 = Screen-Pixel $pt.X $pt.Y
+                    $samples = [System.Drawing.Color[]]@($seen8[$pt.Name])
+                    if ((Distance $behind8[$pt.Name] $rest8) -le 16) { Add-Invalid $run "8 ${theme} $($pt.Name): the desktop behind is the drawer's own colour ($($behind8[$pt.Name].Name) vs $($rest8.Name))"; continue }
+                    if ($samples.Count -lt 20) { Add-Invalid $run "8 ${theme} $($pt.Name): the screen could not be read fast enough ($($samples.Count) samples)"; continue }
+                    $c8 = Classify $samples $behind8[$pt.Name] @($rest8)
+                    # Desktop until the drawer slides in, then the drawer: no black or white undrawn window, no frame line.
+                    Add-Result $run "8  ${theme}, $($pt.Name): a start shows the desktop, then the drawer; never a window not yet drawn" ($c8.Runs -eq 'BS' -and $c8.Others -le 1) "runs=$($c8.Runs) other=$($c8.Others)/$($c8.Count) [$((@($c8.Odd -split ',') | Select-Object -Unique) -join ',')] behind=$($behind8[$pt.Name].Name) drawer=$($rest8.Name) at $($pt.X),$($pt.Y)"
+                }
+                Add-Result $run "8  ${theme}: the start was presented once drawn" ([bool](@($log.Lines($noto.Pid)) -match 'Noto\.Workspace presented reason=drawn')) "trace: $((@($log.Lines($noto.Pid)) -match 'presented') -join ' | ')"
+                if (-not (Stop-Noto $script:noto)) { Add-Result $run "8  ${theme}: Noto exited cleanly" $false '' }
+            }
         }
     }
 }

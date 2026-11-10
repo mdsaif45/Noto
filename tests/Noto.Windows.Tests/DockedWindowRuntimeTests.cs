@@ -70,7 +70,7 @@ public sealed partial class PlatformRuntimeTests
     [Trait("Category", DesktopSession.RequiresDesktopTrait)]
     [InlineData(DockEdge.Left)]
     [InlineData(DockEdge.Right)]
-    public void The_client_area_reaches_the_top_edge_and_the_inner_edge_still_resizes(DockEdge edge)
+    public void A_docked_window_has_no_frame_and_its_client_area_is_the_whole_window(DockEdge edge)
     {
         if (!DesktopSession.ShouldRun(out string reason))
         {
@@ -78,19 +78,18 @@ public sealed partial class PlatformRuntimeTests
             return;
         }
 
-        // Measured on the real application: the top sizing border of a window with no title bar is drawn inside the
-        // visible frame, in the frame's colour, whatever the workspace's theme. Docked, the top is client area, so the
-        // workspace's own surface is drawn there; from the moment the dock is installed, not from the first resize.
+        // F2 (#145, the owner's recording): a framed window draws its top sizing border and an outline under the
+        // see-through drawer. Docked, it has no frame from the moment the dock is installed: the client area is the
+        // whole window, and what is seen is the window's rectangle. The inner edge resizes from the application's own
+        // grip (DockGeometry.ResizeGrip, Invoke-Drawer.ps1 case 9).
         using var window = DockedTestWindow(edge, out _, out PixelRect dockedOuter);
         Native.Point origin = default;
         Assert.True(Native.ClientToScreen(window.Handle, ref origin));
 
-        output.WriteLine($"{edge}: outer {dockedOuter}, client origin ({origin.X}, {origin.Y})");
+        output.WriteLine($"{edge}: outer {dockedOuter}, client origin ({origin.X}, {origin.Y}), visible {Independent.VisibleFrame(window.Handle)}");
 
-        Assert.Equal(dockedOuter.Top, origin.Y);
-
-        // The side borders keep their default size: the inner edge is still a sizing border, not client area.
-        Assert.True(origin.X > dockedOuter.Left);
+        Assert.Equal((dockedOuter.Left, dockedOuter.Top), (origin.X, origin.Y));
+        Assert.Equal(dockedOuter, Independent.VisibleFrame(window.Handle));
     }
 
     [Fact]
@@ -586,9 +585,11 @@ public sealed partial class PlatformRuntimeTests
     /// <summary>A real overlapped window at its docked position, with the dock installed.</summary>
     private static TestWindow DockedTestWindow(DockEdge edge, out DockedWindow docked, out PixelRect dockedOuter)
     {
+        // Docked bounds for a frameless window (F2, #145): attaching takes the frame away, so what is seen is the
+        // window's rectangle. Measured on a popup, which has no frame either; attaching leaves the rectangle as it is.
         PixelRect outer;
 
-        using (var probe = TestWindow.Create(TestWindow.Overlapped))
+        using (var probe = TestWindow.Create(TestWindow.Popup))
         {
             outer = WindowDocking.OuterBoundsFor(probe.Native, edge, 360);
         }

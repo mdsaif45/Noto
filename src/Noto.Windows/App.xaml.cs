@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Core;
@@ -746,7 +747,11 @@ public partial class App : Application
         // shows it (measured, #94 Phase 0: no frame, never in front).
         if (!login)
         {
+            // F2 (#145): shown only once docked and drawn, then slid in as any show is; never the black frame of a
+            // window not yet drawn. Cloaked straight after activating, in the same step, before DWM draws the next
+            // frame: a window activated while cloaked is not put in front (measured), and Noto must start in front.
             _window.Activate();
+            PresentWhenDrawn(main);
         }
 
         // After Activate: the inset is read from DWM's frame bounds, which
@@ -1604,6 +1609,7 @@ public partial class App : Application
             _docked.Remember(widthDip);
 
             _docked.MoveOwn(() => window.AppWindow.MoveAndResize(new RectInt32(outer.Left, outer.Top, outer.Width, outer.Height)));
+            KeepInnerEdge((MainWindow)window, _docked);
         }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or COMException)
         {
@@ -1615,6 +1621,123 @@ public partial class App : Application
             Debug.WriteLine($"Docking failed: {ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// The drawer's inner edge (F2, #145): its shape (<see cref="MainWindow.ShapeDrawer"/>) and its resize grip. The
+    /// docked window has no frame, so the edge it resizes from is a non-client region inside the drawer
+    /// (<see cref="DockGeometry.ResizeGrip"/>), which the dock's hit test keeps. Placed now and again whenever the
+    /// window's size or place changes: a resize, a DPI change, a change of side.
+    /// </summary>
+    private static void KeepInnerEdge(MainWindow window, DockedWindow docked)
+    {
+        InputNonClientPointerSource source = InputNonClientPointerSource.GetForWindowId(window.AppWindow.Id);
+
+        void Place()
+        {
+            window.ShapeDrawer(docked.Edge);
+            SizeInt32 size = window.AppWindow.Size;
+            PixelRect grip = DockGeometry.ResizeGrip(docked.Edge, size.Width, size.Height, window.Content?.XamlRoot?.RasterizationScale ?? 1.0);
+            source.ClearRegionRects(NonClientRegionKind.LeftBorder);
+            source.ClearRegionRects(NonClientRegionKind.RightBorder);
+            source.SetRegionRects(
+                docked.Edge == DockEdge.Right ? NonClientRegionKind.LeftBorder : NonClientRegionKind.RightBorder,
+                [new RectInt32(grip.Left, grip.Top, grip.Width, grip.Height)]);
+        }
+
+        Place();
+        window.AppWindow.Changed += (_, e) =>
+        {
+            if (e.DidSizeChange || e.DidPositionChange)
+            {
+                Place();
+            }
+        };
+    }
+
+    /// <summary>
+    /// A start's first show (F2, #145): the window is kept off the screen (cloaked) from the moment it is activated until
+    /// the drawer has been laid out and drawn once just past its edge, then put on the screen and slid in, as a show by
+    /// the hotkey is. Without it, the window showed black, with a frame line, for about half a second before anything
+    /// was drawn (the owner's recording, 2026-11-10).
+    /// </summary>
+    /// <remarks>
+    /// Never left off the screen: whatever happens, the window is put back after <see cref="PresentDeadline"/>. A
+    /// start that docking failed for has no edge to slide from, so it is shown in place once drawn.
+    /// </remarks>
+    private void PresentWhenDrawn(MainWindow main)
+    {
+        WindowHandle handle = _windowHandle!;
+
+        try
+        {
+            WindowTransparency.Cloak(handle, cloaked: true);
+        }
+        catch (COMException ex)
+        {
+            Trace.WriteLine($"Noto.Workspace present cloak-failed error=0x{ex.HResult:X8}");
+            return;
+        }
+
+        bool placed = false;
+        bool presented = false;
+        DispatcherQueueTimer deadline = main.DispatcherQueue.CreateTimer();
+
+        void Present(string reason)
+        {
+            if (presented)
+            {
+                return;
+            }
+
+            presented = true;
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering;
+            deadline.Stop();
+
+            try
+            {
+                WindowTransparency.Cloak(handle, cloaked: false);
+            }
+            catch (COMException ex)
+            {
+                Trace.WriteLine($"Noto.Workspace present uncloak-failed error=0x{ex.HResult:X8}");
+            }
+
+            if (placed && _docked is { } docked)
+            {
+                main.Motion.Enter(docked.Edge, fromCurrent: false);
+            }
+
+            Trace.WriteLine($"Noto.Workspace presented reason={reason}");
+        }
+
+        // Raised before each frame is drawn: the first with the drawer laid out places it past its edge, so the frame
+        // drawn next has it there; the one after puts the window on the screen and starts the slide.
+        void OnRendering(object? sender, object e)
+        {
+            if (main.Drawer.ActualWidth <= 0)
+            {
+                return;
+            }
+
+            if (!placed && _docked is { } docked)
+            {
+                main.Motion.PrepareEnter(docked.Edge);
+                placed = true;
+                return;
+            }
+
+            Present("drawn");
+        }
+
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += OnRendering;
+        deadline.Interval = PresentDeadline;
+        deadline.IsRepeating = false;
+        deadline.Tick += (_, _) => Present("deadline");
+        deadline.Start();
+    }
+
+    /// <summary>How long a start may stay off the screen while it is drawn, at most (<see cref="PresentWhenDrawn"/>).</summary>
+    private static readonly TimeSpan PresentDeadline = TimeSpan.FromSeconds(1);
 
     private static void SetDockedChrome(OverlappedPresenter? presenter, bool docked)
     {

@@ -348,6 +348,11 @@ internal static unsafe partial class NativeMethods
     internal const uint ENDSESSION_CRITICAL = 0x40000000;
 
     internal const uint WS_POPUP = 0x80000000;
+
+    // The frame a docked window goes without (F2, #145): the sizing border and the caption (border and dialog frame).
+    internal const int GWL_STYLE = -16;
+    internal const uint WS_THICKFRAME = 0x00040000;
+    internal const uint WS_CAPTION = 0x00C00000;
     internal const uint WS_EX_TOOLWINDOW = 0x00000080;
 
     internal const uint NIM_ADD = 0;
@@ -477,6 +482,18 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("gdi32.dll")]
     internal static partial nint CreateRectRgn(int x1, int y1, int x2, int y2);
+
+    // A window kept off the screen while it is shown: DWM draws nothing of it (F2, #145).
+    internal const int DWMWA_CLOAK = 13;
+
+    [LibraryImport("dwmapi.dll")]
+    internal static partial int DwmSetWindowAttribute(nint hwnd, int dwAttribute, in int pvAttribute, int cbAttribute);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    internal static partial nint GetWindowLongPtr(nint hWnd, int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    internal static partial nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
 
     [LibraryImport("gdi32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

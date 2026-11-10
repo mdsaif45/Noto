@@ -123,6 +123,41 @@ internal sealed class ContentMotion
         visual.Properties.InsertVector3("Translation", Vector3.Zero);
     }
 
+    /// <summary>
+    /// Clips everything on the drawer to its rounded inner corners (F2, #145), kept in step with its size: a rounded
+    /// rectangle one radius wider than the drawer, reaching past the docked side, so only the inner corners round. On
+    /// the drawer's own visual, so it moves with every slide.
+    /// </summary>
+    public void ClipToInnerCorners(DockEdge edge, double radius)
+    {
+        bool first = _clip is null;
+        _clip = (edge, (float)radius);
+
+        if (first)
+        {
+            _drawer.SizeChanged += (_, _) => ApplyClip();
+        }
+
+        ApplyClip();
+    }
+
+    private (DockEdge Edge, float Radius)? _clip;
+
+    private void ApplyClip()
+    {
+        if (_clip is not (DockEdge edge, float r))
+        {
+            return;
+        }
+
+        Visual visual = VisualOf(_drawer);
+        CompositionRoundedRectangleGeometry shape = visual.Compositor.CreateRoundedRectangleGeometry();
+        shape.CornerRadius = new Vector2(r);
+        shape.Offset = new Vector2(edge == DockEdge.Right ? 0 : -r, 0);
+        shape.Size = new Vector2((float)_drawer.ActualWidth + r, (float)_drawer.ActualHeight);
+        visual.Clip = visual.Compositor.CreateGeometricClip(shape);
+    }
+
     /// <param name="fade">A surface also fades in; the drawer only slides, its background opaque throughout.</param>
     private void Run(UIElement element, TimeSpan duration, float? fromX, float toX, bool fade, string kind, Action completed)
     {

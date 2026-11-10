@@ -18,8 +18,13 @@ format or behavior. Breaking changes are always called out explicitly.
 ### Changed
 
 - The drawer slides in from its screen edge when it opens, background and all, and slides back out when it closes, a
-  little faster. Nothing is drawn before it arrives: until it has, you see your desktop. With Windows' *Animation
-  effects* off, it appears and goes at once, as before (#145).
+  little faster. Nothing is drawn before it arrives, not even an outline: until it has, you see your desktop. With
+  Windows' *Animation effects* off, it appears and goes at once, as before (#145).
+- The drawer resizes from a narrow grip just inside its inner edge, rather than from just outside it (#145).
+- The drawer's inner corners are rounded and its inner edge, top and bottom have a thin border, drawn on the drawer
+  so they slide with it (#145).
+- Starting Noto no longer shows a black window for a moment: it appears once drawn, sliding in as it does from the
+  shortcut (#145).
 
 ## [0.1.0] - 2026-11-06
 

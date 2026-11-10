@@ -78,6 +78,48 @@ public sealed class MotionGuardTests
         Assert.Contains("fade: false", Body(Motion, "Exit"), StringComparison.Ordinal);
         Assert.Contains("fade: true", Body(Motion, "EnterSurface"), StringComparison.Ordinal);
         Assert.DoesNotMatch(@"\.Opacity\s*=", Motion);
+
+        // Measured (the owner's recording): a framed window draws its top sizing border, a light strip, and an outline
+        // under the see-through drawer before it arrives. The dock takes the frame away before its first frame change,
+        // and the inner edge resizes from a grip inside the drawer, placed after docking and kept in step.
+        string dock = Code(SourcePath("src", "Noto.Platform.Windows", "DockedWindow.cs"));
+        Assert.Matches(@"SetWindowLongPtr\(docked\._hwnd, NativeMethods\.GWL_STYLE, Frameless\(style\)\);[\s\S]*SWP_FRAMECHANGED[\s\S]*CapturePlacedInset\(\);", dock);
+        string app = Code(Path.Join(Windows, "App.xaml.cs"));
+        Assert.Matches(@"_docked\.MoveOwn\([^\n]*\);\s*KeepInnerEdge\(\(MainWindow\)window, _docked\);", app);
+        Assert.Matches(@"if \(e\.DidSizeChange \|\| e\.DidPositionChange\)\s*\{\s*Place\(\);", app);
+        Assert.Contains("DockGeometry.ResizeGrip(docked.Edge,", app, StringComparison.Ordinal);
+
+        // The owner's choice (2026-11-10): flush, with the inner corners rounded and a 1 px border on the inner edge,
+        // top and bottom. Drawn on the drawer (a border over it, and a clip on its own visual), so it slides with it.
+        Assert.Matches(@"void Place\(\)\s*\{\s*window\.ShapeDrawer\(docked\.Edge\);", app);
+        XElement edge = Named(MainXaml, "DrawerEdge");
+        Assert.Equal("WorkspaceContent", (string?)edge.Parent!.Attribute(X + "Name"));
+        Assert.Equal("False", (string?)edge.Attribute("IsHitTestVisible"));
+        string shape = Body(Main, "ShapeDrawer");
+        Assert.Contains("new Thickness(1, 1, 0, 1) : new Thickness(0, 1, 1, 1)", shape, StringComparison.Ordinal);
+        Assert.Contains("new CornerRadius(r, 0, 0, r) : new CornerRadius(0, r, r, 0)", shape, StringComparison.Ordinal);
+        Assert.Contains("Motion.ClipToInnerCorners(edge, r);", shape, StringComparison.Ordinal);
+        Assert.Contains("VisualOf(_drawer)", Body(Motion, "ApplyClip"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_start_is_kept_off_the_screen_until_drawn_then_slides_in_and_never_stays_hidden()
+    {
+        // The owner's recording (2026-11-10): a start showed a black window with a frame line for about half a second
+        // before anything was drawn. Now it is cloaked as it is activated, the drawer is placed past its edge on
+        // the first frame it is laid out, and the next frame uncloaks it and slides it in, as the hotkey does.
+        string app = Code(Path.Join(Windows, "App.xaml.cs"));
+        string present = Body(app, "PresentWhenDrawn");
+
+        // Activated first, so it starts in front (a window activated while cloaked is not), then cloaked at once.
+        Assert.Matches(@"_window\.Activate\(\);\s*PresentWhenDrawn\(main\);", app);
+        Assert.Contains("WindowTransparency.Cloak(handle, cloaked: true);", present, StringComparison.Ordinal);
+        Assert.Matches(@"if \(!placed && _docked is \{ \} docked\)\s*\{\s*main\.Motion\.PrepareEnter\(docked\.Edge\);", present);
+        Assert.Matches(@"WindowTransparency\.Cloak\(handle, cloaked: false\);[\s\S]*main\.Motion\.Enter\(docked\.Edge, fromCurrent: false\);", present);
+
+        // Never left off the screen: a deadline uncloaks it whatever happens.
+        Assert.Contains("deadline.Tick += (_, _) => Present(\"deadline\");", present, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(1)", app, StringComparison.Ordinal);
     }
 
     [Fact]

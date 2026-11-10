@@ -579,4 +579,15 @@ public sealed class DockGeometryTests
 
     private static DisplayMonitor Display(string device, PixelRect bounds, PixelRect work, uint dpi, bool primary = false) =>
         new(MonitorId.From(device + "#id"), device, bounds, work, dpi, primary);
+    [Theory]
+    [InlineData(1.0, 6)]
+    [InlineData(1.5, 9)]
+    [InlineData(2.0, 12)]
+    public void The_resize_grip_is_a_band_along_the_inner_edge_scaled_to_the_display(double scale, int expected)
+    {
+        // F2 (#145): a frameless window resizes from a band inside it, on the side away from the docked edge.
+        Assert.Equal(new PixelRect(0, 0, expected, 1032), DockGeometry.ResizeGrip(DockEdge.Right, 360, 1032, scale));
+        Assert.Equal(new PixelRect(360 - expected, 0, 360, 1032), DockGeometry.ResizeGrip(DockEdge.Left, 360, 1032, scale));
+    }
+
 }
