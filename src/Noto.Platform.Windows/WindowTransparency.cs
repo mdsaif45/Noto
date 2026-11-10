@@ -48,6 +48,17 @@ public static class WindowTransparency
     }
 
     /// <summary>
+    /// Keeps a shown window off the screen, or puts it back (F2, #145): a start shows nothing until the drawer is
+    /// docked and drawn, rather than an undrawn window's black frame. The window is shown and active throughout.
+    /// </summary>
+    /// <exception cref="COMException">DWM refused.</exception>
+    public static void Cloak(WindowHandle window, bool cloaked)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        Marshal.ThrowExceptionForHR(NativeMethods.DwmSetWindowAttribute(window.Hwnd, NativeMethods.DWMWA_CLOAK, cloaked ? 1 : 0, sizeof(int)));
+    }
+
+    /// <summary>
     /// A fully transparent brush for a backdrop target, on the system compositor. Call on the window's thread; the
     /// compositor and its dispatcher queue live as long as the process.
     /// </summary>

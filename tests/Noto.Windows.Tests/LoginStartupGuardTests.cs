@@ -61,7 +61,8 @@ public sealed class LoginStartupGuardTests
     {
         string launch = Code(Body(App, "OnLaunched"));
 
-        Assert.Matches(@"if \(!login\)\s*\{\s*_window\.Activate\(\);\s*\}", launch);
+        // F2 (#145): a start is activated, then kept off the screen until it is drawn; a login start does neither.
+        Assert.Matches(@"if \(!login\)\s*\{\s*_window\.Activate\(\);\s*PresentWhenDrawn\(main\);\s*\}", launch);
         Assert.Equal(1, Regex.Count(Code(App), @"\.Activate\(\)"));
     }
 

@@ -223,8 +223,15 @@ public sealed unsafe class DockedWindow
 
         docked.IsAttached = true;
 
-        // The client area is recalculated only when the frame changes: ask for it now, so the top edge is the
-        // workspace's from the first frame rather than from the first resize.
+        // No frame at all (F2, #145): the window is see-through while the drawer slides, and Windows draws a sizing
+        // border and an outline under transparent pixels, inside the visible frame. Without a frame there is nothing
+        // to draw and nothing outside the visible frame: the window's rectangle is what is seen. The inner edge's
+        // resize grip is the application's (a non-client region inside the drawer, DockGeometry.ResizeGrip).
+        nint style = NativeMethods.GetWindowLongPtr(docked._hwnd, NativeMethods.GWL_STYLE);
+        _ = NativeMethods.SetWindowLongPtr(docked._hwnd, NativeMethods.GWL_STYLE, Frameless(style));
+
+        // The client area is recalculated only when the frame changes: ask for it now, so the window is frameless and
+        // the top edge is the workspace's from the first frame rather than from the first resize.
         _ = NativeMethods.SetWindowPos(
             docked._hwnd,
             0,
@@ -331,6 +338,9 @@ public sealed unsafe class DockedWindow
         }
     }
 
+    /// <summary>The window style with no frame: no sizing border, no caption, no border; every other bit kept.</summary>
+    internal static nint Frameless(nint style) => style & ~(nint)(NativeMethods.WS_THICKFRAME | NativeMethods.WS_CAPTION);
+
     /// <summary>
     /// What a hit test on a docked window resolves to.
     /// </summary>
@@ -339,6 +349,9 @@ public sealed unsafe class DockedWindow
     /// right-docked window, the right edge of a left-docked one — including
     /// its two corners, which become that edge alone. The docked edge, the
     /// top and the bottom become client area. Every other result is kept.
+    /// With the frame gone (<see cref="Frameless"/>), Windows reports no edge
+    /// of its own: the inner edge arrives from the application's resize grip,
+    /// a non-client region inside the drawer.
     /// </remarks>
     internal static int MapHitTest(DockEdge edge, int hit)
     {

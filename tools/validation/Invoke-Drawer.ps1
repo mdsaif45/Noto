@@ -431,7 +431,7 @@ try {
         Bring-NotoForward
         To-Surface 'FolderList'
         $e9 = Ev $noto
-        $x = $e9.FrameLeft - 3; $y = [int](($e9.FrameTop + $e9.FrameBottom) / 2)
+        $x = $e9.FrameLeft + 3; $y = [int](($e9.FrameTop + $e9.FrameBottom) / 2)
         if ((Root-At $x $y) -ne $noto.Hwnd) { throw "refusing to drag at ($x,$y): it is not Noto's inner edge" }
         [void][NotoVal.Win32]::SetCursorPos($x, $y); Start-Sleep -Milliseconds 200
         [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 300
@@ -440,7 +440,7 @@ try {
         for ($i = 1; $i -le 10; $i++) { [void][NotoVal.Win32]::SetCursorPos([int]($x - ($x - $endX) * $i / 10), $y); Start-Sleep -Milliseconds 60 }
         [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 900
         $e = Ev $noto
-        Add-Result $run '9  an inner-edge resize dragged over another window -> still shown, docked, wider' ((Is-Shown-Docked $e) -and ($e.FrameRight - $e.FrameLeft) -gt ($e9.FrameRight - $e9.FrameLeft)) "before $($e9.Frame) after $($e.Frame)"
+        Add-Result $run '9  an inner-edge resize dragged over another window -> still shown, docked, wider' ((Is-Shown-Docked $e) -and ($e.FrameRight - $e.FrameLeft) -gt ($e9.FrameRight - $e9.FrameLeft)) "before $($e9.Frame) after $($e.Frame) grab=$x end=$endX target right=$($tr.Right)"
 
         # 15 - minimize is not a hide; the hotkey restores, topmost
         Set-Pin 'Off'

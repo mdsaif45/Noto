@@ -262,4 +262,28 @@ public static class DockGeometry
 
         return OuterBounds(monitor, edge, monitor.WorkAreaPlacement.PixelsToDip(visiblePx), inset);
     }
+
+    /// <summary>How wide the inner edge's resize grip is, in DIPs (F2, #145).</summary>
+    /// <remarks>
+    /// Inside the drawer, since a frameless window has nothing outside it. Narrow, so it takes little from what sits
+    /// at that edge: a left-docked drawer's scroll bar keeps most of its width.
+    /// </remarks>
+    public const double ResizeGripDip = 6;
+
+    /// <summary>
+    /// The inner edge's resize grip, in the window's own physical pixels: a band <see cref="ResizeGripDip"/> wide along
+    /// the edge away from the docked one, full height.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="edge"/> is not a dock edge.</exception>
+    public static PixelRect ResizeGrip(DockEdge edge, int widthPx, int heightPx, double scale)
+    {
+        int grip = Math.Min(widthPx, Math.Max(1, (int)Math.Round(ResizeGripDip * scale)));
+
+        return edge switch
+        {
+            DockEdge.Right => new PixelRect(0, 0, grip, heightPx),
+            DockEdge.Left => new PixelRect(widthPx - grip, 0, widthPx, heightPx),
+            _ => throw new ArgumentOutOfRangeException(nameof(edge), edge, "Not a dock edge."),
+        };
+    }
 }

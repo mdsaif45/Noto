@@ -240,6 +240,16 @@ public sealed class DockedResizeTests
         Assert.Equal(expected, DockedWindow.MapHitTest(DockEdge.Left, hit));
     }
 
+    [Theory]
+    [InlineData(0x16CF0000L, 0x160B0000L)]   // WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS: min and max boxes kept
+    [InlineData(0x144C0000L, 0x14080000L)]   // as WinUI leaves a docked window: thick frame, border, system menu
+    [InlineData(0x14080000L, 0x14080000L)]   // already frameless: unchanged
+    public void A_docked_window_loses_its_frame_and_keeps_every_other_style(long style, long expected)
+    {
+        // F2 (#145): no sizing border, no caption, no border, so Windows draws nothing under the see-through drawer.
+        Assert.Equal((nint)expected, DockedWindow.Frameless((nint)style));
+    }
+
     // ------------------------------------------------------------ helpers
 
     private static PixelRect Visible(PixelRect outer, FrameInset inset) => new(

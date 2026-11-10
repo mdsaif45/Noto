@@ -568,6 +568,18 @@
                 framework never realises a static x:Load element under a Window,
                 and the compiler's bound form calls a FindName a Window lacks.
             -->
+
+            <!--
+                F2 (#145): the drawer's own edge, drawn on the drawer so it slides with it: a 1 px border on the inner
+                edge, the top and the bottom, round the inner corners (MainWindow.ShapeDrawer sets the side). The
+                window has no frame of its own, which would show where the drawer is going before it arrives.
+            -->
+            <Border
+                x:Name="DrawerEdge"
+                Grid.RowSpan="2"
+                BorderBrush="{ThemeResource BorderSubtleBrush}"
+                IsHitTestVisible="False"
+                AutomationProperties.AccessibilityView="Raw" />
         </Grid>
     </Grid>
 

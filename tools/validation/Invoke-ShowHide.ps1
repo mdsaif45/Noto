@@ -263,7 +263,7 @@ exit (Invoke-IsolatedRun $run -Title '#16 slice 5: show/hide' -Body {
 
     # 15 - chord during an inner-edge resize drag
     $e15 = Ev $noto
-    $x = $e15.FrameLeft - 3; $y = [int](($e15.FrameTop + $e15.FrameBottom) / 2)
+    $x = $e15.FrameLeft + 3; $y = [int](($e15.FrameTop + $e15.FrameBottom) / 2)
     $pt = New-Object NotoVal.Win32+POINT; $pt.X = $x; $pt.Y = $y
     if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $noto.Hwnd) { throw "refusing to drag at ($x,$y): it is not Noto's inner edge" }
     [void][NotoVal.Win32]::SetCursorPos($x, $y); Start-Sleep -Milliseconds 200

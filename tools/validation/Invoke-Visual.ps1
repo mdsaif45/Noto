@@ -113,13 +113,16 @@ function Shot([string] $Name) {
     "$Name.png"
 }
 function Top-Edge {
-    <# The largest channel difference between any pixel of the top 8 rows and the surface 40 rows down, across the middle of the window. #>
+    <#
+      The largest channel difference between any pixel of the 8 rows below the top and the surface 40 rows down, across
+      the middle of the window. Row 0 is the drawer's own 1 px top border (F2, #145), so it is left out.
+    #>
     $c = Capture-Window; $bmp = $c.Bitmap
     try {
         $worst = 0
         for ($x = [int]($bmp.Width * 0.2); $x -lt [int]($bmp.Width * 0.8); $x += 4) {
             $surface = $bmp.GetPixel($x, 40)
-            for ($y = 0; $y -lt 8; $y++) {
+            for ($y = 1; $y -le 8; $y++) {
                 $p = $bmp.GetPixel($x, $y)
                 $worst = [Math]::Max($worst, [Math]::Max([Math]::Abs($p.R - $surface.R), [Math]::Max([Math]::Abs($p.G - $surface.G), [Math]::Abs($p.B - $surface.B))))
             }
