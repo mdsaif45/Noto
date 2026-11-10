@@ -18,8 +18,8 @@ namespace Noto.Platform.Windows;
 /// </remarks>
 public static class WindowTransparency
 {
-    private static Compositor? s_compositor;
-    private static nint s_queueController;
+    private static Compositor? _compositor;
+    private static nint _queueController;
 
     /// <summary>Lets DWM draw the window's transparent pixels as see-through.</summary>
     /// <exception cref="COMException">DWM refused.</exception>
@@ -65,10 +65,10 @@ public static class WindowTransparency
     /// <exception cref="COMException">The thread's dispatcher queue could not be created.</exception>
     public static CompositionBrush ClearBrush()
     {
-        if (s_compositor is null)
+        if (_compositor is null)
         {
             // WinUI's thread has its own Microsoft.UI queue; the system compositor needs a Windows.System one.
-            if (global::Windows.System.DispatcherQueue.GetForCurrentThread() is null && s_queueController == 0)
+            if (global::Windows.System.DispatcherQueue.GetForCurrentThread() is null && _queueController == 0)
             {
                 var options = new NativeMethods.DispatcherQueueOptions
                 {
@@ -77,12 +77,12 @@ public static class WindowTransparency
                     apartmentType = NativeMethods.DQTAT_COM_STA,
                 };
 
-                Marshal.ThrowExceptionForHR(NativeMethods.CreateDispatcherQueueController(options, out s_queueController));
+                Marshal.ThrowExceptionForHR(NativeMethods.CreateDispatcherQueueController(options, out _queueController));
             }
 
-            s_compositor = new Compositor();
+            _compositor = new Compositor();
         }
 
-        return s_compositor.CreateColorBrush(Color.FromArgb(0, 0, 0, 0));
+        return _compositor.CreateColorBrush(Color.FromArgb(0, 0, 0, 0));
     }
 }
