@@ -12,6 +12,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Note colours: Yellow, Green, Blue, Purple, Pink and Grey, from the card's menu (*Colour*), the Colour button on the
+  card being edited, or Ctrl+1 to Ctrl+6; Ctrl+0 clears it. A coloured card is tinted and marked along its edge, and
+  its colour is named for screen readers; High Contrast leaves cards untinted (#150).
+
 - `Ctrl+D` turns *Keep Noto open* on and off, from anywhere inside Noto (#146).
 - Each folder in the list shows how many notes it holds (#147).
 

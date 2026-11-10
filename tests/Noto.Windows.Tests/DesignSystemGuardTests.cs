@@ -133,6 +133,68 @@ public sealed class DesignSystemGuardTests
     }
 
     [Fact]
+    public void Every_note_colour_keeps_a_cards_text_readable_its_marker_visible_and_high_contrast_ignores_it()
+    {
+        // F7 (#150): a tint over the card's fill, in every state a card is drawn in, never takes a text colour below
+        // 4.5:1; the marker, the colour's second signal, is 3:1 against the card. Translucent, so hover and selection
+        // still show through.
+        (string Fill, string[] Texts)[] states =
+        [
+            ("SurfaceCardColor", ["TextPrimaryColor", "TextSecondaryColor", "TextLinkColor"]),
+            ("SurfaceCardHoverColor", ["InteractionTextColor", "TextSecondaryColor", "TextLinkColor"]),
+            ("SurfaceCardSelectedColor", ["InteractionSelectedTextColor", "TextSecondaryColor", "TextLinkColor"]),
+        ];
+        var failures = new List<string>();
+
+        foreach (string theme in new[] { "Light", "Dark" })
+        {
+            var colours = ThemeDictionary(theme);
+
+            for (int n = 1; n <= 6; n++)
+            {
+                var tint = ColourOf(colours, $"Note{n}TintColor");
+                Assert.True(tint.A is > 0 and < 1, $"{theme} Note{n}TintColor must be translucent");
+
+                foreach (var (fill, texts) in states)
+                {
+                    var card = ColourOf(colours, fill);
+                    (double A, double R, double G, double B) tinted = (1, Over(tint.R, card.R), Over(tint.G, card.G), Over(tint.B, card.B));
+
+                    foreach (string text in texts)
+                    {
+                        double ratio = Contrast(ColourOf(colours, text), tinted);
+
+                        if (ratio < 4.5)
+                        {
+                            failures.Add($"{theme} {text} on Note{n} over {fill}: {ratio:F2}");
+                        }
+                    }
+
+                    double Over(double f, double b) => (tint.A * f) + ((1 - tint.A) * b);
+                }
+
+                double marker = Contrast(ColourOf(colours, $"Note{n}MarkerColor"), ColourOf(colours, "SurfaceCardColor"));
+
+                if (marker < 3)
+                {
+                    failures.Add($"{theme} Note{n}MarkerColor on the card: {marker:F2}");
+                }
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join("; ", failures));
+
+        // High contrast: the user's colours win. No tint at all, and the marker in the window text colour.
+        var hc = ThemeDictionary("HighContrast");
+
+        for (int n = 1; n <= 6; n++)
+        {
+            Assert.Equal("0", (string?)hc.Elements().Single(e => KeyOf(e) == $"Note{n}TintBrush").Attribute("Opacity"));
+            Assert.Equal("SystemColorWindowTextColor", Target(hc, $"Note{n}MarkerBrush"));
+        }
+    }
+
+    [Fact]
     public void High_contrast_draws_the_design_systems_own_colours_and_the_framework_adds_no_backplate()
     {
         // Measured on the frozen Release build: with the framework's automatic high-contrast adjustment left on, a

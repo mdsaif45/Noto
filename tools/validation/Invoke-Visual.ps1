@@ -20,6 +20,7 @@
      5  the edited card takes the accent on its edge
      6  Settings: every control in every group ends at the same right edge
     13  every surface captured in both themes: folders, stack, editor, image-rich note, search, settings, recycle bin
+    15  per theme: a coloured card (F7, #150) is tinted off an uncoloured card's fill, and its help text names the colour
     14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
         content is pinned Dark under a see-through window, and the chosen theme is set on the drawer below it)
 
@@ -240,6 +241,8 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $deleted = if ($note[4]) { $now } else { [DBNull]::Value }
         Sql $script:data "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsPinned, CreatedAt, UpdatedAt, DeletedAt) VALUES (`$n, `$f, `$c, `$s, `$p, `$t, `$t, `$d)" @{ '$n' = $note[0]; '$f' = $note[1]; '$c' = $note[2]; '$s' = $order; '$p' = $note[3]; '$t' = $now; '$d' = $deleted }
     }
+    # F7 (#150): one card coloured Blue (note3), for case 15.
+    Sql $script:data "UPDATE Notes SET ColorKey = 'note3' WHERE Id = '01J00000000000000000000V02'"
 
     $shots = @()
     $base = 0
@@ -289,6 +292,13 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $lefts = @($rects | ForEach-Object { [int]$_.X } | Sort-Object -Unique); $widths = @($rects | ForEach-Object { [int]$_.Width } | Sort-Object -Unique)
         Add-Result $run "$($base + 3)  ${theme}: one gap between cards; every card the same width and left edge" ($gaps.Count -ge 1 -and @($gaps | Where-Object { [Math]::Abs($_ - $expected) -gt 1 }).Count -eq 0 -and $lefts.Count -eq 1 -and $widths.Count -eq 1) "cards=$($rects.Count) gaps=$($gaps -join ',') (expected $expected) lefts=$($lefts -join ',') widths=$($widths -join ',')"
         $shots += Shot "$t-stack"
+
+        # 15 - F7 (#150): a coloured card is tinted, off an uncoloured card's fill, and names its colour
+        $cards = Items (Find-ById 'NoteList')
+        $blue = $cards | Where-Object { $_.Current.Name -eq 'Project plan' } | Select-Object -First 1
+        $plain = $cards | Where-Object { $_.Current.Name -ne 'Project plan' } | Select-Object -First 1
+        $fb = if ($blue) { (Region-Stats $blue.Current.BoundingRectangle).Fill }; $fp = if ($plain) { (Region-Stats $plain.Current.BoundingRectangle).Fill }
+        Add-Result $run "15 ${theme}: a coloured card (Blue) is tinted off an uncoloured card, and its help text names the colour" ($fb -and $fp -and (Distance $fb $fp) -ge 6 -and $blue.Current.HelpText -match 'Blue') "blue fill=$(if ($fb) { $fb.Name }) plain fill=$(if ($fp) { $fp.Name }) help='$(if ($blue) { $blue.Current.HelpText })'"
 
         # 4 - type hierarchy
         $title = Font-Size (Find-ById 'NoteFolderTitle'); $body = Font-Size (Find-ById 'NoteCountText')

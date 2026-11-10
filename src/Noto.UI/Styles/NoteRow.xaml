@@ -79,6 +79,17 @@
               BorderThickness="{StaticResource BorderThicknessSubtle}"
               CornerRadius="{StaticResource RadiusMedium}">
 
+            <!--
+                The note's colour (F7, #150): a tint over the card's fill, translucent so its hover and selected fills
+                still show, and a marker along its leading edge, so a colour is more than a tint. Set by ColorStates.
+            -->
+            <Border x:Name="ColorTint" CornerRadius="{StaticResource RadiusMedium}" />
+            <Border x:Name="ColorMarker"
+                    Width="{StaticResource NoteColorMarkerWidth}"
+                    Margin="{StaticResource NoteColorMarkerMargin}"
+                    HorizontalAlignment="Left"
+                    CornerRadius="{StaticResource RadiusNoteColorMarker}" />
+
             <ContentPresenter x:Name="Content"
                               Padding="{TemplateBinding Padding}"
                               Content="{TemplateBinding Content}"
@@ -161,6 +172,46 @@
                     </VisualState>
 
                     <VisualState x:Name="PointerFocused" />
+                </VisualStateGroup>
+
+                <VisualStateGroup x:Name="ColorStates">
+                    <VisualState x:Name="NoColor" />
+                    <VisualState x:Name="Note1">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Background" Value="{ThemeResource Note1TintBrush}" />
+                            <Setter Target="ColorMarker.Background" Value="{ThemeResource Note1MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Note2">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Background" Value="{ThemeResource Note2TintBrush}" />
+                            <Setter Target="ColorMarker.Background" Value="{ThemeResource Note2MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Note3">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Background" Value="{ThemeResource Note3TintBrush}" />
+                            <Setter Target="ColorMarker.Background" Value="{ThemeResource Note3MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Note4">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Background" Value="{ThemeResource Note4TintBrush}" />
+                            <Setter Target="ColorMarker.Background" Value="{ThemeResource Note4MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Note5">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Background" Value="{ThemeResource Note5TintBrush}" />
+                            <Setter Target="ColorMarker.Background" Value="{ThemeResource Note5MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Note6">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Background" Value="{ThemeResource Note6TintBrush}" />
+                            <Setter Target="ColorMarker.Background" Value="{ThemeResource Note6MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
                 </VisualStateGroup>
 
             </VisualStateManager.VisualStateGroups>

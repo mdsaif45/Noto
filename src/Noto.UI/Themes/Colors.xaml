@@ -195,6 +195,37 @@
             <Color x:Key="SearchMatchTextColor">#1A1A1A</Color>
             <SolidColorBrush x:Key="SearchMatchBrush" Color="{StaticResource SearchMatchColor}" />
             <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{StaticResource SearchMatchTextColor}" />
+
+            <!--
+                The note palette (F7, #150; ADR-011): note1 to note6 are Yellow, Green, Blue, Purple, Pink and Grey.
+                A tint laid over the card, translucent so the card's hover and selected fills still show, and kept
+                light enough that every text colour on a card keeps 4.5:1 (DesignSystemGuardTests); a marker, the
+                same hue darker, at 3:1 or more against the card.
+            -->
+            <Color x:Key="Note1TintColor">#40F5C400</Color>
+            <Color x:Key="Note1MarkerColor">#A6780A</Color>
+            <Color x:Key="Note2TintColor">#403FB950</Color>
+            <Color x:Key="Note2MarkerColor">#2D8A3E</Color>
+            <Color x:Key="Note3TintColor">#403A96F5</Color>
+            <Color x:Key="Note3MarkerColor">#1F6FD1</Color>
+            <Color x:Key="Note4TintColor">#40A371F7</Color>
+            <Color x:Key="Note4MarkerColor">#8250DF</Color>
+            <Color x:Key="Note5TintColor">#40EC6CB0</Color>
+            <Color x:Key="Note5MarkerColor">#C2387F</Color>
+            <Color x:Key="Note6TintColor">#408B949E</Color>
+            <Color x:Key="Note6MarkerColor">#6E7781</Color>
+            <SolidColorBrush x:Key="Note1TintBrush" Color="{StaticResource Note1TintColor}" />
+            <SolidColorBrush x:Key="Note1MarkerBrush" Color="{StaticResource Note1MarkerColor}" />
+            <SolidColorBrush x:Key="Note2TintBrush" Color="{StaticResource Note2TintColor}" />
+            <SolidColorBrush x:Key="Note2MarkerBrush" Color="{StaticResource Note2MarkerColor}" />
+            <SolidColorBrush x:Key="Note3TintBrush" Color="{StaticResource Note3TintColor}" />
+            <SolidColorBrush x:Key="Note3MarkerBrush" Color="{StaticResource Note3MarkerColor}" />
+            <SolidColorBrush x:Key="Note4TintBrush" Color="{StaticResource Note4TintColor}" />
+            <SolidColorBrush x:Key="Note4MarkerBrush" Color="{StaticResource Note4MarkerColor}" />
+            <SolidColorBrush x:Key="Note5TintBrush" Color="{StaticResource Note5TintColor}" />
+            <SolidColorBrush x:Key="Note5MarkerBrush" Color="{StaticResource Note5MarkerColor}" />
+            <SolidColorBrush x:Key="Note6TintBrush" Color="{StaticResource Note6TintColor}" />
+            <SolidColorBrush x:Key="Note6MarkerBrush" Color="{StaticResource Note6MarkerColor}" />
         </ResourceDictionary>
 
         <!--
@@ -322,6 +353,35 @@
             <Color x:Key="SearchMatchTextColor">#FFFFFF</Color>
             <SolidColorBrush x:Key="SearchMatchBrush" Color="{StaticResource SearchMatchColor}" />
             <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{StaticResource SearchMatchTextColor}" />
+
+            <!--
+                The note palette (F7, #150; ADR-011). Dark tints are fainter than light ones: a brighter hue lifts the
+                card under the secondary text, which must keep 4.5:1 (DesignSystemGuardTests).
+            -->
+            <Color x:Key="Note1TintColor">#14F5C400</Color>
+            <Color x:Key="Note1MarkerColor">#F5C400</Color>
+            <Color x:Key="Note2TintColor">#1C3FB950</Color>
+            <Color x:Key="Note2MarkerColor">#3FB950</Color>
+            <Color x:Key="Note3TintColor">#213A96F5</Color>
+            <Color x:Key="Note3MarkerColor">#3A96F5</Color>
+            <Color x:Key="Note4TintColor">#21A371F7</Color>
+            <Color x:Key="Note4MarkerColor">#A371F7</Color>
+            <Color x:Key="Note5TintColor">#1FEC6CB0</Color>
+            <Color x:Key="Note5MarkerColor">#EC6CB0</Color>
+            <Color x:Key="Note6TintColor">#1F8B949E</Color>
+            <Color x:Key="Note6MarkerColor">#8B949E</Color>
+            <SolidColorBrush x:Key="Note1TintBrush" Color="{StaticResource Note1TintColor}" />
+            <SolidColorBrush x:Key="Note1MarkerBrush" Color="{StaticResource Note1MarkerColor}" />
+            <SolidColorBrush x:Key="Note2TintBrush" Color="{StaticResource Note2TintColor}" />
+            <SolidColorBrush x:Key="Note2MarkerBrush" Color="{StaticResource Note2MarkerColor}" />
+            <SolidColorBrush x:Key="Note3TintBrush" Color="{StaticResource Note3TintColor}" />
+            <SolidColorBrush x:Key="Note3MarkerBrush" Color="{StaticResource Note3MarkerColor}" />
+            <SolidColorBrush x:Key="Note4TintBrush" Color="{StaticResource Note4TintColor}" />
+            <SolidColorBrush x:Key="Note4MarkerBrush" Color="{StaticResource Note4MarkerColor}" />
+            <SolidColorBrush x:Key="Note5TintBrush" Color="{StaticResource Note5TintColor}" />
+            <SolidColorBrush x:Key="Note5MarkerBrush" Color="{StaticResource Note5MarkerColor}" />
+            <SolidColorBrush x:Key="Note6TintBrush" Color="{StaticResource Note6TintColor}" />
+            <SolidColorBrush x:Key="Note6MarkerBrush" Color="{StaticResource Note6MarkerColor}" />
         </ResourceDictionary>
 
         <!--
@@ -448,6 +508,36 @@
             <StaticResource x:Key="SearchMatchTextColor" ResourceKey="SystemColorHighlightTextColor" />
             <SolidColorBrush x:Key="SearchMatchBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+
+            <!--
+                The note palette in high contrast (F7, #150): the user's colours win, so a card is never tinted (the
+                tint is fully transparent, even over a selected card's Highlight); its marker is drawn in the window
+                text colour, and the colour's name is in the card's help text.
+            -->
+            <StaticResource x:Key="Note1TintColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="Note1MarkerColor" ResourceKey="SystemColorWindowTextColor" />
+            <SolidColorBrush x:Key="Note1TintBrush" Color="{ThemeResource SystemColorWindowColor}" Opacity="0" />
+            <SolidColorBrush x:Key="Note1MarkerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <StaticResource x:Key="Note2TintColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="Note2MarkerColor" ResourceKey="SystemColorWindowTextColor" />
+            <SolidColorBrush x:Key="Note2TintBrush" Color="{ThemeResource SystemColorWindowColor}" Opacity="0" />
+            <SolidColorBrush x:Key="Note2MarkerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <StaticResource x:Key="Note3TintColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="Note3MarkerColor" ResourceKey="SystemColorWindowTextColor" />
+            <SolidColorBrush x:Key="Note3TintBrush" Color="{ThemeResource SystemColorWindowColor}" Opacity="0" />
+            <SolidColorBrush x:Key="Note3MarkerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <StaticResource x:Key="Note4TintColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="Note4MarkerColor" ResourceKey="SystemColorWindowTextColor" />
+            <SolidColorBrush x:Key="Note4TintBrush" Color="{ThemeResource SystemColorWindowColor}" Opacity="0" />
+            <SolidColorBrush x:Key="Note4MarkerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <StaticResource x:Key="Note5TintColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="Note5MarkerColor" ResourceKey="SystemColorWindowTextColor" />
+            <SolidColorBrush x:Key="Note5TintBrush" Color="{ThemeResource SystemColorWindowColor}" Opacity="0" />
+            <SolidColorBrush x:Key="Note5MarkerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <StaticResource x:Key="Note6TintColor" ResourceKey="SystemColorWindowColor" />
+            <StaticResource x:Key="Note6MarkerColor" ResourceKey="SystemColorWindowTextColor" />
+            <SolidColorBrush x:Key="Note6TintBrush" Color="{ThemeResource SystemColorWindowColor}" Opacity="0" />
+            <SolidColorBrush x:Key="Note6MarkerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

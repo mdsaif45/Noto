@@ -215,4 +215,9 @@
     <x:Double x:Key="SelectionIndicatorHeight">16</x:Double>
     <CornerRadius x:Key="RadiusIndicator">1.5</CornerRadius>
 
+    <!-- A coloured card's marker (F7, #150): a bar along its leading edge, inside the rounded corners. -->
+    <x:Double x:Key="NoteColorMarkerWidth">4</x:Double>
+    <Thickness x:Key="NoteColorMarkerMargin">4,8,0,8</Thickness>
+    <CornerRadius x:Key="RadiusNoteColorMarker">2</CornerRadius>
+
 </ResourceDictionary>

@@ -969,6 +969,20 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // Ctrl+1 to Ctrl+6 colour the card, Ctrl+0 clears its colour (G23, G24). Here, on the way down, as folding is,
+        // so a card and its editor behave the same.
+        if (IsControlDown() && !IsAltDown() && !IsShiftDown() && TryColorKey(e.Key, out string? colorKey))
+        {
+            e.Handled = true;
+
+            if (CurrentCard() is { } colored)
+            {
+                ColorCard(colored, colorKey);
+            }
+
+            return;
+        }
+
         // Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds (G19, G20); with Shift, every card (G21, G22). Here, on the way
         // down, so a card and its editor behave the same and the TextBox never takes the arrows.
         if (e.Key is VirtualKey.Left or VirtualKey.Right && IsControlDown() && IsAltDown())
@@ -1902,6 +1916,14 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(card.IsFolded
             ? MenuItem("Unfold", "Ctrl+Alt+Right", () => FoldCard(card.Id, folded: false))
             : MenuItem("Fold", "Ctrl+Alt+Left", () => FoldCard(card.Id, folded: true)));
+
+        var colour = new MenuFlyoutSubItem { Text = "Colour" };
+        foreach (MenuFlyoutItemBase item in ColorItems(card))
+        {
+            colour.Items.Add(item);
+        }
+
+        menu.Items.Add(colour);
         menu.Items.Add(MenuItem("Move to top", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Top), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Top)));
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Bottom), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Bottom)));
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -2090,6 +2112,12 @@ public sealed partial class MainWindow : Window
         };
 
         AutomationProperties.SetHelpText(args.ItemContainer, help);
+
+        // A recycled container takes this card's colour, or none (F7, #150).
+        if (args.Item is NoteCard colored)
+        {
+            VisualStateManager.GoToState(args.ItemContainer, NotePalette.StateOf(colored.ColorKey), useTransitions: false);
+        }
     }
 
     /// <summary>At the pointer for a right-click; at the row for Shift+F10 or the Menu key.</summary>
@@ -2170,6 +2198,107 @@ public sealed partial class MainWindow : Window
         catch (StorageException ex)
         {
             ShowNoteNotice($"Could not pin the note: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// The palette as menu items (F7, #150): no colour and the six, each with its key, the card's own checked. The
+    /// card's menu and its bar list the same items.
+    /// </summary>
+    private List<MenuFlyoutItemBase> ColorItems(NoteCard card)
+    {
+        var items = new List<MenuFlyoutItemBase>();
+
+        void Add(string text, string keys, string? key)
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = text,
+                KeyboardAcceleratorTextOverride = keys,
+                GroupName = "NoteColour",
+                IsChecked = card.ColorKey == key,
+            };
+            item.Click += (_, _) => ColorCard(card.Id, key);
+            items.Add(item);
+        }
+
+        Add("No colour", "Ctrl+0", null);
+
+        for (int i = 0; i < NotePalette.Colors.Count; i++)
+        {
+            Add(NotePalette.Colors[i].Name, $"Ctrl+{i + 1}", NotePalette.Colors[i].Key);
+        }
+
+        return items;
+    }
+
+    /// <summary>The card bar's Colour button: the palette, above the button.</summary>
+    private void OnCardColorClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: NoteCard card } button)
+        {
+            var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.TopEdgeAlignedRight };
+
+            foreach (MenuFlyoutItemBase item in ColorItems(card))
+            {
+                menu.Items.Add(item);
+            }
+
+            menu.ShowAt(button);
+        }
+    }
+
+    /// <summary>Ctrl+0 to Ctrl+6, on the number row or the keypad: no colour, or <c>note1</c> to <c>note6</c>.</summary>
+    private static bool TryColorKey(VirtualKey key, out string? colorKey)
+    {
+        int digit = key switch
+        {
+            >= VirtualKey.Number0 and <= VirtualKey.Number6 => key - VirtualKey.Number0,
+            >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad6 => key - VirtualKey.NumberPad0,
+            _ => -1,
+        };
+
+        colorKey = digit > 0 ? NoteColor.Keys[digit - 1] : null;
+        return digit >= 0;
+    }
+
+    /// <summary>
+    /// Colours a card, or clears its colour (B15, G23, G24), in place: it keeps its container, its focus and, if it is
+    /// being edited, its text. Said aloud, so the change is never only a colour.
+    /// </summary>
+    private void ColorCard(string id, string? colorKey)
+    {
+        if (_noteState != NoteState.Loaded)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = _stack.SetColor(NoteId.From(id), colorKey);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            if (Notes.FirstOrDefault(n => n.Id == id) is { } card)
+            {
+                card.ColorKey = colorKey;
+
+                if (NoteList.ContainerFromItem(card) is ListViewItem container)
+                {
+                    VisualStateManager.GoToState(container, NotePalette.StateOf(colorKey), useTransitions: false);
+                    AutomationProperties.SetHelpText(container, card.HelpText);
+                }
+            }
+
+            Announce(NotePalette.NameOf(colorKey) is { } name ? $"Colour: {name}" : "No colour");
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not colour the note: {ex.Message}");
         }
     }
 
