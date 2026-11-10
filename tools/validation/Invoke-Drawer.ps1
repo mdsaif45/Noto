@@ -24,6 +24,8 @@
        Escape in an inline input cancels the input and never hides; entering a folder by Ctrl+Down (with a note, and
        empty) puts keyboard focus on the note surface (a row in the note list, or Back when it is empty), so Escape
        goes back to the folder list
+       6d (F5, #148): with folders the name box is hidden; + opens it, Enter makes the folder and hides it again; the
+       header's search button opens Search
     7  Ctrl+W on each surface -> hidden; unsaved text saved once first; a failed save keeps Noto shown
     8  losing activation with unsaved text -> saved, then hidden; a failed save keeps Noto shown, focus not taken back
     9  an inner-edge resize dragged across another window -> not a deactivation; still shown, docked, wider
@@ -157,6 +159,11 @@ function Click-At([int] $X, [int] $Y, [IntPtr] $Expected, [switch] $Right) {
     Start-Sleep -Milliseconds 700
 }
 
+function Present([string] $Id) {
+    <# On screen now, without waiting: a collapsed element is not in the automation tree at all. #>
+    $e = $AE::FromHandle($noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))
+    [bool]($e -and -not $e.Current.IsOffscreen)
+}
 function Find-ById([string] $Id, [int] $Seconds = 10) {
     $cond = [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)
     $deadline = (Get-Date).AddSeconds($Seconds)
@@ -544,13 +551,14 @@ try {
         # although Escape at the folder list hides in the default behaviour
         Restart-Noto @{ 'workspace.escape' = 'LeaveFolderOrHide' }
         To-Surface 'FolderList'
+        Send-ToNoto @($VK.CTRL) 0x4E   # Ctrl+N: the name box is hidden while folders exist (F5, #148), and this opens it
         $input = Find-ById 'FolderNameInput'
         $input.SetFocus(); Start-Sleep -Milliseconds 300
         $input.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('draft folder'); Start-Sleep -Milliseconds 300
         Send-ToNoto @() 0x1B
         $e = Ev $noto
-        $left = if ($e.WsVisible) { (Find-ById 'FolderNameInput').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '(Noto hidden)' }
-        Add-Result $run '6  Escape in the new-folder box -> the input is cancelled (cleared), Noto stays shown' ($e.WsVisible -and $left -eq '') "input='$left' $(Show-State $e)"
+        $closed = $e.WsVisible -and -not (Present 'FolderNameInput')
+        Add-Result $run '6  Escape in the new-folder box -> the input is cancelled (closed), Noto stays shown' $closed "box shown=$(Present 'FolderNameInput') $(Show-State $e)"
 
         # 6c - entering a folder by Ctrl+Down leaves keyboard focus on the note surface, where Escape goes back. Before
         # the fix it landed on a header button, where Escape did nothing. A second, empty folder is added for this case,
@@ -688,6 +696,24 @@ try {
             if ($tr -notmatch 'activation=returned') { Add-Invalid $run "21 round $r`: the click delivered no activation; trace: $tr"; continue }
             Add-Result $run "21 round $r`: a click on a minimized Noto's taskbar button -> a landed activation, reconciled: restored, docked, in front" ((Is-Shown-Docked $e) -and $e.IsForeground -and $tr -match 'request=Activated action=Restore [^|]*landed=True') "$(Show-State $e); trace: $tr"
         }
+
+        # 6d - F5 (#148): with folders, the name box is hidden; + opens it with the keyboard in it, a name and Enter make
+        # the folder and hide the box again; the header's search button opens Search as Ctrl+F does
+        To-Surface 'FolderList'
+        $hiddenAtStart = -not (Present 'FolderNameInput')
+        (Find-ById 'NewFolderButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 500
+        $opened = (Present 'FolderNameInput') -and (Focused-Desc) -match '\|FolderNameInput\|'
+        $openedFocus = Focused-Desc
+        $name = "plus folder $([guid]::NewGuid().ToString('N').Substring(0, 6))"
+        (Find-ById 'FolderNameInput').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($name); Start-Sleep -Milliseconds 300
+        Send-ToNoto @() 0x0D
+        $made = Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT COUNT(*) FROM Folders WHERE Name = $n AND DeletedAt IS NULL' -Parameters @{ '$n' = $name }
+        $hiddenAfter = -not (Present 'FolderNameInput')
+        Add-Result $run '6  + opens the hidden name box, the keyboard in it; Enter makes the folder and hides the box again' ($hiddenAtStart -and $opened -and [int]$made -eq 1 -and $hiddenAfter) "hidden at start=$hiddenAtStart opened=$opened focus=$openedFocus made=$made hidden after=$hiddenAfter"
+        (Find-ById 'SearchButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+        $searchFocus = Focused-Desc
+        Add-Result $run '6  the header''s search button opens Search, the keyboard in its box, as Ctrl+F does' ((Present 'SearchBox') -and $searchFocus -match '\|SearchBox\|') "focus=$searchFocus"
+        (Find-ById 'SearchBackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 500
 
         # 11 - virtual desktops. Last on purpose: switching desktops injects Win+Ctrl chords, and injected
         # modifiers can unlock the foreground for the next SetForegroundWindow (README, known limitations), so no

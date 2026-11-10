@@ -215,6 +215,29 @@ public sealed partial class WorkspaceDrawerGuardTests
         Assert.DoesNotContain("OnKeepOpenAccelerator", App, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void The_header_has_a_search_button_and_the_foot_a_new_folder_button_that_opens_the_hidden_name_box()
+    {
+        // F5 (#148): a search button beside Settings and Pin, opening Search through the one path Ctrl+F uses.
+        int search = Index(MainXaml, "x:Name=\"SearchButton\"");
+        Assert.True(search < Index(MainXaml, "x:Name=\"SettingsButton\"") && search < Index(MainXaml, "x:Name=\"PinToggle\""));
+        Assert.Contains("Click=\"OnSearchClick\"", Regex.Match(MainXaml, @"<Button\s[^>]*x:Name=""SearchButton""[^>]*>").Value, StringComparison.Ordinal);
+        Assert.Matches(@"OnSearchClick\(object sender, RoutedEventArgs e\) => OpenSearch\(\);", Main);
+
+        // The name box no longer takes the top row all the time: collapsed unless there are no folders, it was asked
+        // for (+, Ctrl+N, the menu's New folder all go through FocusInput) or it holds a name.
+        Assert.Matches(@"<Grid x:Name=""CreateRow""[^>]*Visibility=""Collapsed""", MainXaml);
+        Assert.Matches(@"CreateRow\.Visibility = _creating \|\| IsEmpty \|\| FolderNameInput\.Text\.Length > 0 \? Visibility\.Visible : Visibility\.Collapsed;", Main);
+        Assert.Matches(@"private void FocusInput\(\)\s*\{\s*_creating = true;\s*UpdateCreateRow\(\);", Main);
+        Assert.Contains("FocusInput();", Body(Main, "OnNewFolderClick"), StringComparison.Ordinal);
+        Assert.Contains("FocusInput();", Body(Main, "OnCreateAccelerator"), StringComparison.Ordinal);
+        Assert.Contains("MenuItem(\"New folder\", \"Ctrl+N\", FocusInput)", Main, StringComparison.Ordinal);
+
+        // Closed again once the folder is made, and on Escape.
+        Assert.Matches(@"FolderNameInput\.Text = string\.Empty;\s*_creating = false;\s*_selectedId = created;", Main);
+        Assert.Matches(@"case VirtualKey\.Escape:[\s\S]*?_creating = false;\s*UpdateCreateRow\(\);", Body(Main, "OnCreateInputKeyDown"));
+    }
+
     /// <summary>The source without line comments, so a comment cannot satisfy or fail a guard.</summary>
     private static string Code(string source) => Regex.Replace(source, @"//.*", string.Empty);
 

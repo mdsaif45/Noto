@@ -56,7 +56,8 @@
             </Grid.RowDefinitions>
 
             <!--
-                The workspace header, shared by every surface. Settings (Slice 1)
+                The workspace header, shared by every surface. Search (F5, #148)
+                opens the search surface, as Ctrl+F does. Settings (Slice 1)
                 opens the settings surface, as Ctrl+, and the tray's Settings… do.
                 Pin (parity A9) keeps the workspace open while another application
                 has the keyboard. A toggle reachable by Tab, with no global chord:
@@ -75,6 +76,15 @@
                     HorizontalAlignment="Right"
                     Orientation="Horizontal"
                     Spacing="{StaticResource SpaceXS}">
+                    <Button
+                        x:Name="SearchButton"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        Click="OnSearchClick"
+                        ToolTipService.ToolTip="Search (Ctrl+F)"
+                        AutomationProperties.Name="Search"
+                        AutomationProperties.AcceleratorKey="Control+F">
+                        <FontIcon Glyph="&#xE721;" FontSize="{StaticResource IconSize}" />
+                    </Button>
                     <Button
                         x:Name="SettingsButton"
                         Style="{StaticResource HeaderButtonStyle}"
@@ -123,8 +133,12 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Create: the input and its affordance share one row. -->
-                <Grid Grid.Row="0" ColumnSpacing="{StaticResource SpaceS}">
+                <!--
+                    Create: the input and its affordance share one row. Shown when there is nothing else to do (no
+                    folders yet), or when asked for: the + button at the foot, Ctrl+N or the menu's New folder (F5, #148).
+                    Hidden again once the folder is made, on Escape, or when focus leaves it empty.
+                -->
+                <Grid x:Name="CreateRow" Grid.Row="0" ColumnSpacing="{StaticResource SpaceS}" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -136,6 +150,7 @@
                         Style="{StaticResource FolderNameInputStyle}"
                         PlaceholderText="New folder name"
                         KeyDown="OnCreateInputKeyDown"
+                        LostFocus="OnCreateInputLostFocus"
                         AutomationProperties.Name="New folder name" />
 
                     <Button
@@ -285,20 +300,34 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <!-- The Recycle Bin (Phase B5): a surface of its own, opened from here. -->
-                <Button
-                    x:Name="RecycleBinButton"
-                    Grid.Row="3"
-                    HorizontalAlignment="Left"
-                    Style="{StaticResource SubtleButtonStyle}"
-                    Click="OnRecycleBinClick"
-                    ToolTipService.ToolTip="Deleted notes and folders"
-                    AutomationProperties.Name="Recycle Bin">
-                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource IconLabelSpacing}">
-                        <FontIcon Glyph="&#xE74D;" FontSize="{StaticResource IconSize}" />
-                        <TextBlock Text="Recycle Bin" />
-                    </StackPanel>
-                </Button>
+                <!--
+                    The foot: the Recycle Bin (Phase B5), a surface of its own opened from here, and a new folder
+                    (F5, #148), which opens the name box above, as Ctrl+N does.
+                -->
+                <Grid Grid.Row="3">
+                    <Button
+                        x:Name="RecycleBinButton"
+                        HorizontalAlignment="Left"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Click="OnRecycleBinClick"
+                        ToolTipService.ToolTip="Deleted notes and folders"
+                        AutomationProperties.Name="Recycle Bin">
+                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource IconLabelSpacing}">
+                            <FontIcon Glyph="&#xE74D;" FontSize="{StaticResource IconSize}" />
+                            <TextBlock Text="Recycle Bin" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        x:Name="NewFolderButton"
+                        HorizontalAlignment="Right"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Click="OnNewFolderClick"
+                        ToolTipService.ToolTip="New folder (Ctrl+N)"
+                        AutomationProperties.Name="New folder"
+                        AutomationProperties.AcceleratorKey="Control+N">
+                        <FontIcon Glyph="&#xE710;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                </Grid>
             </Grid>
 
             <!--

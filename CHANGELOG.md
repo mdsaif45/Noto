@@ -15,7 +15,14 @@ format or behavior. Breaking changes are always called out explicitly.
 - `Ctrl+D` turns *Keep Noto open* on and off, from anywhere inside Noto (#146).
 - Each folder in the list shows how many notes it holds (#147).
 
+- A search button in the header, beside Settings and *Keep Noto open*, opens Search as Ctrl+F does (#148).
+- A **+** button at the foot of the folder list, beside the Recycle Bin, makes a new folder, as Ctrl+N does (#148).
+
 ### Changed
+
+- The *New folder name* box no longer takes the top of the folder list all the time: it opens from **+**, Ctrl+N or
+  the menu's *New folder*, and closes once the folder is made, on Escape, or when you leave it empty. With no folders
+  yet, it stays open (#148).
 
 - The drawer slides in from its screen edge when it opens, background and all, and slides back out when it closes, a
   little faster. Nothing is drawn before it arrives, not even an outline: until it has, you see your desktop. With
