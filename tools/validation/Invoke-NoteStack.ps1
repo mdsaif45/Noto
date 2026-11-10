@@ -58,6 +58,9 @@
     43  one click on a card still edits it (drag enabled)
     44  holding Ctrl on the stack and on the folder list shows no automatic key-tip tooltip (B6, F1)
     45  from a folder row, Tab reaches the Recycle Bin button and Shift+Tab returns
+    46  F7 (#150): Ctrl+3 colours a card Blue; the card's menu lists No colour and the six and colours it Pink; Ctrl+0
+        clears; each is named in the card's help text. The card bar's Colour button colours the card being edited
+        Green and Ctrl+0 clears it in the editor, which keeps editing with its text
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -154,6 +157,16 @@ function Menu-Item([string] $Name) {
 }
 function Expand([string] $Name) { (Menu-Item $Name).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600 }
 function Choose([string] $Name) { (Menu-Item $Name).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900 }
+function Pick([string] $Name) {
+    <# A menu item that may be a radio item (the colours, F7): Invoke when it is offered, otherwise Toggle, which is what a
+       radio menu item offers; either way its Click runs, as a press does. #>
+    $e = Menu-Item $Name
+    $patterns = @($e.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+    if ($patterns -contains 'InvokePatternIdentifiers.Pattern') { $e.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
+    else { $e.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle() }
+    Start-Sleep -Milliseconds 900
+}
+function ColourOf([string] $Id) { [string](Sql $script:data 'SELECT ColorKey FROM Notes WHERE Id = $n' @{ '$n' = $Id } -Scalar) }
 function Flag([string] $Id, [string] $Column) { [int](Sql $script:data "SELECT $Column FROM Notes WHERE Id = `$n" @{ '$n' = $Id } -Scalar) }
 function IdOf([string] $Content) { [string](Sql $script:data 'SELECT Id FROM Notes WHERE Content = $c AND DeletedAt IS NULL' @{ '$c' = $Content } -Scalar) }
 function Focused-Name { $AE::FocusedElement.Current.Name }
@@ -338,7 +351,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
-    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Move to top,Move to bottom,Export as Markdown…,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
+    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Colour,Move to top,Move to bottom,Export as Markdown…,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
 
     # 13 - Settings and back while editing
     Send-ToNoto @() 0x0D
@@ -642,6 +655,32 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x09
     Add-Result $run '45 Tab from a folder row reaches the Recycle Bin button; Shift+Tab returns to the row' ($tabbed -match 'id=RecycleBinButton' -and (Focused) -match 'ListItem') "tab=$tabbed back=$(Focused)"
     Enter-Folder
+
+    # 46 - F7 (#150): a note's colour from the keys, the card's menu and its bar; named in the card's help text
+    $firstId = [string](Sql $script:data 'SELECT Id FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder, Id LIMIT 1' @{ '$f' = $FolderId } -Scalar)
+    $first = (Cards)[0]; $firstName = $first.Current.Name
+    $first.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0x33   # Ctrl+3
+    $byKey = ColourOf $firstId; $helpKey = Card-Help $firstName
+    (Card $firstName).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Expand 'Colour'
+    $palette = @(Menu-Items | Where-Object { $_ -in 'No colour', 'Yellow', 'Green', 'Blue', 'Purple', 'Pink', 'Grey' })
+    Pick 'Pink'
+    $byMenu = ColourOf $firstId; $helpMenu = Card-Help $firstName
+    (Card $firstName).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0x30   # Ctrl+0
+    $cleared = ColourOf $firstId; $helpCleared = Card-Help $firstName
+    Add-Result $run '46 colour: Ctrl+3 is Blue, the menu lists no colour and the six, Pink from it, Ctrl+0 clears; each named in the help text' ($byKey -eq 'note3' -and $helpKey -match 'Blue' -and ($palette -join ',') -eq 'No colour,Yellow,Green,Blue,Purple,Pink,Grey' -and $byMenu -eq 'note5' -and $helpMenu -match 'Pink' -and $cleared -eq '' -and $helpCleared -notmatch 'Pink|Blue') "key=$byKey help='$helpKey' menu=$($palette -join ',') chosen=$byMenu help='$helpMenu' cleared='$cleared' help='$helpCleared'"
+    Edit-Card 'Saved by Back'
+    (Find-ById 'CardColorButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    Pick 'Green'
+    $byBar = ColourOf $A; $editing = (Editors).Count -eq 1 -and (Editor-Value) -eq 'Saved by Back'
+    (Editors | Select-Object -First 1).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0x30   # Ctrl+0, in the editor
+    $clearedInEditor = ColourOf $A; $stillEditing = (Editors).Count -eq 1 -and (Editor-Value) -eq 'Saved by Back'
+    Add-Result $run '46 colour from the card bar (Green) and Ctrl+0 in the editor; the card keeps editing with its text' ($byBar -eq 'note2' -and $editing -and $clearedInEditor -eq '' -and $stillEditing) "bar=$byBar editing=$editing cleared='$clearedInEditor' still editing=$stillEditing"
+    Send-ToNoto @() 0x1B
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

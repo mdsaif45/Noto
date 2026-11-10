@@ -586,6 +586,7 @@ public partial class App : Application
             .Register<UnfoldNote, CommandResult, NoteFoldChanged>(
                 new UnfoldNoteHandler(notes, clock).Handle,
                 static (command, _) => new NoteFoldChanged(command.NoteId, false))
+            .Register<SetNoteColor, CommandResult>(new SetNoteColorHandler(notes, clock).Handle)
             .Register<FoldNotesInFolder, CommandResult<int>, NotesFoldedInFolder>(
                 new FoldNotesInFolderHandler(notes, clock).Handle,
                 static (command, result) => new NotesFoldedInFolder(command.FolderId, command.Folded, result.Value))

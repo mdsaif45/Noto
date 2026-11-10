@@ -152,6 +152,12 @@ The engine already stores `IsFolded`.
 - A small set of named colours, each with a light and a dark value that pass contrast.
 - High Contrast ignores the colours, and the colour is never the only signal.
 
+**Built (#150):**
+- `note1`–`note6` are named Yellow, Green, Blue, Purple, Pink and Grey (`NotePalette`).
+- They are chosen from the card's menu (*Colour*, with *No colour*), the Colour button on the card bar, or Ctrl+1 to Ctrl+6, with Ctrl+0 to clear (G23, G24). The keys work in the editor too, and editing keeps its text.
+- A coloured card gets a translucent tint over its fill, so hover and selection still show, and a 4 px marker along its leading edge. Both come from the card template's `ColorStates`, so they follow the drawer's theme.
+- Contrast: every tint keeps text at 4.5:1 or better on the card, hover and selected fills, and every marker is 3:1 or better against the card (`DesignSystemGuardTests`). Dark tints are fainter (8–13%) than light ones (25%) to keep that.
+- High Contrast: the tint has opacity 0 and the marker is drawn in the window text colour. The colour is named in the card's help text and announced when it changes.
 ### F8. A quick-formatting toolbar (#151)
 
 **Today:**

@@ -188,6 +188,45 @@ public sealed class PinFoldTests : IDisposable
         Assert.Equal([_a, _b, _c, _d], Order());
     }
 
+    // ---- colour (F7, #150): B15, G23, G24 ---------------------------------------------------------------
+
+    [Fact]
+    public void Colouring_a_note_stores_its_key_and_clearing_it_stores_none()
+    {
+        Assert.True(_stack.SetColor(_c, "note3").IsSuccess);
+        Assert.Equal("note3", Note(_c).ColorKey);
+        Assert.Equal("note3", _stack.Notes.Single(n => n.Id == _c).ColorKey);
+
+        Assert.True(_stack.SetColor(_c, null).IsSuccess);
+        Assert.Null(Note(_c).ColorKey);
+        Assert.Null(_stack.Notes.Single(n => n.Id == _c).ColorKey);
+        Assert.Equal([_a, _b, _c, _d], Order());
+    }
+
+    [Fact]
+    public void Colouring_the_card_being_edited_keeps_it_editing_with_its_text()
+    {
+        Assert.True(_stack.BeginEdit(_b).IsSuccess);
+        _stack.UpdateDraft(_b, "typed, then coloured");
+
+        Assert.True(_stack.SetColor(_b, "note1").IsSuccess);
+
+        Assert.Equal("note1", Note(_b).ColorKey);
+        Assert.Equal(_b, _stack.Editing);
+        Assert.Equal("typed, then coloured", _stack.Draft);
+    }
+
+    [Fact]
+    public void A_key_outside_the_palette_is_refused_and_changes_nothing()
+    {
+        Assert.True(_stack.SetColor(_a, "note2").IsSuccess);
+
+        Assert.Equal(CommandFailureReason.InvalidInput, _stack.SetColor(_a, "yellow").Failure!.Reason);
+
+        Assert.Equal("note2", Note(_a).ColorKey);
+        Assert.Equal("note2", _stack.Notes.Single(n => n.Id == _a).ColorKey);
+    }
+
     [Fact]
     public void Folding_the_card_being_edited_saves_it_and_leaves_editing_first()
     {
@@ -450,6 +489,7 @@ public sealed class PinFoldTests : IDisposable
             .Register<UnpinNote, CommandResult, NotePinChanged>(new UnpinNoteHandler(_notes, _clock).Handle, static (c, _) => new NotePinChanged(c.NoteId, false))
             .Register<FoldNote, CommandResult, NoteFoldChanged>(new FoldNoteHandler(_notes, _clock).Handle, static (c, _) => new NoteFoldChanged(c.NoteId, true))
             .Register<UnfoldNote, CommandResult, NoteFoldChanged>(unfold, static (c, _) => new NoteFoldChanged(c.NoteId, false))
+            .Register<SetNoteColor, CommandResult>(new SetNoteColorHandler(_notes, _clock).Handle)
             .Register<FoldNotesInFolder, CommandResult<int>, NotesFoldedInFolder>(new FoldNotesInFolderHandler(_notes, _clock).Handle, static (c, r) => new NotesFoldedInFolder(c.FolderId, c.Folded, r.Value))
             .Register<PinFolder, CommandResult, FolderPinChanged>(new PinFolderHandler(_folders, _clock).Handle, static (c, _) => new FolderPinChanged(c.FolderId, true))
             .Register<UnpinFolder, CommandResult, FolderPinChanged>(new UnpinFolderHandler(_folders, _clock).Handle, static (c, _) => new FolderPinChanged(c.FolderId, false));

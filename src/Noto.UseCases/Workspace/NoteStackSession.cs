@@ -295,6 +295,23 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     }
 
     /// <summary>
+    /// Sets or clears a card's colour (B15, G23, G24): one of <see cref="NoteColor.Keys"/>, or <see langword="null"/>
+    /// for none. The card being edited keeps editing, with its text: a colour touches nothing it is writing.
+    /// </summary>
+    public CommandResult SetColor(NoteId note, string? colorKey)
+    {
+        CommandResult result = _commands.Dispatch(new SetNoteColor(note, colorKey));
+        int index = IndexOf(note);
+
+        if (result.IsSuccess && index >= 0)
+        {
+            _notes[index] = _notes[index] with { ColorKey = colorKey };
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Folds or unfolds every card in the open folder (B13), in one command. Folding all leaves editing first, saving,
     /// because the card being edited folds too; unfolding all keeps it editing.
     /// </summary>

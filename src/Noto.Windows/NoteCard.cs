@@ -26,6 +26,7 @@ public sealed class NoteCard : INotifyPropertyChanged
     private string _content = string.Empty;
     private bool _isEditing;
     private bool _isFolded;
+    private string? _colorKey;
 
     /// <summary>Required by the XAML type activator (see <see cref="FolderListItem"/>).</summary>
     public NoteCard()
@@ -39,6 +40,7 @@ public sealed class NoteCard : INotifyPropertyChanged
         Id = note.Id.Value;
         IsPinned = note.IsPinned;
         _isFolded = note.IsFolded;
+        _colorKey = note.ColorKey;
         _content = note.Content;
         _isEditing = isEditing;
     }
@@ -61,6 +63,18 @@ public sealed class NoteCard : INotifyPropertyChanged
             Changed(nameof(ReadText));
             Changed(nameof(HelpText));
             Changed(nameof(FoldedMarkerVisibility));
+        }
+    }
+
+    /// <summary>The note's palette key (F7, #150), or <see langword="null"/>; its paint is the card's (NotePalette).</summary>
+    public string? ColorKey
+    {
+        get => _colorKey;
+        set
+        {
+            _colorKey = value;
+            Changed(nameof(ColorKey));
+            Changed(nameof(HelpText));
         }
     }
 
@@ -107,14 +121,27 @@ public sealed class NoteCard : INotifyPropertyChanged
     /// </summary>
     public string ReadText => IsFolded || string.IsNullOrWhiteSpace(Content) ? DisplayTitle : Content;
 
-    /// <summary>The card's states, for assistive technology: its name is the title (ADR-016 §8).</summary>
-    public string HelpText => (IsPinned, IsFolded) switch
+    /// <summary>
+    /// The card's states, for assistive technology: its name is the title (ADR-016 §8). A colour is named here too,
+    /// so it is never only a colour (F7, #150).
+    /// </summary>
+    public string HelpText
     {
-        (true, true) => "Pinned, folded",
-        (true, false) => "Pinned",
-        (false, true) => "Folded",
-        _ => string.Empty,
-    };
+        get
+        {
+            string states = (IsPinned, IsFolded) switch
+            {
+                (true, true) => "Pinned, folded",
+                (true, false) => "Pinned",
+                (false, true) => "Folded",
+                _ => string.Empty,
+            };
+
+            return NotePalette.NameOf(ColorKey) is not { } colour ? states
+                : states.Length == 0 ? colour
+                : $"{states}, {colour}";
+        }
+    }
 
     /// <summary>
     /// The title. <b>Accessibility:</b> a generated container with no name of its own announces its item's

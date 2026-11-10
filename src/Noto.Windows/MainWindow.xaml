@@ -523,6 +523,15 @@
                                         Formatting (ADR-017): one quiet button, every command with its key, so the menu
                                         teaches the keys. Keyboard formatting never needs it.
                                     -->
+                                    <!-- Colour (F7, #150): the palette with its keys, as the card's menu has it. -->
+                                    <Button
+                                        x:Name="CardColorButton"
+                                        Style="{StaticResource HeaderButtonStyle}"
+                                        Click="OnCardColorClick"
+                                        ToolTipService.ToolTip="Colour (Ctrl+1 to Ctrl+6; Ctrl+0 for none)"
+                                        AutomationProperties.Name="Colour">
+                                        <FontIcon Glyph="&#xE790;" FontSize="{StaticResource IconSize}" />
+                                    </Button>
                                     <Button
                                         x:Name="CardFormatButton"
                                         Style="{StaticResource HeaderButtonStyle}"
