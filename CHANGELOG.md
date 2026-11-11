@@ -12,6 +12,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A shortcut to make a new note from any app: Noto opens with a new note ready to type in, in the folder you have
+  open (or the selected one). Turn it on in Settings › Shortcuts › *New note*; it is Ctrl+Shift+Win+N and can be
+  changed there. Off by default (#156).
+
 - A small formatting toolbar above selected text in a note: bold, italic, highlight, strikethrough, underline, link,
   code and bulleted list. It never takes the keyboard from your text, and can be turned off in Settings › Appearance ›
   *Formatting toolbar* (#151).

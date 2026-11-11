@@ -42,16 +42,18 @@ public sealed class SettingsSurfaceGuardTests
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
             ("WorkspaceSingleClickOpen", @"_main\.SingleClickOpen = preferences\.SingleClickOpen"),
-            ("HotkeyEnabled", @"ApplyHotkeyEnabled\(settings, preferences\.HotkeyEnabled\)"),
+            ("HotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.ShowHide, preferences\.HotkeyEnabled\)"),
+            ("NewNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NewNote, preferences\.NewNoteHotkeyEnabled\)"),
         ];
 
         var written = Regex.Matches(Preferences, @"public bool Set\w+\([^)]*\) => TryWrite\(SettingKeys\.(\w+),").Select(m => m.Groups[1].Value).ToHashSet();
         string apply = Body(App, "OnSettingChanged");
 
-        // The binding is the exception, by design (Slice 1.2b): it is registered BEFORE it is written, by the rebind,
+        // The bindings are the exception, by design (Slice 1.2b): each is registered BEFORE it is written, by the rebind,
         // so the store's announcement must not apply it a second time.
-        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").ToHashSet(), written);
+        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").ToHashSet(), written);
         Assert.DoesNotContain("SettingKeys.HotkeyBinding", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingKeys.NewNoteHotkeyBinding", apply, StringComparison.Ordinal);
 
         foreach (var (key, owner) in owners)
         {
@@ -83,7 +85,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(10, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(11, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -129,13 +131,15 @@ public sealed class SettingsSurfaceGuardTests
     {
         string apply = Body(App, "ApplyHotkeyEnabled");
 
-        Assert.Matches(@"if \(!enabled\)\s*\{\s*_hotkey\?\.Dispose\(\);\s*_hotkey = null;", apply);
-        Assert.Matches(@"else if \(_hotkey is null\)\s*\{\s*_hotkey = StartHotkey\(settings, out refusal\);", apply);
-        Assert.Contains("_main?.ShowHotkeyMessage(refusal);", apply, StringComparison.Ordinal);
+        Assert.Matches(@"if \(!enabled\)\s*\{\s*HotkeyOf\(action\)\?\.Dispose\(\);\s*SetHotkeyOf\(action, null\);", apply);
+        Assert.Matches(@"else if \(HotkeyOf\(action\) is null\)\s*\{\s*SetHotkeyOf\(action, StartHotkey\(settings, action, out refusal\)\);", apply);
+        Assert.Contains("_main?.ShowHotkeyMessage(action, refusal);", apply, StringComparison.Ordinal);
 
-        // A chord refused at launch is reported in Settings too, not only when it is turned on there.
-        Assert.Contains("_hotkey = StartHotkey(settings, out string? hotkeyRefusal);", App, StringComparison.Ordinal);
-        Assert.Contains("main.ShowHotkeyMessage(hotkeyRefusal);", App, StringComparison.Ordinal);
+        // A chord refused at launch is reported in Settings too, not only when it is turned on there: for each action.
+        Assert.Contains("_hotkey = StartHotkey(settings, GlobalAction.ShowHide, out string? hotkeyRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("_newNoteHotkey = StartHotkey(settings, GlobalAction.NewNote, out string? newNoteRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("main.ShowHotkeyMessage(GlobalAction.ShowHide, hotkeyRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("main.ShowHotkeyMessage(GlobalAction.NewNote, newNoteRefusal);", App, StringComparison.Ordinal);
     }
 
     // ---------------------------------------------------------------- navigation and focus
@@ -205,7 +209,7 @@ public sealed class SettingsSurfaceGuardTests
         // Created once per open, beside the surfaces, wired, and remembered before it is shown.
         Assert.Equal(1, Regex.Count(string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code)), @"new SettingsPage\(\)"));
         Assert.Matches(@"var page = new SettingsPage\(\);\s*Grid\.SetRow\(page, Grid\.GetRow\(PaneRoot\)\);\s*page\.KeyDown \+= OnSettingsKeyDown;\s*page\.BackRequested \+= OnSettingsBackRequested;\s*\(\(Panel\)PaneRoot\.Parent\)\.Children\.Add\(page\);\s*SettingsSurface = page;", open);
-        Assert.True(Index(open, "SettingsSurface = page;") < Index(open, "page.Show(Settings, _hotkeyMessage);"));
+        Assert.True(Index(open, "SettingsSurface = page;") < Index(open, "page.Show(Settings, _hotkeyMessages);"));
     }
 
     [Fact]
@@ -349,9 +353,10 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // Thirteen settings (the note font and text size, F13; automatic backups, F15; the formatting toolbar, F8), the
-        // Data group's Back up, Restore, Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(19, rows.Count);
+        // The settings (the note font and text size, F13; automatic backups, F15; the formatting toolbar, F8; the new-note
+        // shortcut and its recorder, F17), the Data group's Back up, Restore, Export, Import and their progress line
+        // (ADR-020), and Help's Welcome tour (ADR-021).
+        Assert.Equal(21, rows.Count);
 
         foreach (XElement row in rows)
         {

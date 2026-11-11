@@ -81,6 +81,23 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The show/hide chord, as text (parity G1).</summary>
     public string HotkeyBinding => _settings.Read(SettingKeys.HotkeyBinding);
 
+    /// <summary>Whether the global new-note hotkey is registered (F17, B2).</summary>
+    public bool NewNoteHotkeyEnabled => _settings.Read(SettingKeys.NewNoteHotkeyEnabled);
+
+    /// <summary>The new-note chord, as text (F17, G2).</summary>
+    public string NewNoteHotkeyBinding => _settings.Read(SettingKeys.NewNoteHotkeyBinding);
+
+    /// <summary>Whether <paramref name="action"/>'s hotkey is registered.</summary>
+    public bool HotkeyEnabledFor(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyEnabled : HotkeyEnabled;
+
+    /// <summary><paramref name="action"/>'s chord, as text.</summary>
+    public string HotkeyBindingFor(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyBinding : HotkeyBinding;
+
+    /// <summary>Stores <paramref name="action"/>'s chord: only its rebind calls this, once the chord is registered.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetHotkeyBindingFor(GlobalAction action, HotkeyChord chord) =>
+        action == GlobalAction.NewNote ? SetNewNoteHotkeyBinding(chord) : SetHotkeyBinding(chord);
+
     /// <summary>Sets the edge to dock to.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetEdge(WorkspaceEdge edge) => TryWrite(SettingKeys.WorkspaceEdge, edge);
@@ -127,6 +144,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether the global show/hide hotkey is registered.</summary>
     /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
     public bool SetHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.HotkeyEnabled, enabled);
+
+    /// <summary>Stores the new-note chord (F17): only its rebind calls this, once the chord is registered.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetNewNoteHotkeyBinding(HotkeyChord chord) => TryWrite(SettingKeys.NewNoteHotkeyBinding, chord.Canonical);
+
+    /// <summary>Sets whether the global new-note hotkey is registered (F17).</summary>
+    /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
+    public bool SetNewNoteHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.NewNoteHotkeyEnabled, enabled);
 
     /// <summary>
     /// The width to open with on one display, before it is fitted to that

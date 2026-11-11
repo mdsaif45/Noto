@@ -51,6 +51,11 @@
     16 the note text (F13, #154): Settings stores a size (18) and a font (Georgia); a card's text is shown in them, as
        UI Automation reads it; Ctrl+= on the note list stores and shows the next size (20); Ctrl+- in the editor, which
        hands it on, the one before (18), in Georgia; then both are set back
+    17 the new-note shortcut (F17, #156): off by default and its chord free; turned on, Ctrl+Shift+Win+N is
+       registered and stored; pressed from another app with Noto on the folder list, Noto comes in front with a new
+       note in the folder and its editor focused; pressed again while editing, another; recorded as
+       Ctrl+Shift+Win+J it registers, N is released, J is stored and makes a note; recording the show and hide chord
+       is refused by name; turned off, J is released
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -73,7 +78,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding')
 
 # ---------------------------------------------------------------- helpers
 
@@ -114,7 +119,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -261,6 +266,31 @@ function Shown-By([int] $Key, [string] $Label) {
     if ($ok) { Ctrl "$Label after" $target.Hwnd }
     $ok
 }
+# The new-note shortcut (case 17): Ctrl+Shift+Win held (MOD_CONTROL|MOD_SHIFT|MOD_WIN).
+$VkN = 0x4E; $VkJ = 0x4A
+function Note-Chord-Free([uint32] $Key) {
+    <# Can this process register Ctrl+Shift+Win+<Key> right now: true means nothing holds it, Noto included. #>
+    $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5652, 0x400E, $Key)
+    if ($ok) { [void][NotoVal.Win32]::UnregisterHotKey([IntPtr]::Zero, 0x5652) }
+    $ok
+}
+function Send-NoteChord([IntPtr] $Allowed, [int] $Key) {
+    <# Ctrl+Shift+Win+<Key>, only while the window it is meant for is in front. #>
+    if ((Fg) -ne $Allowed) { throw 'refusing to send a chord: the foreground window is not the intended one' }
+    $down = @($VK.CTRL, $VK.SHIFT, $VK.LWIN) | ForEach-Object { [NotoVal.Win32]::Vk($_, $false) }
+    $up = @($VK.LWIN, $VK.SHIFT, $VK.CTRL) | ForEach-Object { [NotoVal.Win32]::Vk($_, $true) }
+    [NotoVal.Win32]::Keys(@($down) + @([NotoVal.Win32]::Vk($Key, $false), [NotoVal.Win32]::Vk($Key, $true)) + @($up))
+    Start-Sleep -Milliseconds 1500
+}
+function Note-Count { [int](Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT COUNT(*) FROM Notes WHERE DeletedAt IS NULL' -Parameters @{}) }
+function New-Note-By([int] $Key, [string] $Label) {
+    <# From the target app in front, the chord brings Noto in front with a new note's editor focused. #>
+    $null = Set-ForegroundByKeyboard $target
+    Ctrl "$Label before" $noto.Hwnd
+    Send-NoteChord $target.Hwnd $Key
+    Until { (Fg) -eq $noto.Hwnd -and (Focused-Id) -eq 'NoteEditor' } 5
+}
+function Note-Recorder-Status { $e = Element 'NewNoteHotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
 function Recorder-Status { $e = Element 'HotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
 function Recorder-Start {
     if (-not (Visible-Id 'SettingsRoot')) { Open-Settings-ByButton }
@@ -357,6 +387,54 @@ try {
             Add-Result $run '16 Settings shows Default for a new data root, and Default can be chosen again' ($shownAtFirst -eq 'Default' -and [string]::IsNullOrEmpty($storedDefault)) "shown at first='$shownAtFirst' stored after choosing Default='$storedDefault'"
         }
 
+        # ------------------------------------------------ 17 the new-note shortcut (F17, #156)
+        if (Want 17) {
+            if (-not (Note-Chord-Free $VkN) -or -not (Note-Chord-Free $VkJ)) { Add-Invalid $run '17 Ctrl+Shift+Win+N or J is already held on this machine'; return }
+            Noto-Front '17'
+            To-FolderList; Open-Settings-ByButton
+            $offByDefault = -not (Is-On 'NewNoteHotkeySetting') -and -not (Is-Enabled 'NewNoteHotkeyRecorder')
+            $m = Trace-Mark; Set-Toggle 'NewNoteHotkeySetting' $true
+            $on = (Wait-Trace $m 'Noto\.Hotkey enabled=True registered=True action=NewNote') -and -not (Note-Chord-Free $VkN) -and (Stored 'activation.new-note.enabled') -eq 'true'
+            Add-Result $run '17 off by default; turned on, Ctrl+Shift+Win+N is registered and stored' ($offByDefault -and $on) "off by default=$offByDefault trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+
+            $before = Note-Count
+            $made = New-Note-By $VkN '17 list'
+            $inFolder = Visible-Id 'BackButton'
+            Add-Result $run '17 from another app, on the folder list: Noto in front, a new note in the folder, its editor focused' ($made -and $inFolder -and (Note-Count) -eq $before + 1) "front and editing=$made in the folder=$inFolder notes=$before->$(Note-Count) focus=$(Focused-Id)"
+            $made = New-Note-By $VkN '17 editing'
+            Add-Result $run '17 pressed again while editing: another new note, edited' ($made -and (Note-Count) -eq $before + 2) "front and editing=$made notes=$(Note-Count)"
+
+            Noto-Front '17 rebind'
+            To-FolderList; Open-Settings-ByButton
+            (Find-ById 'NewNoteHotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
+            Send-ToNoto @() 0x20
+            if (-not (Until { (Note-Recorder-Status) -match '^Recording' })) { throw "the new-note recorder did not start: '$(Note-Recorder-Status)'" }
+            $m = Trace-Mark
+            Send-ToNoto @($VK.CTRL, $VK.SHIFT, $VK.LWIN) $VkJ
+            $rebound = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Rebound .*to=Ctrl\+Shift\+Win\+J registered=True action=NewNote'
+            Add-Result $run '17 recorded as Ctrl+Shift+Win+J: registered, N released, J stored and shown' ($rebound -and (Stored 'activation.new-note.binding') -eq 'Ctrl+Shift+Win+J' -and -not (Note-Chord-Free $VkJ) -and (Note-Chord-Free $VkN) -and (Note-Recorder-Status) -match 'now Ctrl\+Shift\+Win\+J') "status='$(Note-Recorder-Status)'; trace: $(Trace-Since $m)"
+
+            (Find-ById 'NewNoteHotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
+            Send-ToNoto @() 0x20
+            if (-not (Until { (Note-Recorder-Status) -match '^Recording' })) { throw "the new-note recorder did not start again: '$(Note-Recorder-Status)'" }
+            $m = Trace-Mark
+            Send-ActivationChord -AllowedForeground $noto.Hwnd
+            $refused = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Refused refusal=Noto .*action=NewNote'
+            Add-Result $run '17 recording the show and hide chord is refused by name; J is kept' ($refused -and (Note-Recorder-Status) -match "already Noto's shortcut to show and hide" -and (Stored 'activation.new-note.binding') -eq 'Ctrl+Shift+Win+J' -and (Visible-Id 'SettingsRoot')) "status='$(Note-Recorder-Status)'; trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+
+            $before = Note-Count
+            $made = New-Note-By $VkJ '17 J'
+            Add-Result $run '17 Ctrl+Shift+Win+J makes a note' ($made -and (Note-Count) -eq $before + 1) "front and editing=$made notes=$before->$(Note-Count)"
+
+            Noto-Front '17 off'
+            To-FolderList; Open-Settings-ByButton
+            $m = Trace-Mark; Set-Toggle 'NewNoteHotkeySetting' $false
+            Add-Result $run '17 turned off, the chord is released' ((Wait-Trace $m 'Noto\.Hotkey enabled=False registered=False action=NewNote') -and (Note-Chord-Free $VkJ) -and (Stored 'activation.new-note.enabled') -eq 'false') "trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -435,7 +513,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

@@ -106,17 +106,17 @@ public partial class App : Application
     /// </remarks>
     /// <param name="settings">The store the hotkey settings are read from.</param>
     /// <param name="refusal">Why the chord was not registered, for Settings; <see langword="null"/> when it was, or is off.</param>
-    private GlobalHotkey? StartHotkey(SqliteSettingsStore settings, out string? refusal)
+    private GlobalHotkey? StartHotkey(SqliteSettingsStore settings, GlobalAction action, out string? refusal)
     {
         refusal = null;
 
-        if (!settings.Read(SettingKeys.HotkeyEnabled))
+        if (!settings.Read(action == GlobalAction.NewNote ? SettingKeys.NewNoteHotkeyEnabled : SettingKeys.HotkeyEnabled))
         {
             return null;
         }
 
-        HotkeyChord chord = HotkeyChord.Parse(settings.Read(SettingKeys.HotkeyBinding));
-        (HotkeyRegistration registration, GlobalHotkey? hotkey) = RegisterHotkey(chord);
+        HotkeyChord chord = HotkeyChord.Parse(settings.Read(action == GlobalAction.NewNote ? SettingKeys.NewNoteHotkeyBinding : SettingKeys.HotkeyBinding));
+        (HotkeyRegistration registration, GlobalHotkey? hotkey) = RegisterHotkey(chord, action);
 
         if (hotkey is null)
         {
@@ -130,12 +130,12 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Registers <paramref name="chord"/> on a new <see cref="GlobalHotkey"/>, wired to the toggle: the one place a
-    /// hotkey registration is made, at start-up and when Settings rebinds (one instance holds one chord, so a rebind
-    /// holds the old one on its instance until the new one is registered on another).
+    /// Registers <paramref name="chord"/> on a new <see cref="GlobalHotkey"/>, wired to <paramref name="action"/>: the one
+    /// place a hotkey registration is made, for every action, at start-up and when Settings rebinds (one instance holds
+    /// one chord, so a rebind holds the old one on its instance until the new one is registered on another).
     /// </summary>
     /// <returns>The registration, and its owner when it was registered; <see langword="null"/> when refused, with nothing left behind.</returns>
-    private (HotkeyRegistration Registration, GlobalHotkey? Hotkey) RegisterHotkey(HotkeyChord chord)
+    private (HotkeyRegistration Registration, GlobalHotkey? Hotkey) RegisterHotkey(HotkeyChord chord, GlobalAction action)
     {
         GlobalHotkey? hotkey = null;
 
@@ -150,10 +150,10 @@ public partial class App : Application
                 return (registration, null);
             }
 
-            hotkey.Pressed += (_, e) => OnHotkeyPressed(e.MessageTime);
+            hotkey.Pressed += (_, e) => OnHotkeyPressed(action, e.MessageTime);
 
             // #11: the moment the hotkey is registered, for the performance baseline (Invoke-Performance.ps1).
-            Trace.WriteLine($"Noto.Hotkey registered chord={chord}");
+            Trace.WriteLine($"Noto.Hotkey registered chord={chord} action={action}");
 
             // Ownership passes to the caller; the finally below must not dispose it.
             GlobalHotkey registered = hotkey;
@@ -178,10 +178,22 @@ public partial class App : Application
     /// </summary>
     private bool _hotkeySuspended;
 
-    /// <summary>Starts or ends the recorder's suspension of the hotkey (Slice 1).</summary>
+    /// <summary>
+    /// When the recorder last gave the chords back (<see cref="Environment.TickCount"/>, as a message's time is). A chord
+    /// pressed while it listened can arrive after it ended: recording the show/hide chord as the new-note shortcut is
+    /// refused at once, and its own press then reached the show/hide hotkey and hid Settings (measured, F17).
+    /// </summary>
+    private int _hotkeyResumedAt = Environment.TickCount;
+
+    /// <summary>Starts or ends the recorder's suspension of the hotkeys (Slice 1).</summary>
     private void SuspendHotkey(bool suspended)
     {
         _hotkeySuspended = suspended;
+        if (!suspended)
+        {
+            _hotkeyResumedAt = Environment.TickCount;
+        }
+
         Trace.WriteLine($"Noto.Hotkey suspended={suspended}");
     }
 
@@ -196,7 +208,7 @@ public partial class App : Application
     /// while recording (the rebind's own "same chord, registered" rule, <see cref="HotkeyRebinding"/>).
     /// </remarks>
     /// <returns>The observation, to dispose when recording ends; <see langword="null"/> when there is none.</returns>
-    private RecorderKeyboard? ObserveRecorderKeys(Action<int, HotkeyModifiers> pressed, WorkspacePreferences preferences)
+    private RecorderKeyboard? ObserveRecorderKeys(GlobalAction action, Action<int, HotkeyModifiers> pressed, WorkspacePreferences preferences)
     {
         if (_windowHandle is null)
         {
@@ -210,8 +222,8 @@ public partial class App : Application
                 return;
             }
 
-            bool own = _hotkey is { IsRegistered: true }
-                && HotkeyChord.TryParse(preferences.HotkeyBinding, out HotkeyChord current)
+            bool own = HotkeyOf(action) is { IsRegistered: true }
+                && HotkeyChord.TryParse(preferences.HotkeyBindingFor(action), out HotkeyChord current)
                 && chord == current;
 
             if (!own && !GlobalHotkey.IsFree(chord))
@@ -226,33 +238,42 @@ public partial class App : Application
     /// released, then stored; refused, the old one stays registered and stored (<see cref="HotkeyRebinding"/>).
     /// </summary>
     /// <returns>How it ended, and what Settings announces.</returns>
-    private (HotkeyRebindOutcome Outcome, string Message) RebindHotkey(HotkeyChord candidate, WorkspacePreferences preferences)
+    private (HotkeyRebindOutcome Outcome, string Message) RebindHotkey(GlobalAction action, HotkeyChord candidate, WorkspacePreferences preferences)
     {
-        HotkeyChord current = HotkeyChord.Parse(preferences.HotkeyBinding);
+        HotkeyChord current = HotkeyChord.Parse(preferences.HotkeyBindingFor(action));
 
-        if (!preferences.HotkeyEnabled)
+        if (!preferences.HotkeyEnabledFor(action))
         {
             return (HotkeyRebindOutcome.Off, HotkeyRebinding.Describe(HotkeyRebindOutcome.Off, HotkeyRegistrationStatus.Failed, candidate, current));
+        }
+
+        // Another of Noto's own shortcuts is refused by name: Windows would only say the chord is taken.
+        GlobalAction other = action == GlobalAction.NewNote ? GlobalAction.ShowHide : GlobalAction.NewNote;
+        if (HotkeyOf(other) is { IsRegistered: true } && HotkeyChord.TryParse(preferences.HotkeyBindingFor(other), out HotkeyChord taken) && candidate == taken)
+        {
+            Trace.WriteLine($"Noto.Hotkey rebind outcome=Refused refusal=Noto from={current} to={candidate} action={action}");
+            string what = other == GlobalAction.NewNote ? "make a new note" : "show and hide Noto";
+            return (HotkeyRebindOutcome.Refused, $"{HotkeyRebinding.Show(candidate)} is already Noto's shortcut to {what}. The shortcut is still {HotkeyRebinding.Show(current)}.");
         }
 
         HotkeyRebindResult<GlobalHotkey> result = HotkeyRebinding.Rebind(
             candidate,
             current,
-            _hotkey,
-            RegisterHotkey,
+            HotkeyOf(action),
+            chord => RegisterHotkey(chord, action),
             static old => old.Dispose(),
-            preferences.SetHotkeyBinding);
+            chord => preferences.SetHotkeyBindingFor(action, chord));
 
-        _hotkey = result.Active;
+        SetHotkeyOf(action, result.Active);
 
         // A chord now registered clears "the shortcut is not working"; a refusal leaves whatever was true before.
-        if (_hotkey is not null)
+        if (result.Active is not null)
         {
-            _main?.ShowHotkeyMessage(null);
+            _main?.ShowHotkeyMessage(action, null);
         }
 
         // The chords, never anything typed into a note: evidence for the settings harness.
-        Trace.WriteLine($"Noto.Hotkey rebind outcome={result.Outcome} refusal={result.Refusal} from={current} to={candidate} registered={_hotkey?.IsRegistered ?? false}");
+        Trace.WriteLine($"Noto.Hotkey rebind outcome={result.Outcome} refusal={result.Refusal} from={current} to={candidate} registered={result.Active?.IsRegistered ?? false} action={action}");
         return (result.Outcome, HotkeyRebinding.Describe(result.Outcome, result.Refusal, candidate, current));
     }
 
@@ -271,13 +292,30 @@ public partial class App : Application
     /// falls back to slice 4's behaviour: bring the window forward, never hide.
     /// </para>
     /// </remarks>
-    private void OnHotkeyPressed(int messageTime)
+    private void OnHotkeyPressed(GlobalAction action, int messageTime)
     {
         // Only while Noto is in front: a hidden or background Noto is never left without its shortcut, whatever
         // state the recorder is in.
-        if (_hotkeySuspended && _windowHandle is not null && WindowActivation.PresenceOf(_windowHandle) == WorkspacePresence.Foreground)
+        if ((_hotkeySuspended || messageTime - _hotkeyResumedAt <= 0) && _windowHandle is not null && WindowActivation.PresenceOf(_windowHandle) == WorkspacePresence.Foreground)
         {
             Trace.WriteLine("Noto.Hotkey pressed ignored=recording");
+            return;
+        }
+
+        // The new-note shortcut (F17) shows Noto, never hides it, and has the window make a note ready to type in.
+        if (action == GlobalAction.NewNote)
+        {
+            if (_coordinator is not null)
+            {
+                _ = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, messageTime);
+            }
+            else if (_windowHandle is not null)
+            {
+                _ = WindowActivation.BringToForeground(_windowHandle);
+            }
+
+            _main?.NewNoteFromShortcut();
+            Trace.WriteLine("Noto.Hotkey pressed action=NewNote");
             return;
         }
 
@@ -306,6 +344,23 @@ public partial class App : Application
     /// disposed when the workspace window closes.
     /// </summary>
     private GlobalHotkey? _hotkey;
+
+    /// <summary>The global new-note hotkey (F17, #156), or <see langword="null"/> when off or refused; owned as <see cref="_hotkey"/> is.</summary>
+    private GlobalHotkey? _newNoteHotkey;
+
+    private GlobalHotkey? HotkeyOf(GlobalAction action) => action == GlobalAction.NewNote ? _newNoteHotkey : _hotkey;
+
+    private void SetHotkeyOf(GlobalAction action, GlobalHotkey? hotkey)
+    {
+        if (action == GlobalAction.NewNote)
+        {
+            _newNoteHotkey = hotkey;
+        }
+        else
+        {
+            _hotkey = hotkey;
+        }
+    }
 
     /// <summary>The workspace window's handle, for the hotkey to bring it forward.</summary>
     private WindowHandle? _windowHandle;
@@ -561,7 +616,8 @@ public partial class App : Application
         // Phase 1 (architecture-overview.md §startup): the hotkey is
         // registered before any window exists, on its own message-only
         // window, so it does not depend on the workspace window's lifetime.
-        _hotkey = StartHotkey(settings, out string? hotkeyRefusal);
+        _hotkey = StartHotkey(settings, GlobalAction.ShowHide, out string? hotkeyRefusal);
+        _newNoteHotkey = StartHotkey(settings, GlobalAction.NewNote, out string? newNoteRefusal);
 
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
@@ -689,9 +745,9 @@ public partial class App : Application
                 SetLoginStartup,
                 () => ShellLaunch.OpenFolder(paths.Root),
                 ShellLaunch.OpenStartupAppsSettings,
-                chord => RebindHotkey(chord, preferences),
+                (action, chord) => RebindHotkey(action, chord, preferences),
                 SuspendHotkey,
-                pressed => ObserveRecorderKeys(pressed, preferences)),
+                (action, pressed) => ObserveRecorderKeys(action, pressed, preferences)),
         };
 
         main.Portability = portability;
@@ -721,7 +777,8 @@ public partial class App : Application
         SystemColors.ColorValuesChanged += (_, _) => _ = main.DispatcherQueue.TryEnqueueGuarded(() => ApplyTheme(main, preferences.Theme));
 
         // A chord refused at launch is reported where the user can act on it: in Settings (ADR-007).
-        main.ShowHotkeyMessage(hotkeyRefusal);
+        main.ShowHotkeyMessage(GlobalAction.ShowHide, hotkeyRefusal);
+        main.ShowHotkeyMessage(GlobalAction.NewNote, newNoteRefusal);
 
         // #16 slice 6: the window's own ways of putting itself away go to the
         // coordinator, like every other request; the window never hides
@@ -1246,7 +1303,11 @@ public partial class App : Application
         }
         else if (key == SettingKeys.HotkeyEnabled)
         {
-            ApplyHotkeyEnabled(settings, preferences.HotkeyEnabled);
+            ApplyHotkeyEnabled(settings, GlobalAction.ShowHide, preferences.HotkeyEnabled);
+        }
+        else if (key == SettingKeys.NewNoteHotkeyEnabled)
+        {
+            ApplyHotkeyEnabled(settings, GlobalAction.NewNote, preferences.NewNoteHotkeyEnabled);
         }
         else
         {
@@ -1286,22 +1347,22 @@ public partial class App : Application
     /// The show/hide hotkey turned on or off in Settings (Slice 1): registered or released now, through the same
     /// start-up path. A chord that cannot be registered is reported in Settings; the stored choice stays the user's.
     /// </summary>
-    private void ApplyHotkeyEnabled(SqliteSettingsStore settings, bool enabled)
+    private void ApplyHotkeyEnabled(SqliteSettingsStore settings, GlobalAction action, bool enabled)
     {
         string? refusal = null;
 
         if (!enabled)
         {
-            _hotkey?.Dispose();
-            _hotkey = null;
+            HotkeyOf(action)?.Dispose();
+            SetHotkeyOf(action, null);
         }
-        else if (_hotkey is null)
+        else if (HotkeyOf(action) is null)
         {
-            _hotkey = StartHotkey(settings, out refusal);
+            SetHotkeyOf(action, StartHotkey(settings, action, out refusal));
         }
 
-        _main?.ShowHotkeyMessage(refusal);
-        Trace.WriteLine($"Noto.Hotkey enabled={enabled} registered={_hotkey?.IsRegistered ?? false}");
+        _main?.ShowHotkeyMessage(action, refusal);
+        Trace.WriteLine($"Noto.Hotkey enabled={enabled} registered={HotkeyOf(action)?.IsRegistered ?? false} action={action}");
     }
 
     /// <summary>
@@ -1356,6 +1417,7 @@ public partial class App : Application
         // icon never appears beside this one.
         _tray?.Dispose();
         _hotkey?.Dispose();
+        _newNoteHotkey?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
         // process's handle and the process never ends holding it.

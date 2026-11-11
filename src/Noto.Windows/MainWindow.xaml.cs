@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Noto.Core.Activation;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
@@ -1625,8 +1626,8 @@ public sealed partial class MainWindow : Window
     private UIElement? _settingsReturn;
     private Control? _settingsReturnFocus;
 
-    // Why the show/hide shortcut is not active, kept so a Settings opened later shows it too.
-    private string? _hotkeyMessage;
+    // Why each global shortcut is not active, kept so a Settings opened later shows it too.
+    private readonly Dictionary<GlobalAction, string?> _hotkeyMessages = [];
 
     /// <summary>
     /// The settings surface while it is open; <see langword="null"/> otherwise. Created by <see cref="OpenSettings"/>,
@@ -1681,7 +1682,7 @@ public sealed partial class MainWindow : Window
         page.Imported += OnSettingsImported;
         page.WelcomeRequested += OnSettingsWelcomeRequested;
 
-        page.Show(Settings, _hotkeyMessage);
+        page.Show(Settings, _hotkeyMessages);
         from.Visibility = Visibility.Collapsed;
         page.Visibility = Visibility.Visible;
         Motion.EnterSurface(page, forward: true);
@@ -1728,13 +1729,13 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Why the show/hide shortcut is not active, from the hotkey's owner; <see langword="null"/> when it is, or is off
-    /// by choice. Shown in Settings now, if open, and whenever it is opened.
+    /// Why a global shortcut is not active, from the hotkey's owner; <see langword="null"/> when it is, or is off by
+    /// choice. Shown in Settings now, if open, and whenever it is opened.
     /// </summary>
-    internal void ShowHotkeyMessage(string? message)
+    internal void ShowHotkeyMessage(GlobalAction action, string? message)
     {
-        _hotkeyMessage = message;
-        SettingsSurface?.ShowHotkeyMessage(message);
+        _hotkeyMessages[action] = message;
+        SettingsSurface?.ShowHotkeyMessage(action, message);
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => OpenSettings();
