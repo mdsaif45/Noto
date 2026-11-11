@@ -269,6 +269,10 @@ public sealed class FailureBoundaryTests
             }
         }
 
+        public void CrashLoopStopped(bool loginStart, bool startedAnyway)
+        {
+        }
+
         public void UnobservedTaskException(ExceptionSummary failure)
         {
         }

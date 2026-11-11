@@ -347,6 +347,12 @@ public partial class App : Application
     /// <summary>The last-chance boundaries' one handling of a failure (#10).</summary>
     private FailureBoundary? _failures;
 
+    /// <summary>The record of recent failures (F16), once this process owns the data root.</summary>
+    private string? _failuresFile;
+
+    /// <summary>How long this process has run: a failure soon after a start is a failure to start (F16).</summary>
+    private readonly System.Diagnostics.Stopwatch _sinceStart = System.Diagnostics.Stopwatch.StartNew();
+
     /// <summary>The note database, released last when Noto ends, so no handle on it outlives the final write.</summary>
     private NotoDatabase? _database;
 
@@ -466,6 +472,25 @@ public partial class App : Application
         if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths)))
         {
             return;
+        }
+
+        // F16 (#10): a Noto failing at every start stops instead of failing again. Read once this process owns the data
+        // root, before anything opens. At sign-in it ends quietly (never a message there); otherwise the user decides.
+        _failuresFile = paths.FailuresFile;
+
+        if (CrashLoop.IsLoop(FailureHistory.Read(paths.FailuresFile), TimeProvider.System.GetUtcNow()))
+        {
+            bool startAnyway = !login && StartupNotice.Ask(CrashLoopMessage.For(paths.Root));
+            log.CrashLoopStopped(login, startAnyway);
+
+            if (!startAnyway)
+            {
+                ReleaseResources();
+                Environment.Exit(StartupFailedExitCode);
+                return;
+            }
+
+            FailureHistory.Clear(paths.FailuresFile);
         }
 
         // Before the database and the window, so a launch arriving during
@@ -1388,6 +1413,12 @@ public partial class App : Application
     /// </summary>
     private void ExitAfterFailure()
     {
+        // F16 (#10): when, and how soon after its start, for the next start to tell a crash loop. Times only.
+        if (_failuresFile is { } failures)
+        {
+            FailureHistory.Append(failures, new Failure(TimeProvider.System.GetUtcNow(), _sinceStart.Elapsed));
+        }
+
         try
         {
             BeginShutdownOnce();

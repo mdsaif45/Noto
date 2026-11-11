@@ -24,6 +24,12 @@ public interface IAppLog
     /// <summary>After a failure, the attempt to save the open note itself threw.</summary>
     void EmergencySaveFailed(ExceptionSummary failure);
 
+    /// <summary>
+    /// Noto had failed at every start (F16, #10) and stopped instead of failing again: at a sign-in start it ended
+    /// quietly; otherwise the user chose to start anyway, or not.
+    /// </summary>
+    void CrashLoopStopped(bool loginStart, bool startedAnyway);
+
     /// <summary>A task faulted and nothing observed it. Not fatal: .NET does not end the process for it.</summary>
     void UnobservedTaskException(ExceptionSummary failure);
 

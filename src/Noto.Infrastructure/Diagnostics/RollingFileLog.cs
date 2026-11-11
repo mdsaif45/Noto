@@ -134,6 +134,13 @@ public sealed class RollingFileLog : IStorageLog, IAppLog
     public void EmergencySaveFailed(ExceptionSummary failure) =>
         Write(LogLevel.Error, "EmergencySaveFailed", w => WriteFailure(w, failure));
 
+    public void CrashLoopStopped(bool loginStart, bool startedAnyway) =>
+        Write(LogLevel.Warning, "CrashLoopStopped", w =>
+        {
+            w.WriteBoolean("login", loginStart);
+            w.WriteBoolean("startedAnyway", startedAnyway);
+        });
+
     public void UnobservedTaskException(ExceptionSummary failure) =>
         Write(LogLevel.Warning, "UnobservedTaskException", w => WriteFailure(w, failure));
 

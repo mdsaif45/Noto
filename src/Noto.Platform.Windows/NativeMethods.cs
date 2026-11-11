@@ -256,6 +256,9 @@ internal static unsafe partial class NativeMethods
     internal const int TokenElevation = 20;
 
     internal const uint MB_OK = 0x00000000;
+    internal const uint MB_YESNO = 0x00000004;
+    internal const uint MB_DEFBUTTON2 = 0x00000100;
+    internal const int IDYES = 6;
     internal const uint MB_ICONWARNING = 0x00000030;
     internal const uint MB_SETFOREGROUND = 0x00010000;
 
