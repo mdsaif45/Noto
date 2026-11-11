@@ -110,6 +110,26 @@ public static class SettingKeys
             static value => HotkeyChord.TryParse(value, out _));
 
     /// <summary>
+    /// Whether the global note-from-clipboard hotkey is registered (F18, #157; parity B3, D43, G4).
+    /// </summary>
+    /// <remarks>Default off, as every global chord but show/hide (principle 7).</remarks>
+    public static readonly SettingKey<bool> ClipboardNoteHotkeyEnabled =
+        new("activation.clipboard-note.enabled", false);
+
+    /// <summary>
+    /// The chord that shows Noto with a new note holding the clipboard (F18, #157).
+    /// </summary>
+    /// <remarks>
+    /// Default <c>Ctrl+Shift+Win+V</c>, the implementation plan's §10.1 final default for G4 (measured free). Valid
+    /// means it parses as a <see cref="HotkeyChord"/>, as for <see cref="HotkeyBinding"/>.
+    /// </remarks>
+    public static readonly SettingKey<string> ClipboardNoteHotkeyBinding =
+        new(
+            "activation.clipboard-note.binding",
+            "Ctrl+Shift+Win+V",
+            static value => HotkeyChord.TryParse(value, out _));
+
+    /// <summary>
     /// The vertical screen edge the workspace docks to.
     /// </summary>
     /// <remarks>
@@ -312,6 +332,8 @@ public static class SettingKeys
         HotkeyBinding,
         NewNoteHotkeyEnabled,
         NewNoteHotkeyBinding,
+        ClipboardNoteHotkeyEnabled,
+        ClipboardNoteHotkeyBinding,
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,

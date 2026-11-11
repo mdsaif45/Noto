@@ -56,6 +56,10 @@
        note in the folder and its editor focused; pressed again while editing, another; recorded as
        Ctrl+Shift+Win+J it registers, N is released, J is stored and makes a note; recording the show and hide chord
        is refused by name; turned off, J is released
+    18 the note-from-clipboard shortcut (F18, #157): off by default; turned on, Ctrl+Shift+Win+V is registered; with
+       text on the clipboard, pressed from another app: Noto in front with a new note holding exactly that text,
+       edited; with a picture alone on the clipboard: a new note holding it, kept in the attachments; turned off, the
+       chord is released (the clipboard restored after)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -78,7 +82,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding')
 
 # ---------------------------------------------------------------- helpers
 
@@ -119,7 +123,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -267,7 +271,7 @@ function Shown-By([int] $Key, [string] $Label) {
     $ok
 }
 # The new-note shortcut (case 17): Ctrl+Shift+Win held (MOD_CONTROL|MOD_SHIFT|MOD_WIN).
-$VkN = 0x4E; $VkJ = 0x4A
+$VkN = 0x4E; $VkJ = 0x4A; $VkV = 0x56
 function Note-Chord-Free([uint32] $Key) {
     <# Can this process register Ctrl+Shift+Win+<Key> right now: true means nothing holds it, Noto included. #>
     $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5652, 0x400E, $Key)
@@ -435,6 +439,48 @@ try {
             Close-Settings-ByBack
         }
 
+        # ------------------------------------------------ 18 the note-from-clipboard shortcut (F18, #157)
+        if (Want 18) {
+            if (-not (Note-Chord-Free $VkV)) { Add-Invalid $run '18 Ctrl+Shift+Win+V is already held on this machine'; return }
+            $saved = Get-Clipboard -Raw
+            try {
+                Noto-Front '18'
+                To-FolderList; Open-Settings-ByButton
+                $offByDefault = -not (Is-On 'ClipboardNoteHotkeySetting') -and -not (Is-Enabled 'ClipboardNoteHotkeyRecorder')
+                $m = Trace-Mark; Set-Toggle 'ClipboardNoteHotkeySetting' $true
+                $on = (Wait-Trace $m 'Noto\.Hotkey enabled=True registered=True action=NoteFromClipboard') -and -not (Note-Chord-Free $VkV)
+                Add-Result $run '18 off by default; turned on, Ctrl+Shift+Win+V is registered' ($offByDefault -and $on) "off by default=$offByDefault trace: $(Trace-Since $m)"
+                Close-Settings-ByBack
+
+                $text = "Clipboard note $($run.Id)"
+                Set-Clipboard -Value $text
+                $before = Note-Count
+                $made = New-Note-By $VkV '18 text'
+                $value = ''; $deadline = (Get-Date).AddSeconds(5)
+                while ((Get-Date) -lt $deadline -and $value -ne $text) { $e = Element 'NoteEditor'; $value = if ($e) { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '' }; Start-Sleep -Milliseconds 200 }
+                Add-Result $run '18 with text on the clipboard: Noto in front, a new note holding exactly that text, edited' ($made -and $value -eq $text -and (Note-Count) -eq $before + 1) "front and editing=$made value='$value' notes=$before->$(Note-Count)"
+                Send-ToNoto @() 0x1B
+                Start-Sleep -Milliseconds 800
+
+                $attachments = Join-Path $data 'attachments'
+                $pictures = @(Get-ChildItem $attachments -File -ErrorAction SilentlyContinue).Count
+                & powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -Command 'Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $b = New-Object System.Drawing.Bitmap 40, 20; $g = [System.Drawing.Graphics]::FromImage($b); $g.Clear([System.Drawing.Color]::Red); $g.Dispose(); [System.Windows.Forms.Clipboard]::SetImage($b)'
+                $made = New-Note-By $VkV '18 picture'
+                $value = ''; $deadline = (Get-Date).AddSeconds(5)
+                while ((Get-Date) -lt $deadline -and $value -notmatch '^!\[') { $e = Element 'NoteEditor'; $value = if ($e) { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '' }; Start-Sleep -Milliseconds 200 }
+                $kept = @(Get-ChildItem $attachments -File -ErrorAction SilentlyContinue).Count
+                Add-Result $run '18 with a picture alone on the clipboard: a new note holding it, kept in the attachments' ($made -and $value -match '^!\[[^\]]*\]\(attachments/[0-9A-Z]+\.png\)$' -and $kept -eq $pictures + 1) "front and editing=$made value='$value' pictures=$pictures->$kept"
+                Send-ToNoto @() 0x1B
+
+                Noto-Front '18 off'
+                To-FolderList; Open-Settings-ByButton
+                $m = Trace-Mark; Set-Toggle 'ClipboardNoteHotkeySetting' $false
+                Add-Result $run '18 turned off, the chord is released' ((Wait-Trace $m 'Noto\.Hotkey enabled=False registered=False action=NoteFromClipboard') -and (Note-Chord-Free $VkV)) "trace: $(Trace-Since $m)"
+                Close-Settings-ByBack
+            }
+            finally { if ($null -ne $saved) { Set-Clipboard -Value $saved } else { Set-Clipboard -Value $null } }
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -513,7 +559,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

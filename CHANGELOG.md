@@ -12,6 +12,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A new note from the clipboard: the tray icon's menu has *New note from clipboard*, and Settings › Shortcuts can turn
+  on a shortcut for it (Ctrl+Shift+Win+V, off by default). Copied text, a page's formatting as Markdown, or a picture
+  becomes a new note, pasted exactly as Ctrl+V pastes (#157).
+
 - A shortcut to make a new note from any app: Noto opens with a new note ready to type in, in the folder you have
   open (or the selected one). Turn it on in Settings › Shortcuts › *New note*; it is Ctrl+Shift+Win+N and can be
   changed there. Off by default (#156).

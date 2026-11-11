@@ -115,15 +115,30 @@ public sealed partial class SettingsPage : UserControl
     /// <summary>Why a global shortcut is not active, or <see langword="null"/> when it is (or is off by choice).</summary>
     internal void ShowHotkeyMessage(GlobalAction action, string? message)
     {
-        TextBlock line = action == GlobalAction.NewNote ? NewNoteHotkeyMessage : HotkeyMessage;
+        TextBlock line = action switch
+        {
+            GlobalAction.NewNote => NewNoteHotkeyMessage,
+            GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyMessage,
+            _ => HotkeyMessage,
+        };
         line.Text = message ?? string.Empty;
         line.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // Each global shortcut's controls (F17): its recorder and the line that tells each step of recording.
-    private Button RecorderOf(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyRecorder : HotkeyRecorder;
+    private Button RecorderOf(GlobalAction action) => action switch
+    {
+        GlobalAction.NewNote => NewNoteHotkeyRecorder,
+        GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyRecorder,
+        _ => HotkeyRecorder,
+    };
 
-    private TextBlock RecorderStatusOf(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyRecorderStatus : HotkeyRecorderStatus;
+    private TextBlock RecorderStatusOf(GlobalAction action) => action switch
+    {
+        GlobalAction.NewNote => NewNoteHotkeyRecorderStatus,
+        GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyRecorderStatus,
+        _ => HotkeyRecorderStatus,
+    };
 
     private void ShowStored()
     {
@@ -149,6 +164,7 @@ public sealed partial class SettingsPage : UserControl
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
+            ClipboardNoteHotkeySetting.IsOn = preferences.ClipboardNoteHotkeyEnabled;
             ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
         }
@@ -268,6 +284,16 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
+    private void OnClipboardNoteHotkeyToggled(object sender, RoutedEventArgs e)
+    {
+        Write(p => p.SetClipboardNoteHotkeyEnabled(ClipboardNoteHotkeySetting.IsOn));
+
+        if (_context is not null)
+        {
+            ShowShortcut(_context.Preferences);
+        }
+    }
+
     // Each stored chord, on its description line and in its recorder's text and name; a recorder only while its
     // shortcut is on, since an off shortcut has nothing to rebind.
     private void ShowShortcut(WorkspacePreferences preferences)
@@ -285,6 +311,13 @@ public sealed partial class SettingsPage : UserControl
         NewNoteHotkeyRecorder.Content = $"{note}   Change";
         NewNoteHotkeyRecorder.IsEnabled = preferences.NewNoteHotkeyEnabled;
         AutomationProperties.SetName(NewNoteHotkeyRecorder, $"New note shortcut, {note}. Select to change it.");
+
+        string clip = HotkeyChord.TryParse(preferences.ClipboardNoteHotkeyBinding, out HotkeyChord clipChord) ? HotkeyRebinding.Show(clipChord) : preferences.ClipboardNoteHotkeyBinding;
+
+        ClipboardNoteHotkeyChordText.Text = clip;
+        ClipboardNoteHotkeyRecorder.Content = $"{clip}   Change";
+        ClipboardNoteHotkeyRecorder.IsEnabled = preferences.ClipboardNoteHotkeyEnabled;
+        AutomationProperties.SetName(ClipboardNoteHotkeyRecorder, $"New note from clipboard shortcut, {clip}. Select to change it.");
     }
 
     /// <summary>Stops the recorder if it is listening, as if Escape were pressed: the window lost activation, or Settings closed.</summary>
@@ -298,7 +331,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnRecorderClick(object sender, RoutedEventArgs e)
     {
-        GlobalAction action = ReferenceEquals(sender, NewNoteHotkeyRecorder) ? GlobalAction.NewNote : GlobalAction.ShowHide;
+        GlobalAction action = ReferenceEquals(sender, NewNoteHotkeyRecorder) ? GlobalAction.NewNote
+            : ReferenceEquals(sender, ClipboardNoteHotkeyRecorder) ? GlobalAction.NoteFromClipboard
+            : GlobalAction.ShowHide;
         if (_recording || _context is null || !_context.Preferences.HotkeyEnabledFor(action))
         {
             return;
