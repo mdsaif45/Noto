@@ -1349,6 +1349,13 @@ public sealed partial class MainWindow : Window
             _pendingCaretAt = null;
             host.PlaceCaretAt(at);
         }
+
+        // A new note from the clipboard (F18): its paste, once its editor shows it.
+        if (_pendingPaste == card.Id)
+        {
+            _pendingPaste = null;
+            host.PasteClipboard();
+        }
     }
 
     private void OnEditorHostUnloaded(object sender, RoutedEventArgs e)

@@ -87,16 +87,36 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The new-note chord, as text (F17, G2).</summary>
     public string NewNoteHotkeyBinding => _settings.Read(SettingKeys.NewNoteHotkeyBinding);
 
+    /// <summary>Whether the global note-from-clipboard hotkey is registered (F18, B3).</summary>
+    public bool ClipboardNoteHotkeyEnabled => _settings.Read(SettingKeys.ClipboardNoteHotkeyEnabled);
+
+    /// <summary>The note-from-clipboard chord, as text (F18, G4).</summary>
+    public string ClipboardNoteHotkeyBinding => _settings.Read(SettingKeys.ClipboardNoteHotkeyBinding);
+
     /// <summary>Whether <paramref name="action"/>'s hotkey is registered.</summary>
-    public bool HotkeyEnabledFor(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyEnabled : HotkeyEnabled;
+    public bool HotkeyEnabledFor(GlobalAction action) => action switch
+    {
+        GlobalAction.NewNote => NewNoteHotkeyEnabled,
+        GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyEnabled,
+        _ => HotkeyEnabled,
+    };
 
     /// <summary><paramref name="action"/>'s chord, as text.</summary>
-    public string HotkeyBindingFor(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyBinding : HotkeyBinding;
+    public string HotkeyBindingFor(GlobalAction action) => action switch
+    {
+        GlobalAction.NewNote => NewNoteHotkeyBinding,
+        GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyBinding,
+        _ => HotkeyBinding,
+    };
 
     /// <summary>Stores <paramref name="action"/>'s chord: only its rebind calls this, once the chord is registered.</summary>
     /// <returns>Whether it was kept.</returns>
-    public bool SetHotkeyBindingFor(GlobalAction action, HotkeyChord chord) =>
-        action == GlobalAction.NewNote ? SetNewNoteHotkeyBinding(chord) : SetHotkeyBinding(chord);
+    public bool SetHotkeyBindingFor(GlobalAction action, HotkeyChord chord) => action switch
+    {
+        GlobalAction.NewNote => SetNewNoteHotkeyBinding(chord),
+        GlobalAction.NoteFromClipboard => SetClipboardNoteHotkeyBinding(chord),
+        _ => SetHotkeyBinding(chord),
+    };
 
     /// <summary>Sets the edge to dock to.</summary>
     /// <returns>Whether it was kept.</returns>
@@ -152,6 +172,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether the global new-note hotkey is registered (F17).</summary>
     /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
     public bool SetNewNoteHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.NewNoteHotkeyEnabled, enabled);
+
+    /// <summary>Stores the note-from-clipboard chord (F18): only its rebind calls this, once the chord is registered.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetClipboardNoteHotkeyBinding(HotkeyChord chord) => TryWrite(SettingKeys.ClipboardNoteHotkeyBinding, chord.Canonical);
+
+    /// <summary>Sets whether the global note-from-clipboard hotkey is registered (F18).</summary>
+    /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
+    public bool SetClipboardNoteHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.ClipboardNoteHotkeyEnabled, enabled);
 
     /// <summary>
     /// The width to open with on one display, before it is fitted to that

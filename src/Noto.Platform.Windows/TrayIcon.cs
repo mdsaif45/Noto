@@ -24,6 +24,9 @@ public enum TrayCommand
 
     /// <summary>Show Noto with its settings open (Slice 1). Appended: the ids above are the harness's.</summary>
     Settings,
+
+    /// <summary>Show Noto with a new note holding the clipboard's text or picture (F18, #157). Appended, as Settings.</summary>
+    NoteFromClipboard,
 }
 
 /// <summary>One row of the menu.</summary>

@@ -291,6 +291,11 @@ New global hotkeys are rebindable and off by default (principle 7).
 - The hotkey code is per action (`GlobalAction`): one registration path, one rebind procedure, one recorder, so F21's search shortcut adds an action, not a copy.
 - Recording another of Noto's own chords is refused by name ("is already Noto's shortcut to show and hide Noto"). A chord pressed while recording that arrives just after recording ends is still the recorder's: measured, recording the show/hide chord as the new-note shortcut hid Settings without this.
 
+**Built, F18 (#157):**
+- *New note from clipboard*: a new note made as the new-note shortcut makes it, then the clipboard pasted into it by the editor's own Ctrl+V (`NoteEditorHost.PasteClipboard`): a page's HTML as Markdown, plain text, copied files as links and pictures kept, a picture alone kept and shown. No second paste path.
+- From the tray icon's menu (*New note from &clipboard*), and from a third global hotkey, `Ctrl+Shift+Win+V` (the implementation plan's §10.1 default for G4), off by default, in Settings › Shortcuts with its own switch and recorder. A third `GlobalAction` on F17's per-action hotkey code.
+- An empty clipboard gives an empty new note, as Ctrl+N does.
+
 ### F22. Idle memory within 150 MB (#160)
 
 v0.1 measured 152 MB idle against the 150 MB budget. The work was deferred on 2026-11-06 ([quality-gates.md](../architecture/quality-gates.md)).

@@ -407,6 +407,60 @@
                                     AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
                             </Grid>
 
+                            <!--
+                                F18 (#157, parity B3, D43, G4): a third global shortcut, Noto shown with a new note holding
+                                the clipboard's text or picture. Off by default; recorded as the others are.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="New note from clipboard" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock x:Name="ClipboardNoteHotkeyChordText" Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="ClipboardNoteHotkeySetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnClipboardNoteHotkeyToggled"
+                                    AutomationProperties.Name="Make a note from the clipboard with a shortcut"
+                                    AutomationProperties.HelpText="From any app: Noto opens with a new note holding the copied text or picture." />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="New note from clipboard shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="ClipboardNoteHotkeyRecorderStatus"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                    <TextBlock
+                                        x:Name="ClipboardNoteHotkeyMessage"
+                                        Style="{StaticResource FolderPaneNoticeStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="ClipboardNoteHotkeyRecorder"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingButtonStyle}"
+                                    Click="OnRecorderClick"
+                                    PreviewKeyDown="OnRecorderKeyDown"
+                                    LostFocus="OnRecorderLostFocus"
+                                    ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                    AutomationProperties.Name="Change the new note from clipboard shortcut"
+                                    AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

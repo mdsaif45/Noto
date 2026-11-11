@@ -36,6 +36,8 @@
     15 startup: the icon clicked the moment it appears never hides Noto
     16 a killed Noto: what remains in the overflow is recorded (measured, not asserted)
     18 menu Settings... while hidden (Slice 1) -> shown in front with Settings open; Escape returns to the folder list
+    19 menu New note from clipboard while hidden (F18, #157), the clipboard holding text -> shown in front, a new note
+       in the folder holding exactly that text, its editor focused (the clipboard restored after)
     17 (-ExplorerRestart, run last) a real Explorer restart -> the icon comes back once; Noto's pid, presence and pin
        are unchanged; no workspace request is made
   Throughout: while the workspace is hidden, no Noto window may be the foreground window or hold keyboard focus.
@@ -601,6 +603,32 @@ try {
             Send-ToNoto @() 0x1B
             $back = $false; $deadline = (Get-Date).AddSeconds(5); while ((Get-Date) -lt $deadline -and -not $back) { $back = (Visible-Id 'FolderList') -and -not (Visible-Id 'SettingsRoot'); Start-Sleep -Milliseconds 100 }
             Add-Result $run '18 Escape leaves Settings for the folder list' $back ''
+            Close-Flyout
+        }
+
+        if (Want 19) {
+            Close-Flyout
+            $saved = Get-Clipboard -Raw
+            try {
+                $text = "From the clipboard $($run.Id)"
+                Set-Clipboard -Value $text
+                Hide-Noto; Target-Front
+                Ctrl '19 clipboard-hidden before' $noto.Hwnd
+                $m = Trace-Mark; $null = Open-Menu; Choose 'C'   # New note from &clipboard
+                $e = Wait-For { param($e) $e.IsForeground }
+                $value = ''; $deadline = (Get-Date).AddSeconds(6)
+                while ((Get-Date) -lt $deadline -and $value -ne $text) {
+                    $editor = $AE::FromHandle($noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, 'NoteEditor'))
+                    $value = if ($editor) { $editor.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '' }
+                    Start-Sleep -Milliseconds 200
+                }
+                $focus = $AE::FocusedElement.Current.AutomationId
+                Add-Result $run '19 menu New note from clipboard while hidden -> shown in front, a new note holding the text, edited' ((Is-Front $e) -and $value -eq $text -and $focus -eq 'NoteEditor' -and (Trace-Since $m) -match 'Noto\.Tray command=NoteFromClipboard' -and (Trace-Since $m) -match 'request=Launch action=Show') "$(Show-State $e) value='$value' focus=$focus; trace: $(Trace-Since $m)"
+                Ctrl '19 clipboard-hidden after' $target.Hwnd
+                Send-ToNoto @() 0x1B
+                Start-Sleep -Milliseconds 800
+            }
+            finally { if ($null -ne $saved) { Set-Clipboard -Value $saved } else { Set-Clipboard -Value $null } }
             Close-Flyout
         }
 

@@ -643,6 +643,9 @@ public sealed partial class NoteEditorHost : UserControl
         }
     }
 
+    /// <summary>Pastes the clipboard as Ctrl+V does (F18, #157: a new note from the clipboard is a new note and this paste).</summary>
+    internal void PasteClipboard() => PasteAsync(formatted: true);
+
     /// <summary>RichEdit never pastes itself: Ctrl+V and the context menu's Paste are a formatted paste.</summary>
     private void OnPaste(object sender, TextControlPasteEventArgs e)
     {

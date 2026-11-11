@@ -110,12 +110,19 @@ public partial class App : Application
     {
         refusal = null;
 
-        if (!settings.Read(action == GlobalAction.NewNote ? SettingKeys.NewNoteHotkeyEnabled : SettingKeys.HotkeyEnabled))
+        (SettingKey<bool> enabledKey, SettingKey<string> bindingKey) = action switch
+        {
+            GlobalAction.NewNote => (SettingKeys.NewNoteHotkeyEnabled, SettingKeys.NewNoteHotkeyBinding),
+            GlobalAction.NoteFromClipboard => (SettingKeys.ClipboardNoteHotkeyEnabled, SettingKeys.ClipboardNoteHotkeyBinding),
+            _ => (SettingKeys.HotkeyEnabled, SettingKeys.HotkeyBinding),
+        };
+
+        if (!settings.Read(enabledKey))
         {
             return null;
         }
 
-        HotkeyChord chord = HotkeyChord.Parse(settings.Read(action == GlobalAction.NewNote ? SettingKeys.NewNoteHotkeyBinding : SettingKeys.HotkeyBinding));
+        HotkeyChord chord = HotkeyChord.Parse(settings.Read(bindingKey));
         (HotkeyRegistration registration, GlobalHotkey? hotkey) = RegisterHotkey(chord, action);
 
         if (hotkey is null)
@@ -248,12 +255,19 @@ public partial class App : Application
         }
 
         // Another of Noto's own shortcuts is refused by name: Windows would only say the chord is taken.
-        GlobalAction other = action == GlobalAction.NewNote ? GlobalAction.ShowHide : GlobalAction.NewNote;
-        if (HotkeyOf(other) is { IsRegistered: true } && HotkeyChord.TryParse(preferences.HotkeyBindingFor(other), out HotkeyChord taken) && candidate == taken)
+        foreach (GlobalAction other in Enum.GetValues<GlobalAction>().Where(a => a != action))
         {
-            Trace.WriteLine($"Noto.Hotkey rebind outcome=Refused refusal=Noto from={current} to={candidate} action={action}");
-            string what = other == GlobalAction.NewNote ? "make a new note" : "show and hide Noto";
-            return (HotkeyRebindOutcome.Refused, $"{HotkeyRebinding.Show(candidate)} is already Noto's shortcut to {what}. The shortcut is still {HotkeyRebinding.Show(current)}.");
+            if (HotkeyOf(other) is { IsRegistered: true } && HotkeyChord.TryParse(preferences.HotkeyBindingFor(other), out HotkeyChord taken) && candidate == taken)
+            {
+                Trace.WriteLine($"Noto.Hotkey rebind outcome=Refused refusal=Noto from={current} to={candidate} action={action}");
+                string what = other switch
+                {
+                    GlobalAction.NewNote => "make a new note",
+                    GlobalAction.NoteFromClipboard => "make a note from the clipboard",
+                    _ => "show and hide Noto",
+                };
+                return (HotkeyRebindOutcome.Refused, $"{HotkeyRebinding.Show(candidate)} is already Noto's shortcut to {what}. The shortcut is still {HotkeyRebinding.Show(current)}.");
+            }
         }
 
         HotkeyRebindResult<GlobalHotkey> result = HotkeyRebinding.Rebind(
@@ -302,8 +316,9 @@ public partial class App : Application
             return;
         }
 
-        // The new-note shortcut (F17) shows Noto, never hides it, and has the window make a note ready to type in.
-        if (action == GlobalAction.NewNote)
+        // The new-note shortcuts (F17, F18) show Noto, never hide it, and have the window make a note ready to type in,
+        // holding the clipboard for F18's.
+        if (action is GlobalAction.NewNote or GlobalAction.NoteFromClipboard)
         {
             if (_coordinator is not null)
             {
@@ -314,8 +329,8 @@ public partial class App : Application
                 _ = WindowActivation.BringToForeground(_windowHandle);
             }
 
-            _main?.NewNoteFromShortcut();
-            Trace.WriteLine("Noto.Hotkey pressed action=NewNote");
+            _main?.NewNoteFromShortcut(fromClipboard: action == GlobalAction.NoteFromClipboard);
+            Trace.WriteLine($"Noto.Hotkey pressed action={action}");
             return;
         }
 
@@ -348,17 +363,29 @@ public partial class App : Application
     /// <summary>The global new-note hotkey (F17, #156), or <see langword="null"/> when off or refused; owned as <see cref="_hotkey"/> is.</summary>
     private GlobalHotkey? _newNoteHotkey;
 
-    private GlobalHotkey? HotkeyOf(GlobalAction action) => action == GlobalAction.NewNote ? _newNoteHotkey : _hotkey;
+    /// <summary>The global note-from-clipboard hotkey (F18, #157), or <see langword="null"/> when off or refused.</summary>
+    private GlobalHotkey? _clipboardNoteHotkey;
+
+    private GlobalHotkey? HotkeyOf(GlobalAction action) => action switch
+    {
+        GlobalAction.NewNote => _newNoteHotkey,
+        GlobalAction.NoteFromClipboard => _clipboardNoteHotkey,
+        _ => _hotkey,
+    };
 
     private void SetHotkeyOf(GlobalAction action, GlobalHotkey? hotkey)
     {
-        if (action == GlobalAction.NewNote)
+        switch (action)
         {
-            _newNoteHotkey = hotkey;
-        }
-        else
-        {
-            _hotkey = hotkey;
+            case GlobalAction.NewNote:
+                _newNoteHotkey = hotkey;
+                break;
+            case GlobalAction.NoteFromClipboard:
+                _clipboardNoteHotkey = hotkey;
+                break;
+            default:
+                _hotkey = hotkey;
+                break;
         }
     }
 
@@ -618,6 +645,7 @@ public partial class App : Application
         // window, so it does not depend on the workspace window's lifetime.
         _hotkey = StartHotkey(settings, GlobalAction.ShowHide, out string? hotkeyRefusal);
         _newNoteHotkey = StartHotkey(settings, GlobalAction.NewNote, out string? newNoteRefusal);
+        _clipboardNoteHotkey = StartHotkey(settings, GlobalAction.NoteFromClipboard, out string? clipboardNoteRefusal);
 
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
@@ -779,6 +807,7 @@ public partial class App : Application
         // A chord refused at launch is reported where the user can act on it: in Settings (ADR-007).
         main.ShowHotkeyMessage(GlobalAction.ShowHide, hotkeyRefusal);
         main.ShowHotkeyMessage(GlobalAction.NewNote, newNoteRefusal);
+        main.ShowHotkeyMessage(GlobalAction.NoteFromClipboard, clipboardNoteRefusal);
 
         // #16 slice 6: the window's own ways of putting itself away go to the
         // coordinator, like every other request; the window never hides
@@ -1145,6 +1174,7 @@ public partial class App : Application
                     login.TurnedOffInWindows ? "Start Noto with &Windows (turned off in Windows Startup apps)" : "Start Noto with &Windows",
                     login.Enabled && _login is not null,
                     login.Checked),
+                new(TrayCommand.NoteFromClipboard, "New note from &clipboard", Enabled: true, SeparatorBefore: true),
                 new(TrayCommand.Settings, "S&ettings…", Enabled: true),
                 new(TrayCommand.Quit, "&Quit Noto", Enabled: true, SeparatorBefore: true),
             ],
@@ -1183,6 +1213,12 @@ public partial class App : Application
 
             case TrayCommand.StartWithWindows:
                 ToggleLoginStartup();
+                break;
+
+            case TrayCommand.NoteFromClipboard:
+                // F18 (#157): shown as a launch would (never hidden), then a new note holding the clipboard.
+                ActivateFromTray(Environment.TickCount, "clipboard note");
+                _main?.NewNoteFromShortcut(fromClipboard: true);
                 break;
 
             case TrayCommand.Settings:
@@ -1309,6 +1345,10 @@ public partial class App : Application
         {
             ApplyHotkeyEnabled(settings, GlobalAction.NewNote, preferences.NewNoteHotkeyEnabled);
         }
+        else if (key == SettingKeys.ClipboardNoteHotkeyEnabled)
+        {
+            ApplyHotkeyEnabled(settings, GlobalAction.NoteFromClipboard, preferences.ClipboardNoteHotkeyEnabled);
+        }
         else
         {
             return;
@@ -1418,6 +1458,7 @@ public partial class App : Application
         _tray?.Dispose();
         _hotkey?.Dispose();
         _newNoteHotkey?.Dispose();
+        _clipboardNoteHotkey?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
         // process's handle and the process never ends holding it.
