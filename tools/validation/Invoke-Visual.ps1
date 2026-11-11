@@ -65,6 +65,7 @@ $Notes = @(
     @('01J00000000000000000000V01', $Work, "## Weekly sync`n`n**Attendees:** Priya, Tom, me`n`n- [ ] Tom: fix the *startup* crash`n- [x] book the room`n`nSee [the RFC](https://example.com/rfc) and ``release.md``.", 1, $null),
     @('01J00000000000000000000V02', $Work, "Project plan`n`nMilestones, owners and the release date. https://example.com/plan`n`nBrand red: #E81123.", 0, $null),
     @('01J00000000000000000000V04', $Work, "Trip photos`n![The harbour at dusk](attachments/$Harbour.png)`nThe harbour at dusk, from the hill path.`n![The hills](attachments/$Hills.png)", 0, $null),
+    @('01J00000000000000000000V06', $Work, "Reading list`n- Piranesi`n- The Dispossessed`n`n- Middlemarch", 0, $null),
     @('01J00000000000000000000V03', $HomeFolder, "# Groceries`n- [ ] milk`n- [x] bread`n- [ ] **coffee**", 0, $null),
     @('01J00000000000000000000V05', $HomeFolder, "Draft agenda`n`nAn older draft, moved to the bin.", 0, 'binned')
 )
@@ -257,6 +258,8 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
     }
     # F7 (#150): one card coloured Blue (note3), for case 15.
     Sql $script:data "UPDATE Notes SET ColorKey = 'note3' WHERE Id = '01J00000000000000000000V02'"
+    # F6 (#149): one card folded, so the stack's captures show its "+ 3 lines".
+    Sql $script:data "UPDATE Notes SET IsFolded = 1 WHERE Id = '01J00000000000000000000V06'"
 
     $shots = @()
     $base = 0

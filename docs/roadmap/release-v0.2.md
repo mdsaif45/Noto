@@ -142,6 +142,12 @@ Ctrl+K was the owner's first choice, but it is the editor's *link* shortcut. Ctr
 
 The engine already stores `IsFolded`.
 
+**Built (#149):**
+- A folded card that hides anything shows a **"+ N lines"** pill under its title. N counts the lines below the title that hold anything; blank lines hide nothing (`NoteTitle.LinesBelow`). A folded one-line note shows no pill.
+- Clicking the pill unfolds the note, focus on its card. It is not a tab stop: a card stays one stop, and Ctrl+Alt+Right unfolds it from the keyboard.
+- The card being edited has a **Fold** button on its bar: it saves, folds and leaves editing, as Ctrl+Alt+Left does there. The shortcut already existed (G19–G22).
+- Screen readers hear the card as "Folded, N lines hidden", and the pill as "Unfold, N lines hidden".
+
 ### F7. Note colours (#150)
 
 **Today:** the engine has `NoteColor`; nothing in the interface uses it.

@@ -12,6 +12,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A folded note says how much it hides: its card shows "+ N lines" under the title, and clicking it unfolds the note.
+  The card being edited has a Fold button; Ctrl+Alt+Left and Ctrl+Alt+Right still fold and unfold. Screen readers
+  hear "Folded, N lines hidden" (#149).
+
 - If Noto stops unexpectedly three times in a row, each time soon after starting, it no longer starts again on its own:
   it asks whether to start anyway, and at sign-in it stays closed without a message. Your notes are untouched (#10).
 

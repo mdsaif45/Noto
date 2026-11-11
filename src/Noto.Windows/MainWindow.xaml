@@ -510,6 +510,25 @@
                                         AutomationProperties.AccessibilityView="Raw" />
                                 </StackPanel>
 
+                                <!--
+                                    F6 (#149): a folded card's "+ N lines", which unfolds it. Not a tab stop: a card is
+                                    one stop, and Ctrl+Alt+Right unfolds it from the keyboard. A folded card is never the
+                                    one being edited (editing unfolds), so it never meets the card's bar in this row.
+                                -->
+                                <Button
+                                    x:Name="UnfoldPill"
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource FoldPillButtonStyle}"
+                                    IsTabStop="False"
+                                    Visibility="{x:Bind UnfoldPillVisibility, Mode=OneWay}"
+                                    Content="{x:Bind HiddenLinesText, Mode=OneWay}"
+                                    Click="OnUnfoldPillClick"
+                                    ToolTipService.ToolTip="Unfold (Ctrl+Alt+Right)"
+                                    AutomationProperties.Name="{x:Bind UnfoldName, Mode=OneWay}"
+                                    AutomationProperties.AcceleratorKey="Control+Alt+Right" />
+
                                 <!-- The card's bar (B17), on the card being edited. Phase B adds pin, fold and move. -->
                                 <StackPanel
                                     x:Name="CardBar"
@@ -557,6 +576,16 @@
                                                 <MenuFlyoutItem Text="Show or hide markup" Tag="ShowMarkup" KeyboardAcceleratorTextOverride="Ctrl+Shift+R" Click="OnFormatClick" />
                                             </MenuFlyout>
                                         </Button.Flyout>
+                                    </Button>
+                                    <!-- Fold (F6, #149): the card being edited saves, folds and is left. -->
+                                    <Button
+                                        x:Name="CardFoldButton"
+                                        Style="{StaticResource HeaderButtonStyle}"
+                                        Click="OnFoldCardClick"
+                                        ToolTipService.ToolTip="Fold (Ctrl+Alt+Left)"
+                                        AutomationProperties.Name="Fold"
+                                        AutomationProperties.AcceleratorKey="Control+Alt+Left">
+                                        <FontIcon Glyph="&#xE70E;" FontSize="{StaticResource IconSize}" />
                                     </Button>
                                     <Button
                                         Style="{StaticResource HeaderButtonStyle}"

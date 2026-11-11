@@ -63,6 +63,9 @@ public sealed class NoteCard : INotifyPropertyChanged
             Changed(nameof(ReadText));
             Changed(nameof(HelpText));
             Changed(nameof(FoldedMarkerVisibility));
+            Changed(nameof(HiddenLinesText));
+            Changed(nameof(UnfoldName));
+            Changed(nameof(UnfoldPillVisibility));
         }
     }
 
@@ -94,8 +97,24 @@ public sealed class NoteCard : INotifyPropertyChanged
             Changed(nameof(Content));
             Changed(nameof(DisplayTitle));
             Changed(nameof(ReadText));
+            Changed(nameof(HelpText));
+            Changed(nameof(HiddenLinesText));
+            Changed(nameof(UnfoldName));
+            Changed(nameof(UnfoldPillVisibility));
         }
     }
+
+    /// <summary>The lines a folded card hides (F6, #149); counted only while folded, so typing never counts them.</summary>
+    public int HiddenLines => IsFolded ? NoteTitle.LinesBelow(Content) : 0;
+
+    /// <summary>A folded card's pill, "+ N lines": how much is hidden, at a glance.</summary>
+    public string HiddenLinesText => HiddenLines > 0 ? "+ " + Lines(HiddenLines) : string.Empty;
+
+    /// <summary>The pill's name for assistive technology: what pressing it does, and what it shows.</summary>
+    public string UnfoldName => HiddenLines > 0 ? $"Unfold, {Lines(HiddenLines)} hidden" : "Unfold";
+
+    /// <summary>The pill shows on a folded card that hides something; a one-line note folded hides nothing.</summary>
+    public Visibility UnfoldPillVisibility => HiddenLines > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Whether this is the one card being edited: it holds the editor and its bar, and hides its read view.</summary>
     public bool IsEditing
@@ -129,11 +148,12 @@ public sealed class NoteCard : INotifyPropertyChanged
     {
         get
         {
+            string folded = HiddenLines > 0 ? $"folded, {Lines(HiddenLines)} hidden" : "folded";
             string states = (IsPinned, IsFolded) switch
             {
-                (true, true) => "Pinned, folded",
+                (true, true) => "Pinned, " + folded,
                 (true, false) => "Pinned",
-                (false, true) => "Folded",
+                (false, true) => char.ToUpperInvariant(folded[0]) + folded[1..],
                 _ => string.Empty,
             };
 
@@ -148,6 +168,8 @@ public sealed class NoteCard : INotifyPropertyChanged
     /// <see cref="object.ToString"/>, which would otherwise be "Noto.NoteCard" for every card.
     /// </summary>
     public override string ToString() => DisplayTitle;
+
+    private static string Lines(int count) => count == 1 ? "1 line" : $"{count} lines";
 
     private void Changed(string property) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
 }

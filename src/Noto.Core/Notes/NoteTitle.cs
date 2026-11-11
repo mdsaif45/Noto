@@ -60,6 +60,31 @@ public static class NoteTitle
     }
 
     /// <summary>
+    /// The lines below the title that hold anything (F6, #149): what a folded card hides, its "+ N lines". Blank lines
+    /// hide nothing, so they are not counted.
+    /// </summary>
+    public static int LinesBelow(string? content)
+    {
+        if (string.IsNullOrEmpty(content))
+        {
+            return 0;
+        }
+
+        // The first line that holds anything is the title.
+        int lines = -1;
+
+        foreach (var line in EnumerateLines(content))
+        {
+            if (!line.IsWhiteSpace())
+            {
+                lines++;
+            }
+        }
+
+        return Math.Max(lines, 0);
+    }
+
+    /// <summary>
     /// Splits on LF, CRLF and CR — all three are line terminators in CommonMark
     /// §2.1, and notes arrive from editors and clipboards that use each.
     /// </summary>

@@ -61,6 +61,9 @@
     46  F7 (#150): Ctrl+3 colours a card Blue; the card's menu lists No colour and the six and colours it Pink; Ctrl+0
         clears; each is named in the card's help text. The card bar's Colour button colours the card being edited
         Green and Ctrl+0 clears it in the editor, which keeps editing with its text
+    47  F6 (#149): the card bar's Fold saves, folds and leaves the card being edited; its "+ 3 lines" pill (named
+        "Unfold, 3 lines hidden"; help text "Folded, 3 lines hidden") unfolds it, focus on the card. A folded one-line
+        note shows no pill
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -681,6 +684,25 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $clearedInEditor = ColourOf $A; $stillEditing = (Editors).Count -eq 1 -and (Editor-Value) -eq 'Saved by Back'
     Add-Result $run '46 colour from the card bar (Green) and Ctrl+0 in the editor; the card keeps editing with its text' ($byBar -eq 'note2' -and $editing -and $clearedInEditor -eq '' -and $stillEditing) "bar=$byBar editing=$editing cleared='$clearedInEditor' still editing=$stillEditing"
     Send-ToNoto @() 0x1B
+
+    # 47 - F6 (#149): the card bar's Fold; a folded card's "+ N lines" pill unfolds it; a one-line note has no pill
+    Edit-Card 'Saved by Back'
+    Set-EditorText "Saved by Back`rmilk`r`reggs`rbread"
+    (Find-ById 'CardFoldButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900
+    $foldedByBar = (Flag $A 'IsFolded') -eq 1; $savedText = (Stored $A) -match 'bread'; $left = (Editors).Count -eq 0
+    $help = Card-Help 'Saved by Back'
+    $pill = (Card 'Saved by Back').FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, 'UnfoldPill'))
+    $pillName = if ($pill) { $pill.Current.Name } else { '' }
+    $pillText = if ($pill) { @($pill.FindAll($Scope::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name }) -join ' ' } else { '' }
+    if ($pill) { $pill.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900 }
+    Add-Result $run '47 the bar folds the card being edited (saved, left); its pill says "+ 3 lines" and unfolds it, focus on the card' ($foldedByBar -and $savedText -and $left -and $help -match 'Folded, 3 lines hidden' -and $pillName -eq 'Unfold, 3 lines hidden' -and $pillText -match '\+ 3 lines' -and (Flag $A 'IsFolded') -eq 0 -and (Card-Help 'Saved by Back') -notmatch 'Folded' -and (Focused-Name) -eq 'Saved by Back') "bar folded=$foldedByBar saved=$savedText left=$left help='$help' pill='$pillName' text='$pillText' unfolded=$((Flag $A 'IsFolded') -eq 0) focus=$(Focused)"
+    $one = Stored $B   # one line: its title, as renamed by the cases above
+    (Card $one).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11, 0x12) 0x25   # Ctrl+Alt+Left
+    $onePill = (Card $one).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, 'UnfoldPill'))
+    $oneHelp = Card-Help $one; $oneFolded = (Flag $B 'IsFolded') -eq 1
+    Send-ToNoto @(0x11, 0x12) 0x27   # Ctrl+Alt+Right
+    Add-Result $run '47 a folded one-line note hides nothing: no pill, help text "Folded"' ($oneFolded -and (-not $onePill -or $onePill.Current.IsOffscreen) -and $oneHelp -eq 'Folded' -and (Flag $B 'IsFolded') -eq 0) "card='$one' folded=$oneFolded pill=$([bool]$onePill) help='$oneHelp' unfolded=$((Flag $B 'IsFolded') -eq 0)"
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

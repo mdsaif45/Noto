@@ -147,6 +147,18 @@
     </Style>
 
     <!--
+        A folded card's "+ N lines" (F6, #149): the button's rest fill and
+        border on a caption line with round ends, so it reads as something to
+        press, and every state of the button.
+    -->
+    <Style x:Key="FoldPillButtonStyle" TargetType="Button" BasedOn="{StaticResource FolderPaneButtonStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeCaption}" />
+        <Setter Property="Padding" Value="{StaticResource PillPadding}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}" />
+    </Style>
+
+    <!--
         The header's icon toggle: a 16px glyph in a 32px square, subtle at
         rest, and the selected fill while it is on, so "Keep Noto open" reads
         as on without relying on the glyph. The glyph inherits the state's
