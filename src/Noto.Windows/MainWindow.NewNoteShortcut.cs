@@ -61,7 +61,7 @@ public sealed partial class MainWindow
 
         _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
-            string? before = _stack.Editing?.Value;
+            string? before = _stack.Editing is { } editing ? editing.Value : null;
             CreateNoteInOpenFolder();
 
             if (fromClipboard && _stack.Editing is { } created && created.Value != before)
@@ -76,7 +76,7 @@ public sealed partial class MainWindow
 
     private void PasteInto(string note)
     {
-        if (_editor is { } host && host.Note?.Value == note)
+        if (_editor is { } host && host.Note is { } shown && shown.Value == note)
         {
             host.PasteClipboard();
         }
