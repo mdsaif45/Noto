@@ -89,6 +89,27 @@ public static class SettingKeys
             static value => HotkeyChord.TryParse(value, out _));
 
     /// <summary>
+    /// Whether the global new-note hotkey is registered (F17, #156; parity B2, G2).
+    /// </summary>
+    /// <remarks>Default off: a new global chord takes a key from every other application, so the user turns it on.</remarks>
+    public static readonly SettingKey<bool> NewNoteHotkeyEnabled =
+        new("activation.new-note.enabled", false);
+
+    /// <summary>
+    /// The chord that shows Noto with a new note ready (F17, #156).
+    /// </summary>
+    /// <remarks>
+    /// Default <c>Ctrl+Shift+Win+N</c>, the implementation plan's §10.1 final default for G2 (measured free; the
+    /// <c>Ctrl+Shift+Win</c> family is not an AltGr chord). Valid means it parses as a <see cref="HotkeyChord"/>, as
+    /// for <see cref="HotkeyBinding"/>.
+    /// </remarks>
+    public static readonly SettingKey<string> NewNoteHotkeyBinding =
+        new(
+            "activation.new-note.binding",
+            "Ctrl+Shift+Win+N",
+            static value => HotkeyChord.TryParse(value, out _));
+
+    /// <summary>
     /// The vertical screen edge the workspace docks to.
     /// </summary>
     /// <remarks>
@@ -289,6 +310,8 @@ public static class SettingKeys
     [
         HotkeyEnabled,
         HotkeyBinding,
+        NewNoteHotkeyEnabled,
+        NewNoteHotkeyBinding,
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,

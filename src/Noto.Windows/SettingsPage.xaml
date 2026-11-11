@@ -353,6 +353,60 @@
                                     AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
                             </Grid>
 
+                            <!--
+                                F17 (#156, parity B2, G2): a second global shortcut, Noto shown with a new note ready to
+                                type in. Off by default (principle 7); recorded as the show and hide shortcut is.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="New note" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock x:Name="NewNoteHotkeyChordText" Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="NewNoteHotkeySetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnNewNoteHotkeyToggled"
+                                    AutomationProperties.Name="Make a new note with a shortcut"
+                                    AutomationProperties.HelpText="From any app: Noto opens with a new note ready to type in." />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="New note shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="NewNoteHotkeyRecorderStatus"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                    <TextBlock
+                                        x:Name="NewNoteHotkeyMessage"
+                                        Style="{StaticResource FolderPaneNoticeStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="NewNoteHotkeyRecorder"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingButtonStyle}"
+                                    Click="OnRecorderClick"
+                                    PreviewKeyDown="OnRecorderKeyDown"
+                                    LostFocus="OnRecorderLostFocus"
+                                    ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                    AutomationProperties.Name="Change the new note shortcut"
+                                    AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

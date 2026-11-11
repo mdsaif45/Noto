@@ -285,6 +285,12 @@ These SideNotes MUST rows are not built, and none of them is in a later mileston
 
 New global hotkeys are rebindable and off by default (principle 7).
 
+**Built, F17 (#156):**
+- A second global hotkey, **New note**, off by default, `Ctrl+Shift+Win+N` (the implementation plan's §10.1 default for G2), in Settings › Shortcuts with its own switch and recorder (`activation.new-note.enabled`, `activation.new-note.binding`).
+- A press from any app shows Noto (never hides it, as a second launch does) and makes a note as Ctrl+N does: in the open folder, else the selected folder on the list, else the first; its editor has the keyboard. Settings, Search and the Recycle Bin are left first; the welcome tour is left alone. With no folder, Noto says to make one and focuses the folder name box.
+- The hotkey code is per action (`GlobalAction`): one registration path, one rebind procedure, one recorder, so F21's search shortcut adds an action, not a copy.
+- Recording another of Noto's own chords is refused by name ("is already Noto's shortcut to show and hide Noto"). A chord pressed while recording that arrives just after recording ends is still the recorder's: measured, recording the show/hide chord as the new-note shortcut hid Settings without this.
+
 ### F22. Idle memory within 150 MB (#160)
 
 v0.1 measured 152 MB idle against the 150 MB budget. The work was deferred on 2026-11-06 ([quality-gates.md](../architecture/quality-gates.md)).

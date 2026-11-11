@@ -20,8 +20,8 @@ namespace Noto;
 /// <param name="SetLogin">Turns Start with Windows on or off through the same registration the tray uses; returns what Windows has after.</param>
 /// <param name="OpenDataFolder">Opens the data folder in Explorer; whether the shell accepted it.</param>
 /// <param name="OpenStartupApps">Opens Windows Settings' Startup apps page; whether the shell accepted it.</param>
-/// <param name="RebindHotkey">Rebinds the show/hide hotkey through its owner, in the safe order; how it ended and what to announce.</param>
-/// <param name="SuspendHotkey">Has the hotkey's owner ignore the chord (true) or act on it again (false) while the recorder listens.</param>
+/// <param name="RebindHotkey">Rebinds a global hotkey through its owner, in the safe order; how it ended and what to announce.</param>
+/// <param name="SuspendHotkey">Has the hotkeys' owner ignore Noto's chords (true) or act on them again (false) while the recorder listens.</param>
 /// <param name="ObserveRecorderKeys">Reports, until disposed, each chord pressed while Noto is in front that another application holds, which never reaches the page; <see langword="null"/> when that is unavailable.</param>
 internal sealed record SettingsContext(
     DataPortability Portability,
@@ -30,9 +30,9 @@ internal sealed record SettingsContext(
     Func<bool, LoginStartupState?> SetLogin,
     Func<bool> OpenDataFolder,
     Func<bool> OpenStartupApps,
-    Func<HotkeyChord, (HotkeyRebindOutcome Outcome, string Message)> RebindHotkey,
+    Func<GlobalAction, HotkeyChord, (HotkeyRebindOutcome Outcome, string Message)> RebindHotkey,
     Action<bool> SuspendHotkey,
-    Func<Action<int, HotkeyModifiers>, IDisposable?> ObserveRecorderKeys);
+    Func<GlobalAction, Action<int, HotkeyModifiers>, IDisposable?> ObserveRecorderKeys);
 
 /// <summary>
 /// The settings surface (Slice 1): shows each preference as it is stored, and writes a change through its one path.
@@ -58,8 +58,11 @@ public sealed partial class SettingsPage : UserControl
     // True while the page shows stored values, so the change events that raises are not taken as the user's.
     private bool _showing;
 
-    // True while the shortcut recorder listens for a chord.
+    // True while a shortcut recorder listens for a chord.
     private bool _recording;
+
+    // The shortcut the listening recorder is for (F17: show/hide or new note).
+    private GlobalAction _recordingAction;
 
     // The chords observed below every application's shortcuts while recording; null when not recording, or unavailable.
     private IDisposable? _recorderKeys;
@@ -79,11 +82,16 @@ public sealed partial class SettingsPage : UserControl
     internal Control HelpButton => ShowWelcomeButton;
 
     /// <summary>Shows every setting as it is stored now.</summary>
-    internal void Show(SettingsContext context, string? hotkeyMessage)
+    internal void Show(SettingsContext context, IReadOnlyDictionary<GlobalAction, string?> hotkeyMessages)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        ArgumentNullException.ThrowIfNull(hotkeyMessages);
         ShowStored();
-        ShowHotkeyMessage(hotkeyMessage);
+        foreach (GlobalAction action in Enum.GetValues<GlobalAction>())
+        {
+            ShowHotkeyMessage(action, hotkeyMessages.GetValueOrDefault(action));
+        }
+
         ShowNotice(null);
     }
 
@@ -104,12 +112,18 @@ public sealed partial class SettingsPage : UserControl
     protected override Microsoft.UI.Xaml.Automation.Peers.AutomationPeer OnCreateAutomationPeer() =>
         new Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer(this);
 
-    /// <summary>Why the show/hide shortcut is not active, or <see langword="null"/> when it is (or is off by choice).</summary>
-    internal void ShowHotkeyMessage(string? message)
+    /// <summary>Why a global shortcut is not active, or <see langword="null"/> when it is (or is off by choice).</summary>
+    internal void ShowHotkeyMessage(GlobalAction action, string? message)
     {
-        HotkeyMessage.Text = message ?? string.Empty;
-        HotkeyMessage.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
+        TextBlock line = action == GlobalAction.NewNote ? NewNoteHotkeyMessage : HotkeyMessage;
+        line.Text = message ?? string.Empty;
+        line.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
     }
+
+    // Each global shortcut's controls (F17): its recorder and the line that tells each step of recording.
+    private Button RecorderOf(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyRecorder : HotkeyRecorder;
+
+    private TextBlock RecorderStatusOf(GlobalAction action) => action == GlobalAction.NewNote ? NewNoteHotkeyRecorderStatus : HotkeyRecorderStatus;
 
     private void ShowStored()
     {
@@ -134,6 +148,7 @@ public sealed partial class SettingsPage : UserControl
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
+            NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
             ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
         }
@@ -243,7 +258,17 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
-    // The stored chord, on the description line and in the recorder's text and name; the recorder only while the
+    private void OnNewNoteHotkeyToggled(object sender, RoutedEventArgs e)
+    {
+        Write(p => p.SetNewNoteHotkeyEnabled(NewNoteHotkeySetting.IsOn));
+
+        if (_context is not null)
+        {
+            ShowShortcut(_context.Preferences);
+        }
+    }
+
+    // Each stored chord, on its description line and in its recorder's text and name; a recorder only while its
     // shortcut is on, since an off shortcut has nothing to rebind.
     private void ShowShortcut(WorkspacePreferences preferences)
     {
@@ -253,6 +278,13 @@ public sealed partial class SettingsPage : UserControl
         HotkeyRecorder.Content = $"{shown}   Change";
         HotkeyRecorder.IsEnabled = preferences.HotkeyEnabled;
         AutomationProperties.SetName(HotkeyRecorder, $"Show and hide shortcut, {shown}. Select to change it.");
+
+        string note = HotkeyChord.TryParse(preferences.NewNoteHotkeyBinding, out HotkeyChord noteChord) ? HotkeyRebinding.Show(noteChord) : preferences.NewNoteHotkeyBinding;
+
+        NewNoteHotkeyChordText.Text = note;
+        NewNoteHotkeyRecorder.Content = $"{note}   Change";
+        NewNoteHotkeyRecorder.IsEnabled = preferences.NewNoteHotkeyEnabled;
+        AutomationProperties.SetName(NewNoteHotkeyRecorder, $"New note shortcut, {note}. Select to change it.");
     }
 
     /// <summary>Stops the recorder if it is listening, as if Escape were pressed: the window lost activation, or Settings closed.</summary>
@@ -266,20 +298,22 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnRecorderClick(object sender, RoutedEventArgs e)
     {
-        if (_recording || _context is null || !_context.Preferences.HotkeyEnabled)
+        GlobalAction action = ReferenceEquals(sender, NewNoteHotkeyRecorder) ? GlobalAction.NewNote : GlobalAction.ShowHide;
+        if (_recording || _context is null || !_context.Preferences.HotkeyEnabledFor(action))
         {
             return;
         }
 
+        _recordingAction = action;
         _recording = true;
         _context.SuspendHotkey(true);
-        HotkeyRecorder.Content = "Press the new shortcut…";
+        RecorderOf(action).Content = "Press the new shortcut…";
         ShowRecorderStatus("Recording. Press the new shortcut, or Escape to cancel.");
 
         // A chord another application holds is delivered to it and never reaches this page (measured), so it could not
         // be tried and refused. While listening, such a chord is observed below every application's shortcuts, for this
         // recording only, and queued here; every other key reaches this page and is read as it always was.
-        _recorderKeys = _context.ObserveRecorderKeys((key, held) => _ = DispatcherQueue.TryEnqueueGuarded(() => Record(key, held)));
+        _recorderKeys = _context.ObserveRecorderKeys(action, (key, held) => _ = DispatcherQueue.TryEnqueueGuarded(() => Record(key, held)));
     }
 
     /// <summary>While recording, every key is the recorder's: nothing else in Noto acts on it.</summary>
@@ -313,7 +347,7 @@ public sealed partial class SettingsPage : UserControl
         switch (kind)
         {
             case RecordedKind.Modifier:
-                HotkeyRecorder.Content = HotkeyRecording.Partial(held);
+                RecorderOf(_recordingAction).Content = HotkeyRecording.Partial(held);
                 break;
 
             case RecordedKind.Unsupported:
@@ -331,7 +365,7 @@ public sealed partial class SettingsPage : UserControl
 
                 try
                 {
-                    (HotkeyRebindOutcome _, message) = _context.RebindHotkey(chord);
+                    (HotkeyRebindOutcome _, message) = _context.RebindHotkey(_recordingAction, chord);
                 }
                 finally
                 {
@@ -387,8 +421,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void ShowRecorderStatus(string message)
     {
-        HotkeyRecorderStatus.Text = message;
-        HotkeyRecorderStatus.Visibility = Visibility.Visible;
+        TextBlock status = RecorderStatusOf(_recordingAction);
+        status.Text = message;
+        status.Visibility = Visibility.Visible;
     }
 
     private static HotkeyModifiers Held()
