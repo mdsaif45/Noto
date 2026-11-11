@@ -200,6 +200,16 @@
                         Visibility="Collapsed"
                         AutomationProperties.LiveSetting="Polite" />
 
+                    <!-- F9 (#152): files dropped on a folder are one result and one Undo, until anything else is said. -->
+                    <Button
+                        x:Name="UndoImportButton"
+                        Style="{StaticResource FolderPaneButtonStyle}"
+                        HorizontalAlignment="Left"
+                        Content="Undo"
+                        Visibility="Collapsed"
+                        Click="OnUndoImportClick"
+                        AutomationProperties.Name="Undo the import" />
+
                     <!--
                         Recovery from Error. Only visible in Error, because there is
                         nothing to retry otherwise — and without it the pane is a dead
@@ -408,6 +418,16 @@
                         Style="{StaticResource FolderPaneGuidanceStyle}"
                         Visibility="Collapsed"
                         AutomationProperties.LiveSetting="Polite" />
+
+                    <!-- F9 (#152): files dropped on the stack, as on a folder. -->
+                    <Button
+                        x:Name="NoteUndoImportButton"
+                        Style="{StaticResource FolderPaneButtonStyle}"
+                        HorizontalAlignment="Left"
+                        Content="Undo"
+                        Visibility="Collapsed"
+                        Click="OnUndoImportClick"
+                        AutomationProperties.Name="Undo the import" />
 
                     <Button
                         x:Name="NoteRetryButton"

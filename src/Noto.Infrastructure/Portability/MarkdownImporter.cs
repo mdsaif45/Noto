@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.Data.Sqlite;
+using Noto.Core.Editing;
 using Noto.Core.Folders;
 using Noto.Core.Images;
 using Noto.Core.Notes;
@@ -105,6 +106,110 @@ public static class MarkdownImporter
 
             throw new PortabilityException("The notes could not be imported.", ex);
         }
+    }
+
+    /// <summary>
+    /// Imports files dropped on a folder or its note stack (F9, #152): each Markdown or text file a new note, its text
+    /// kept exactly and the pictures it refers to beside it copied in, as <see cref="Import"/> does; each picture a new
+    /// note holding a copy of it. The notes go first in <paramref name="folder"/>, in the order given, in one transaction.
+    /// The files are only read: copied, never moved or changed.
+    /// </summary>
+    /// <returns>The notes added, in order, and what was not imported and why.</returns>
+    /// <exception cref="PortabilityException">The folder is gone, or the notes could not be saved: nothing was imported.</exception>
+    public static FilesImport ImportFiles(NotoDatabase database, AttachmentStore images, IReadOnlyList<string> files, FolderId folder, TimeProvider time)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+        ArgumentNullException.ThrowIfNull(images);
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentNullException.ThrowIfNull(time);
+
+        var skipped = new List<ImportIssue>();
+        var imageIssues = new List<ImportIssue>();
+        var copied = new List<string>();
+        var notes = new List<string>(files.Count);
+        try
+        {
+            foreach (string file in files)
+            {
+                string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(file));
+                if (!File.Exists(file))
+                {
+                    skipped.Add(new ImportIssue(name, ImportIssueKind.NotANote));
+                }
+                else if (ImageReference.TypeOf(file) is not null)
+                {
+                    (ImageKeeping outcome, string? reference) = images.KeepCopyOf(file);
+                    if (outcome != ImageKeeping.Kept || reference is null)
+                    {
+                        skipped.Add(new ImportIssue(name, outcome == ImageKeeping.TooLarge ? ImportIssueKind.ImageTooLarge : ImportIssueKind.ImageNotAnImage));
+                        continue;
+                    }
+
+                    // Titled by its name, so the card and a screen reader name the picture, not its markup.
+                    copied.Add(reference);
+                    notes.Add(Path.GetFileNameWithoutExtension(file) + "\n" + MarkdownCommands.InsertImage(string.Empty, TextSelection.Caret(0), reference, name).Replacement);
+                }
+                else if (!NoteTypes.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                {
+                    skipped.Add(new ImportIssue(name, ImportIssueKind.NotANote));
+                }
+                else if (Text(file) is not { } content)
+                {
+                    skipped.Add(new ImportIssue(name, new FileInfo(file).Length > MaxNoteBytes ? ImportIssueKind.TooLarge : ImportIssueKind.NotText));
+                }
+                else
+                {
+                    // The pictures it refers to are those beside it or below it, as for a folder imported.
+                    string directory = Path.GetDirectoryName(Path.GetFullPath(file))!;
+                    notes.Add(ImageSources.Rewrite(content, s => Image(images, directory, directory, s, name, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), copied, imageIssues, new HashSet<string>(StringComparer.OrdinalIgnoreCase))));
+                }
+            }
+
+            return new FilesImport(notes.Count == 0 ? [] : SaveFirst(database, folder, notes, time.GetUtcNow()), copied.Count, skipped, imageIssues);
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or PortabilityException)
+        {
+            foreach (string path in copied.Select(images.PathOf).OfType<string>())
+            {
+                BackupWriter.TryDelete(path);
+            }
+
+            throw ex as PortabilityException ?? new PortabilityException("The files could not be imported.", ex);
+        }
+    }
+
+    /// <summary>Inserts <paramref name="contents"/> first in <paramref name="folder"/>, in order, in one transaction.</summary>
+    private static List<NoteId> SaveFirst(NotoDatabase database, FolderId folder, List<string> contents, DateTimeOffset now)
+    {
+        using SqliteConnection connection = database.OpenConnection();
+        using SqliteTransaction transaction = connection.BeginTransaction();
+
+        using (SqliteCommand active = connection.CreateCommand())
+        {
+            active.Transaction = transaction;
+            active.CommandText = "SELECT COUNT(*) FROM Folders WHERE Id = $id AND DeletedAt IS NULL;";
+            active.Parameters.AddWithValue("$id", folder.Value);
+            if (Convert.ToInt64(active.ExecuteScalar(), CultureInfo.InvariantCulture) == 0)
+            {
+                throw new PortabilityException("That folder is no longer there.");
+            }
+        }
+
+        SortOrderScope scope = SortOrderScope.NotesIn(folder.Value);
+        string stamp = Timestamps.Format(now);
+        var ids = contents.Select(_ => NoteId.New()).ToList();
+
+        // Each goes first, last to first, so the first given ends at the top.
+        for (int i = contents.Count - 1; i >= 0; i--)
+        {
+            double order = SortOrderEngine.ResolvePosition(connection, transaction, scope, SortOrderPlacement.First, ids[i].Value, now);
+            Execute(connection, transaction,
+                "INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt) VALUES ($id, $folder, $content, $order, $now, $now);",
+                ("$id", ids[i].Value), ("$folder", folder.Value), ("$content", contents[i]), ("$order", order), ("$now", stamp));
+        }
+
+        transaction.Commit();
+        return ids;
     }
 
     /// <summary>
@@ -334,6 +439,9 @@ public static class MarkdownImporter
 /// <summary>What an import added, and what it did not and why.</summary>
 public sealed record ImportReport(int Folders, int Notes, int Images, IReadOnlyList<ImportIssue> Skipped, IReadOnlyList<ImportIssue> ImageIssues);
 
+/// <summary>What files dropped on a folder added (F9, #152): its new notes, in order, and what was not imported and why.</summary>
+public sealed record FilesImport(IReadOnlyList<NoteId> Notes, int Images, IReadOnlyList<ImportIssue> Skipped, IReadOnlyList<ImportIssue> ImageIssues);
+
 /// <summary>A file not imported, or an image a note refers to that was not; <paramref name="Source"/> is the image's source as written.</summary>
 public sealed record ImportIssue(string File, ImportIssueKind Kind, string? Source = null);
 
@@ -357,4 +465,7 @@ public enum ImportIssueKind
 
     /// <summary>The image is larger than Noto keeps.</summary>
     ImageTooLarge,
+
+    /// <summary>The file dropped is neither a Markdown or text file nor a picture (a folder, a document, a program).</summary>
+    NotANote,
 }

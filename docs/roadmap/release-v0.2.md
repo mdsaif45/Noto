@@ -191,6 +191,14 @@ The engine already stores `IsFolded`.
 - Dropped files are copied, never moved, and the original is never changed.
 - Verified from Explorer, the desktop and a browser, which closes #31.
 
+**Built (#152):**
+- Files dropped on a folder's row, or on its note stack, are imported into that folder (`MarkdownImporter.ImportFiles`): each `.md`, `.markdown` or `.txt` file a new note with its text exactly, the pictures it refers to beside or below it copied in, as a folder import does; each picture a new note titled by its name and holding a copy. They go first in the folder, in the order dropped, in one transaction.
+- Anything else (a folder, a document, a program) is skipped and named on the notice line, with why.
+- One drop is one result on the status line ("Imported 3 notes.") and one **Undo**, which moves those notes to the Recycle Bin. Undo is offered until anything else is said there, or the surface changes.
+- The files are only read: copied, never moved or changed (their bytes and times are checked).
+- A drop on the card being edited is still the editor's: the files are added to that note.
+- A real OLE file drag, the data Explorer and the desktop give, is verified by `Invoke-DropImport`. Explorer, the desktop and a browser as the source remain the owner's check under #31: a harness cannot drive their windows.
+
 ### F12. Dock that pushes other windows aside: a spike (#153)
 
 **What Sticky Notes does:** *Dock to desktop* reserves a strip at the side of the screen. Other windows shrink to fit beside it. *Undock* gives the space back.

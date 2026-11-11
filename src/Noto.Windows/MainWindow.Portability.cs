@@ -39,12 +39,14 @@ public sealed partial class MainWindow
     /// <summary>A quiet result on the folder list: announced politely, never in the error colour.</summary>
     private void ShowStatus(string message)
     {
+        ForgetUndo();
         StatusText.Text = message;
         StatusText.Visibility = Visibility.Visible;
     }
 
     private void ShowNoteStatus(string message)
     {
+        ForgetUndo();
         NoteStatusText.Text = message;
         NoteStatusText.Visibility = Visibility.Visible;
     }
