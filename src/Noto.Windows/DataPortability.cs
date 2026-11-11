@@ -50,6 +50,59 @@ internal sealed class DataPortability(
     }
 
     /// <summary>
+    /// Takes an automatic backup into the data root's backups when one is due, then removes the automatic backups past
+    /// the seven newest (F15, #15). Nothing is done while another backup, restore, export or import runs: the next check
+    /// takes it.
+    /// </summary>
+    /// <returns>Whether a backup was written.</returns>
+    /// <exception cref="PortabilityException">The backup could not be taken or written: nothing was written.</exception>
+    public async Task<bool> BackupIfDue()
+    {
+        if (Busy)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await Run(() =>
+            {
+                string directory = paths.BackupsDirectory;
+                Directory.CreateDirectory(directory);
+                var names = Directory.EnumerateFiles(directory).Select(f => Path.GetFileName(f)).ToList();
+                DateTimeOffset now = TimeProvider.System.GetLocalNow();
+
+                if (!AutomaticBackups.IsDue(names.Select(AutomaticBackups.TakenAt).Max(), now))
+                {
+                    return false;
+                }
+
+                string name = AutomaticBackups.FileName(now);
+                BackupWriter.Create(database, paths.AttachmentsDirectory, Path.Join(directory, name), AppVersion, TimeProvider.System);
+
+                foreach (string expired in AutomaticBackups.Expired([.. names, name]))
+                {
+                    try
+                    {
+                        File.Delete(Path.Join(directory, expired));
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // Kept for now (open elsewhere, say): the next backup prunes it.
+                    }
+                }
+
+                return true;
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // Other work began between the check and the start: the next check takes it.
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Windows' save dialog creates the file it returns (measured: a cancelled backup left an empty one). A backup that
     /// did not finish removes it, and only while it is empty: a file the user chose to replace is never deleted.
     /// </summary>

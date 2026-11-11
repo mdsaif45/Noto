@@ -131,6 +131,7 @@ public sealed partial class SettingsPage : UserControl
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
+            AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
@@ -218,6 +219,9 @@ public sealed partial class SettingsPage : UserControl
 
     /// <summary>The stored values shown again: a size changed by its shortcut while Settings is open (F13).</summary>
     internal void Refresh() => ShowStored();
+
+    private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetAutomaticBackups(AutomaticBackupSetting.IsOn));
 
     private void OnHideOnDeactivationToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetHideOnDeactivation(HideOnDeactivationSetting.IsOn));

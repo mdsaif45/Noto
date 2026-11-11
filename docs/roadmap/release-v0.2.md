@@ -229,6 +229,16 @@ A `#rrggbb` code in a note shows a small swatch beside it. The text is unchanged
 
 v0.1 has manual backup and restore. v0.2 adds scheduled backups and keeps a bounded number of them.
 
+**Built (#15):**
+- Once a day, into the data root's `backups`, as ordinary Noto backups (ADR-020): the same online snapshot, written whole or not at all, restored like any other.
+- The seven newest automatic backups are kept (`AutomaticBackups.Keep`).
+- Only Noto's own `auto-yyyy-MM-dd HHmmss.notobackup` files are counted and pruned. The before-restore backup and any backup the user saved are never touched.
+- The time is in the name, so a copy or sync tool changing file times doesn't affect the schedule. A newest backup dated in the future (the clock moved back) makes one due.
+- The first check runs 30 s after a start, never on its path, then hourly. It is skipped while another backup, restore, export or import runs.
+- A failure is traced and tried again at the next check, and never interrupts.
+- Settings › Data: *Back up automatically*, on by default.
+- The old issue's Markdown export and manual `.db` backup scope shipped in v0.1 (ADR-020).
+
 ### F16. Crash-loop detection (#10)
 
 Noto notices that it is failing at every start, and stops the loop instead of crashing again.

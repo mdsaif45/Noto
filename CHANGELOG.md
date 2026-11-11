@@ -12,6 +12,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Automatic backups: once a day Noto backs itself up into the data folder's `backups`, keeping the last 7. Turn it off
+  in Settings › Data › *Back up automatically*. A backup you saved yourself, or the one taken before a restore, is
+  never removed (#15).
+
 - A `#rrggbb` colour code in a note shows a small swatch of its colour beside it on the card. The text is unchanged,
   and screen readers read only the code (#155).
 

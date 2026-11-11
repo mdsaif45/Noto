@@ -385,6 +385,25 @@
                                     AutomationProperties.Name="Back up everything to a file" />
                             </Grid>
 
+                            <!-- F15 (#15): a backup a day, the last seven kept, into the data folder's backups. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Back up automatically" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Once a day, into the data folder's backups. The last 7 are kept." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="AutomaticBackupSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnAutomaticBackupToggled"
+                                    AutomationProperties.Name="Back up automatically"
+                                    AutomationProperties.HelpText="Once a day, into the data folder's backups. The last 7 are kept." />
+                            </Grid>
+
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
