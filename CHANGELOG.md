@@ -12,6 +12,11 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A font and a text size for notes, in Settings › Appearance: Default (Segoe UI Variable), Segoe UI, Calibri, Cambria,
+  Georgia, Verdana or Consolas, from 10 to 24. Ctrl+= and Ctrl+- make the text larger and smaller from anywhere in
+  Noto, the editor included; headings stay a step above it. A font Windows no longer has falls back to the default
+  (#154).
+
 - Note colours: Yellow, Green, Blue, Purple, Pink and Grey, from the card's menu (*Colour*), the Colour button on the
   card being edited, or Ctrl+1 to Ctrl+6; Ctrl+0 clears it. A coloured card is tinted and marked along its edge, and
   its colour is named for screen readers; High Contrast leaves cards untinted (#150).

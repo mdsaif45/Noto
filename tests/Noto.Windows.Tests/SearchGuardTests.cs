@@ -35,7 +35,7 @@ public sealed class SearchGuardTests
     {
         Assert.Matches(@"new KeyboardAccelerator \{ Key = VirtualKey\.F, Modifiers = VirtualKeyModifiers\.Control \};\s*openSearch\.Invoked \+= OnSearchAccelerator;\s*WorkspaceRoot\.KeyboardAccelerators\.Add\(openSearch\);", Main);
         Assert.Matches(@"args\.Handled = true;\s*OpenSearch\(\);", Body(Main, "OnSearchAccelerator"));
-        Assert.Contains("args.Key is (VirtualKey)0xBC or VirtualKey.F && args.Modifiers == VirtualKeyModifiers.Control", Code(Path.Join(Windows, "NoteEditorHost.xaml.cs")), StringComparison.Ordinal);
+        Assert.Contains("modifiers == VirtualKeyModifiers.Control && key is (VirtualKey)0xBC or VirtualKey.F or", Code(Path.Join(Windows, "NoteEditorHost.xaml.cs")), StringComparison.Ordinal);
     }
 
     [Fact]

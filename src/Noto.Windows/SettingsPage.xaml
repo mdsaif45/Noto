@@ -212,6 +212,63 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- F13 (#154): the note text's family and size (D47, D48, J12, J13). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Font" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="For notes, as you read and write them." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="NoteFontSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnNoteFontChanged"
+                                    AutomationProperties.Name="Font"
+                                    AutomationProperties.HelpText="For notes, as you read and write them.">
+                                    <ComboBoxItem Content="Default" Tag="" />
+                                    <ComboBoxItem Content="Segoe UI" Tag="Segoe UI" />
+                                    <ComboBoxItem Content="Calibri" Tag="Calibri" />
+                                    <ComboBoxItem Content="Cambria" Tag="Cambria" />
+                                    <ComboBoxItem Content="Georgia" Tag="Georgia" />
+                                    <ComboBoxItem Content="Verdana" Tag="Verdana" />
+                                    <ComboBoxItem Content="Consolas" Tag="Consolas" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Text size" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Ctrl+= and Ctrl+- change it from anywhere in Noto." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="NoteSizeSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnNoteSizeChanged"
+                                    AutomationProperties.Name="Text size"
+                                    AutomationProperties.HelpText="Ctrl+= and Ctrl+- change it from anywhere in Noto.">
+                                    <ComboBoxItem Content="10" Tag="10" />
+                                    <ComboBoxItem Content="11" Tag="11" />
+                                    <ComboBoxItem Content="12" Tag="12" />
+                                    <ComboBoxItem Content="13" Tag="13" />
+                                    <ComboBoxItem Content="14" Tag="14" />
+                                    <ComboBoxItem Content="15" Tag="15" />
+                                    <ComboBoxItem Content="16" Tag="16" />
+                                    <ComboBoxItem Content="18" Tag="18" />
+                                    <ComboBoxItem Content="20" Tag="20" />
+                                    <ComboBoxItem Content="22" Tag="22" />
+                                    <ComboBoxItem Content="24" Tag="24" />
+                                </ComboBox>
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

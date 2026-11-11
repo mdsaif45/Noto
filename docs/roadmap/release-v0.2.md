@@ -209,6 +209,12 @@ The engine already stores `IsFolded`.
 - Shortcuts to increase and decrease the size.
 - A missing font falls back without breaking the layout.
 
+**Built (#154):**
+- Two settings, `appearance.note-font` and `appearance.note-size`. Their allowed values are in Core (`NoteText`): the design system's family (stored as empty) plus Segoe UI, Calibri, Cambria, Georgia, Verdana and Consolas; and sizes 10–16, 18, 20, 22 and 24, default 14.
+- A closed list of families Windows ships keeps the setting testable. Listing every installed font needs DirectWrite enumeration; it can come later if wanted.
+- The family and size are set on each card's container. The read view and the editor inherit them, and scale headings by the design system's ratios (20, 17 and 15 over 14).
+- A chosen family is always followed by the design system's (`"Georgia, Segoe UI Variable Text, Segoe UI"`), so a family no longer installed falls back (D51).
+- Ctrl+=, Ctrl++ and keypad + go up; Ctrl+- and keypad - go down. They work from every surface, the editor included (it hands them on, as it does Ctrl+,), and the new size is announced.
 ### F14. Colour chips for `#rrggbb` (#155)
 
 A `#rrggbb` code in a note shows a small swatch beside it. The text is unchanged, and screen readers are not given the swatch as extra text.

@@ -97,12 +97,12 @@ public sealed partial class NoteEditorHost : UserControl
     {
         InitializeComponent();
 
-        // Ctrl+, opens Settings and Ctrl+F opens Search from the editor too. The edit control marks both handled in its
+        // Ctrl+, opens Settings, Ctrl+F opens Search and Ctrl+= / Ctrl+- size the note text from the editor too. The edit control marks both handled in its
         // own KeyDown, so no ancestor's accelerator ever sees them: its accelerator pass runs first, so the chord is
         // handed to the window root's accelerators from there.
         NoteEditor.ProcessKeyboardAccelerators += (_, args) =>
         {
-            if (args.Key is (VirtualKey)0xBC or VirtualKey.F && args.Modifiers == VirtualKeyModifiers.Control && XamlRoot?.Content is UIElement root)
+            if (HandedOn(args.Key, args.Modifiers) && XamlRoot?.Content is UIElement root)
             {
                 root.TryInvokeKeyboardAccelerator(args);
             }
@@ -148,6 +148,10 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.TextCompositionEnded += (_, _) => OnCompositionEnded();
         NoteEditor.PaletteChanged += (_, _) => RestyleAll();
         ActualThemeChanged += (_, _) => RestyleAll();
+
+        // The note text's family and size come from the card (F13, #154): restyled when they change.
+        _ = RegisterPropertyChangedCallback(FontSizeProperty, (_, _) => RestyleAll());
+        _ = RegisterPropertyChangedCallback(FontFamilyProperty, (_, _) => RestyleAll());
         NoteEditor.PreviewKeyDown += OnPreviewKeyDown;
         NoteEditor.SizeChanged += (_, _) => QueueTaskMarks();
         NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);
@@ -900,15 +904,30 @@ public sealed partial class NoteEditorHost : UserControl
         Link: ColorOf(NoteEditor.LinkBrush),
         CodeSurface: ColorOf(NoteEditor.CodeSurfaceBrush),
         Surface: ColorOf(NoteEditor.Background),
-        BodyFont: FirstFamily("FontFamilyBody"),
+        BodyFont: FontFamily.Source.Split(',')[0].Trim(),
         CodeFont: FirstFamily("FontFamilyCode"),
-        BodySize: (double)Application.Current.Resources["FontSizeBody"],
-        Heading1Size: (double)Application.Current.Resources["FontSizeHeading"],
-        Heading2Size: (double)Application.Current.Resources["FontSizeHeading2"],
-        Heading3Size: (double)Application.Current.Resources["FontSizeHeading3"],
+        BodySize: FontSize,
+        Heading1Size: Scaled("FontSizeHeading"),
+        Heading2Size: Scaled("FontSizeHeading2"),
+        Heading3Size: Scaled("FontSizeHeading3"),
         ShowMarkup: _showMarkup);
 
     private static Windows.UI.Color ColorOf(Brush? brush) => brush is SolidColorBrush solid ? solid.Color : Colors.Transparent;
+
+    /// <summary>
+    /// A heading step at this host's size (F13, #154): the design system's heading over its body size, so a larger note
+    /// text keeps its headings a step above it.
+    /// </summary>
+    private double Scaled(string heading) =>
+        Math.Round(FontSize * (double)Application.Current.Resources[heading] / (double)Application.Current.Resources["FontSizeBody"]);
+
+    /// <summary>
+    /// The window's chords the edit control would keep: Ctrl+, (Settings), Ctrl+F (Search), and the text size's Ctrl+=,
+    /// Ctrl++ (Ctrl+Shift+=) and Ctrl+-, on the number row or the keypad (F13, G41, G42).
+    /// </summary>
+    private static bool HandedOn(VirtualKey key, VirtualKeyModifiers modifiers) =>
+        (modifiers == VirtualKeyModifiers.Control && key is (VirtualKey)0xBC or VirtualKey.F or (VirtualKey)0xBB or (VirtualKey)0xBD or VirtualKey.Add or VirtualKey.Subtract)
+        || (modifiers == (VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift) && key == (VirtualKey)0xBB);
 
     /// <summary>RTF and TOM name one font: the family list's first.</summary>
     private static string FirstFamily(string key) => ((FontFamily)Application.Current.Resources[key]).Source.Split(',')[0].Trim();

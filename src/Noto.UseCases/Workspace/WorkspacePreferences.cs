@@ -60,6 +60,12 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The workspace's theme (parity J21).</summary>
     public WorkspaceTheme Theme => _settings.Read(SettingKeys.AppearanceTheme);
 
+    /// <summary>The family notes are shown in: empty for the design system's own (F13, D47).</summary>
+    public string NoteFont => _settings.Read(SettingKeys.AppearanceNoteFont);
+
+    /// <summary>The size notes are shown in, in DIPs (F13, D48).</summary>
+    public double NoteSize => _settings.Read(SettingKeys.AppearanceNoteSize);
+
     /// <summary>Where a new note goes in its folder (parity B5, J8). Read only until its settings row exists.</summary>
     public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
 
@@ -88,6 +94,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the workspace's theme.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTheme(WorkspaceTheme theme) => TryWrite(SettingKeys.AppearanceTheme, theme);
+
+    /// <summary>Sets the family notes are shown in.</summary>
+    /// <returns>Whether it was kept: a family outside <see cref="NoteText.Fonts"/> is refused.</returns>
+    public bool SetNoteFont(string font) => TryWrite(SettingKeys.AppearanceNoteFont, font);
+
+    /// <summary>Sets the size notes are shown in.</summary>
+    /// <returns>Whether it was kept: a size outside <see cref="NoteText.Sizes"/> is refused.</returns>
+    public bool SetNoteSize(double size) => TryWrite(SettingKeys.AppearanceNoteSize, size);
 
     /// <summary>
     /// Stores the show/hide chord (parity G50). Only the rebind calls this, and only once the chord is registered: the
