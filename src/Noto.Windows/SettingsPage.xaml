@@ -269,6 +269,24 @@
                                 </ComboBox>
                             </Grid>
 
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Formatting toolbar" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Above selected text in a note. The keys and the Format menu work either way." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="FormatToolbarSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnFormatToolbarToggled"
+                                    AutomationProperties.Name="Formatting toolbar"
+                                    AutomationProperties.HelpText="Above selected text in a note. The keys and the Format menu work either way." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

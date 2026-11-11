@@ -30,6 +30,9 @@
     18  switching to the next note: Noto's own first-frame trace
     19  in the 100 KB note, Ctrl+End and Ctrl+Home: from the key to the caret being there
     20  a key typed and Escape in the same input batch: the leave's save holds the key
+    21  F8 (#151), in Dark: a selection shows the formatting toolbar, focus staying in the text; its Highlight writes
+        ::text:: and the editor draws the highlight's colour; a caret hides it; the card draws the highlight too; with
+        the toolbar turned off in Settings, a selection shows none
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -87,6 +90,7 @@ function Sql($Data, [string] $Text, [hashtable] $Parameters = @{}, [switch] $Sca
     finally { $c.Close(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
 }
 function Stored([string] $Id) { [string](Sql $script:data 'SELECT Content FROM Notes WHERE Id = $n' @{ '$n' = $Id } -Scalar) }
+function Stored-Setting([string] $Key) { [string](Sql $script:data 'SELECT Value FROM Settings WHERE Key = $k' @{ '$k' = $Key } -Scalar) }
 function By-Id([string] $Id) { $AE::FromHandle($script:noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) }
 function Find-ById([string] $Id, [int] $Seconds = 10) {
     $deadline = (Get-Date).AddSeconds($Seconds)
@@ -188,6 +192,23 @@ function Shot([string] $Name) {
     $bmp.Save((Join-Path $run.Root "$Name.png"), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
     "$Name.png"
 }
+function Visible-Id([string] $Id) { $e = By-Id $Id; [bool]($e -and -not $e.Current.IsOffscreen) }
+function Mark-Pixels($Element, [System.Drawing.Color] $Want, [int] $Tolerance = 24) {
+    <# How many pixels of $Element's box, captured from the window, are the highlight's colour. #>
+    $w = New-Object NotoVal.Capture+RECT; [void][NotoVal.Capture]::GetWindowRect($script:noto.Hwnd, [ref]$w)
+    $bmp = [System.Drawing.Bitmap]::new([Math]::Max(1, $w.R - $w.L), [Math]::Max(1, $w.B - $w.T))
+    $g = [System.Drawing.Graphics]::FromImage($bmp); $dc = $g.GetHdc()
+    try { [void][NotoVal.Capture]::PrintWindow($script:noto.Hwnd, $dc, 2) } finally { $g.ReleaseHdc($dc); $g.Dispose() }
+    $r = $Element.Current.BoundingRectangle; $n = 0
+    for ($y = [int]$r.Top - $w.T; $y -lt [int]$r.Bottom - $w.T; $y += 2) {
+        for ($x = [int]$r.Left - $w.L; $x -lt [int]$r.Right - $w.L; $x += 2) {
+            if ($x -lt 0 -or $y -lt 0 -or $x -ge $bmp.Width -or $y -ge $bmp.Height) { continue }
+            $p = $bmp.GetPixel($x, $y)
+            if ([Math]::Abs($p.R - $Want.R) -le $Tolerance -and [Math]::Abs($p.G - $Want.G) -le $Tolerance -and [Math]::Abs($p.B - $Want.B) -le $Tolerance) { $n++ }
+        }
+    }
+    $bmp.Dispose(); $n
+}
 function Traces([string] $Pattern) { @($script:log.Lines($script:noto.Pid) | Where-Object { $_ -match $Pattern }) }
 function Ms([string] $Line) { if ($Line -match 'ms=([0-9.]+)') { [double]$Matches[1] } else { $null } }
 function Start-Fresh([string] $Theme) {
@@ -270,7 +291,7 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     Type-Text 'call the dentist'
     (Find-ById 'CardFormatButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
     $items = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::MenuItem)) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid } | ForEach-Object { $_.Current.Name })
-    $expected = 'Bold', 'Italic', 'Underline', 'Strikethrough', 'Code', 'Link', 'Heading', 'Bulleted list', 'Numbered list', 'Checklist', 'Check or uncheck', 'Code block', 'Show or hide markup'
+    $expected = 'Bold', 'Italic', 'Underline', 'Highlight', 'Strikethrough', 'Code', 'Link', 'Heading', 'Bulleted list', 'Numbered list', 'Checklist', 'Check or uncheck', 'Code block', 'Show or hide markup'
     $checklist = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Checklist')) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid })[0]
     $checklist.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
     Add-Result $run '8  one Format menu with every command; Checklist makes the line a task; focus back in the editor' ((@($expected | Where-Object { $items -notcontains $_ }).Count -eq 0) -and (Editor-Value).EndsWith('- [ ] call the dentist') -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "items=$($items -join '|') tail='$((Editor-Value).Substring([Math]::Max(0, (Editor-Value).Length - 25)))' focus=$($AE::FocusedElement.Current.AutomationId)"
@@ -370,6 +391,32 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     $kept = Stored $Groceries
     Add-Result $run '20 a key typed and Escape at once: the save on leaving holds the key' ($kept.EndsWith('z')) "stored tail='$(($kept.Substring([Math]::Max(0, $kept.Length - 25))) -replace "`n", '
 ')'"
+
+    # 21 - F8 (#151): the formatting toolbar and the highlight, in Dark
+    $mark = [System.Drawing.Color]::FromArgb(0x5A, 0x4B, 0x00)
+    Edit-Card 'A plain note with no markup at all.'
+    $before = Mark-Pixels (Editor) $mark
+    (Range-Of 'no markup').Select(); Start-Sleep -Milliseconds 600
+    $shown = Visible-Id 'ToolbarHighlight'; $kept = $AE::FocusedElement.Current.AutomationId
+    (Find-ById 'ToolbarHighlight').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    $value = Editor-Value; $focus = $AE::FocusedElement.Current.AutomationId
+    $shot = Shot 'toolbar-dark'
+    Send-ToNoto @() 0x23 500   # End: a caret, the highlight no longer under the selection
+    $hidden = -not (Visible-Id 'ToolbarHighlight'); $after = Mark-Pixels (Editor) $mark
+    Add-Result $run '21 a selection shows the toolbar, focus kept; Highlight writes ::text:: and draws it; a caret hides the toolbar' ($shown -and $kept -eq 'NoteEditor' -and $value -eq 'A plain note with ::no markup:: at all.' -and $before -eq 0 -and $after -gt 20 -and $focus -eq 'NoteEditor' -and $hidden) "shown=$shown focus=$kept/$focus value='$value' mark px=$before->$after hidden=$hidden $shot"
+    Send-ToNoto @() 0x1B 900
+    $card = Card 'A plain note with ::no markup:: at all.'
+    $drawn = if ($card) { Mark-Pixels $card $mark } else { -1 }
+    Send-ToNoto @(0x11) 0xBC 1200   # Ctrl+, : Settings
+    (Find-ById 'FormatToolbarSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 500
+    $stored = Stored-Setting 'editor.format-toolbar'
+    Send-ToNoto @() 0x1B 1200
+    Edit-Card 'A plain note with ::no markup:: at all.'
+    (Range-Of 'plain').Select(); Start-Sleep -Milliseconds 600
+    $none = -not (Visible-Id 'ToolbarHighlight')
+    Add-Result $run '21 the card draws the highlight; turned off in Settings (stored), a selection shows no toolbar' ($drawn -gt 20 -and $stored -eq 'false' -and $none) "card mark px=$drawn stored=$stored no toolbar=$none"
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
 
     # 13 - cost on realistic notes
     # The long notes follow the three short ones; Ctrl+Alt+Down (G12) edits the next card, scrolling it into view, so

@@ -47,7 +47,7 @@ internal static class InlineParser
             {
                 i = CloseBracket(source, i, end, brackets, delimiters, spans);
             }
-            else if (c is '*' or '_' or '~' or '=')
+            else if (c is '*' or '_' or '~' or '=' or ':')
             {
                 i = DelimiterRun(source, start, i, end, delimiters);
             }
@@ -276,15 +276,16 @@ internal static class InlineParser
     }
 
     /// <summary>
-    /// Registers a run of * _ ~ = that can open or close (CommonMark's flanking rules). ~ and = count only as runs of
-    /// exactly two; any other run of them is text.
+    /// Registers a run of * _ ~ = : that can open or close (CommonMark's flanking rules). ~ = and : count only as runs
+    /// of exactly two; any other run of them is text. : never opens or closes inside a word, as _ never does, so
+    /// <c>std::vector</c> and <c>fe80::1</c> stay text (F8, #151).
     /// </summary>
     private static int DelimiterRun(string source, int start, int at, int end, List<Delimiter> delimiters)
     {
         char mark = source[at];
         int length = BlockParser.Run(source, at, end, mark);
 
-        if (mark is '~' or '=' && length != 2)
+        if (mark is '~' or '=' or ':' && length != 2)
         {
             return at + length;
         }
@@ -311,8 +312,8 @@ internal static class InlineParser
         bool left = !afterSpace && (!afterPunct || beforeSpace || beforePunct);
         bool right = !beforeSpace && (!beforePunct || afterSpace || afterPunct);
 
-        bool canOpen = mark == '_' ? left && (!right || beforePunct) : left;
-        bool canClose = mark == '_' ? right && (!left || afterPunct) : right;
+        bool canOpen = mark is '_' or ':' ? left && (!right || beforePunct) : left;
+        bool canClose = mark is '_' or ':' ? right && (!left || afterPunct) : right;
 
         if (canOpen || canClose)
         {
@@ -371,7 +372,7 @@ internal static class InlineParser
             }
 
             Delimiter matched = delimiters[o];
-            int use = closer.Mark is '~' or '=' || (matched.Remaining >= 2 && closer.Remaining >= 2) ? 2 : 1;
+            int use = closer.Mark is '~' or '=' or ':' || (matched.Remaining >= 2 && closer.Remaining >= 2) ? 2 : 1;
             int open = matched.At + matched.Remaining - use;
 
             spans.Add(new MarkdownSpan(MarkdownSpanKind.Markup, open, use));
@@ -407,6 +408,7 @@ internal static class InlineParser
     {
         '~' => MarkdownSpanKind.Strikethrough,
         '=' => MarkdownSpanKind.Underline,
+        ':' => MarkdownSpanKind.Highlight,
         _ => use == 2 ? MarkdownSpanKind.Strong : MarkdownSpanKind.Emphasis,
     };
 

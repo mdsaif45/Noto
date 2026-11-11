@@ -66,6 +66,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The size notes are shown in, in DIPs (F13, D48).</summary>
     public double NoteSize => _settings.Read(SettingKeys.AppearanceNoteSize);
 
+    /// <summary>Whether the formatting toolbar shows above selected text (F8).</summary>
+    public bool FormatToolbar => _settings.Read(SettingKeys.EditorFormatToolbar);
+
     /// <summary>Whether Noto backs itself up once a day (F15).</summary>
     public bool AutomaticBackups => _settings.Read(SettingKeys.BackupAutomatic);
 
@@ -97,6 +100,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the workspace's theme.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTheme(WorkspaceTheme theme) => TryWrite(SettingKeys.AppearanceTheme, theme);
+
+    /// <summary>Sets whether the formatting toolbar shows above selected text.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetFormatToolbar(bool shown) => TryWrite(SettingKeys.EditorFormatToolbar, shown);
 
     /// <summary>Sets whether Noto backs itself up once a day.</summary>
     /// <returns>Whether it was kept.</returns>

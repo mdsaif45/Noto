@@ -39,6 +39,9 @@ public enum MarkdownSpanKind
     /// <summary>Text between <c>==</c> (Noto's and SideNotes' underline).</summary>
     Underline,
 
+    /// <summary>Text between <c>::</c> (SideNotes' highlight, F8, #151).</summary>
+    Highlight,
+
     /// <summary>A code span's text.</summary>
     Code,
 

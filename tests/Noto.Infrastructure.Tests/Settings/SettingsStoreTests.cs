@@ -611,7 +611,7 @@ public sealed class SettingsStoreTests : IDisposable
         // appear here by accident. The per-display width is a family
         // (SettingKeys.Families), not a key.
         Assert.Equal(
-            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme", "appearance.note-font", "appearance.note-size", "backup.automatic", "notes.new-placement", "notes.recent-move-folders", "onboarding.welcome", "diagnostics.log-level"],
+            ["activation.hotkey.enabled", "activation.hotkey.binding", "workspace.edge", "workspace.width", "workspace.escape", "workspace.hide-on-deactivation", "workspace.single-click-open", "appearance.theme", "appearance.note-font", "appearance.note-size", "editor.format-toolbar", "backup.automatic", "notes.new-placement", "notes.recent-move-folders", "onboarding.welcome", "diagnostics.log-level"],
             SettingKeys.All.Select(k => k.Name));
     }
 }

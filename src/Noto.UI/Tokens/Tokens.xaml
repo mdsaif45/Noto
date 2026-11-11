@@ -165,6 +165,9 @@
     <CornerRadius x:Key="RadiusPill">10</CornerRadius>
     <Thickness x:Key="PillPadding">8,2,8,2</Thickness>
 
+    <!-- The quick-formatting toolbar (F8, #151): a hairline of room around its buttons. -->
+    <Thickness x:Key="ToolbarPadding">2</Thickness>
+
     <!--
         BORDER WIDTHS — the focus ring is 2px because a 1px ring is easy to
         lose against a selected background, and "focus is mandatory" (ADR-011).

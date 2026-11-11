@@ -176,6 +176,12 @@ The engine already stores `IsFolded`.
 - **Highlight is a new mark.** Its Markdown form is decided in ADR-017 before it is built.
 - It never takes keyboard focus from the text, and it can be turned off.
 
+**Built (#151):**
+- **Highlight is `::text::`**, SideNotes' syntax, recorded in ADR-017's amendment (F8) and the Markdown model. `::` never opens or closes inside a word, so `std::vector` and `fe80::1` stay text. It is drawn from the theme (`MarkBrush`, `MarkTextBrush`) in the editor and on the card, and in the user's Highlight colours in High Contrast. Toggled by `MarkdownCommands.ToggleHighlight`, from the toolbar and the Format menu; no key yet.
+- **The toolbar**: bold, italic, highlight, strikethrough, underline, link, code and bulleted list, above the selection (below it when there is no room above). Each button runs the editor's own command, as its key and the Format menu do. Its buttons are not tab stops and take no focus on a click.
+- It shows once a selection is made (the pointer released, or the keys), and goes with a caret, a click, or the editor losing focus.
+- Settings › Appearance › *Formatting toolbar* turns it off (`editor.format-toolbar`, default on).
+
 ### F9. Drop files and pictures to import them (#152)
 
 **Today:**

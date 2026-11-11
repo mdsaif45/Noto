@@ -132,6 +132,7 @@ public sealed partial class SettingsPage : UserControl
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
+            FormatToolbarSetting.IsOn = preferences.FormatToolbar;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
@@ -219,6 +220,9 @@ public sealed partial class SettingsPage : UserControl
 
     /// <summary>The stored values shown again: a size changed by its shortcut while Settings is open (F13).</summary>
     internal void Refresh() => ShowStored();
+
+    private void OnFormatToolbarToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetFormatToolbar(FormatToolbarSetting.IsOn));
 
     private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetAutomaticBackups(AutomaticBackupSetting.IsOn));

@@ -34,8 +34,13 @@ internal sealed partial class MarkdownReadView : UserControl
     public static readonly DependencyProperty SourceProperty = Property(nameof(Source), typeof(string));
     public static readonly DependencyProperty MarkupBrushProperty = Property(nameof(MarkupBrush), typeof(Brush));
     public static readonly DependencyProperty LinkBrushProperty = Property(nameof(LinkBrush), typeof(Brush));
+    public static readonly DependencyProperty MarkBrushProperty = Property(nameof(MarkBrush), typeof(Brush));
+    public static readonly DependencyProperty MarkTextBrushProperty = Property(nameof(MarkTextBrush), typeof(Brush));
 
     private readonly RichTextBlock _view = new() { TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = false };
+
+    // The runs of this render inside a ::highlight:: (F8, #151), marked once they are laid in the view.
+    private readonly List<Run> _marked = [];
 
     public MarkdownReadView()
     {
@@ -85,6 +90,20 @@ internal sealed partial class MarkdownReadView : UserControl
         set => SetValue(LinkBrushProperty, value);
     }
 
+    /// <summary>Behind a highlight (F8, #151).</summary>
+    public Brush? MarkBrush
+    {
+        get => (Brush?)GetValue(MarkBrushProperty);
+        set => SetValue(MarkBrushProperty, value);
+    }
+
+    /// <summary>A highlight's text (F8, #151).</summary>
+    public Brush? MarkTextBrush
+    {
+        get => (Brush?)GetValue(MarkTextBrushProperty);
+        set => SetValue(MarkTextBrushProperty, value);
+    }
+
     private static DependencyProperty Property(string name, Type type) =>
         DependencyProperty.Register(name, type, typeof(MarkdownReadView), new PropertyMetadata(null, (d, _) => ((MarkdownReadView)d).Render()));
 
@@ -92,6 +111,8 @@ internal sealed partial class MarkdownReadView : UserControl
     {
         RichTextBlock view = _view;
         view.Blocks.Clear();
+        view.TextHighlighters.Clear();
+        _marked.Clear();
         string source = Source ?? string.Empty;
 
         if (source.Length > RenderedLimit)
@@ -135,6 +156,19 @@ internal sealed partial class MarkdownReadView : UserControl
             }
 
             view.Blocks.Add(paragraph);
+        }
+
+        // A highlight is drawn behind its text by a highlighter, a Run having no background of its own. Its ranges are
+        // the runs' positions in the view, known once they are in it.
+        if (_marked.Count > 0)
+        {
+            var highlighter = new TextHighlighter { Background = MarkBrush, Foreground = MarkTextBrush };
+            foreach (Run run in _marked)
+            {
+                highlighter.Ranges.Add(new TextRange { StartIndex = run.ContentStart.Offset, Length = run.ContentEnd.Offset - run.ContentStart.Offset });
+            }
+
+            view.TextHighlighters.Add(highlighter);
         }
     }
 
@@ -257,6 +291,9 @@ internal sealed partial class MarkdownReadView : UserControl
                         break;
                     case MarkdownSpanKind.Underline:
                         run.TextDecorations |= TextDecorations.Underline;
+                        break;
+                    case MarkdownSpanKind.Highlight:
+                        _marked.Add(run);
                         break;
                     case MarkdownSpanKind.Code or MarkdownSpanKind.CodeBlock:
                         run.FontFamily = code;

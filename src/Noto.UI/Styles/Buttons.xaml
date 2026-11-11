@@ -159,6 +159,18 @@
     </Style>
 
     <!--
+        The quick-formatting toolbar (F8, #151): the header's icon buttons on an input's surface, edged as a field is,
+        floating above the selected text.
+    -->
+    <Style x:Key="FormatToolbarStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource SurfaceInputBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource BorderThicknessSubtle}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSmall}" />
+        <Setter Property="Padding" Value="{StaticResource ToolbarPadding}" />
+    </Style>
+
+    <!--
         The header's icon toggle: a 16px glyph in a 32px square, subtle at
         rest, and the selected fill while it is on, so "Keep Noto open" reads
         as on without relying on the glyph. The glyph inherits the state's

@@ -207,14 +207,14 @@ public sealed class MarkdownBlockTests
     [Fact]
     public void Deferred_constructs_read_as_text()
     {
-        // Setext underline, table row, HTML, entity, ::mark::, #rrggbb, autolink, reference link, link title.
+        // Setext underline, table row, HTML, entity, #rrggbb, autolink, reference link, link title. ::mark:: is built
+        // (F8, #151).
         string[] sources =
         [
             "Title\n===",
             "| a | b |",
             "<b>html</b>",
             "&amp;",
-            "::marked::",
             "#ff8800",
             "<https://example.com>",
             "[ref][1]",
