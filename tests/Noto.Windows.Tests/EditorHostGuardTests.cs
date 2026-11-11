@@ -167,7 +167,7 @@ public sealed class EditorHostGuardTests
             .Where(i => (string?)i.Attribute("Click") == "OnFormatClick")
             .Select(i => (string?)i.Attribute("Tag"))
             .ToList();
-        Assert.Equal(["Bold", "Italic", "Underline", "Highlight", "Strikethrough", "Code", "Link", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "CodeBlock", "ShowMarkup"], items);
+        Assert.Equal(["Bold", "Italic", "Underline", "Highlight", "Strikethrough", "Code", "Link", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "ClearCheckedTasks", "CodeBlock", "ShowMarkup"], items);
     }
 
     [Fact]

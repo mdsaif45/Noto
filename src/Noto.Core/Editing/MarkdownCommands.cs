@@ -156,6 +156,73 @@ public static class MarkdownCommands
         return new TextEdit(first, last - first, new string(result, first, last - first), selection);
     }
 
+    /// <summary>
+    /// Removes every checked task in the note, each with its line break (F19, #158; parity D22, G34): one edit, so one
+    /// undo step. Unchecked tasks, a task in a code block and every other line stay as they are. The caret keeps its
+    /// place in the text that stays; inside a removed task, it goes to where that line was.
+    /// </summary>
+    /// <returns>The edit, or <see langword="null"/> when no task is checked.</returns>
+    public static TextEdit? ClearCheckedTasks(string text, TextSelection selection)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var done = MarkdownDocument.Parse(text).Blocks.Where(b => b.Kind == MarkdownBlockKind.TaskItem && b.IsChecked).ToList();
+
+        if (done.Count == 0)
+        {
+            return null;
+        }
+
+        // Each removed range is the task's line and the break after it; the last line of the note takes the break
+        // before it instead, so no empty line is left at the end.
+        // Ranges that touch are merged, so each character is removed, and counted, once.
+        var removed = new List<(int Start, int End)>();
+        foreach (MarkdownBlock task in done)
+        {
+            (int start, int end) = task.End < text.Length ? (task.Start, task.End + 1) : (Math.Max(0, task.Start - 1), task.End);
+            if (removed.Count > 0 && start <= removed[^1].End)
+            {
+                removed[^1] = (removed[^1].Start, Math.Max(end, removed[^1].End));
+            }
+            else
+            {
+                removed.Add((start, end));
+            }
+        }
+
+        int first = removed[0].Start;
+        int last = removed[^1].End;
+
+        var kept = new StringBuilder();
+        int at = first;
+        foreach ((int start, int end) in removed)
+        {
+            kept.Append(text, at, start - at);
+            at = end;
+        }
+
+        kept.Append(text, at, last - at);
+
+        int Mapped(int offset)
+        {
+            int shift = 0;
+            foreach ((int start, int end) in removed)
+            {
+                if (offset >= end)
+                {
+                    shift += end - start;
+                }
+                else if (offset > start)
+                {
+                    shift += offset - start;
+                }
+            }
+
+            return offset - shift;
+        }
+
+        return new TextEdit(first, last - first, kept.ToString(), new TextSelection(Mapped(selection.Anchor), Mapped(selection.Active)));
+    }
+
     /// <summary>Puts the lines between ``` fences.</summary>
     public static TextEdit? WrapInCodeBlock(string text, TextSelection selection)
     {

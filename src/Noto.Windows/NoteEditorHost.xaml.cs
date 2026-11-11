@@ -54,6 +54,7 @@ internal enum EditorCommand
     Numbers,
     Tasks,
     TaskDone,
+    ClearCheckedTasks,
     CodeBlock,
     Undo,
     Redo,
@@ -299,6 +300,7 @@ public sealed partial class NoteEditorHost : UserControl
             EditorCommand.Numbers => MarkdownCommands.ToggleNumbers,
             EditorCommand.Tasks => MarkdownCommands.ToggleTasks,
             EditorCommand.TaskDone => MarkdownCommands.ToggleTaskDone,
+            EditorCommand.ClearCheckedTasks => MarkdownCommands.ClearCheckedTasks,
             EditorCommand.CodeBlock => MarkdownCommands.WrapInCodeBlock,
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
@@ -893,6 +895,7 @@ public sealed partial class NoteEditorHost : UserControl
         (VirtualKey.L, false) => EditorCommand.Bullets,
         (VirtualKey.L, true) => EditorCommand.Numbers,
         (VirtualKey.T, false) => EditorCommand.Tasks,
+        (VirtualKey.T, true) => EditorCommand.ClearCheckedTasks,
         ((VirtualKey)0xBE, false) => EditorCommand.TaskDone,
         (VirtualKey.R, true) => EditorCommand.ShowMarkup,
         _ => null,

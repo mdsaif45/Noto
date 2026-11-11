@@ -12,6 +12,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Clear checked tasks: Ctrl+Shift+T in a note, or *Clear checked tasks* in its Format menu, removes every checked task
+  and keeps everything else. Ctrl+Z brings them all back in one step (#158).
+
 - A new note from the clipboard: the tray icon's menu has *New note from clipboard*, and Settings › Shortcuts can turn
   on a shortcut for it (Ctrl+Shift+Win+V, off by default). Copied text, a page's formatting as Markdown, or a picture
   becomes a new note, pasted exactly as Ctrl+V pastes (#157).

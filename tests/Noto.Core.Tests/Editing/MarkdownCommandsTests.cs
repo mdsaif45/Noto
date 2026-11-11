@@ -215,7 +215,7 @@ public sealed class MarkdownCommandsTests
             MarkdownCommands.ToggleStrong, MarkdownCommands.ToggleEmphasis, MarkdownCommands.ToggleStrikethrough,
             MarkdownCommands.ToggleUnderline, MarkdownCommands.ToggleHighlight, MarkdownCommands.ToggleCode, MarkdownCommands.CycleHeading,
             MarkdownCommands.ToggleBullets, MarkdownCommands.ToggleNumbers, MarkdownCommands.ToggleTasks,
-            MarkdownCommands.ToggleTaskDone, MarkdownCommands.WrapInCodeBlock, MarkdownCommands.InsertLink, MarkdownCommands.ContinueList,
+            MarkdownCommands.ToggleTaskDone, MarkdownCommands.ClearCheckedTasks, MarkdownCommands.WrapInCodeBlock, MarkdownCommands.InsertLink, MarkdownCommands.ContinueList,
             MarkdownCommands.IndentListItems, MarkdownCommands.OutdentListItems, MarkdownCommands.MoveLinesUp, MarkdownCommands.MoveLinesDown,
         ];
 
