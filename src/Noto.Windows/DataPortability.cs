@@ -157,6 +157,10 @@ internal sealed class DataPortability(
     public Task<ImportReport> Import(string folder, IProgress<PortabilityProgress>? progress, CancellationToken cancellation) =>
         Run(() => MarkdownImporter.Import(database, images, folder, TimeProvider.System, progress, cancellation));
 
+    /// <summary>Imports files dropped on <paramref name="folder"/> (F9, #152): each a new note, first in it.</summary>
+    public Task<FilesImport> ImportFiles(IReadOnlyList<string> files, Noto.Core.Folders.FolderId folder) =>
+        Run(() => MarkdownImporter.ImportFiles(database, images, files, folder, TimeProvider.System));
+
     /// <summary>Asks where to save a backup; <see langword="null"/> when the user cancels.</summary>
     public async Task<string?> PickBackupDestination()
     {

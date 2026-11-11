@@ -133,6 +133,9 @@ public sealed partial class MainWindow : Window
         FolderList.ContainerContentChanging += OnRowContainerContentChanging;
         NoteList.ContainerContentChanging += OnRowContainerContentChanging;
 
+        // Files dropped on a folder or the stack are imported (F9, #152).
+        AttachDropTargets();
+
         AppWindow.Closing += OnAppWindowClosing;
 
         _autosave = DispatcherQueue.CreateTimer();
@@ -735,6 +738,7 @@ public sealed partial class MainWindow : Window
         // or a name would not survive that. Names are not unique (Case G).
         _openFolderId = FolderId.From(item.Id);
         _stack.Open(_openFolderId.Value);
+        ForgetUndo();
 
         // A folder is entered fresh: no card is selected or edited.
         _selectedNoteId = null;
@@ -774,6 +778,7 @@ public sealed partial class MainWindow : Window
 
         string? folderId = _openFolderId?.Value;
 
+        ForgetUndo();
         _openFolderId = null;
         _selectedNoteId = null;
         _stack.Close();

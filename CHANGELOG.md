@@ -12,6 +12,11 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Drop files on a folder, or on its notes, to import them: each Markdown or text file becomes a new note, and each
+  picture a new note holding it, first in that folder. A drop says what it imported in one line, with an **Undo** that
+  moves those notes to the Recycle Bin. The files are copied, never moved or changed. A file dropped on the note being
+  edited is still added to that note (#152).
+
 - A folded note says how much it hides: its card shows "+ N lines" under the title, and clicking it unfolds the note.
   The card being edited has a Fold button; Ctrl+Alt+Left and Ctrl+Alt+Right still fold and unfold. Screen readers
   hear "Folded, N lines hidden" (#149).
