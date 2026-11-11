@@ -16,6 +16,8 @@ internal sealed partial class EditorBox : RichEditBox
     public static readonly DependencyProperty MarkupBrushProperty = Brush(nameof(MarkupBrush));
     public static readonly DependencyProperty LinkBrushProperty = Brush(nameof(LinkBrush));
     public static readonly DependencyProperty CodeSurfaceBrushProperty = Brush(nameof(CodeSurfaceBrush));
+    public static readonly DependencyProperty MarkBrushProperty = Brush(nameof(MarkBrush));
+    public static readonly DependencyProperty MarkTextBrushProperty = Brush(nameof(MarkTextBrush));
 
     /// <summary>Markup when it is shown (Ctrl+Shift+R), list markers, task boxes, quotes, separators.</summary>
     public Brush? MarkupBrush
@@ -36,6 +38,20 @@ internal sealed partial class EditorBox : RichEditBox
     {
         get => (Brush?)GetValue(CodeSurfaceBrushProperty);
         set => SetValue(CodeSurfaceBrushProperty, value);
+    }
+
+    /// <summary>Behind a highlight (F8, #151).</summary>
+    public Brush? MarkBrush
+    {
+        get => (Brush?)GetValue(MarkBrushProperty);
+        set => SetValue(MarkBrushProperty, value);
+    }
+
+    /// <summary>A highlight's text (F8, #151).</summary>
+    public Brush? MarkTextBrush
+    {
+        get => (Brush?)GetValue(MarkTextBrushProperty);
+        set => SetValue(MarkTextBrushProperty, value);
     }
 
     /// <summary>A brush changed, by a theme switch or high contrast: everything is restyled.</summary>

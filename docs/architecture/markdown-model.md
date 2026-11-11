@@ -73,6 +73,7 @@ Decided per line, in this order of precedence. "Indent ≤ 3" means at most thre
 | **Emphasis** | `*text*`, `_text_` | as Strong; `***x***` is both | `Markup`; `Emphasis` |
 | **Strikethrough** | `~~text~~` | exactly two tildes on each side; flanking rules as `*` | `Markup`; `Strikethrough` |
 | **Underline** | `==text==` | Noto's and SideNotes' syntax, not CommonMark (ADR-004). Exactly two `=`; flanking as `*` | `Markup`; `Underline` |
+| **Highlight** | `::text::` | SideNotes' syntax, not CommonMark (ADR-004, ADR-017 amendment F8). Exactly two `:`; flanking as `*`, but never inside a word, as `_` (`std::vector` is text) | `Markup`; `Highlight` |
 
 Nesting and overlap follow from the algorithm, deterministically:
 - `**a *b* c**` gives Strong over `a *b* c` and Emphasis over `b`.
@@ -98,7 +99,6 @@ Noto departs from CommonMark in three places, each deliberately:
 | Reference links, autolinks `<…>` | Deferred | text |
 | Bare URLs (`https://…`, `http://…`, `www.…`) | **Recognised** (ADR-019 §3, GFM's extended autolinks): a `Link` span with no markup, its own destination; trailing `?!.,:;*_~"'` and an unbalanced `)` stay outside; never inside code, a written link or markup | — |
 | Link titles `[t](u "title")` | Deferred | text (the space ends the destination) |
-| `::mark::` highlight | Deferred; not in the agreed v0.1 editor list | text |
 | `#rrggbb` colour swatches | P3.6 | text |
 | HTML, entities (`&amp;`) | Rejected (ADR-004: no HTML) | text |
 | Hard line breaks (two trailing spaces) | Deferred: Shift+Enter (D52) writes a plain break | text |
@@ -120,7 +120,7 @@ MarkdownBlock(Kind, Start, Length, Level, Indent, IsChecked, Spans)
 MarkdownSpan(Kind, Start, Length, Level)
 MarkdownBlockKind: Paragraph, Blank, Heading, Quote, BulletItem, OrderedItem, TaskItem, CodeFence, Separator
 MarkdownSpanKind:  Markup, Heading, Quote, ListMarker, TaskBox, TaskDone, CodeBlock, Separator,
-                   Strong, Emphasis, Strikethrough, Underline, Code, Link, LinkTarget
+                   Strong, Emphasis, Strikethrough, Underline, Highlight, Code, Link, LinkTarget
 ```
 
 - `Markup` is what the host hides, or dims with Show markup.

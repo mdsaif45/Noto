@@ -46,6 +46,13 @@ public sealed class MarkdownCommandsTests
         AssertCommand(MarkdownCommands.ToggleUnderline, before, after);
 
     [Theory]
+    [InlineData("[marked]", "::[marked]::")]
+    [InlineData("::[marked]::", "[marked]")]
+    [InlineData("say [it] now", "say ::[it]:: now")]
+    public void Highlight_wraps_or_unwraps(string before, string after) =>
+        AssertCommand(MarkdownCommands.ToggleHighlight, before, after);
+
+    [Theory]
     [InlineData("run [ls -la] now", "run `[ls -la]` now")]
     [InlineData("run `[ls]` now", "run [ls] now")]
     public void Code_wraps_or_unwraps(string before, string after) =>
@@ -206,7 +213,7 @@ public sealed class MarkdownCommandsTests
         Func<string, TextSelection, TextEdit?>[] commands =
         [
             MarkdownCommands.ToggleStrong, MarkdownCommands.ToggleEmphasis, MarkdownCommands.ToggleStrikethrough,
-            MarkdownCommands.ToggleUnderline, MarkdownCommands.ToggleCode, MarkdownCommands.CycleHeading,
+            MarkdownCommands.ToggleUnderline, MarkdownCommands.ToggleHighlight, MarkdownCommands.ToggleCode, MarkdownCommands.CycleHeading,
             MarkdownCommands.ToggleBullets, MarkdownCommands.ToggleNumbers, MarkdownCommands.ToggleTasks,
             MarkdownCommands.ToggleTaskDone, MarkdownCommands.WrapInCodeBlock, MarkdownCommands.InsertLink, MarkdownCommands.ContinueList,
             MarkdownCommands.IndentListItems, MarkdownCommands.OutdentListItems, MarkdownCommands.MoveLinesUp, MarkdownCommands.MoveLinesDown,

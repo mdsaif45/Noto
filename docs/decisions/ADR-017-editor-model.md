@@ -317,6 +317,21 @@ Measured on frozen Release builds with the release baseline (`Invoke-Baseline.ps
 
 So §4's "it grows with its text inside the card; the stack scrolls" changes to: **it grows with its text up to the stack's own height; a longer note scrolls inside its card while it is edited.** Short notes look and behave as before. The checkbox and picture overlays are placed from RichEdit's view as before and follow its scroll by one shift, clipped to the card. A caret placed by search or by entering a card is brought into view inside the card first, then the card into the stack's view. The decision was the owner's (2026-11-05), between this, a cap for large notes only, and keeping the design with a documented limit.
 
+## Amendment: highlight and the quick-formatting toolbar (2026-11-11, F8, #151)
+
+**Highlight's Markdown form is `::text::`**, SideNotes' own (parity D6, inventory S6). ADR-004 already lists it in SideNotes' subset, and the implementation plan's Q8 fixed it beside underline's `==text==`. It is not CommonMark, as `==` is not, so another Markdown tool shows the colons; the note's text stays exactly what was written.
+
+| Decision | Why |
+|---|---|
+| `::` counts only as a run of exactly two, flanking as `*`, and **never opens or closes inside a word**, as `_` never does | `std::vector`, `fe80::1` and `a::b` stay text. A run of one (`10:30`, `https://`) or three is text, as for `~` and `=` |
+| A highlight is a span of its own, `MarkdownSpanKind.Highlight`, toggled by `MarkdownCommands.ToggleHighlight` like every inline style | One parse decides what is highlighted; the editor, the card and the toolbar ask it |
+| Drawn from the theme (`MarkBrush`, `MarkTextBrush`): a highlighter's yellow with dark text in Light, a dark olive with white text in Dark (4.5:1 or better, `DesignSystemGuardTests`), the user's Highlight and HighlightText in High Contrast | In the editor it is RichEdit's background and text colour (code keeps its own surface, a link its colour); a card's `RichTextBlock` draws it with a `TextHighlighter`, a `Run` having no background |
+| **The toolbar** (`NoteEditorHost.Toolbar`): bold, italic, highlight, strikethrough, underline, link, code and bulleted list, in a popup above the selection's first line (below its last when there is no room above), inside the editor's width | Each button runs the same `EditorCommand` as its key and the Format menu, so there is no second formatting path, and the WinUI control is still not the model |
+| It never takes focus from the text: its buttons are not tab stops and take no focus on a click | Typing continues where it was; the keyboard path is the keys, which the menu teaches |
+| It shows when a selection is complete: on the pointer's release, or as the keys change it; a caret, a click in the text, the editor losing focus or leaving the card hides it | Following a drag as it is made would flicker under the pointer |
+| **Off in Settings** › Appearance › *Formatting toolbar* (`editor.format-toolbar`, default on) | SideNotes has it on; a user who formats with keys may not want it |
+| No key for highlight yet | No chord was planned for it (implementation plan §G); the Format menu and the toolbar offer it |
+
 ## Future reconsideration criteria
 
 Revisit if:

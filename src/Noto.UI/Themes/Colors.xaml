@@ -196,6 +196,12 @@
             <SolidColorBrush x:Key="SearchMatchBrush" Color="{StaticResource SearchMatchColor}" />
             <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{StaticResource SearchMatchTextColor}" />
 
+            <!-- A ::highlight:: (F8, #151): a highlighter's yellow behind the text, the text on it. -->
+            <Color x:Key="MarkColor">#FFF0A0</Color>
+            <Color x:Key="MarkTextColor">#1A1A1A</Color>
+            <SolidColorBrush x:Key="MarkBrush" Color="{StaticResource MarkColor}" />
+            <SolidColorBrush x:Key="MarkTextBrush" Color="{StaticResource MarkTextColor}" />
+
             <!--
                 The note palette (F7, #150; ADR-011): note1 to note6 are Yellow, Green, Blue, Purple, Pink and Grey.
                 A tint laid over the card, translucent so the card's hover and selected fills still show, and kept
@@ -354,6 +360,12 @@
             <SolidColorBrush x:Key="SearchMatchBrush" Color="{StaticResource SearchMatchColor}" />
             <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{StaticResource SearchMatchTextColor}" />
 
+            <!-- A ::highlight:: (F8, #151): a dark highlighter behind the text, the text on it. -->
+            <Color x:Key="MarkColor">#5A4B00</Color>
+            <Color x:Key="MarkTextColor">#FFFFFF</Color>
+            <SolidColorBrush x:Key="MarkBrush" Color="{StaticResource MarkColor}" />
+            <SolidColorBrush x:Key="MarkTextBrush" Color="{StaticResource MarkTextColor}" />
+
             <!--
                 The note palette (F7, #150; ADR-011). Dark tints are fainter than light ones: a brighter hue lifts the
                 card under the secondary text, which must keep 4.5:1 (DesignSystemGuardTests).
@@ -508,6 +520,12 @@
             <StaticResource x:Key="SearchMatchTextColor" ResourceKey="SystemColorHighlightTextColor" />
             <SolidColorBrush x:Key="SearchMatchBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="SearchMatchTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+
+            <!-- A ::highlight:: (F8, #151): marked as selected text is, in the user's own colours. -->
+            <StaticResource x:Key="MarkColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="MarkTextColor" ResourceKey="SystemColorHighlightTextColor" />
+            <SolidColorBrush x:Key="MarkBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="MarkTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
 
             <!--
                 The note palette in high contrast (F7, #150): the user's colours win, so a card is never tinted (the

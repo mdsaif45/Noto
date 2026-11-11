@@ -20,6 +20,8 @@ public static class MarkdownCommands
 
     public static TextEdit? ToggleUnderline(string text, TextSelection selection) => ToggleInline(text, selection, "==", MarkdownSpanKind.Underline);
 
+    public static TextEdit? ToggleHighlight(string text, TextSelection selection) => ToggleInline(text, selection, "::", MarkdownSpanKind.Highlight);
+
     public static TextEdit? ToggleCode(string text, TextSelection selection) => ToggleInline(text, selection, "`", MarkdownSpanKind.Code);
 
     /// <summary>

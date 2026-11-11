@@ -31,6 +31,8 @@
             MarkupBrush="{ThemeResource TextSecondaryBrush}"
             LinkBrush="{ThemeResource TextLinkBrush}"
             CodeSurfaceBrush="{ThemeResource SurfaceCodeBrush}"
+            MarkBrush="{ThemeResource MarkBrush}"
+            MarkTextBrush="{ThemeResource MarkTextBrush}"
             AllowDrop="True"
             AutomationProperties.Name="Note content" />
         <Canvas
@@ -41,6 +43,107 @@
                 <TranslateTransform x:Name="ImageMarksShift" />
             </Canvas.RenderTransform>
         </Canvas>
+        <!--
+            F8 (#151): the quick-formatting toolbar, above a selection. Its buttons never take focus from the text (not
+            tab stops, no focus on a click) and run the same commands as the keys and the Format menu. Off in Settings.
+        -->
+        <Popup x:Name="FormatBar" IsLightDismissEnabled="False">
+            <Border
+                x:Name="FormatToolbar"
+                Style="{StaticResource FormatToolbarStyle}"
+                AutomationProperties.Name="Formatting">
+                <StackPanel Orientation="Horizontal">
+                    <Button
+                        x:Name="ToolbarBold"
+                        Tag="Bold"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Bold (Ctrl+B)"
+                        AutomationProperties.Name="Bold">
+                        <FontIcon Glyph="&#xE8DD;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarItalic"
+                        Tag="Italic"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Italic (Ctrl+I)"
+                        AutomationProperties.Name="Italic">
+                        <FontIcon Glyph="&#xE8DB;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarHighlight"
+                        Tag="Highlight"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Highlight"
+                        AutomationProperties.Name="Highlight">
+                        <FontIcon Glyph="&#xE7E6;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarStrikethrough"
+                        Tag="Strikethrough"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Strikethrough (Ctrl+Shift+E)"
+                        AutomationProperties.Name="Strikethrough">
+                        <FontIcon Glyph="&#xEDE0;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarUnderline"
+                        Tag="Underline"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Underline (Ctrl+U)"
+                        AutomationProperties.Name="Underline">
+                        <FontIcon Glyph="&#xE8DC;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarLink"
+                        Tag="Link"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Link (Ctrl+K)"
+                        AutomationProperties.Name="Link">
+                        <FontIcon Glyph="&#xE71B;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarCode"
+                        Tag="Code"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Code (Ctrl+E)"
+                        AutomationProperties.Name="Code">
+                        <FontIcon Glyph="&#xE943;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                    <Button
+                        x:Name="ToolbarBullets"
+                        Tag="Bullets"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        Click="OnToolbarClick"
+                        ToolTipService.ToolTip="Bulleted list (Ctrl+L)"
+                        AutomationProperties.Name="Bulleted list">
+                        <FontIcon Glyph="&#xE8FD;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Popup>
         <Canvas
             x:Name="TaskMarks"
             IsHitTestVisible="False"

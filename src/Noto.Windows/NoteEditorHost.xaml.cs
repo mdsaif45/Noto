@@ -45,6 +45,7 @@ internal enum EditorCommand
     Bold,
     Italic,
     Underline,
+    Highlight,
     Strikethrough,
     Code,
     Link,
@@ -137,6 +138,7 @@ public sealed partial class NoteEditorHost : UserControl
             if (!_applying)
             {
                 _selection = CurrentSelection();
+                OnSelectionForToolbar();
             }
         };
         NoteEditor.Paste += OnPaste;
@@ -160,6 +162,7 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.AddHandler(DragEnterEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
         NoteEditor.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
         NoteEditor.AddHandler(DropEvent, new DragEventHandler(OnDrop), handledEventsToo: true);
+        AttachToolbar();
 
         // Caret keys stay in the editor. RichEdit moves the caret on them but, unlike the TextBox it replaced, leaves
         // some unhandled (measured: Ctrl+End), and an unhandled one reaches the stack's ListView, which moves its
@@ -287,6 +290,7 @@ public sealed partial class NoteEditorHost : UserControl
             EditorCommand.Bold => MarkdownCommands.ToggleStrong,
             EditorCommand.Italic => MarkdownCommands.ToggleEmphasis,
             EditorCommand.Underline => MarkdownCommands.ToggleUnderline,
+            EditorCommand.Highlight => MarkdownCommands.ToggleHighlight,
             EditorCommand.Strikethrough => MarkdownCommands.ToggleStrikethrough,
             EditorCommand.Code => MarkdownCommands.ToggleCode,
             EditorCommand.Link => MarkdownCommands.InsertLink,
@@ -826,6 +830,8 @@ public sealed partial class NoteEditorHost : UserControl
     /// </summary>
     private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        // The selection the pointer made is complete: the toolbar shows on it (F8, #151).
+        _selecting = false;
         if (e.GetCurrentPoint(NoteEditor).Properties.PointerUpdateKind != Microsoft.UI.Input.PointerUpdateKind.LeftButtonReleased)
         {
             return;
@@ -834,6 +840,7 @@ public sealed partial class NoteEditorHost : UserControl
         Flush();
         if (!_selection.IsCaret)
         {
+            ShowToolbar();
             return;
         }
 
@@ -904,6 +911,8 @@ public sealed partial class NoteEditorHost : UserControl
         Link: ColorOf(NoteEditor.LinkBrush),
         CodeSurface: ColorOf(NoteEditor.CodeSurfaceBrush),
         Surface: ColorOf(NoteEditor.Background),
+        Mark: ColorOf(NoteEditor.MarkBrush),
+        MarkText: ColorOf(NoteEditor.MarkTextBrush),
         BodyFont: FontFamily.Source.Split(',')[0].Trim(),
         CodeFont: FirstFamily("FontFamilyCode"),
         BodySize: FontSize,

@@ -497,6 +497,8 @@
                                     Grid.Column="0"
                                     MarkupBrush="{ThemeResource TextSecondaryBrush}"
                                     LinkBrush="{ThemeResource TextLinkBrush}"
+                                    MarkBrush="{ThemeResource MarkBrush}"
+                                    MarkTextBrush="{ThemeResource MarkTextBrush}"
                                     Source="{x:Bind ReadText, Mode=OneWay}" />
 
                                 <!-- The editor, only on the card being edited. -->
@@ -582,6 +584,7 @@
                                                 <MenuFlyoutItem Text="Bold" Tag="Bold" KeyboardAcceleratorTextOverride="Ctrl+B" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Italic" Tag="Italic" KeyboardAcceleratorTextOverride="Ctrl+I" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Underline" Tag="Underline" KeyboardAcceleratorTextOverride="Ctrl+U" Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Highlight" Tag="Highlight" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Strikethrough" Tag="Strikethrough" KeyboardAcceleratorTextOverride="Ctrl+Shift+E" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Code" Tag="Code" KeyboardAcceleratorTextOverride="Ctrl+E" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Link" Tag="Link" KeyboardAcceleratorTextOverride="Ctrl+K" Click="OnFormatClick" />

@@ -218,6 +218,13 @@ public static class SettingKeys
         new("appearance.note-size", NoteText.DefaultSize, NoteText.IsSize);
 
     /// <summary>
+    /// Whether a small formatting toolbar shows above selected text in the editor (F8, #151).
+    /// </summary>
+    /// <remarks>Default on, as SideNotes has it; the keys and the Format menu do the same either way.</remarks>
+    public static readonly SettingKey<bool> EditorFormatToolbar =
+        new("editor.format-toolbar", true);
+
+    /// <summary>
     /// Whether Noto backs itself up once a day into the data root's backups, keeping the last seven (F15, #15).
     /// </summary>
     /// <remarks>Default on: a backup nobody remembered to take is the one that is missing when it is needed.</remarks>
@@ -290,6 +297,7 @@ public static class SettingKeys
         AppearanceTheme,
         AppearanceNoteFont,
         AppearanceNoteSize,
+        EditorFormatToolbar,
         BackupAutomatic,
         NotesNewPlacement,
         NotesRecentMoveFolders,

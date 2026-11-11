@@ -12,6 +12,13 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A small formatting toolbar above selected text in a note: bold, italic, highlight, strikethrough, underline, link,
+  code and bulleted list. It never takes the keyboard from your text, and can be turned off in Settings › Appearance ›
+  *Formatting toolbar* (#151).
+
+- Highlight: `::text::` is drawn with a highlighter's colour, in the editor and on the card, from the toolbar or the
+  Format menu. It is SideNotes' syntax; in High Contrast it uses your Highlight colours (#151).
+
 - Drop files on a folder, or on its notes, to import them: each Markdown or text file becomes a new note, and each
   picture a new note holding it, first in that folder. A drop says what it imported in one line, with an **Undo** that
   moves those notes to the Recycle Bin. The files are copied, never moved or changed. A file dropped on the note being

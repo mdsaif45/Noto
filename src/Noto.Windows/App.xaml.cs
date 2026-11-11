@@ -710,6 +710,7 @@ public partial class App : Application
         // The note text's font and size (F13, #154), from the first frame; the size shortcuts write the stored size,
         // which comes back here as any change does.
         main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
+        NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
         main.StepNoteSize = direction =>
         {
             double next = NoteText.Step(preferences.NoteSize, direction);
@@ -1214,6 +1215,10 @@ public partial class App : Application
         if (key == SettingKeys.AppearanceTheme && _main is not null)
         {
             ApplyTheme(_main, preferences.Theme);
+        }
+        else if (key == SettingKeys.EditorFormatToolbar)
+        {
+            NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
         }
         else if (key == SettingKeys.BackupAutomatic)
         {

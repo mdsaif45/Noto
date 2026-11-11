@@ -73,7 +73,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'backup.automatic', 'onboarding.welcome')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome')
 
 # ---------------------------------------------------------------- helpers
 
@@ -114,7 +114,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -435,7 +435,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

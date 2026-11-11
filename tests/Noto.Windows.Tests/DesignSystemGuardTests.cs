@@ -84,6 +84,7 @@ public sealed class DesignSystemGuardTests
             ("InteractionTextColor", "SurfaceCardHoverColor", 4.5),
             ("InteractionSelectedTextColor", "SurfaceCardSelectedColor", 4.5),
             ("TextLinkColor", "SurfaceCardColor", 4.5),
+            ("MarkTextColor", "MarkColor", 4.5),
             ("BorderFocusColor", "SurfaceCardColor", 3),
             ("BorderFocusColor", "SurfaceSidebarColor", 3),
             ("BorderFocusColor", "SurfaceInputColor", 3),
