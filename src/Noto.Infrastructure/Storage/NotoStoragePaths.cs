@@ -96,6 +96,9 @@ public sealed class NotoStoragePaths
     /// <summary>Logs. Never contain note content or user file paths.</summary>
     public string LogsDirectory => Resolve("logs");
 
+    /// <summary>The record of recent failures, read at a start to tell a crash loop (F16, #10).</summary>
+    public string FailuresFile => Resolve("failures.txt");
+
     /// <summary>Creates the directories Noto cannot start without. Idempotent.</summary>
     /// <remarks>
     /// Not <see cref="LogsDirectory"/>: the log creates it when it first writes, and a logs folder that cannot be

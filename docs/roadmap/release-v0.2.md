@@ -243,6 +243,15 @@ v0.1 has manual backup and restore. v0.2 adds scheduled backups and keeps a boun
 
 Noto notices that it is failing at every start, and stops the loop instead of crashing again.
 
+**Built (#10):**
+- As Noto ends after a failure, it records the time and how soon after its start (`failures.txt` in the data root, the last 10, times only).
+- A failure within 60 s of a start is a failure to start; three of them within half an hour is a loop (`CrashLoop` in Core).
+- A start that finds a loop stops before anything opens, once it owns the data root:
+  - a normal start asks "Start Noto anyway?", with **No** the default; **Yes** clears the record and starts;
+  - a sign-in start (`--login`) asks nothing and shows nothing, and ends quietly.
+- The log records `CrashLoopStopped` with booleans only.
+- Noto still does not restart itself after a failure; v0.1 ends it cleanly once the open note is saved. The loop this stops is the one a user, or Windows at sign-in, makes by starting it again.
+
 ### F17–F21. Gaps found while checking (#156–#159)
 
 These SideNotes MUST rows are not built, and none of them is in a later milestone:

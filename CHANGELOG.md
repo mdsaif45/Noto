@@ -12,6 +12,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- If Noto stops unexpectedly three times in a row, each time soon after starting, it no longer starts again on its own:
+  it asks whether to start anyway, and at sign-in it stays closed without a message. Your notes are untouched (#10).
+
 - Automatic backups: once a day Noto backs itself up into the data folder's `backups`, keeping the last 7. Turn it off
   in Settings › Data › *Back up automatically*. A backup you saved yourself, or the one taken before a restore, is
   never removed (#15).
