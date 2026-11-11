@@ -219,6 +219,12 @@ The engine already stores `IsFolded`.
 
 A `#rrggbb` code in a note shows a small swatch beside it. The text is unchanged, and screen readers are not given the swatch as extra text.
 
+**Built (#155):**
+- Codes are found by `ColorCode.Find` in Core: exactly six hex digits after `#`, standing on their own, so not part of a word, an eight-digit code, a character reference such as `&#123456;`, or a path fragment.
+- On a card, the read view splits the run at each code, keeping its formatting, and places a swatch after it. The swatch is sized to the note text and edged in the markup colour (the row's own colour in high contrast), and marked `Raw` for UI Automation. The card's text reads exactly as written, with no object character (measured).
+- A code inside a link gets no swatch. The editor shows the code as typed: its RichEdit cannot hold inline elements.
+- Not built: the parity SHOULDs, a setting to turn swatches off (F14, J18) and a copy format (J17).
+
 ### F15. Automatic backups and retention (#15)
 
 v0.1 has manual backup and restore. v0.2 adds scheduled backups and keeps a bounded number of them.
