@@ -38,7 +38,7 @@ public sealed class NewNoteShortcutGuardTests
         Assert.True(pressed.IndexOf("_hotkeySuspended", StringComparison.Ordinal) < pressed.IndexOf("GlobalAction.NewNote", StringComparison.Ordinal));
 
         string window = File.ReadAllText(SourcePath("src", "Noto.Windows", "MainWindow.NewNoteShortcut.cs"));
-        Assert.Matches(@"DispatcherQueuePriority\.Low, \(\) =>\s*\{\s*string\? before = _stack\.Editing\?\.Value;\s*CreateNoteInOpenFolder\(\);", window);
+        Assert.Matches(@"DispatcherQueuePriority\.Low, \(\) =>\s*\{\s*string\? before = _stack\.Editing is \{ \} editing \? editing\.Value : null;\s*CreateNoteInOpenFolder\(\);", window);
     }
 
     [Fact]
