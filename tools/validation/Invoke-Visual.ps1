@@ -21,6 +21,8 @@
      6  Settings: every control in every group ends at the same right edge
     13  every surface captured in both themes: folders, stack, editor, image-rich note, search, settings, recycle bin
     15  per theme: a coloured card (F7, #150) is tinted off an uncoloured card's fill, and its help text names the colour
+    16  per theme: a #rrggbb code (F14, #155) shows a swatch of its colour, and UI Automation reads the card's text as
+        written, with no object character for the swatch
     14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
         content is pinned Dark under a see-through window, and the chosen theme is set on the drawer below it)
 
@@ -61,7 +63,7 @@ $Work = '01J0000000000000000000F051'; $HomeFolder = '01J0000000000000000000F052'
 $Harbour = '01J00000000000000000000P01'; $Hills = '01J00000000000000000000P02'
 $Notes = @(
     @('01J00000000000000000000V01', $Work, "## Weekly sync`n`n**Attendees:** Priya, Tom, me`n`n- [ ] Tom: fix the *startup* crash`n- [x] book the room`n`nSee [the RFC](https://example.com/rfc) and ``release.md``.", 1, $null),
-    @('01J00000000000000000000V02', $Work, "Project plan`n`nMilestones, owners and the release date. https://example.com/plan", 0, $null),
+    @('01J00000000000000000000V02', $Work, "Project plan`n`nMilestones, owners and the release date. https://example.com/plan`n`nBrand red: #E81123.", 0, $null),
     @('01J00000000000000000000V04', $Work, "Trip photos`n![The harbour at dusk](attachments/$Harbour.png)`nThe harbour at dusk, from the hill path.`n![The hills](attachments/$Hills.png)", 0, $null),
     @('01J00000000000000000000V03', $HomeFolder, "# Groceries`n- [ ] milk`n- [x] bread`n- [ ] **coffee**", 0, $null),
     @('01J00000000000000000000V05', $HomeFolder, "Draft agenda`n`nAn older draft, moved to the bin.", 0, 'binned')
@@ -198,6 +200,18 @@ function Popup-Fill([string] $ClassName, [switch] $Right) {
     $r = $items[-1].Current.BoundingRectangle
     Screen-Pixel ([int]$(if ($Right) { $r.Right - 6 } else { $r.Left + 4 })) ([int]($r.Top + $r.Height / 2))
 }
+function Colour-Count($Rect, [System.Drawing.Color] $Want, [int] $Tolerance = 24) {
+    <# How many pixels inside a screen rectangle are within $Tolerance of a colour (a swatch, F14). #>
+    $c = Capture-Window; $bmp = $c.Bitmap
+    try {
+        $x0 = [Math]::Max(0, [int]$Rect.X - $c.Left); $y0 = [Math]::Max(0, [int]$Rect.Y - $c.Top)
+        $x1 = [Math]::Min($bmp.Width, [int]($Rect.X + $Rect.Width) - $c.Left); $y1 = [Math]::Min($bmp.Height, [int]($Rect.Y + $Rect.Height) - $c.Top)
+        $n = 0
+        for ($y = $y0; $y -lt $y1; $y++) { for ($x = $x0; $x -lt $x1; $x++) { if ((Distance $bmp.GetPixel($x, $y) $Want) -le $Tolerance) { $n++ } } }
+        $n
+    }
+    finally { $bmp.Dispose() }
+}
 function In-Theme([string] $Theme, $Pixel) { if (-not $Pixel) { return $false }; $l = ($Pixel.R + $Pixel.G + $Pixel.B) / 3; if ($Theme -eq 'Light') { $l -gt 180 } else { $l -lt 90 } }
 function Distance([System.Drawing.Color] $a, [System.Drawing.Color] $b) { [Math]::Max([Math]::Abs($a.R - $b.R), [Math]::Max([Math]::Abs($a.G - $b.G), [Math]::Abs($a.B - $b.B))) }
 function Font-Size($Element) {
@@ -292,6 +306,13 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $lefts = @($rects | ForEach-Object { [int]$_.X } | Sort-Object -Unique); $widths = @($rects | ForEach-Object { [int]$_.Width } | Sort-Object -Unique)
         Add-Result $run "$($base + 3)  ${theme}: one gap between cards; every card the same width and left edge" ($gaps.Count -ge 1 -and @($gaps | Where-Object { [Math]::Abs($_ - $expected) -gt 1 }).Count -eq 0 -and $lefts.Count -eq 1 -and $widths.Count -eq 1) "cards=$($rects.Count) gaps=$($gaps -join ',') (expected $expected) lefts=$($lefts -join ',') widths=$($widths -join ',')"
         $shots += Shot "$t-stack"
+
+        # 16 - F14 (#155): a #rrggbb code shows a swatch of its colour; the text read out is the code alone
+        $plan = Items (Find-ById 'NoteList') | Where-Object { $_.Current.Name -eq 'Project plan' } | Select-Object -First 1
+        $red = if ($plan) { Colour-Count $plan.Current.BoundingRectangle ([System.Drawing.Color]::FromArgb(255, 0xE8, 0x11, 0x23)) } else { 0 }
+        $textNode = if ($plan) { $plan.FindFirst($Scope::Subtree, [System.Windows.Automation.PropertyCondition]::new($AE::IsTextPatternAvailableProperty, $true)) }
+        $read = if ($textNode) { $textNode.GetCurrentPattern($TP::Pattern).DocumentRange.GetText(-1) } else { '' }
+        Add-Result $run "16 ${theme}: #E81123 shows a red swatch; the card's text is read as written, with nothing for the swatch" ($red -ge 25 -and $read -match '#E81123' -and $read -notmatch [char]0xFFFC) "red px=$red read='$($read -replace "`r?`n", ' | ')'"
 
         # 15 - F7 (#150): a coloured card is tinted, off an uncoloured card's fill, and names its colour
         $cards = Items (Find-ById 'NoteList')

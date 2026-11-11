@@ -12,6 +12,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A `#rrggbb` colour code in a note shows a small swatch of its colour beside it on the card. The text is unchanged,
+  and screen readers read only the code (#155).
+
 - A font and a text size for notes, in Settings › Appearance: Default (Segoe UI Variable), Segoe UI, Calibri, Cambria,
   Georgia, Verdana or Consolas, from 10 to 24. Ctrl+= and Ctrl+- make the text larger and smaller from anywhere in
   Noto, the editor included; headings stay a step above it. A font Windows no longer has falls back to the default

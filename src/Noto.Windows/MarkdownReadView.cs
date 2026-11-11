@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using Noto.Core.Editing;
 using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Markdown;
@@ -230,51 +231,56 @@ internal sealed partial class MarkdownReadView : UserControl
             return;
         }
 
-        var run = new Run { Text = text };
-        if (over.Any(s => s.Kind == MarkdownSpanKind.TaskBox))
+        void Format(Run run)
         {
-            run.FontFamily = (FontFamily)Application.Current.Resources["FontFamilySymbol"];
-        }
-
-        foreach (MarkdownSpan span in over)
-        {
-            switch (span.Kind)
+            if (over.Any(s => s.Kind == MarkdownSpanKind.TaskBox))
             {
-                case MarkdownSpanKind.Heading:
-                    run.FontWeight = FontWeights.SemiBold;
-                    run.FontSize = HeadingSize(span.Level);
-                    break;
-                case MarkdownSpanKind.Strong:
-                    run.FontWeight = FontWeights.Bold;
-                    break;
-                case MarkdownSpanKind.Emphasis:
-                    run.FontStyle = FontStyle.Italic;
-                    break;
-                case MarkdownSpanKind.Strikethrough:
-                    run.TextDecorations |= TextDecorations.Strikethrough;
-                    break;
-                case MarkdownSpanKind.Underline:
-                    run.TextDecorations |= TextDecorations.Underline;
-                    break;
-                case MarkdownSpanKind.Code or MarkdownSpanKind.CodeBlock:
-                    run.FontFamily = code;
-                    break;
-                case MarkdownSpanKind.Link:
-                    Tint(run, link);
-                    break;
-                case MarkdownSpanKind.Quote or MarkdownSpanKind.Image:
-                    run.FontStyle = FontStyle.Italic;
-                    Tint(run, markup);
-                    break;
-                case MarkdownSpanKind.TaskDone:
-                    run.TextDecorations |= TextDecorations.Strikethrough;
-                    Tint(run, markup);
-                    break;
-                case MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox or MarkdownSpanKind.Separator:
-                    Tint(run, markup);
-                    break;
+                run.FontFamily = (FontFamily)Application.Current.Resources["FontFamilySymbol"];
+            }
+
+            foreach (MarkdownSpan span in over)
+            {
+                switch (span.Kind)
+                {
+                    case MarkdownSpanKind.Heading:
+                        run.FontWeight = FontWeights.SemiBold;
+                        run.FontSize = HeadingSize(span.Level);
+                        break;
+                    case MarkdownSpanKind.Strong:
+                        run.FontWeight = FontWeights.Bold;
+                        break;
+                    case MarkdownSpanKind.Emphasis:
+                        run.FontStyle = FontStyle.Italic;
+                        break;
+                    case MarkdownSpanKind.Strikethrough:
+                        run.TextDecorations |= TextDecorations.Strikethrough;
+                        break;
+                    case MarkdownSpanKind.Underline:
+                        run.TextDecorations |= TextDecorations.Underline;
+                        break;
+                    case MarkdownSpanKind.Code or MarkdownSpanKind.CodeBlock:
+                        run.FontFamily = code;
+                        break;
+                    case MarkdownSpanKind.Link:
+                        Tint(run, link);
+                        break;
+                    case MarkdownSpanKind.Quote or MarkdownSpanKind.Image:
+                        run.FontStyle = FontStyle.Italic;
+                        Tint(run, markup);
+                        break;
+                    case MarkdownSpanKind.TaskDone:
+                        run.TextDecorations |= TextDecorations.Strikethrough;
+                        Tint(run, markup);
+                        break;
+                    case MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox or MarkdownSpanKind.Separator:
+                        Tint(run, markup);
+                        break;
+                }
             }
         }
+
+        var run = new Run { Text = text };
+        Format(run);
 
         // A link opens on a click: a Hyperlink, its own underline, never a tab stop (the stack's keys stay the stack's;
         // the keyboard opens a link from the editor, with Ctrl+Enter).
@@ -292,7 +298,53 @@ internal sealed partial class MarkdownReadView : UserControl
             return;
         }
 
-        paragraph.Inlines.Add(run);
+        // A #rrggbb code shows a swatch of its colour after it (F14, #155): the text stays as written, each piece
+        // formatted as the whole was.
+        int at = 0;
+
+        foreach (ColorCode colour in ColorCode.Find(text))
+        {
+            int after = colour.Index + colour.Length;
+            var piece = new Run { Text = text[at..after] };
+            Format(piece);
+            paragraph.Inlines.Add(piece);
+            paragraph.Inlines.Add(Swatch(colour, markup));
+            at = after;
+        }
+
+        if (at == 0)
+        {
+            paragraph.Inlines.Add(run);
+        }
+        else if (at < text.Length)
+        {
+            var rest = new Run { Text = text[at..] };
+            Format(rest);
+            paragraph.Inlines.Add(rest);
+        }
+    }
+
+    /// <summary>
+    /// A small square of a code's colour (F14, #155), sized to the note text and edged in the markup colour, or the
+    /// row's own in high contrast, so a colour near the card's still shows. Seen, never read: assistive technology
+    /// reads the code itself, so the swatch is hidden from it.
+    /// </summary>
+    private InlineUIContainer Swatch(ColorCode colour, Brush? edge)
+    {
+        var resources = Application.Current.Resources;
+        double size = Math.Round(FontSize * 0.75);
+        var swatch = new Border
+        {
+            Width = size,
+            Height = size,
+            Margin = new Thickness((double)resources["SpaceXS"], 0, 0, 0),
+            CornerRadius = (CornerRadius)resources["RadiusSmall"],
+            BorderThickness = (Thickness)resources["BorderThicknessSubtle"],
+            BorderBrush = edge ?? Foreground,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, colour.R, colour.G, colour.B)),
+        };
+        AutomationProperties.SetAccessibilityView(swatch, AccessibilityView.Raw);
+        return new InlineUIContainer { Child = swatch };
     }
 
     /// <summary>Colours the run, or leaves it the row's colour when there is no brush (high contrast).</summary>
