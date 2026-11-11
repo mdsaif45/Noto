@@ -12,6 +12,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- A shortcut to search your notes from any app: Noto opens with Search ready to type in. Turn it on in Settings ›
+  Shortcuts › *Search*; it is Ctrl+Shift+Win+F and can be changed there. Off by default (#159).
+
 - Clear checked tasks: Ctrl+Shift+T in a note, or *Clear checked tasks* in its Format menu, removes every checked task
   and keeps everything else. Ctrl+Z brings them all back in one step (#158).
 

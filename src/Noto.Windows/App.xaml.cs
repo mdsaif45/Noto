@@ -114,6 +114,7 @@ public partial class App : Application
         {
             GlobalAction.NewNote => (SettingKeys.NewNoteHotkeyEnabled, SettingKeys.NewNoteHotkeyBinding),
             GlobalAction.NoteFromClipboard => (SettingKeys.ClipboardNoteHotkeyEnabled, SettingKeys.ClipboardNoteHotkeyBinding),
+            GlobalAction.Search => (SettingKeys.SearchHotkeyEnabled, SettingKeys.SearchHotkeyBinding),
             _ => (SettingKeys.HotkeyEnabled, SettingKeys.HotkeyBinding),
         };
 
@@ -264,6 +265,7 @@ public partial class App : Application
                 {
                     GlobalAction.NewNote => "make a new note",
                     GlobalAction.NoteFromClipboard => "make a note from the clipboard",
+                    GlobalAction.Search => "search",
                     _ => "show and hide Noto",
                 };
                 return (HotkeyRebindOutcome.Refused, $"{HotkeyRebinding.Show(candidate)} is already Noto's shortcut to {what}. The shortcut is still {HotkeyRebinding.Show(current)}.");
@@ -318,6 +320,23 @@ public partial class App : Application
 
         // The new-note shortcuts (F17, F18) show Noto, never hide it, and have the window make a note ready to type in,
         // holding the clipboard for F18's.
+        // The search shortcut (F21) shows Noto, never hides it, with Search open.
+        if (action == GlobalAction.Search)
+        {
+            if (_coordinator is not null)
+            {
+                _ = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, messageTime);
+            }
+            else if (_windowHandle is not null)
+            {
+                _ = WindowActivation.BringToForeground(_windowHandle);
+            }
+
+            _main?.OpenSearchFromShortcut();
+            Trace.WriteLine($"Noto.Hotkey pressed action={action}");
+            return;
+        }
+
         if (action is GlobalAction.NewNote or GlobalAction.NoteFromClipboard)
         {
             if (_coordinator is not null)
@@ -366,10 +385,14 @@ public partial class App : Application
     /// <summary>The global note-from-clipboard hotkey (F18, #157), or <see langword="null"/> when off or refused.</summary>
     private GlobalHotkey? _clipboardNoteHotkey;
 
+    /// <summary>The global search hotkey (F21, #159), or <see langword="null"/> when off or refused.</summary>
+    private GlobalHotkey? _searchHotkey;
+
     private GlobalHotkey? HotkeyOf(GlobalAction action) => action switch
     {
         GlobalAction.NewNote => _newNoteHotkey,
         GlobalAction.NoteFromClipboard => _clipboardNoteHotkey,
+        GlobalAction.Search => _searchHotkey,
         _ => _hotkey,
     };
 
@@ -382,6 +405,9 @@ public partial class App : Application
                 break;
             case GlobalAction.NoteFromClipboard:
                 _clipboardNoteHotkey = hotkey;
+                break;
+            case GlobalAction.Search:
+                _searchHotkey = hotkey;
                 break;
             default:
                 _hotkey = hotkey;
@@ -646,6 +672,7 @@ public partial class App : Application
         _hotkey = StartHotkey(settings, GlobalAction.ShowHide, out string? hotkeyRefusal);
         _newNoteHotkey = StartHotkey(settings, GlobalAction.NewNote, out string? newNoteRefusal);
         _clipboardNoteHotkey = StartHotkey(settings, GlobalAction.NoteFromClipboard, out string? clipboardNoteRefusal);
+        _searchHotkey = StartHotkey(settings, GlobalAction.Search, out string? searchRefusal);
 
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
@@ -808,6 +835,7 @@ public partial class App : Application
         main.ShowHotkeyMessage(GlobalAction.ShowHide, hotkeyRefusal);
         main.ShowHotkeyMessage(GlobalAction.NewNote, newNoteRefusal);
         main.ShowHotkeyMessage(GlobalAction.NoteFromClipboard, clipboardNoteRefusal);
+        main.ShowHotkeyMessage(GlobalAction.Search, searchRefusal);
 
         // #16 slice 6: the window's own ways of putting itself away go to the
         // coordinator, like every other request; the window never hides
@@ -1349,6 +1377,10 @@ public partial class App : Application
         {
             ApplyHotkeyEnabled(settings, GlobalAction.NoteFromClipboard, preferences.ClipboardNoteHotkeyEnabled);
         }
+        else if (key == SettingKeys.SearchHotkeyEnabled)
+        {
+            ApplyHotkeyEnabled(settings, GlobalAction.Search, preferences.SearchHotkeyEnabled);
+        }
         else
         {
             return;
@@ -1459,6 +1491,7 @@ public partial class App : Application
         _hotkey?.Dispose();
         _newNoteHotkey?.Dispose();
         _clipboardNoteHotkey?.Dispose();
+        _searchHotkey?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
         // process's handle and the process never ends holding it.

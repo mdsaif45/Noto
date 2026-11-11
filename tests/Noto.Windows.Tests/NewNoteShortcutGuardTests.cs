@@ -22,6 +22,24 @@ public sealed class NewNoteShortcutGuardTests
         // F18 (#157): the clipboard's, G4's planned default.
         Assert.False(SettingKeys.ClipboardNoteHotkeyEnabled.Default);
         Assert.Equal("Ctrl+Shift+Win+V", SettingKeys.ClipboardNoteHotkeyBinding.Default);
+
+        // F21 (#159): Search's, G3's planned default.
+        Assert.False(SettingKeys.SearchHotkeyEnabled.Default);
+        Assert.Equal("Ctrl+Shift+Win+F", SettingKeys.SearchHotkeyBinding.Default);
+    }
+
+    [Fact]
+    public void The_search_shortcut_shows_Noto_never_hides_it_and_opens_Search_as_CtrlF_does()
+    {
+        string pressed = Regex.Match(App, @"private void OnHotkeyPressed\(GlobalAction action, int messageTime\)[\s\S]*?\n    }\n").Value;
+        string search = Regex.Match(pressed, @"if \(action == GlobalAction\.Search\)[\s\S]*?return;\s*\}").Value;
+
+        Assert.Contains("_coordinator.OnActivationRequested(WorkspaceRequest.Launch, messageTime)", search, StringComparison.Ordinal);
+        Assert.DoesNotContain("WorkspaceRequest.Toggle", search, StringComparison.Ordinal);
+        Assert.Contains("_main?.OpenSearchFromShortcut();", search, StringComparison.Ordinal);
+
+        string window = File.ReadAllText(SourcePath("src", "Noto.Windows", "MainWindow.Search.cs"));
+        Assert.Contains("_ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, OpenSearch);", window, StringComparison.Ordinal);
     }
 
     [Fact]

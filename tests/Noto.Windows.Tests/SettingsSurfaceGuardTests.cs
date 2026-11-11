@@ -45,6 +45,7 @@ public sealed class SettingsSurfaceGuardTests
             ("HotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.ShowHide, preferences\.HotkeyEnabled\)"),
             ("NewNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NewNote, preferences\.NewNoteHotkeyEnabled\)"),
             ("ClipboardNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NoteFromClipboard, preferences\.ClipboardNoteHotkeyEnabled\)"),
+            ("SearchHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.Search, preferences\.SearchHotkeyEnabled\)"),
         ];
 
         var written = Regex.Matches(Preferences, @"public bool Set\w+\([^)]*\) => TryWrite\(SettingKeys\.(\w+),").Select(m => m.Groups[1].Value).ToHashSet();
@@ -52,10 +53,11 @@ public sealed class SettingsSurfaceGuardTests
 
         // The bindings are the exception, by design (Slice 1.2b): each is registered BEFORE it is written, by the rebind,
         // so the store's announcement must not apply it a second time.
-        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").Append("ClipboardNoteHotkeyBinding").ToHashSet(), written);
+        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").Append("ClipboardNoteHotkeyBinding").Append("SearchHotkeyBinding").ToHashSet(), written);
         Assert.DoesNotContain("SettingKeys.HotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.NewNoteHotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.ClipboardNoteHotkeyBinding", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingKeys.SearchHotkeyBinding", apply, StringComparison.Ordinal);
 
         foreach (var (key, owner) in owners)
         {
@@ -87,7 +89,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(12, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(13, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -356,9 +358,9 @@ public sealed class SettingsSurfaceGuardTests
         }
 
         // The settings (the note font and text size, F13; automatic backups, F15; the formatting toolbar, F8; the new-note
-        // shortcut and its recorder, F17; the clipboard's, F18), the Data group's Back up, Restore, Export, Import and their progress line
+        // shortcut and its recorder, F17; the clipboard's, F18; Search's, F21), the Data group's Back up, Restore, Export, Import and their progress line
         // (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(23, rows.Count);
+        Assert.Equal(25, rows.Count);
 
         foreach (XElement row in rows)
         {

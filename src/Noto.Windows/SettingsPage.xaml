@@ -461,6 +461,60 @@
                                     AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
                             </Grid>
 
+                            <!--
+                                F21 (#159, parity E2, G3): a fourth global shortcut, Noto shown with Search open. Off by
+                                default; recorded as the others are.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Search" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock x:Name="SearchHotkeyChordText" Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="SearchHotkeySetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnSearchHotkeyToggled"
+                                    AutomationProperties.Name="Search notes with a shortcut"
+                                    AutomationProperties.HelpText="From any app: Noto opens with Search ready to type in." />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Search shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="SearchHotkeyRecorderStatus"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                    <TextBlock
+                                        x:Name="SearchHotkeyMessage"
+                                        Style="{StaticResource FolderPaneNoticeStyle}"
+                                        Visibility="Collapsed"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="SearchHotkeyRecorder"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingButtonStyle}"
+                                    Click="OnRecorderClick"
+                                    PreviewKeyDown="OnRecorderKeyDown"
+                                    LostFocus="OnRecorderLostFocus"
+                                    ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                    AutomationProperties.Name="Change the search shortcut"
+                                    AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

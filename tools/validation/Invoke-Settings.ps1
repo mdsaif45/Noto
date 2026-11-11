@@ -60,6 +60,9 @@
        text on the clipboard, pressed from another app: Noto in front with a new note holding exactly that text,
        edited; with a picture alone on the clipboard: a new note holding it, kept in the attachments; turned off, the
        chord is released (the clipboard restored after)
+    19 the search shortcut (F21, #159): off by default; turned on, Ctrl+Shift+Win+F is registered; pressed from
+       another app with Noto on the folder list: Noto in front with Search open and its box focused; pressed with
+       Settings open: Settings is left and Search is open; turned off, the chord is released
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -82,7 +85,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding')
 
 # ---------------------------------------------------------------- helpers
 
@@ -123,7 +126,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -271,7 +274,7 @@ function Shown-By([int] $Key, [string] $Label) {
     $ok
 }
 # The new-note shortcut (case 17): Ctrl+Shift+Win held (MOD_CONTROL|MOD_SHIFT|MOD_WIN).
-$VkN = 0x4E; $VkJ = 0x4A; $VkV = 0x56
+$VkN = 0x4E; $VkJ = 0x4A; $VkV = 0x56; $VkF = 0x46
 function Note-Chord-Free([uint32] $Key) {
     <# Can this process register Ctrl+Shift+Win+<Key> right now: true means nothing holds it, Noto included. #>
     $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5652, 0x400E, $Key)
@@ -481,6 +484,41 @@ try {
             finally { if ($null -ne $saved) { Set-Clipboard -Value $saved } else { Set-Clipboard -Value $null } }
         }
 
+        # ------------------------------------------------ 19 the search shortcut (F21, #159)
+        if (Want 19) {
+            if (-not (Note-Chord-Free $VkF)) { Add-Invalid $run '19 Ctrl+Shift+Win+F is already held on this machine'; return }
+            Noto-Front '19'
+            To-FolderList; Open-Settings-ByButton
+            $offByDefault = -not (Is-On 'SearchHotkeySetting') -and -not (Is-Enabled 'SearchHotkeyRecorder')
+            $m = Trace-Mark; Set-Toggle 'SearchHotkeySetting' $true
+            $on = (Wait-Trace $m 'Noto\.Hotkey enabled=True registered=True action=Search') -and -not (Note-Chord-Free $VkF)
+            Add-Result $run '19 off by default; turned on, Ctrl+Shift+Win+F is registered' ($offByDefault -and $on) "off by default=$offByDefault trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+
+            $null = Set-ForegroundByKeyboard $target
+            Ctrl '19 list before' $noto.Hwnd
+            Send-NoteChord $target.Hwnd $VkF
+            $open = Until { (Fg) -eq $noto.Hwnd -and (Visible-Id 'SearchRoot') -and (Focused-Id) -eq 'SearchBox' } 5
+            Add-Result $run '19 from another app, on the folder list: Noto in front, Search open, its box focused' $open "front=$((Fg) -eq $noto.Hwnd) search=$(Visible-Id 'SearchRoot') focus=$(Focused-Id)"
+            Send-ToNoto @() 0x1B
+            $null = Until { (Visible-Id 'FolderList') -and -not (Visible-Id 'SearchRoot') }
+
+            Open-Settings-ByButton
+            $null = Set-ForegroundByKeyboard $target
+            Ctrl '19 settings before' $noto.Hwnd
+            Send-NoteChord $target.Hwnd $VkF
+            $open = Until { (Fg) -eq $noto.Hwnd -and (Visible-Id 'SearchRoot') -and -not (Visible-Id 'SettingsRoot') -and (Focused-Id) -eq 'SearchBox' } 5
+            Add-Result $run '19 pressed with Settings open: Settings is left, Search open and focused' $open "front=$((Fg) -eq $noto.Hwnd) search=$(Visible-Id 'SearchRoot') settings=$(Visible-Id 'SettingsRoot') focus=$(Focused-Id)"
+            Send-ToNoto @() 0x1B
+            $null = Until { -not (Visible-Id 'SearchRoot') }
+
+            Noto-Front '19 off'
+            To-FolderList; Open-Settings-ByButton
+            $m = Trace-Mark; Set-Toggle 'SearchHotkeySetting' $false
+            Add-Result $run '19 turned off, the chord is released' ((Wait-Trace $m 'Noto\.Hotkey enabled=False registered=False action=Search') -and (Note-Chord-Free $VkF)) "trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -559,7 +597,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

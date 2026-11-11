@@ -300,6 +300,10 @@ New global hotkeys are rebindable and off by default (principle 7).
 - `MarkdownCommands.ClearCheckedTasks` removes every checked task in the note, each with its line break, as one edit: one undo step (D55). Unchecked tasks, a `- [x]` inside a code block and every other line stay; the caret keeps its place in the text that stays.
 - `Ctrl+Shift+T` in the editor, the implementation plan's §10.2 final chord for G34 (it was `Ctrl+Alt+Shift+T`, an AltGr chord), and *Clear checked tasks* in the card's Format menu.
 
+**Built, F21 (#159):**
+- A fourth global hotkey, **Search**, off by default, `Ctrl+Shift+Win+F` (the implementation plan's §10.1 default for G3), in Settings › Shortcuts with its own switch and recorder (`activation.search.enabled`, `activation.search.binding`). A fourth `GlobalAction` on F17's per-action hotkey code.
+- A press from any app shows Noto (never hides it) and opens Search as Ctrl+F does, from wherever Noto was, its box focused. Settings and the Recycle Bin are left first; the welcome tour is left alone.
+
 ### F22. Idle memory within 150 MB (#160)
 
 v0.1 measured 152 MB idle against the 150 MB budget. The work was deferred on 2026-11-06 ([quality-gates.md](../architecture/quality-gates.md)).
