@@ -295,6 +295,9 @@ New global hotkeys are rebindable and off by default (principle 7).
 - *New note from clipboard*: a new note made as the new-note shortcut makes it, then the clipboard pasted into it by the editor's own Ctrl+V (`NoteEditorHost.PasteClipboard`): a page's HTML as Markdown, plain text, copied files as links and pictures kept, a picture alone kept and shown. No second paste path.
 - From the tray icon's menu (*New note from &clipboard*), and from a third global hotkey, `Ctrl+Shift+Win+V` (the implementation plan's §10.1 default for G4), off by default, in Settings › Shortcuts with its own switch and recorder. A third `GlobalAction` on F17's per-action hotkey code.
 - An empty clipboard gives an empty new note, as Ctrl+N does.
+**Built, F19 (#158):**
+- `MarkdownCommands.ClearCheckedTasks` removes every checked task in the note, each with its line break, as one edit: one undo step (D55). Unchecked tasks, a `- [x]` inside a code block and every other line stay; the caret keeps its place in the text that stays.
+- `Ctrl+Shift+T` in the editor, the implementation plan's §10.2 final chord for G34 (it was `Ctrl+Alt+Shift+T`, an AltGr chord), and *Clear checked tasks* in the card's Format menu.
 
 ### F22. Idle memory within 150 MB (#160)
 

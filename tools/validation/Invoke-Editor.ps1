@@ -30,6 +30,8 @@
     18  switching to the next note: Noto's own first-frame trace
     19  in the 100 KB note, Ctrl+End and Ctrl+Home: from the key to the caret being there
     20  a key typed and Escape in the same input batch: the leave's save holds the key
+    22  F19 (#158): Ctrl+Shift+T removes every checked task, the rest kept; Ctrl+Z brings them all back in one step,
+        Ctrl+Y removes them again; the Format menu's Clear checked tasks does the same
     21  F8 (#151), in Dark: a selection shows the formatting toolbar, focus staying in the text; its Highlight writes
         ::text:: and the editor draws the highlight's colour; a caret hides it; the card draws the highlight too; with
         the toolbar turned off in Settings, a selection shows none
@@ -291,7 +293,7 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     Type-Text 'call the dentist'
     (Find-ById 'CardFormatButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
     $items = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::MenuItem)) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid } | ForEach-Object { $_.Current.Name })
-    $expected = 'Bold', 'Italic', 'Underline', 'Highlight', 'Strikethrough', 'Code', 'Link', 'Heading', 'Bulleted list', 'Numbered list', 'Checklist', 'Check or uncheck', 'Code block', 'Show or hide markup'
+    $expected = 'Bold', 'Italic', 'Underline', 'Highlight', 'Strikethrough', 'Code', 'Link', 'Heading', 'Bulleted list', 'Numbered list', 'Checklist', 'Check or uncheck', 'Clear checked tasks', 'Code block', 'Show or hide markup'
     $checklist = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Checklist')) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid })[0]
     $checklist.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
     Add-Result $run '8  one Format menu with every command; Checklist makes the line a task; focus back in the editor' ((@($expected | Where-Object { $items -notcontains $_ }).Count -eq 0) -and (Editor-Value).EndsWith('- [ ] call the dentist') -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "items=$($items -join '|') tail='$((Editor-Value).Substring([Math]::Max(0, (Editor-Value).Length - 25)))' focus=$($AE::FocusedElement.Current.AutomationId)"
@@ -415,6 +417,24 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     (Range-Of 'plain').Select(); Start-Sleep -Milliseconds 600
     $none = -not (Visible-Id 'ToolbarHighlight')
     Add-Result $run '21 the card draws the highlight; turned off in Settings (stored), a selection shows no toolbar' ($drawn -gt 20 -and $stored -eq 'false' -and $none) "card mark px=$drawn stored=$stored no toolbar=$none"
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
+
+    # 22 - F19 (#158): clear checked tasks, one undo step
+    Edit-Card 'A plain note with no markup at all.'
+    $tasks = "Errands`n- [x] post`n- [ ] bank`n- [x] shop`nthen home"
+    Set-EditorText $tasks
+    Send-ToNoto @(0x11, 0x10) 0x54 600   # Ctrl+Shift+T
+    $cleared = Editor-Value
+    Send-ToNoto @(0x11) 0x5A 600         # Ctrl+Z: one step
+    $undone = Editor-Value
+    Send-ToNoto @(0x11) 0x59 600         # Ctrl+Y
+    $redone = Editor-Value
+    Send-ToNoto @(0x11) 0x5A 600
+    (Find-ById 'CardFormatButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Clear checked tasks')) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid })[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    $byMenu = Editor-Value
+    Add-Result $run '22 Ctrl+Shift+T removes every checked task, the rest kept; one undo brings them back; the menu does the same' ($cleared -eq "Errands`n- [ ] bank`nthen home" -and $undone -eq $tasks -and $redone -eq $cleared -and $byMenu -eq $cleared -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "cleared='$($cleared -replace "`n", ' | ')' undone same=$($undone -eq $tasks) redone same=$($redone -eq $cleared) menu same=$($byMenu -eq $cleared)"
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
 

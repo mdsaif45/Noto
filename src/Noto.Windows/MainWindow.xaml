@@ -594,6 +594,7 @@
                                                 <MenuFlyoutItem Text="Numbered list" Tag="Numbers" KeyboardAcceleratorTextOverride="Ctrl+Shift+L" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Checklist" Tag="Tasks" KeyboardAcceleratorTextOverride="Ctrl+T" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Check or uncheck" Tag="TaskDone" KeyboardAcceleratorTextOverride="Ctrl+." Click="OnFormatClick" />
+                                                <MenuFlyoutItem Text="Clear checked tasks" Tag="ClearCheckedTasks" KeyboardAcceleratorTextOverride="Ctrl+Shift+T" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Code block" Tag="CodeBlock" Click="OnFormatClick" />
                                                 <MenuFlyoutSeparator />
                                                 <MenuFlyoutItem Text="Show or hide markup" Tag="ShowMarkup" KeyboardAcceleratorTextOverride="Ctrl+Shift+R" Click="OnFormatClick" />
