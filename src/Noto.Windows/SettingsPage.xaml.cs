@@ -119,6 +119,7 @@ public sealed partial class SettingsPage : UserControl
         {
             GlobalAction.NewNote => NewNoteHotkeyMessage,
             GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyMessage,
+            GlobalAction.Search => SearchHotkeyMessage,
             _ => HotkeyMessage,
         };
         line.Text = message ?? string.Empty;
@@ -130,6 +131,7 @@ public sealed partial class SettingsPage : UserControl
     {
         GlobalAction.NewNote => NewNoteHotkeyRecorder,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyRecorder,
+        GlobalAction.Search => SearchHotkeyRecorder,
         _ => HotkeyRecorder,
     };
 
@@ -137,6 +139,7 @@ public sealed partial class SettingsPage : UserControl
     {
         GlobalAction.NewNote => NewNoteHotkeyRecorderStatus,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyRecorderStatus,
+        GlobalAction.Search => SearchHotkeyRecorderStatus,
         _ => HotkeyRecorderStatus,
     };
 
@@ -165,6 +168,7 @@ public sealed partial class SettingsPage : UserControl
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
             ClipboardNoteHotkeySetting.IsOn = preferences.ClipboardNoteHotkeyEnabled;
+            SearchHotkeySetting.IsOn = preferences.SearchHotkeyEnabled;
             ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
         }
@@ -294,6 +298,16 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
+    private void OnSearchHotkeyToggled(object sender, RoutedEventArgs e)
+    {
+        Write(p => p.SetSearchHotkeyEnabled(SearchHotkeySetting.IsOn));
+
+        if (_context is not null)
+        {
+            ShowShortcut(_context.Preferences);
+        }
+    }
+
     // Each stored chord, on its description line and in its recorder's text and name; a recorder only while its
     // shortcut is on, since an off shortcut has nothing to rebind.
     private void ShowShortcut(WorkspacePreferences preferences)
@@ -318,6 +332,13 @@ public sealed partial class SettingsPage : UserControl
         ClipboardNoteHotkeyRecorder.Content = $"{clip}   Change";
         ClipboardNoteHotkeyRecorder.IsEnabled = preferences.ClipboardNoteHotkeyEnabled;
         AutomationProperties.SetName(ClipboardNoteHotkeyRecorder, $"New note from clipboard shortcut, {clip}. Select to change it.");
+
+        string find = HotkeyChord.TryParse(preferences.SearchHotkeyBinding, out HotkeyChord findChord) ? HotkeyRebinding.Show(findChord) : preferences.SearchHotkeyBinding;
+
+        SearchHotkeyChordText.Text = find;
+        SearchHotkeyRecorder.Content = $"{find}   Change";
+        SearchHotkeyRecorder.IsEnabled = preferences.SearchHotkeyEnabled;
+        AutomationProperties.SetName(SearchHotkeyRecorder, $"Search shortcut, {find}. Select to change it.");
     }
 
     /// <summary>Stops the recorder if it is listening, as if Escape were pressed: the window lost activation, or Settings closed.</summary>
@@ -333,6 +354,7 @@ public sealed partial class SettingsPage : UserControl
     {
         GlobalAction action = ReferenceEquals(sender, NewNoteHotkeyRecorder) ? GlobalAction.NewNote
             : ReferenceEquals(sender, ClipboardNoteHotkeyRecorder) ? GlobalAction.NoteFromClipboard
+            : ReferenceEquals(sender, SearchHotkeyRecorder) ? GlobalAction.Search
             : GlobalAction.ShowHide;
         if (_recording || _context is null || !_context.Preferences.HotkeyEnabledFor(action))
         {

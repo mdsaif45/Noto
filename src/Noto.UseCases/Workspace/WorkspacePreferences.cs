@@ -93,11 +93,18 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The note-from-clipboard chord, as text (F18, G4).</summary>
     public string ClipboardNoteHotkeyBinding => _settings.Read(SettingKeys.ClipboardNoteHotkeyBinding);
 
+    /// <summary>Whether the global search hotkey is registered (F21, E2).</summary>
+    public bool SearchHotkeyEnabled => _settings.Read(SettingKeys.SearchHotkeyEnabled);
+
+    /// <summary>The search chord, as text (F21, G3).</summary>
+    public string SearchHotkeyBinding => _settings.Read(SettingKeys.SearchHotkeyBinding);
+
     /// <summary>Whether <paramref name="action"/>'s hotkey is registered.</summary>
     public bool HotkeyEnabledFor(GlobalAction action) => action switch
     {
         GlobalAction.NewNote => NewNoteHotkeyEnabled,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyEnabled,
+        GlobalAction.Search => SearchHotkeyEnabled,
         _ => HotkeyEnabled,
     };
 
@@ -106,6 +113,7 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     {
         GlobalAction.NewNote => NewNoteHotkeyBinding,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyBinding,
+        GlobalAction.Search => SearchHotkeyBinding,
         _ => HotkeyBinding,
     };
 
@@ -115,6 +123,7 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     {
         GlobalAction.NewNote => SetNewNoteHotkeyBinding(chord),
         GlobalAction.NoteFromClipboard => SetClipboardNoteHotkeyBinding(chord),
+        GlobalAction.Search => SetSearchHotkeyBinding(chord),
         _ => SetHotkeyBinding(chord),
     };
 
@@ -180,6 +189,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether the global note-from-clipboard hotkey is registered (F18).</summary>
     /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
     public bool SetClipboardNoteHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.ClipboardNoteHotkeyEnabled, enabled);
+
+    /// <summary>Stores the search chord (F21): only its rebind calls this, once the chord is registered.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetSearchHotkeyBinding(HotkeyChord chord) => TryWrite(SettingKeys.SearchHotkeyBinding, chord.Canonical);
+
+    /// <summary>Sets whether the global search hotkey is registered (F21).</summary>
+    /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
+    public bool SetSearchHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.SearchHotkeyEnabled, enabled);
 
     /// <summary>
     /// The width to open with on one display, before it is fitted to that

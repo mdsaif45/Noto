@@ -73,6 +73,31 @@ public sealed partial class MainWindow
         Trace.WriteLine("Noto.Search opened");
     }
 
+    /// <summary>
+    /// The global search shortcut (F21, #159; parity E2, G3): Noto is shown by the app, and Search opens as Ctrl+F opens
+    /// it, from wherever Noto was. Settings and the Recycle Bin are left first; the welcome tour is left alone.
+    /// </summary>
+    internal void OpenSearchFromShortcut()
+    {
+        if (WelcomeSurface is not null)
+        {
+            return;
+        }
+
+        if (SettingsSurface is not null)
+        {
+            CloseSettings();
+        }
+
+        if (RecycleBinSurface is not null)
+        {
+            CloseRecycleBin();
+        }
+
+        // After the surfaces left have given their focus back, so Search's box has the keyboard last.
+        _ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, OpenSearch);
+    }
+
     /// <summary>Leaves Search for the surface it was opened from; with focus back where it was, unless a result takes it.</summary>
     private void CloseSearch(bool restoreFocus = true)
     {

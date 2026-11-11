@@ -130,6 +130,26 @@ public static class SettingKeys
             static value => HotkeyChord.TryParse(value, out _));
 
     /// <summary>
+    /// Whether the global search hotkey is registered (F21, #159; parity E2, G3).
+    /// </summary>
+    /// <remarks>Default off, as every global chord but show/hide (principle 7).</remarks>
+    public static readonly SettingKey<bool> SearchHotkeyEnabled =
+        new("activation.search.enabled", false);
+
+    /// <summary>
+    /// The chord that shows Noto with Search open (F21, #159).
+    /// </summary>
+    /// <remarks>
+    /// Default <c>Ctrl+Shift+Win+F</c>, the implementation plan's §10.1 final default for G3 (measured free). Valid
+    /// means it parses as a <see cref="HotkeyChord"/>, as for <see cref="HotkeyBinding"/>.
+    /// </remarks>
+    public static readonly SettingKey<string> SearchHotkeyBinding =
+        new(
+            "activation.search.binding",
+            "Ctrl+Shift+Win+F",
+            static value => HotkeyChord.TryParse(value, out _));
+
+    /// <summary>
     /// The vertical screen edge the workspace docks to.
     /// </summary>
     /// <remarks>
@@ -334,6 +354,8 @@ public static class SettingKeys
         NewNoteHotkeyBinding,
         ClipboardNoteHotkeyEnabled,
         ClipboardNoteHotkeyBinding,
+        SearchHotkeyEnabled,
+        SearchHotkeyBinding,
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,
