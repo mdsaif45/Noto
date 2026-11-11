@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -126,6 +127,8 @@ public sealed partial class SettingsPage : UserControl
             Select(SideSetting, preferences.Edge.ToString());
             Select(EscapeSetting, preferences.Escape.ToString());
             Select(ThemeSetting, preferences.Theme.ToString());
+            NoteFontSetting.SelectedItem = NoteFontSetting.Items.OfType<ComboBoxItem>().FirstOrDefault(i => FontOf(i) == preferences.NoteFont);
+            Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
@@ -200,6 +203,21 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnThemeChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => ThemeSetting.SelectedItem is not null && p.SetTheme(Selected<WorkspaceTheme>(ThemeSetting)));
+
+    private void OnNoteFontChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => NoteFontSetting.SelectedItem is ComboBoxItem item && p.SetNoteFont(FontOf(item)));
+
+    /// <summary>
+    /// An item's family: its tag, or the design system's own (stored as empty) for Default, whose empty tag XAML may
+    /// hand back as no tag at all (measured: Default could be neither shown nor chosen).
+    /// </summary>
+    private static string FontOf(ComboBoxItem item) => item.Tag as string ?? NoteText.DefaultFont;
+
+    private void OnNoteSizeChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => NoteSizeSetting.SelectedItem is ComboBoxItem { Tag: string size } && p.SetNoteSize(double.Parse(size, CultureInfo.InvariantCulture)));
+
+    /// <summary>The stored values shown again: a size changed by its shortcut while Settings is open (F13).</summary>
+    internal void Refresh() => ShowStored();
 
     private void OnHideOnDeactivationToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetHideOnDeactivation(HideOnDeactivationSetting.IsOn));

@@ -36,7 +36,26 @@ internal sealed partial class MarkdownReadView : UserControl
 
     private readonly RichTextBlock _view = new() { TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = false };
 
-    public MarkdownReadView() => Content = _view;
+    public MarkdownReadView()
+    {
+        Content = _view;
+
+        // The note text's family and size come from the card (F13, #154); headings scale with the size.
+        _ = RegisterPropertyChangedCallback(FontSizeProperty, (_, _) => Render());
+        _ = RegisterPropertyChangedCallback(FontFamilyProperty, (_, _) => Render());
+    }
+
+    /// <summary>
+    /// A heading's size: the design system's heading step over its body size, at this view's size, so a larger note text
+    /// keeps its headings a step above it (F13, #154).
+    /// </summary>
+    private double HeadingSize(int level)
+    {
+        var resources = Application.Current.Resources;
+        double body = (double)resources["FontSizeBody"];
+        double heading = (double)resources[level switch { 1 => "FontSizeHeading", 2 => "FontSizeHeading2", _ => "FontSizeHeading3" }];
+        return Math.Round(FontSize * heading / body);
+    }
 
     /// <summary>
     /// Opens a link a card's reader clicked (ADR-019 §2): set once by the window, which checks and opens it. A click on
@@ -161,7 +180,7 @@ internal sealed partial class MarkdownReadView : UserControl
     }
 
     /// <summary>The block's text, cut where its spans start and end, each run styled by the spans over it.</summary>
-    private static void Inlines(MarkdownDocument document, MarkdownBlock block, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
+    private void Inlines(MarkdownDocument document, MarkdownBlock block, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
     {
         var cuts = new SortedSet<int> { block.Start, block.End };
         foreach (MarkdownSpan span in block.Spans)
@@ -182,7 +201,7 @@ internal sealed partial class MarkdownReadView : UserControl
         }
     }
 
-    private static void Piece(MarkdownDocument document, MarkdownBlock block, int start, int end, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
+    private void Piece(MarkdownDocument document, MarkdownBlock block, int start, int end, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
     {
         string source = document.Source;
         var over = block.Spans.Where(s => s.Start <= start && end <= s.End).ToList();
@@ -223,7 +242,7 @@ internal sealed partial class MarkdownReadView : UserControl
             {
                 case MarkdownSpanKind.Heading:
                     run.FontWeight = FontWeights.SemiBold;
-                    run.FontSize = (double)Application.Current.Resources[span.Level switch { 1 => "FontSizeHeading", 2 => "FontSizeHeading2", _ => "FontSizeHeading3" }];
+                    run.FontSize = HeadingSize(span.Level);
                     break;
                 case MarkdownSpanKind.Strong:
                     run.FontWeight = FontWeights.Bold;

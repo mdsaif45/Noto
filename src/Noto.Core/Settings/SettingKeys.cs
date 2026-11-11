@@ -4,6 +4,7 @@ using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
+using NoteText = Noto.Core.Workspace.NoteText;
 using WelcomeState = Noto.Core.Workspace.WelcomeState;
 using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
 
@@ -197,6 +198,26 @@ public static class SettingKeys
         new("appearance.theme", WorkspaceTheme.System, Enum.IsDefined);
 
     /// <summary>
+    /// The family notes are written and read in (F13, #154; parity D47, J12).
+    /// </summary>
+    /// <remarks>
+    /// Empty for the design system's own, or one of <see cref="NoteText.Fonts"/>, exactly; anything else is refused when
+    /// written and reads as the default. A family later missing from Windows still falls back (D51).
+    /// </remarks>
+    public static readonly SettingKey<string> AppearanceNoteFont =
+        new("appearance.note-font", NoteText.DefaultFont, NoteText.IsFont);
+
+    /// <summary>
+    /// The size notes are written and read in, in DIPs (F13, #154; parity D48, J13, G41, G42).
+    /// </summary>
+    /// <remarks>
+    /// Default 14, the design system's body size; one of <see cref="NoteText.Sizes"/>, which the size shortcuts step
+    /// through. Anything else is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<double> AppearanceNoteSize =
+        new("appearance.note-size", NoteText.DefaultSize, NoteText.IsSize);
+
+    /// <summary>
     /// Where a new note goes in its folder (parity B5, J8): Bottom, Top, AboveSelected or BelowSelected.
     /// </summary>
     /// <remarks>
@@ -260,6 +281,8 @@ public static class SettingKeys
         WorkspaceHideOnDeactivation,
         WorkspaceSingleClickOpen,
         AppearanceTheme,
+        AppearanceNoteFont,
+        AppearanceNoteSize,
         NotesNewPlacement,
         NotesRecentMoveFolders,
         OnboardingWelcome,

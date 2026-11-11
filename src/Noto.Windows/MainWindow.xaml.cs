@@ -154,6 +154,26 @@ public sealed partial class MainWindow : Window
         openSettings.Invoked += OnSettingsAccelerator;
         WorkspaceRoot.KeyboardAccelerators.Add(openSettings);
 
+        // Ctrl+= (Ctrl++) and Ctrl+- make the note text larger and smaller (F13, G41, G42), on the number row or the
+        // keypad, from every surface; the editor hands them on as it does Ctrl+, (NoteEditorHost).
+        foreach ((VirtualKey key, VirtualKeyModifiers modifiers, int direction) in new[]
+        {
+            ((VirtualKey)0xBB, VirtualKeyModifiers.Control, 1),
+            ((VirtualKey)0xBB, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, 1),
+            (VirtualKey.Add, VirtualKeyModifiers.Control, 1),
+            ((VirtualKey)0xBD, VirtualKeyModifiers.Control, -1),
+            (VirtualKey.Subtract, VirtualKeyModifiers.Control, -1),
+        })
+        {
+            var size = new KeyboardAccelerator { Key = key, Modifiers = modifiers };
+            size.Invoked += (_, args) =>
+            {
+                args.Handled = true;
+                StepNoteSizeBy(direction);
+            };
+            WorkspaceRoot.KeyboardAccelerators.Add(size);
+        }
+
         // Ctrl+F opens Search (G45, ADR-018) from every surface the same way; the editor hands it on (NoteEditorHost).
         var openSearch = new KeyboardAccelerator { Key = VirtualKey.F, Modifiers = VirtualKeyModifiers.Control };
         openSearch.Invoked += OnSearchAccelerator;
@@ -1516,6 +1536,60 @@ public sealed partial class MainWindow : Window
     /// <summary>The whole drawer: what carries the user's theme (App.ApplyTheme) and slides (F2).</summary>
     internal FrameworkElement Drawer => WorkspaceContent;
 
+    /// <summary>The note text's family, with the design system's after it so a missing font falls back (D51).</summary>
+    private Microsoft.UI.Xaml.Media.FontFamily? _noteFont;
+
+    /// <summary>The note text's size, in DIPs.</summary>
+    private double _noteSize = NoteText.DefaultSize;
+
+    /// <summary>
+    /// Steps the stored note size up or down (G41, G42): the new size, or <see langword="null"/> when it was not kept.
+    /// Set by the application, which owns the store; the change comes back through <see cref="ApplyNoteText"/>.
+    /// </summary>
+    internal Func<int, double?>? StepNoteSize { get; set; }
+
+    /// <summary>
+    /// Shows every note card in a family and a size (F13, #154): set on each card's container, which the read view and
+    /// the editor inherit and scale their headings from. A chosen family is followed by the design system's, so a
+    /// family no longer installed falls back without breaking the layout (D51).
+    /// </summary>
+    internal void ApplyNoteText(string font, double size)
+    {
+        var body = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["FontFamilyBody"];
+        _noteFont = font.Length == 0 ? body : new Microsoft.UI.Xaml.Media.FontFamily($"{font}, {body.Source}");
+        _noteSize = size;
+
+        for (int i = 0; i < NoteList.Items.Count; i++)
+        {
+            if (NoteList.ContainerFromIndex(i) is ListViewItem container)
+            {
+                ApplyNoteText(container);
+            }
+        }
+
+        // Settings, if open, shows a size its shortcut changed.
+        SettingsSurface?.Refresh();
+        Trace.WriteLine($"Noto.Settings note-text size={size.ToString(CultureInfo.InvariantCulture)} default-font={font.Length == 0}");
+    }
+
+    private void ApplyNoteText(Control container)
+    {
+        if (_noteFont is not null)
+        {
+            container.FontFamily = _noteFont;
+        }
+
+        container.FontSize = _noteSize;
+    }
+
+    private void StepNoteSizeBy(int direction)
+    {
+        if (StepNoteSize?.Invoke(direction) is double size)
+        {
+            Announce(string.Create(CultureInfo.CurrentCulture, $"Text size {size}"));
+        }
+    }
+
     /// <summary>The docked side the drawer is shaped for; <see langword="null"/> until docked.</summary>
     private DockEdge? _shapedFor;
 
@@ -2102,7 +2176,7 @@ public sealed partial class MainWindow : Window
     /// container, not the template inside it (measured: help text on the template never reached the focused row), so
     /// "Pinned" and "Folded" are set on the container.
     /// </summary>
-    private static void OnRowContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    private void OnRowContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
         string help = args.Item switch
         {
@@ -2113,10 +2187,11 @@ public sealed partial class MainWindow : Window
 
         AutomationProperties.SetHelpText(args.ItemContainer, help);
 
-        // A recycled container takes this card's colour, or none (F7, #150).
+        // A recycled container takes this card's colour, or none (F7, #150), and the note text's family and size (F13).
         if (args.Item is NoteCard colored)
         {
             VisualStateManager.GoToState(args.ItemContainer, NotePalette.StateOf(colored.ColorKey), useTransitions: false);
+            ApplyNoteText(args.ItemContainer);
         }
     }
 

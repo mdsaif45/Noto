@@ -48,6 +48,9 @@
     15 layout (#144): no setting reaches under the scroll bar (every group ends the bar's 16 DIP before the viewer's
        edge); each drop-down's open list lines up with its field, never shifted or past the screen edge; a screenshot
        of each open list
+    16 the note text (F13, #154): Settings stores a size (18) and a font (Georgia); a card's text is shown in them, as
+       UI Automation reads it; Ctrl+= on the note list stores and shows the next size (20); Ctrl+- in the editor, which
+       hands it on, the one before (18), in Georgia; then both are set back
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -70,7 +73,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'onboarding.welcome')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'onboarding.welcome')
 
 # ---------------------------------------------------------------- helpers
 
@@ -111,7 +114,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'HotkeyEnabledSetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -154,6 +157,13 @@ function Choose([string] $Id, [string] $Name) {
     try { $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
     Start-Sleep -Milliseconds 400
     if ((Combo-Value $Id) -ne $Name) { throw "$Id did not change to '$Name' (it reads '$(Combo-Value $Id)')" }
+}
+function Text-Of($Element) {
+    <# The family and size UI Automation reports for an element's text: a card's read view, or the editor. #>
+    $t = $Element.FindFirst($Scope::Subtree, [System.Windows.Automation.PropertyCondition]::new($AE::IsTextPatternAvailableProperty, $true))
+    if (-not $t) { return [pscustomobject]@{ Size = $null; Family = '(no text)' } }
+    $range = $t.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern).DocumentRange
+    [pscustomobject]@{ Size = $range.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute); Family = [string]$range.GetAttributeValue([System.Windows.Automation.TextPattern]::FontNameAttribute) }
 }
 function Stored([string] $Key) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT Value FROM Settings WHERE Key = $k' -Parameters @{ '$k' = $Key } }
 function Send-ToNoto([int[]] $Mods, [int] $Key) {
@@ -317,6 +327,36 @@ try {
             Close-Settings-ByBack
         }
 
+        # ------------------------------------------------ 16 the note text's font and size (F13, #154)
+        if (Want 16) {
+            To-FolderList; Open-Settings-ByButton
+            $shownAtFirst = Combo-Value 'NoteFontSetting'   # a new data root: the default font, shown as Default
+            Choose 'NoteSizeSetting' '18'
+            Choose 'NoteFontSetting' 'Georgia'
+            $stored = "$(Stored 'appearance.note-size')|$(Stored 'appearance.note-font')"
+            Close-Settings-ByBack
+            $row = (Items 'FolderList')[0]; $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $row.SetFocus(); Start-Sleep -Milliseconds 300
+            Send-ToNoto @(0x11) 0x28   # Ctrl+Down: into the folder, where the seeded note's card is
+            $card = (Items 'NoteList')[0]
+            $chosen = Text-Of $card
+            $card.SetFocus(); Start-Sleep -Milliseconds 300
+            Send-ToNoto @(0x11) 0xBB   # Ctrl+=: one step up, on the note list
+            $up = Text-Of (Items 'NoteList')[0]; $upStored = Stored 'appearance.note-size'
+            (Items 'NoteList')[0].SetFocus(); Start-Sleep -Milliseconds 300
+            Send-ToNoto @() 0x0D       # Enter: edit the card
+            $editor = Find-ById 'NoteEditor'; $editor.SetFocus(); Start-Sleep -Milliseconds 300
+            Send-ToNoto @(0x11) 0xBD   # Ctrl+-: one step down, in the editor, which hands it on
+            $down = Text-Of (Find-ById 'NoteEditor'); $downStored = Stored 'appearance.note-size'
+            Send-ToNoto @() 0x1B
+            Add-Result $run '16 Settings stores the font and size; the card shows them; Ctrl+= on the list and Ctrl+- in the editor step them' ($stored -eq '18|Georgia' -and [double]$chosen.Size -eq 18 -and $chosen.Family -match 'Georgia' -and $upStored -eq '20' -and [double]$up.Size -eq 20 -and $downStored -eq '18' -and [double]$down.Size * 4 / 3 -eq 18 -and $down.Family -match 'Georgia') "stored=$stored card=$($chosen.Size)/$($chosen.Family) after Ctrl+= stored=$upStored card=$($up.Size) after Ctrl+- in the editor stored=$downStored editor=$($down.Size) pt/$($down.Family)"
+            To-FolderList; Open-Settings-ByButton
+            Choose 'NoteSizeSetting' '14'
+            Choose 'NoteFontSetting' 'Default'
+            $storedDefault = Stored 'appearance.note-font'
+            Close-Settings-ByBack
+            Add-Result $run '16 Settings shows Default for a new data root, and Default can be chosen again' ($shownAtFirst -eq 'Default' -and [string]::IsNullOrEmpty($storedDefault)) "shown at first='$shownAtFirst' stored after choosing Default='$storedDefault'"
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -395,10 +435,10 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'BackupButton', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'RevealDataFolderButton', 'BackupButton', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
-            $page = @($expected | Where-Object { $_ -notin 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)
+            $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)
             $reachable = Settings-Focusable
             $unnamed = @($reachable | Where-Object { $_ -notin $page }); $absent = @($page | Where-Object { $_ -notin $reachable })
             Add-Result $run '2  the expected Tab sequence names every keyboard-reachable control on the page' ($unnamed.Count -eq 0 -and $absent.Count -eq 0) "not in the sequence=[$($unnamed -join ',')] not reachable=[$($absent -join ',')]"

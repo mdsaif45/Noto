@@ -682,6 +682,15 @@ public partial class App : Application
         // The theme before the first frame, so a chosen theme is never preceded by Windows' own.
         ApplyTheme(main, preferences.Theme);
 
+        // The note text's font and size (F13, #154), from the first frame; the size shortcuts write the stored size,
+        // which comes back here as any change does.
+        main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
+        main.StepNoteSize = direction =>
+        {
+            double next = NoteText.Step(preferences.NoteSize, direction);
+            return preferences.SetNoteSize(next) ? next : null;
+        };
+
         // "System" follows Windows when its app mode changes (F2). Raised off the UI thread.
         SystemColors.ColorValuesChanged += (_, _) => _ = main.DispatcherQueue.TryEnqueueGuarded(() => ApplyTheme(main, preferences.Theme));
 
@@ -1176,6 +1185,10 @@ public partial class App : Application
         if (key == SettingKeys.AppearanceTheme && _main is not null)
         {
             ApplyTheme(_main, preferences.Theme);
+        }
+        else if ((key == SettingKeys.AppearanceNoteFont || key == SettingKeys.AppearanceNoteSize) && _main is not null)
+        {
+            _main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
         }
         else if (key == SettingKeys.WorkspaceEdge)
         {

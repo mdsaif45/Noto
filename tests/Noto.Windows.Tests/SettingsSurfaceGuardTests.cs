@@ -34,6 +34,8 @@ public sealed class SettingsSurfaceGuardTests
         (string Key, string Owner)[] owners =
         [
             ("AppearanceTheme", @"ApplyTheme\(_main, preferences\.Theme\)"),
+            ("AppearanceNoteFont", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
+            ("AppearanceNoteSize", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
@@ -79,7 +81,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(6, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(8, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -243,7 +245,12 @@ public sealed class SettingsSurfaceGuardTests
         string modifiers = Regex.Escape(accelerator.Groups["modifiers"].Value);
         string host = Code(Path.Join(Windows, "NoteEditorHost.xaml.cs"));
         Assert.Matches(
-            $@"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= \(_, args\) =>\s*\{{\s*if \(args\.Key is {key} or VirtualKey\.F && args\.Modifiers == {modifiers} && XamlRoot\?\.Content is UIElement root\)\s*\{{\s*root\.TryInvokeKeyboardAccelerator\(args\);\s*\}}\s*\}};",
+            @"InitializeComponent\(\);\s*NoteEditor\.ProcessKeyboardAccelerators \+= \(_, args\) =>\s*\{\s*if \(HandedOn\(args\.Key, args\.Modifiers\) && XamlRoot\?\.Content is UIElement root\)\s*\{\s*root\.TryInvokeKeyboardAccelerator\(args\);\s*\}\s*\};",
+            host);
+
+        // Exactly the window's chords the edit control would keep: Settings, Search and the note text's size (F13).
+        Assert.Matches(
+            $@"\(modifiers == {modifiers} && key is {key} or VirtualKey\.F or \(VirtualKey\)0xBB or \(VirtualKey\)0xBD or VirtualKey\.Add or VirtualKey\.Subtract\)\s*\|\| \(modifiers == \(VirtualKeyModifiers\.Control \| VirtualKeyModifiers\.Shift\) && key == \(VirtualKey\)0xBB\);",
             host);
 
         // Wired once, to the editor itself; nothing else redirects or invokes accelerators.
@@ -340,9 +347,9 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // Nine settings, the Data group's Back up, Restore, Export, Import and their progress line (ADR-020), and Help's
-        // Welcome tour (ADR-021).
-        Assert.Equal(15, rows.Count);
+        // Eleven settings (the note font and text size, F13), the Data group's Back up, Restore, Export, Import and their
+        // progress line (ADR-020), and Help's Welcome tour (ADR-021).
+        Assert.Equal(17, rows.Count);
 
         foreach (XElement row in rows)
         {
