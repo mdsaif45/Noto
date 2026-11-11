@@ -150,7 +150,7 @@
     <FontWeight x:Key="FontWeightEmphasis">SemiBold</FontWeight>
 
     <!--
-        RADIUS — ADR-011 names four (Small, Medium, Large, Pill); only the two
+        RADIUS — ADR-011 names four (Small, Medium, Large, Pill); only the ones
         a surface uses are declared.
     -->
     <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
@@ -160,6 +160,10 @@
     -->
 
     <CornerRadius x:Key="RadiusMedium">8</CornerRadius>
+
+    <!-- A folded card's "+ N lines" (F6, #149): fully round ends on a caption line. -->
+    <CornerRadius x:Key="RadiusPill">10</CornerRadius>
+    <Thickness x:Key="PillPadding">8,2,8,2</Thickness>
 
     <!--
         BORDER WIDTHS — the focus ring is 2px because a 1px ring is easy to

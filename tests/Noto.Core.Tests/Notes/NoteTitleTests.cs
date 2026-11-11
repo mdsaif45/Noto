@@ -229,4 +229,19 @@ public sealed class NoteTitleTests
     {
         Assert.Equal("日本語のメモ 🗒️", NoteTitle.From("日本語のメモ 🗒️\nbody"));
     }
+
+    // ---- what a folded card hides (F6, #149) -----------------------------
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData("", 0)]
+    [InlineData("  \n\t", 0)]
+    [InlineData("Title", 0)]
+    [InlineData("Title\nmilk\neggs", 2)]
+    [InlineData("\n\n# Title\r\n\r\nmilk\r\n   \reggs\n\n", 2)]
+    [InlineData("Title\n- [ ] one\n- [x] two\n\n```\ncode\n```", 5)]
+    public void The_lines_below_the_title_count_every_line_that_holds_anything(string? content, int lines)
+    {
+        Assert.Equal(lines, NoteTitle.LinesBelow(content));
+    }
 }

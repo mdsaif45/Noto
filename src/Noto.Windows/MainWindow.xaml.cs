@@ -2308,6 +2308,24 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>The card bar's Colour button: the palette, above the button.</summary>
+    /// <summary>A folded card's "+ N lines" (F6, #149) unfolds it.</summary>
+    private void OnUnfoldPillClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: NoteCard card })
+        {
+            FoldCard(card.Id, folded: false);
+        }
+    }
+
+    /// <summary>The card bar's Fold (F6, #149): as Ctrl+Alt+Left in the editor, it saves, folds and leaves editing.</summary>
+    private void OnFoldCardClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: NoteCard card })
+        {
+            FoldCard(card.Id, folded: true);
+        }
+    }
+
     private void OnCardColorClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: NoteCard card } button)
