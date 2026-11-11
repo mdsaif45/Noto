@@ -786,6 +786,10 @@ public partial class App : Application
             _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
         }
 
+        // F15 (#15): automatic backups, checked a little after the start (never on its path) and then every hour.
+        _automaticBackup = () => BackupIfDue(portability, preferences);
+        ScheduleAutomaticBackups(_window.DispatcherQueue);
+
         // Slice 1: a preference changed in Settings reaches the part of Noto that owns it, at once. After every owner
         // exists, so each change finds its owner wired.
         settings.SettingChanged += (_, e) => OnSettingChanged(e.Key, settings, preferences);
@@ -1185,6 +1189,10 @@ public partial class App : Application
         if (key == SettingKeys.AppearanceTheme && _main is not null)
         {
             ApplyTheme(_main, preferences.Theme);
+        }
+        else if (key == SettingKeys.BackupAutomatic)
+        {
+            _ = _automaticBackup?.Invoke();
         }
         else if ((key == SettingKeys.AppearanceNoteFont || key == SettingKeys.AppearanceNoteSize) && _main is not null)
         {
@@ -1748,6 +1756,55 @@ public partial class App : Application
         deadline.IsRepeating = false;
         deadline.Tick += (_, _) => Present("deadline");
         deadline.Start();
+    }
+
+    /// <summary>Checks for an automatic backup (F15): set once the data's owners exist.</summary>
+    private Func<Task>? _automaticBackup;
+
+    /// <summary>Checks for an automatic backup on a timer; kept so it is not collected.</summary>
+    private DispatcherQueueTimer? _backupTimer;
+
+    /// <summary>How long after a start the first automatic-backup check runs: off the start's path.</summary>
+    private static readonly TimeSpan FirstBackupCheck = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often the automatic backup is checked for afterwards; it is taken once a day.</summary>
+    private static readonly TimeSpan BackupCheckInterval = TimeSpan.FromHours(1);
+
+    private void ScheduleAutomaticBackups(DispatcherQueue queue)
+    {
+        _backupTimer = queue.CreateTimer();
+        _backupTimer.Interval = FirstBackupCheck;
+        _backupTimer.IsRepeating = true;
+        _backupTimer.Tick += (timer, _) =>
+        {
+            timer.Interval = BackupCheckInterval;
+            _ = _automaticBackup?.Invoke();
+        };
+        _backupTimer.Start();
+    }
+
+    /// <summary>
+    /// An automatic backup, if it is on and one is due (F15, #15). A failure is traced and tried again at the next check;
+    /// it never interrupts the user.
+    /// </summary>
+    private static async Task BackupIfDue(DataPortability portability, WorkspacePreferences preferences)
+    {
+        if (!preferences.AutomaticBackups)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await portability.BackupIfDue())
+            {
+                Trace.WriteLine("Noto.Backup automatic written");
+            }
+        }
+        catch (Exception ex) when (ex is PortabilityException or IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            Trace.WriteLine($"Noto.Backup automatic failed error={ex.GetType().Name}");
+        }
     }
 
     /// <summary>How long a start may stay off the screen while it is drawn, at most (<see cref="PresentWhenDrawn"/>).</summary>

@@ -66,6 +66,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The size notes are shown in, in DIPs (F13, D48).</summary>
     public double NoteSize => _settings.Read(SettingKeys.AppearanceNoteSize);
 
+    /// <summary>Whether Noto backs itself up once a day (F15).</summary>
+    public bool AutomaticBackups => _settings.Read(SettingKeys.BackupAutomatic);
+
     /// <summary>Where a new note goes in its folder (parity B5, J8). Read only until its settings row exists.</summary>
     public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
 
@@ -94,6 +97,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the workspace's theme.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTheme(WorkspaceTheme theme) => TryWrite(SettingKeys.AppearanceTheme, theme);
+
+    /// <summary>Sets whether Noto backs itself up once a day.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetAutomaticBackups(bool automatic) => TryWrite(SettingKeys.BackupAutomatic, automatic);
 
     /// <summary>Sets the family notes are shown in.</summary>
     /// <returns>Whether it was kept: a family outside <see cref="NoteText.Fonts"/> is refused.</returns>

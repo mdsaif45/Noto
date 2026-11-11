@@ -36,6 +36,7 @@ public sealed class SettingsSurfaceGuardTests
             ("AppearanceTheme", @"ApplyTheme\(_main, preferences\.Theme\)"),
             ("AppearanceNoteFont", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("AppearanceNoteSize", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
+            ("BackupAutomatic", @"_ = _automaticBackup\?\.Invoke\(\)"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
@@ -81,7 +82,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(8, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(9, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -347,9 +348,9 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // Eleven settings (the note font and text size, F13), the Data group's Back up, Restore, Export, Import and their
-        // progress line (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(17, rows.Count);
+        // Twelve settings (the note font and text size, F13; automatic backups, F15), the Data group's Back up, Restore,
+        // Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
+        Assert.Equal(18, rows.Count);
 
         foreach (XElement row in rows)
         {

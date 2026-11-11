@@ -218,6 +218,13 @@ public static class SettingKeys
         new("appearance.note-size", NoteText.DefaultSize, NoteText.IsSize);
 
     /// <summary>
+    /// Whether Noto backs itself up once a day into the data root's backups, keeping the last seven (F15, #15).
+    /// </summary>
+    /// <remarks>Default on: a backup nobody remembered to take is the one that is missing when it is needed.</remarks>
+    public static readonly SettingKey<bool> BackupAutomatic =
+        new("backup.automatic", true);
+
+    /// <summary>
     /// Where a new note goes in its folder (parity B5, J8): Bottom, Top, AboveSelected or BelowSelected.
     /// </summary>
     /// <remarks>
@@ -283,6 +290,7 @@ public static class SettingKeys
         AppearanceTheme,
         AppearanceNoteFont,
         AppearanceNoteSize,
+        BackupAutomatic,
         NotesNewPlacement,
         NotesRecentMoveFolders,
         OnboardingWelcome,
