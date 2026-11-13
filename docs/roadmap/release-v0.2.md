@@ -223,6 +223,10 @@ The engine already stores `IsFolded`.
 2. **If Windows gives the space back by itself:** amend ADR-007, and offer Dock as a mode beside *Keep Noto open*, off by default.
 3. **If not:** Noto keeps floating.
 
+**Run (#153, 2026-11-13):** on one display, Windows gives the space back however the docked process ends: killed 0.1 s,
+crashed 12.3 s, exited without `ABM_REMOVE` about 2.4 s ([dock-appbar-spike.md](../research/dock-appbar-spike.md)). The
+two-monitor half is still to run; *Dock* as a mode is #203.
+
 ### F13. Font family and text size (#154)
 
 - A font family and a text size in Settings, applied to the cards and the editor.

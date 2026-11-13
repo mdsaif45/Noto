@@ -90,6 +90,20 @@ format or behavior. Breaking changes are always called out explicitly.
 
 - The automatic backup checked a second time 30 seconds after the first, instead of an hour later (#160).
 
+- A picture dragged from a web page onto Noto is imported; before, nothing was. Browsers give a picture as a file with
+  no path, which Noto now copies in first (#31).
+- Text dragged from another app, such as a web page, onto the note being edited is added where it is dropped, as Ctrl+V
+  adds it (#31).
+- Narrator now hears Noto's messages as they change: notices, results lines and Search's count were never announced
+  (#161).
+
+### Known limitations
+
+- Narrator does not say a row's state (Pinned, Folded, a colour) (#201).
+- With Narrator on, Ctrl+Alt+arrows are Narrator's own keys: fold and unfold from the card's menu instead (#202).
+- High Contrast, display scaling, input methods, two monitors and Windows 10 are not yet checked by hand for this
+  release (#161, #30, #32).
+
 ## [0.1.0] - 2026-11-06
 
 The Basic Release. Noto is a notes drawer for Windows: quick to reach, usable
