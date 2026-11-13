@@ -233,8 +233,8 @@ public sealed class NoteStackGuardTests
         string rows = Body(Main, "OnRowContainerContentChanging");
         Assert.Contains("NoteCard card => card.HelpText,", rows, StringComparison.Ordinal);
         Assert.Contains("FolderListItem folder => folder.HelpText,", rows, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.SetHelpText(args.ItemContainer, help);", rows, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.SetHelpText(container, card.HelpText);", Body(Main, "FoldCard"), StringComparison.Ordinal);
+        Assert.Contains("Accessible.SetRowState(args.ItemContainer, help);", rows, StringComparison.Ordinal);
+        Assert.Contains("Accessible.SetRowState(container, card.HelpText);", Body(Main, "FoldCard"), StringComparison.Ordinal);
     }
 
     [Fact]

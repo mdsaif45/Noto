@@ -188,6 +188,7 @@
                         x:Name="NoticeText"
                         Style="{StaticResource FolderPaneNoticeStyle}"
                         Visibility="Collapsed"
+                        local:Accessible.Announces="True"
                         AutomationProperties.LiveSetting="Assertive" />
 
                     <!--
@@ -198,6 +199,7 @@
                         x:Name="StatusText"
                         Style="{StaticResource FolderPaneGuidanceStyle}"
                         Visibility="Collapsed"
+                        local:Accessible.Announces="True"
                         AutomationProperties.LiveSetting="Polite" />
 
                     <!-- F9 (#152): files dropped on a folder are one result and one Undo, until anything else is said. -->
@@ -411,12 +413,14 @@
                         x:Name="NoteNoticeText"
                         Style="{StaticResource FolderPaneNoticeStyle}"
                         Visibility="Collapsed"
+                        local:Accessible.Announces="True"
                         AutomationProperties.LiveSetting="Assertive" />
 
                     <TextBlock
                         x:Name="NoteStatusText"
                         Style="{StaticResource FolderPaneGuidanceStyle}"
                         Visibility="Collapsed"
+                        local:Accessible.Announces="True"
                         AutomationProperties.LiveSetting="Polite" />
 
                     <!-- F9 (#152): files dropped on the stack, as on a folder. -->
