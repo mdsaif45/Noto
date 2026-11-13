@@ -121,6 +121,11 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool TerminateProcess(nint process, uint exitCode);
 
+    /// <summary>Both sizes -1: removes as many pages as possible from the working set (ProcessMemory.Trim).</summary>
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetProcessWorkingSetSize(nint process, nint minimum, nint maximum);
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool EnumDisplayMonitors(

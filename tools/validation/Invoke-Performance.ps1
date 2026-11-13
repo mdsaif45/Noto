@@ -240,6 +240,9 @@ function Save-ByHide([string] $NoteId, [string] $Text, [string] $Suffix) {
 function SaveTraces { @($log.Lines($noto.Pid)) | Where-Object { $_ -match 'Noto\.Save completed' } }
 function Idle([string] $Label) {
     $p = Get-Process -Id $noto.Pid
+    # Start-up work first: the first automatic backup check (F15) runs 30 s after a start, once a day writes a whole
+    # backup, and is not idle work (F22).
+    if (-not (Until { @($log.Lines($noto.Pid)) -match 'Noto\.Backup automatic (written|not-due|off|failed)' } 60000 250)) { throw 'the first automatic backup check did not run' }
     Start-Sleep -Seconds 5   # let start-up work settle before the window opens
     $p.Refresh(); $cpu0 = $p.TotalProcessorTime.TotalMilliseconds; $t0 = Get-Date
     Start-Sleep -Seconds $IdleSeconds

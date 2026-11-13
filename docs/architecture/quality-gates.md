@@ -65,7 +65,7 @@ traces and the latency from the key to them; *median / p90* unless marked. Same 
 | A 2400 × 1600 picture pasted, into the note | ≤ 300 ms p90 | 132 / 195 ms | met |
 | Backup, export, import, restore: 2,000 notes, 150 MB of pictures (end to end, Windows' file dialog included) | recorded | 2.4 · 4.0 · 3.1 · 3.2 s (restore: confirm → the new window) | recorded |
 | Idle CPU, hidden and shown | < 0.1% | 0 ms in 60 s | met |
-| Idle memory | < 150 MB working set | hidden 152.1 MB (private 76.8) · shown 171.0 MB (private 92.3) | **not met** (deferred by the owner, 2026-11-06) |
+| Idle memory | < 150 MB working set | hidden 152.1 MB (private 76.8) · shown 171.0 MB (private 92.3) | **not met** (deferred by the owner, 2026-11-06); **met in v0.2** (F22, below) |
 
 **Why some budgets changed from #11 (decisions, not conveniences):**
 
@@ -108,6 +108,28 @@ settles at about 225 MB working set / 130 MB private. **A very large note costs 
 leaving a 250 KB note repeatedly rises to about 600 MB private and stays there (a high-water mark, not growth: flat from
 the 20th to the 40th time); its read view alone, never edited, about 240–340 MB. Every card renders its whole note,
 however large. The owner deferred this (2026-11-06); the measured candidate is a preview of very large notes in the stack.
+
+**Idle memory in v0.2 (F22, #160, 2026-11-13).** Measured on frozen Release, on AC power, with the existing measurement
+(`Invoke-Performance.ps1 -Runs 5 -IdleSeconds 60 -NoteCount 1000`, `performance-20261113-102642-7568f9`):
+
+| | v0.1 | v0.2 before F22 | v0.2 |
+|---|---|---|---|
+| Hidden: working set (private) | 152.1 (76.8) MB | 162.3 (81.2) MB | **7.2** (82.2) MB |
+| Shown: working set (private) | 171.0 (92.3) MB | 177.7 (94.2) MB | **72.8** (96.9) MB |
+| Idle CPU, hidden / shown | 0 / 0 ms in 60 s | 703 → 0 / 0 ms | 0 / 0 ms |
+| Hotkey: hidden → shown, in front | 17 ms | — | 16 ms median, 46 ms max (the show after a trim) |
+
+- **What changed.** Once Noto has been hidden for 5 s (after a hide, a hidden start at sign-in, or an automatic backup
+  check), it asks Windows to trim its working set (`ProcessMemory.Trim`, `SetProcessWorkingSetSize(-1, -1)`). Nothing is
+  freed or lost: private bytes are unchanged, and each page comes back when it is touched. The working set while shown is
+  what a show and 60 s shown touch, not the whole framework.
+- **What it costs.** The first show after a trim reads its pages back: in front within 46 ms (the budget is 100), but
+  the drawer's slide starts about 40 ms later and takes about 250 ms instead of 167–190 (measured from Noto's own
+  traces). Later shows are unchanged.
+- **Measuring idle.** The first automatic backup check (F15) runs 30 s after a start and writes a whole backup once a
+  day: start-up work, not idle. It had landed inside the hidden minute (703 ms of CPU); the measurement now starts once
+  that check has run (each check traces how it ended). A second check 30 s after the first, an F15 timer bug, is fixed.
+- **Not changed:** WinUI's own memory. The managed heap stays under 15 MB; turning concurrent GC off saved about 1 MB.
 
 #### The #11 budgets, kept as history (2026-10-13)
 

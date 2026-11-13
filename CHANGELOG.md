@@ -69,6 +69,10 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Changed
 
+- A hidden Noto now gives back the memory it is not using: after it has been hidden for a few seconds, Windows takes
+  back its unused pages (idle and hidden: about 7 MB of working set instead of about 160). The first show after that
+  is in front just as fast; its slide-in takes a little longer, once (#160).
+
 - The *New folder name* box no longer takes the top of the folder list all the time: it opens from **+**, Ctrl+N or
   the menu's *New folder*, and closes once the folder is made, on Escape, or when you leave it empty. With no folders
   yet, it stays open (#148).
@@ -81,6 +85,10 @@ format or behavior. Breaking changes are always called out explicitly.
   so they slide with it (#145).
 - Starting Noto no longer shows a black window for a moment: it appears once drawn, sliding in as it does from the
   shortcut (#145).
+
+### Fixed
+
+- The automatic backup checked a second time 30 seconds after the first, instead of an hour later (#160).
 
 ## [0.1.0] - 2026-11-06
 
