@@ -53,12 +53,18 @@ public sealed class ImageGuardTests
         Assert.Contains("NoteEditor.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);", Host, StringComparison.Ordinal);
         Assert.Contains("NoteEditor.AddHandler(DropEvent, new DragEventHandler(OnDrop), handledEventsToo: true);", Host, StringComparison.Ordinal);
 
-        Assert.Matches(@"if \(e\.DataView\.Contains\(StandardDataFormats\.StorageItems\)\)\s*\{\s*e\.AcceptedOperation = DataPackageOperation\.Copy;", Body(Images, "OnDragOver"));
+        // Files, and text from another app (#31), are accepted as a copy.
+        Assert.Contains("if (e.DataView.Contains(StandardDataFormats.StorageItems) || e.DataView.Contains(StandardDataFormats.Text) || e.DataView.Contains(StandardDataFormats.Html))", Body(Images, "OnDragOver"), StringComparison.Ordinal);
 
         string drop = Body(Images, "OnDrop");
         Assert.Contains("NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition", drop, StringComparison.Ordinal);
-        Assert.Contains(".Where(Path.IsPathFullyQualified)", drop, StringComparison.Ordinal);
-        Assert.Matches(@"_selection = TextSelection\.Caret\(at\);\s*AddFiles\(paths\);", drop);
+
+        // A browser's picture has no path: copied first, then added as any file is, the copy removed after (#31).
+        Assert.Contains("(IReadOnlyList<string> paths, string? copies) = await DroppedItems.PathsOf(e.DataView);", drop, StringComparison.Ordinal);
+        Assert.Matches(@"_selection = TextSelection\.Caret\(at\);\s*try\s*\{\s*AddFiles\(paths\);\s*\}\s*finally\s*\{\s*DroppedItems\.Release\(copies\);", drop);
+
+        // Text is read while the drop lasts, then pasted as Ctrl+V pastes it.
+        Assert.Contains("PasteAsync(formatted: true, from: text.GetView());", drop, StringComparison.Ordinal);
         Assert.Matches(@"finally\s*\{\s*deferral\.Complete\(\);", drop);
     }
 
