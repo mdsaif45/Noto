@@ -61,7 +61,7 @@ public sealed partial class RecycleBinPage : UserControl
         {
             if (args.Item is RecycleBinItem item)
             {
-                AutomationProperties.SetHelpText(args.ItemContainer, item.Detail);
+                Accessible.SetRowState(args.ItemContainer, item.Detail);
             }
         };
     }

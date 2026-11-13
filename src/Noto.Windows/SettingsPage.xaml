@@ -2,6 +2,7 @@
     x:Class="Noto.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Noto"
     AutomationProperties.AutomationId="SettingsRoot"
     AutomationProperties.Name="Settings">
 
@@ -55,6 +56,7 @@
             Grid.Row="1"
             Style="{StaticResource FolderPaneNoticeStyle}"
             Visibility="Collapsed"
+            local:Accessible.Announces="True"
             AutomationProperties.LiveSetting="Assertive" />
 
         <ScrollViewer x:Name="SettingsScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="{StaticResource ScrollBarGutter}">
@@ -331,12 +333,14 @@
                                         x:Name="HotkeyRecorderStatus"
                                         Style="{StaticResource SettingDescriptionStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                     <!-- Why the shortcut is not active. The text is the name; announced when it appears. -->
                                     <TextBlock
                                         x:Name="HotkeyMessage"
                                         Style="{StaticResource FolderPaneNoticeStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                 </StackPanel>
                                 <Button
@@ -386,11 +390,13 @@
                                         x:Name="NewNoteHotkeyRecorderStatus"
                                         Style="{StaticResource SettingDescriptionStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                     <TextBlock
                                         x:Name="NewNoteHotkeyMessage"
                                         Style="{StaticResource FolderPaneNoticeStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                 </StackPanel>
                                 <Button
@@ -440,11 +446,13 @@
                                         x:Name="ClipboardNoteHotkeyRecorderStatus"
                                         Style="{StaticResource SettingDescriptionStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                     <TextBlock
                                         x:Name="ClipboardNoteHotkeyMessage"
                                         Style="{StaticResource FolderPaneNoticeStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                 </StackPanel>
                                 <Button
@@ -494,11 +502,13 @@
                                         x:Name="SearchHotkeyRecorderStatus"
                                         Style="{StaticResource SettingDescriptionStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                     <TextBlock
                                         x:Name="SearchHotkeyMessage"
                                         Style="{StaticResource FolderPaneNoticeStyle}"
                                         Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Assertive" />
                                 </StackPanel>
                                 <Button
@@ -657,6 +667,7 @@
                                     <TextBlock
                                         x:Name="DataStatusText"
                                         Style="{StaticResource SettingDescriptionStyle}"
+                                        local:Accessible.Announces="True"
                                         AutomationProperties.LiveSetting="Polite" />
                                     <ProgressBar
                                         x:Name="DataProgressBar"

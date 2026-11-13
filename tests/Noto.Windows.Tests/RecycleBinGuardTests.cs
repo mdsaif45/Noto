@@ -91,7 +91,7 @@ public sealed class RecycleBinGuardTests
             Assert.False(string.IsNullOrEmpty((string?)element.Attribute("AutomationProperties.Name")), name);
         }
 
-        Assert.Contains("AutomationProperties.SetHelpText(args.ItemContainer, item.Detail);", Page, StringComparison.Ordinal);
+        Assert.Contains("Accessible.SetRowState(args.ItemContainer, item.Detail);", Page, StringComparison.Ordinal);
         Assert.Equal("Assertive", (string?)PageXaml.Descendants().Single(e => (string?)e.Attribute(X + "Name") == "BinNoticeText").Attribute("AutomationProperties.LiveSetting"));
         Assert.Equal("Recycle Bin", (string?)MainXaml.Descendants().Single(e => (string?)e.Attribute(X + "Name") == "RecycleBinButton").Attribute("AutomationProperties.Name"));
     }

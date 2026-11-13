@@ -48,6 +48,7 @@
                 x:Name="BinNoticeText"
                 Style="{StaticResource FolderPaneNoticeStyle}"
                 Visibility="Collapsed"
+                local:Accessible.Announces="True"
                 AutomationProperties.LiveSetting="Assertive" />
         </StackPanel>
 

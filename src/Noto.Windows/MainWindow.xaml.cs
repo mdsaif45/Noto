@@ -2198,7 +2198,7 @@ public sealed partial class MainWindow : Window
             _ => string.Empty,
         };
 
-        AutomationProperties.SetHelpText(args.ItemContainer, help);
+        Accessible.SetRowState(args.ItemContainer, help);
 
         // A recycled container takes this card's colour, or none (F7, #150), and the note text's family and size (F13).
         if (args.Item is NoteCard colored)
@@ -2396,7 +2396,7 @@ public sealed partial class MainWindow : Window
                 if (NoteList.ContainerFromItem(card) is ListViewItem container)
                 {
                     VisualStateManager.GoToState(container, NotePalette.StateOf(colorKey), useTransitions: false);
-                    AutomationProperties.SetHelpText(container, card.HelpText);
+                    Accessible.SetRowState(container, card.HelpText);
                 }
             }
 
@@ -2435,7 +2435,7 @@ public sealed partial class MainWindow : Window
 
                 if (NoteList.ContainerFromItem(card) is ListViewItem container)
                 {
-                    AutomationProperties.SetHelpText(container, card.HelpText);
+                    Accessible.SetRowState(container, card.HelpText);
                 }
             }
 
