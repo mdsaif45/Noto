@@ -29,12 +29,18 @@ public sealed partial class MainWindow
     private void AttachDropTargets()
     {
         NoteList.AddHandler(UIElement.DragEnterEvent, new DragEventHandler(OnNoteListDragOver), handledEventsToo: true);
+        NoteList.AddHandler(UIElement.DragEnterEvent, new DragEventHandler(TraceFormats), handledEventsToo: true);
+        FolderList.AddHandler(UIElement.DragEnterEvent, new DragEventHandler(TraceFormats), handledEventsToo: true);
         NoteList.AddHandler(UIElement.DragOverEvent, new DragEventHandler(OnNoteListDragOver), handledEventsToo: true);
         NoteList.AddHandler(UIElement.DropEvent, new DragEventHandler(OnNoteListDrop), handledEventsToo: true);
         FolderList.AddHandler(UIElement.DragEnterEvent, new DragEventHandler(OnFolderListDragOver), handledEventsToo: true);
         FolderList.AddHandler(UIElement.DragOverEvent, new DragEventHandler(OnFolderListDragOver), handledEventsToo: true);
         FolderList.AddHandler(UIElement.DropEvent, new DragEventHandler(OnFolderListDrop), handledEventsToo: true);
     }
+
+    /// <summary>What a drag that enters a list offers, by format name only (#31: which sources give files).</summary>
+    private static void TraceFormats(object sender, DragEventArgs e) =>
+        System.Diagnostics.Trace.WriteLine($"Noto.Drop enter formats={string.Join(',', e.DataView.AvailableFormats)}");
 
     private void OnNoteListDragOver(object sender, DragEventArgs e)
     {
@@ -60,8 +66,22 @@ public sealed partial class MainWindow
         }
 
         e.Handled = true;
-        if (await Dropped(e, ShowNoteNotice) is not { } files || !TryEndEdit()
-            || await Import(files, folder, ShowNoteNotice) is not { } import || _openFolderId != folder)
+        if (await Dropped(e, ShowNoteNotice) is not { } dropped)
+        {
+            return;
+        }
+
+        FilesImport? import;
+        try
+        {
+            import = TryEndEdit() ? await Import(dropped.Paths, folder, ShowNoteNotice) : null;
+        }
+        finally
+        {
+            DroppedItems.Release(dropped.Copies);
+        }
+
+        if (import is null || _openFolderId != folder)
         {
             return;
         }
@@ -82,7 +102,22 @@ public sealed partial class MainWindow
         }
 
         e.Handled = true;
-        if (await Dropped(e, ShowNotice) is not { } files || await Import(files, FolderId.From(row.Id), ShowNotice) is not { } import)
+        if (await Dropped(e, ShowNotice) is not { } dropped)
+        {
+            return;
+        }
+
+        FilesImport? import;
+        try
+        {
+            import = await Import(dropped.Paths, FolderId.From(row.Id), ShowNotice);
+        }
+        finally
+        {
+            DroppedItems.Release(dropped.Copies);
+        }
+
+        if (import is null)
         {
             return;
         }
@@ -181,15 +216,18 @@ public sealed partial class MainWindow
         return false;
     }
 
-    /// <summary>The dropped files' paths, read before the drop ends; <see langword="null"/> when they cannot be read.</summary>
-    private static async Task<IReadOnlyList<string>?> Dropped(DragEventArgs e, Action<string> notice)
+    /// <summary>
+    /// The dropped files' paths, read before the drop ends (a browser's picture copied first, <see cref="DroppedItems"/>);
+    /// <see langword="null"/> when they cannot be read.
+    /// </summary>
+    private static async Task<(IReadOnlyList<string> Paths, string? Copies)?> Dropped(DragEventArgs e, Action<string> notice)
     {
         DragOperationDeferral deferral = e.GetDeferral();
         try
         {
-            return [.. (await e.DataView.GetStorageItemsAsync()).Select(i => i.Path).Where(Path.IsPathFullyQualified)];
+            return await DroppedItems.PathsOf(e.DataView);
         }
-        catch (COMException)
+        catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             notice("Those files couldn't be read.");
             return null;

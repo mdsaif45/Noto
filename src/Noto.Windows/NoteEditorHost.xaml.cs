@@ -659,7 +659,7 @@ public sealed partial class NoteEditorHost : UserControl
     /// Pastes the clipboard through the same edit path: one undo step. Formatted (Ctrl+V), HTML from a browser or an
     /// office app arrives as Markdown (HtmlToMarkdown); otherwise, and always for Ctrl+Shift+V, as plain text.
     /// </summary>
-    private async void PasteAsync(bool formatted)
+    private async void PasteAsync(bool formatted, DataPackageView? from = null)
     {
         string? html = null;
         string? plain = null;
@@ -668,7 +668,8 @@ public sealed partial class NoteEditorHost : UserControl
 
         try
         {
-            DataPackageView clipboard = Clipboard.GetContent();
+            // The clipboard, or what a drop carried (#31): text dragged from another app is pasted where it lands.
+            DataPackageView clipboard = from ?? Clipboard.GetContent();
 
             // Files and folders copied in Explorer become links to them (D34): each item's own full path.
             if (clipboard.Contains(StandardDataFormats.StorageItems))

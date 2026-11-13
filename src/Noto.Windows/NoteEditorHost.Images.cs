@@ -290,10 +290,10 @@ public sealed partial class NoteEditorHost
         }
     }
 
-    /// <summary>Files dragged over the editor are accepted as a copy; anything else is RichEdit's.</summary>
+    /// <summary>Files, and text from another app (#31), dragged over the editor are accepted as a copy.</summary>
     private void OnDragOver(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        if (e.DataView.Contains(StandardDataFormats.StorageItems) || e.DataView.Contains(StandardDataFormats.Text) || e.DataView.Contains(StandardDataFormats.Html))
         {
             e.AcceptedOperation = DataPackageOperation.Copy;
             e.DragUIOverride.Caption = "Add to note";
@@ -301,10 +301,14 @@ public sealed partial class NoteEditorHost
         }
     }
 
-    /// <summary>Dropped files go where they were dropped: the caret is put at the drop point first.</summary>
+    /// <summary>
+    /// Dropped files, or text, go where they were dropped: the caret is put at the drop point first. Text is pasted as
+    /// Ctrl+V pastes it (a page's HTML as Markdown), one undo step (#31: Edge's text drag offers Text and HTML).
+    /// </summary>
     private async void OnDrop(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        bool files = e.DataView.Contains(StandardDataFormats.StorageItems);
+        if (!files && !e.DataView.Contains(StandardDataFormats.Text) && !e.DataView.Contains(StandardDataFormats.Html))
         {
             return;
         }
@@ -319,15 +323,45 @@ public sealed partial class NoteEditorHost
                 point.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top + ScrolledBy);
             int at = NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition;
 
-            IReadOnlyList<string> paths = [.. (await e.DataView.GetStorageItemsAsync()).Select(i => i.Path).Where(Path.IsPathFullyQualified)];
+            if (!files)
+            {
+                // Read now, while the drop lasts, into a package of Noto's own that the paste reads after.
+                var text = new DataPackage();
+                if (e.DataView.Contains(StandardDataFormats.Html))
+                {
+                    text.SetHtmlFormat(await e.DataView.GetHtmlFormatAsync());
+                }
+
+                if (e.DataView.Contains(StandardDataFormats.Text))
+                {
+                    text.SetText(await e.DataView.GetTextAsync());
+                }
+
+                Flush();
+                Set(() => NoteEditor.Document.Selection.SetRange(at, at));
+                _selection = TextSelection.Caret(at);
+                PasteAsync(formatted: true, from: text.GetView());
+                _ = NoteEditor.Focus(FocusState.Programmatic);
+                return;
+            }
+
+            (IReadOnlyList<string> paths, string? copies) = await DroppedItems.PathsOf(e.DataView);
 
             Flush();
             Set(() => NoteEditor.Document.Selection.SetRange(at, at));
             _selection = TextSelection.Caret(at);
-            AddFiles(paths);
+            try
+            {
+                AddFiles(paths);
+            }
+            finally
+            {
+                DroppedItems.Release(copies);
+            }
+
             _ = NoteEditor.Focus(FocusState.Programmatic);
         }
-        catch (COMException)
+        catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             ImageNotice?.Invoke(this, "Those files couldn't be read.");
         }
