@@ -308,6 +308,12 @@ New global hotkeys are rebindable and off by default (principle 7).
 
 v0.1 measured 152 MB idle against the 150 MB budget. The work was deferred on 2026-11-06 ([quality-gates.md](../architecture/quality-gates.md)).
 
+**Built (#160):** hidden idle 7.2 MB working set (v0.1: 152.1; v0.2 before this: 162.3), shown 72.8 MB, idle CPU 0 ms,
+hotkey show 16 ms median / 46 ms max, in the existing measurement on AC power. A hidden Noto asks Windows to trim its
+working set after 5 s hidden (`ProcessMemory.Trim`); private bytes are unchanged, and the first show after a trim slides in
+about 80 ms slower, once. The idle measurement now starts after the first automatic backup check, and that check's
+second run 30 s after the first (an F15 timer bug) is fixed. Details: [quality-gates.md](../architecture/quality-gates.md).
+
 ---
 
 ## Not v0.2: later capability milestones

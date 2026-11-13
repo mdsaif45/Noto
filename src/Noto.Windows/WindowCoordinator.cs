@@ -193,6 +193,9 @@ internal sealed class WindowCoordinator(
     /// </param>
     /// <param name="requestTime">When the request was made, on the <see cref="Environment.TickCount"/> clock.</param>
     /// <returns>What was decided; <see cref="WorkspaceAction.None"/> when the request was dropped.</returns>
+    /// <summary>The window was hidden (F22: a hidden Noto gives back the memory it is not using).</summary>
+    public event EventHandler? Hidden;
+
     public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime) =>
         Handle(request, requestTime, generationCurrent: false, string.Empty);
 
@@ -301,6 +304,7 @@ internal sealed class WindowCoordinator(
         {
             case HideStep.HideNow:
                 window.AppWindow.Hide();
+                Hidden?.Invoke(this, EventArgs.Empty);
                 break;
 
             case HideStep.Animate:
@@ -339,6 +343,7 @@ internal sealed class WindowCoordinator(
         {
             case HideStep.HideNow:
                 window.AppWindow.Hide();
+                Hidden?.Invoke(this, EventArgs.Empty);
                 break;
 
             case HideStep.Restore:

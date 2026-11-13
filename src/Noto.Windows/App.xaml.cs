@@ -924,7 +924,11 @@ public partial class App : Application
                 HideOnDeactivation = preferences.HideOnDeactivation,
             };
             _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
+            _coordinator.Hidden += (_, _) => TrimWhenHidden();
         }
+
+        // F22 (#160): a start at sign-in stays hidden; once its start-up work is done, it gives back what it is not using.
+        TrimWhenHidden();
 
         // F15 (#15): automatic backups, checked a little after the start (never on its path) and then every hour.
         _automaticBackup = () => BackupIfDue(portability, preferences);
@@ -1947,12 +1951,57 @@ public partial class App : Application
         _backupTimer = queue.CreateTimer();
         _backupTimer.Interval = FirstBackupCheck;
         _backupTimer.IsRepeating = true;
-        _backupTimer.Tick += (timer, _) =>
+        _backupTimer.Tick += async (timer, _) =>
         {
+            // Restarted, so the hour counts from now: a new interval set on a running timer took effect only after one
+            // more tick at the old one (measured, F22: a second check 30 s after the first).
+            timer.Stop();
             timer.Interval = BackupCheckInterval;
-            _ = _automaticBackup?.Invoke();
+            timer.Start();
+            if (_automaticBackup is { } check)
+            {
+                await check();
+            }
+
+            // A backup reads the whole database: what it touched is given back if Noto is hidden (F22).
+            TrimWhenHidden();
         };
         _backupTimer.Start();
+    }
+
+    /// <summary>How long Noto stays hidden before it gives back the memory it is not using (F22, #160).</summary>
+    private static readonly TimeSpan TrimDelay = TimeSpan.FromSeconds(5);
+
+    private DispatcherQueueTimer? _trimTimer;
+
+    /// <summary>
+    /// Once Noto has been hidden for <see cref="TrimDelay"/>, Windows takes back the physical memory it is not using
+    /// (F22, #160; <see cref="ProcessMemory"/>): after a hide, a hidden start at sign-in, and a backup check. Shown again
+    /// meanwhile, nothing is done; the pages a show needs come back as it touches them.
+    /// </summary>
+    private void TrimWhenHidden()
+    {
+        if (_window is null)
+        {
+            return;
+        }
+
+        if (_trimTimer is null)
+        {
+            _trimTimer = _window.DispatcherQueue.CreateTimer();
+            _trimTimer.IsRepeating = false;
+            _trimTimer.Interval = TrimDelay;
+            _trimTimer.Tick += (_, _) =>
+            {
+                if (!_closing && _windowHandle is not null && WindowActivation.PresenceOf(_windowHandle) == WorkspacePresence.Hidden)
+                {
+                    Trace.WriteLine($"Noto.Memory trimmed accepted={ProcessMemory.Trim()}");
+                }
+            };
+        }
+
+        _trimTimer.Stop();
+        _trimTimer.Start();
     }
 
     /// <summary>
@@ -1961,17 +2010,16 @@ public partial class App : Application
     /// </summary>
     private static async Task BackupIfDue(DataPortability portability, WorkspacePreferences preferences)
     {
+        // Each check says how it ended (F22: the idle measurement starts once the first one has).
         if (!preferences.AutomaticBackups)
         {
+            Trace.WriteLine("Noto.Backup automatic off");
             return;
         }
 
         try
         {
-            if (await portability.BackupIfDue())
-            {
-                Trace.WriteLine("Noto.Backup automatic written");
-            }
+            Trace.WriteLine(await portability.BackupIfDue() ? "Noto.Backup automatic written" : "Noto.Backup automatic not-due");
         }
         catch (Exception ex) when (ex is PortabilityException or IOException or UnauthorizedAccessException or OperationCanceledException)
         {

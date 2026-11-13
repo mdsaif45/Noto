@@ -151,7 +151,8 @@ public sealed class MotionGuardTests
 
         Assert.Matches(@"case HideStep\.Animate:[\s\S]*motion\.Exit\(docked\.Edge, \(\) => OnExitCompleted\(generation\)\)", hide);
         Assert.DoesNotMatch(@"case HideStep\.Animate:[^;]*AppWindow\.Hide", hide);
-        Assert.Matches(@"case HideStep\.HideNow:\s*window\.AppWindow\.Hide\(\);\s*break;", Body(Coordinator, "OnExitCompleted"));
+        // Hidden, it says so (F22: a hidden Noto gives back the memory it is not using).
+        Assert.Matches(@"case HideStep\.HideNow:\s*window\.AppWindow\.Hide\(\);\s*Hidden\?\.Invoke\(this, EventArgs\.Empty\);\s*break;", Body(Coordinator, "OnExitCompleted"));
         Assert.Matches(@"case HideStep\.Restore:\s*motion\.Enter\(docked\.Edge, fromCurrent: true\);", Body(Coordinator, "OnExitCompleted"));
     }
 
