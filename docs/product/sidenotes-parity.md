@@ -1,7 +1,7 @@
 # SideNotes Parity Specification
 
 **Status:** Draft
-**Last updated:** 2026-10-13 — rows re-scored against the running application (see *Current status*)
+**Last updated:** 2026-11-13 — every row re-scored against `main` for v0.2 (#162; see *Current status*)
 **Milestone:** [M3 — SideNotes Parity](../roadmap/roadmap.md#m3--sidenotes-parity--the-first-product)
 **Source:** [sidenotes-feature-inventory.md](../research/_raw/sidenotes-feature-inventory.md) — SideNotes 1.6.5, macOS
 
@@ -70,27 +70,50 @@ not scored, even when the application happens to meet it today (B25, C3).
 
 ### Current status
 
-Counted from the rows below on 2026-10-13, re-scored against the running
-application (run at login, #94, merged as PR #96):
+Counted from the rows below on 2026-11-13, re-scored against `main` for v0.2
+(#162: v0.1 and the v0.2 items, F1–F22):
 
 | Level | Rows | `[x]` | `[~]` | `[ ]` |
 | ----- | ---: | ----: | ----: | ----: |
-| MUST | 147 | 13 | 13 | 121 |
-| SHOULD | 66 | 0 | 1 | 65 |
-| ADAPT | 23 | 2 | 2 | 19 |
-| BETTER | 5 | 0 | 0 | 5 |
+| MUST | 147 | 103 | 24 | 20 |
+| SHOULD | 66 | 11 | 3 | 52 |
+| ADAPT | 23 | 4 | 5 | 14 |
+| BETTER | 5 | 4 | 0 | 1 |
 | DROP | 23 | — | — | 23 (never checked) |
-| **Total** | **264** | **15** | **16** | **233** |
+| **Total** | **264** | **122** | **32** | **110** |
 
 ```
-MUST [x]  A1 A9 A10 A14 A16 A17 A19 · C1 C13 · G1 G7 G8 G9
-ADAPT [x] A6 I13
+MUST [x]   A1 A2 A7 A9 A10 A12 A13 A14 A16 A17 A19 · B1 B2 B8 B10 B14 B16 B19 B20
+           C1 C4 C8 C9 C11 C13 · D1 D2 D3 D4 D5 D8 D9 D10 D11 D12 D13 D14 D17 D20
+           D22 D24 D30 D36 D47 D48 D51 · E1 E2 E3 E8 · F1 · G1 G2 G3 G4 G7 G8 G9
+           G11 G12 G14–G24 G27–G34 G38–G42 G45 G46 G47 G51 · I1 I2 I9 I10
+           J3 J4 J5 J7 J12 J13 J21 J26 J36 J37 J40
+SHOULD [x] A20 B9 B17 C15 C19 D6 D7 D15 D26 D40 G6
+ADAPT [x]  A6 H1 I12 I13
+BETTER [x] B7 B23 I7 I15
 ```
 
-**The 2026-10-13 re-score.** Two rows went down, because what they credit is a
-stored option no user can choose: A12 `[x]` → `[~]`, G51 `[~]` → `[ ]`. Eleven
-went up, because a user can already do what they ask and they had never been
-re-read: A19, C13, G1, G9, I13 to `[x]`; A7, C2, C15, F1, G14, G15 to `[~]`.
+**The 2026-11-13 re-score (#162).** Every row was read against its own
+requirement cell and the code on `main`, with the guard tests and the
+validation harnesses as evidence; each changed row says what delivers it in
+its Notes (**v0.2 score**). Before it: MUST 13 / 13 / 121, SHOULD 0 / 1 / 65,
+ADAPT 2 / 2 / 19, BETTER 0 / 0 / 5.
+
+- **Chords from the implementation plan's final map (§10).** Where the plan
+  moved a chord off `Ctrl+Alt+letter` (the AltGr rule), the row is scored
+  against the plan's final chord and says so: G2–G4 (`Ctrl+Shift+Win+N`, `F`,
+  `V`), G6 (`Ctrl+D` inside Noto, the owner's #146), G10, G34
+  (`Ctrl+Shift+T`).
+- **Scored from code and harness; the owner to confirm:** A18 (multi-monitor,
+  #30), B4 and H14 (drags from apps other than Explorer, #31), D1 (heading
+  levels 4–5, typed).
+- **Not scored, provisional:** B25 and C3, as before.
+- **Every MUST still open has an issue:** #30, #31 and #185–#199, each in its
+  capability milestone, not v0.2. The owner decides what joins v0.2.
+
+The 2026-10-13 re-score, kept as history: two rows went down, because what
+they credited was a stored option no user could choose (A12, G51); eleven went
+up (A19, C13, G1, G9, I13 to `[x]`; A7, C2, C15, F1, G14, G15 to `[~]`).
 
 ### Traceability
 
@@ -154,25 +177,25 @@ That labelling is preserved here.
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | A1 | Screen edge window | Occupies one vertical screen edge as an overlay panel | Edge-docked topmost panel (ADR-007) | MUST | — | **Done** — #16 slices 2–3 (#76, #78): docked to either edge; slice 6: topmost while shown |
-| `[ ]` | A2 | Side changing | Left / right edge; default right | Left / right, switchable; default right | MUST | — | M2 |
-| `[ ]` | A3 | Open Bar | Semi-transparent edge strip; click to reveal. Hide: never / mouse inactive / always | Edge handle with the same three hide modes | MUST | — | `always` must not require another surface |
-| `[ ]` | A4 | Hot Side mode | Hover the screen edge to reveal | Hover activation, independently disableable | MUST | — | Principle 7 |
+| `[x]` | A2 | Side changing | Left / right edge; default right | Left / right, switchable; default right | MUST | — | M2 **v0.2 score (2026-11-13):** Left or right in Settings › Side, default right, re-docked at once (`Invoke-Settings` case 4). |
+| `[ ]` | A3 | Open Bar | Semi-transparent edge strip; click to reveal. Hide: never / mouse inactive / always | Edge handle with the same three hide modes | MUST | #185 | `always` must not require another surface **v0.2 score (2026-11-13):** Not built. |
+| `[ ]` | A4 | Hot Side mode | Hover the screen edge to reveal | Hover activation, independently disableable | MUST | #185 | Principle 7 **v0.2 score (2026-11-13):** Not built. |
 | `[~]` | A5 | Menubar Icon mode | Menu-bar icon toggles visibility | **System tray** icon toggles visibility | ADAPT | — | macOS menu bar → Windows tray. **Partial** — #16 slice 7 (ADR-014): selecting the tray icon shows, restores or brings Noto forward, but does not hide it. On Windows 11 a new icon sits in the overflow, and opening the overflow takes activation from Noto before the click arrives (measured), so an in-front Noto is never in front when the click lands: selection is a launch, not a toggle. Hiding from the tray is its menu's Hide |
 | `[x]` | A6 | Icon context menu | Right-click menu-bar icon → actions | Tray icon right-click context menu | ADAPT | — | **Done** — #16 slice 7 (ADR-014): Show, Hide, Keep Noto open, Quit; by right-click, Shift+F10 or the menu key |
-| `[~]` | A7 | Global show/hide shortcut | `⌃⌥⌘␣`, configurable | Global hotkey, configurable, works when unfocused | MUST | — | **Partial** — `Ctrl+Alt+Win+Space` shows and hides Noto when it is not focused, on by default (#16 slices 4–5). Configurable only by editing the stored setting: no settings UI (G50). See G1 |
-| `[~]` | A8 | Always on top | Over other apps incl. full-screen; Stage Manager compatible | Topmost over normal and full-screen windows | MUST | — | Stage Manager has no analogue; that half is dropped. **Partial** — #16 slice 6: topmost over normal and borderless full-screen windows (runtime-validated). Exclusive full-screen is out of reach (summoning Noto ends exclusive mode) and not validated |
+| `[x]` | A7 | Global show/hide shortcut | `⌃⌥⌘␣`, configurable | Global hotkey, configurable, works when unfocused | MUST | — | **Partial** — `Ctrl+Alt+Win+Space` shows and hides Noto when it is not focused, on by default (#16 slices 4–5). Configurable only by editing the stored setting: no settings UI (G50). See G1 **v0.2 score (2026-11-13):** Rebindable in Settings › Shortcuts with a recorder (G50, Slice 1.2b; `Invoke-Settings` case 14). |
+| `[~]` | A8 | Always on top | Over other apps incl. full-screen; Stage Manager compatible | Topmost over normal and full-screen windows | MUST | #186 | Stage Manager has no analogue; that half is dropped. **Partial** — #16 slice 6: topmost over normal and borderless full-screen windows (runtime-validated). Exclusive full-screen is out of reach (summoning Noto ends exclusive mode) and not validated **v0.2 score (2026-11-13):** Unchanged: exclusive full-screen not validated. |
 | `[x]` | A9 | Pin window open | Configurable shortcut pins the panel visible | Pin panel open, keyboard + tray reachable | MUST | — | **Done** — #16 slice 6: a header pin toggle, reachable by Tab and Space, session-only; #16 slice 7: the tray's Keep Noto open, through the same toggle. A configurable chord is G6 |
 | `[x]` | A10 | Close window | `⌘W` hides the panel | `Ctrl+W` hides the panel | MUST | — | **Done** — #16 slice 6: `Ctrl+W` hides the workspace from any surface, saving unsaved text first |
 | `[ ]` | A11 | Hide with modifier+Enter | Optional `⌘↩` binding to hide | Optional `Ctrl+Enter` binding to hide | SHOULD | — | Optional, off by default |
-| `[~]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | **Partial** — #16 slice 6 built the four behaviours and stores the choice in `workspace.escape`; a user reaches only the default, leave-folder-or-hide. The other three need the settings UI (G51/J26). Re-scored 2026-10-13: a stored option no user can choose is not delivered |
-| `[~]` | A13 | Close on click outside | Panel hides on outside click | Same, as a setting | MUST | — | **Partial** — #16 slice 6: hides when activation moves to another application (the mechanism behind "outside click"), on by default, suppressed by pin; stored in `workspace.hide-on-deactivation`. No settings UI yet (J5) |
+| `[x]` | A12 | Escape behavior | 4 modes: leave-folder-or-hide / leave-folder / hide / none | The same 4 modes, same default | MUST | — | **Partial** — #16 slice 6 built the four behaviours and stores the choice in `workspace.escape`; a user reaches only the default, leave-folder-or-hide. The other three need the settings UI (G51/J26). Re-scored 2026-10-13: a stored option no user can choose is not delivered **v0.2 score (2026-11-13):** All four modes in Settings › Escape (`Invoke-Settings` case 5). |
+| `[x]` | A13 | Close on click outside | Panel hides on outside click | Same, as a setting | MUST | — | **Partial** — #16 slice 6: hides when activation moves to another application (the mechanism behind "outside click"), on by default, suppressed by pin; stored in `workspace.hide-on-deactivation`. No settings UI yet (J5) **v0.2 score (2026-11-13):** Settings › Hide when I click elsewhere (`Invoke-Settings` case 6). |
 | `[x]` | A14 | Width resize | Free drag on the window edge; no presets | Free drag resize, width persisted | MUST | — | **Done** — #16 slice 3 (#78): free inner-edge drag, width remembered per display |
-| `[ ]` | A15 | Drag-to-reveal at edge | Dragging content to the edge reveals the panel; disableable | Same; two independent toggles as in SideNotes | MUST | — | Disableable per principle 7 |
+| `[ ]` | A15 | Drag-to-reveal at edge | Dragging content to the edge reveals the panel; disableable | Same; two independent toggles as in SideNotes | MUST | #185 | Disableable per principle 7 **v0.2 score (2026-11-13):** Not built. |
 | `[x]` | A16 | Launch on startup | Auto-launch at login | Run at login, off by default | MUST | #94 | **Done** — run at login (ADR-015): the tray's Start Noto with Windows registers a hidden start (`--login`) under the user's `Run` key, off by default; Windows' Startup apps setting is honoured and never overridden. A real sign-in is not validated end to end (not drivable from inside a session); `StartupTask` waits for the sparse package (ADR-008) |
 | `[x]` | A17 | Second launch focuses | Relaunch brings existing instance forward | Single-instance; second launch shows the panel | MUST | — | **Done** — A17 (#90, #91; ADR-013): a second launch hands off and exits; the running Noto is shown, restored or brought forward, never hidden |
-| `[ ]` | A18 | Multi-display behavior | Undocumented | Deterministic monitor choice + follow-focus option | MUST | — | ⚠ provisional — UNKNOWN in every source |
+| `[~]` | A18 | Multi-display behavior | Undocumented | Deterministic monitor choice + follow-focus option | MUST | #30 | ⚠ provisional — UNKNOWN in every source **v0.2 score (2026-11-13):** The monitor is chosen deterministically (ADR-007: the display under the window, else the saved placement). No follow-focus option; mixed-DPI multi-monitor is #30. Scored from code and harness; owner to confirm. |
 | `[x]` | A19 | Virtual desktop behavior | Undocumented (Spaces) | Defined, documented Virtual Desktop behavior | MUST | — | **Done** — defined and documented in ADR-007 §4 (*Virtual desktops*): the hotkey never moves the window between desktops, and a desktop switch is a deactivation. Measured by `Invoke-ShowHide.ps1` and `Invoke-Drawer.ps1`. Q2 (what SideNotes does) stays open; per Q2 it cannot change this requirement |
-| `[ ]` | A20 | Slide animation | Panel slides out from the edge | Slide-in/out within the perf budget | SHOULD | — | ⚠ provisional — INFERRED from review |
+| `[x]` | A20 | Slide animation | Panel slides out from the edge | Slide-in/out within the perf budget | SHOULD | — | ⚠ provisional — INFERRED from review **v0.2 score (2026-11-13):** F2 (#145): slides in over 167 ms and out over 83 ms, at once with animations off (`Invoke-Motion`). |
 | `[ ]` | A21 | Two-finger edge gesture | Trackpad edge gesture; known to conflict | Precision-touchpad gesture **if** available, **off by default** | ADAPT | — | ⚠ provisional — INFERRED. Keyboard path mandatory |
 
 **A1–A4, A14, A16** were planned as M2 work — they are listed here because
@@ -211,29 +234,29 @@ never as the only path to anything (principle 7).
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[~]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | **Partial** — M2-3 (#63) binds it in the note list; unbound in the editor. B2–B5 creation surfaces remain — see the note below |
-| `[ ]` | B2 | Create note (global) | `⌃⌥⌘N`; panel opens with note active | Global hotkey, note focused and ready to type | MUST | — | |
-| `[ ]` | B3 | Note from clipboard | New note from clipboard; long-press **+** or global shortcut | Same, via global hotkey and **+** menu | MUST | — | |
-| `[ ]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | — | |
-| `[ ]` | B5 | New note placement | top / bottom / over current / under current | The same four options | MUST | — | |
+| `[x]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | **Partial** — M2-3 (#63) binds it in the note list; unbound in the editor. B2–B5 creation surfaces remain — see the note below **v0.2 score (2026-11-13):** Ctrl+N makes a folder on the folder list and a note in a folder, also while editing (`Invoke-NoteStack` case 7, #69). |
+| `[x]` | B2 | Create note (global) | `⌃⌥⌘N`; panel opens with note active | Global hotkey, note focused and ready to type | MUST | — | **v0.2 score (2026-11-13):** F17 (#156): a global shortcut shows Noto with a new note being edited; off by default, Ctrl+Shift+Win+N (implementation plan §10.1), rebindable (`Invoke-Settings` case 17). |
+| `[~]` | B3 | Note from clipboard | New note from clipboard; long-press **+** or global shortcut | Same, via global hotkey and **+** menu | MUST | #187 | **v0.2 score (2026-11-13):** F18 (#157): from a global shortcut and the tray menu. No **+** menu offers it. |
+| `[~]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | #31 | **v0.2 score (2026-11-13):** F9 (#152): files dropped from an OLE file list (as Explorer gives) become notes (`Invoke-DropImport`). Drags from other apps, a browser included, are the owner's check (#31). Scored from code and harness; owner to confirm. |
+| `[~]` | B5 | New note placement | top / bottom / over current / under current | The same four options | MUST | #188 | **v0.2 score (2026-11-13):** The four placements are built and stored (`notes.new-placement`) but Settings has no row: a user reaches only Bottom. |
 | `[ ]` | B6 | Ask for folder on global create | Setting: prompt for destination folder | Same setting | SHOULD | — | |
-| `[ ]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | M2-3 (#63) wires the chord to a soft delete with no confirmation. **Not `[~]`** — B7 and B23 are one decision, and the recycle bin and restore B23 requires have no UI — see B23 / section 12 |
-| `[ ]` | B8 | Move note up / down | `⇧⌥⌘↑` / `⇧⌥⌘↓` | Same action, Windows chord | MUST | — | |
-| `[ ]` | B9 | Move note to top / bottom | Exists; chord unpublished | Move to top / bottom, keyboard reachable | SHOULD | — | ⚠ provisional — UNKNOWN chord |
-| `[ ]` | B10 | Drag & drop reordering | Reorder notes and folders; note-onto-note disabled | Same, incl. the note-onto-note prohibition | MUST | — | |
-| `[ ]` | B11 | Move note to folder | `⇧⌘M`; recent folders; create folder inline | Same, incl. recent folders and inline create | MUST | — | |
-| `[ ]` | B12 | Fold / unfold note | Collapse to first line; gear, double-click, pinch, keyboard | Collapse to first line; menu, double-click, keyboard | MUST | — | Pinch → touchpad only, optional |
-| `[ ]` | B13 | Fold all / unfold all | `⇧⌥⌘←` / `⇧⌥⌘→`; also the **…** menu | Same, keyboard and list menu | MUST | — | |
-| `[ ]` | B14 | Pin notes | Pinned notes stay at list top | Same | MUST | — | |
-| `[ ]` | B15 | Note colors | Six colors + empty; `⌘0`–`⌘6`; Background or Bar style | Six colors + none; `Ctrl+0`–`Ctrl+6`; both styles | MUST | — | Six, not "some" |
-| `[~]` | B16 | First line is the title | Title = line 1; survives folding; excluded by quick-copy; in note URL | Same rule, everywhere the title is used | MUST | — | **Partial** — M2-2 (#60) and M2-3 (#63) derive every displayed title through `NoteTitle.From`; none is stored. Folding, quick-copy and note URLs do not exist yet |
-| `[ ]` | B17 | Note bottom bar | Per-note action bar (format / share / move) | Per-note action affordance; Noto's own layout | SHOULD | — | Functional, not visual |
-| `[ ]` | B18 | List bottom bar | List-level **…** menu + note count | List-level menu + note count | SHOULD | — | |
-| `[ ]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **NOT satisfied by M2-3 (#63, merged)** — save-on-leave is an interim model; deferred to M3, see the note below |
-| `[ ]` | B20 | Switch between notes | `⌘⌥↓` / `⌘⌥↑` | Same action, Windows chord | MUST | — | |
+| `[x]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | M2-3 (#63) wires the chord to a soft delete with no confirmation. **Not `[~]`** — B7 and B23 are one decision, and the recycle bin and restore B23 requires have no UI — see B23 / section 12 **v0.2 score (2026-11-13):** Ctrl+Alt+Backspace moves the note to the Recycle Bin, no confirm; with B23 the pair is whole (`Invoke-NoteStack` case 11, `Invoke-RecycleBin`). |
+| `[x]` | B8 | Move note up / down | `⇧⌥⌘↑` / `⇧⌥⌘↓` | Same action, Windows chord | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Up/Down within the pin group (G17, G18; `Invoke-NoteStack`). |
+| `[x]` | B9 | Move note to top / bottom | Exists; chord unpublished | Move to top / bottom, keyboard reachable | SHOULD | — | ⚠ provisional — UNKNOWN chord **v0.2 score (2026-11-13):** Move to top / Move to bottom in the card menu (`Invoke-NoteStack` cases 31–35). |
+| `[x]` | B10 | Drag & drop reordering | Reorder notes and folders; note-onto-note disabled | Same, incl. the note-onto-note prohibition | MUST | — | **v0.2 score (2026-11-13):** Cards and folders drag to reorder; a drop across the pin groups is refused (`Invoke-NoteStack` cases 37–42). |
+| `[~]` | B11 | Move note to folder | `⇧⌘M`; recent folders; create folder inline | Same, incl. recent folders and inline create | MUST | #189 | **v0.2 score (2026-11-13):** Ctrl+Shift+M and the card menu move a note, recent folders first. No inline folder create. |
+| `[~]` | B12 | Fold / unfold note | Collapse to first line; gear, double-click, pinch, keyboard | Collapse to first line; menu, double-click, keyboard | MUST | #190 | Pinch → touchpad only, optional **v0.2 score (2026-11-13):** The card menu, the card bar's Fold button and Ctrl+Alt+Left/Right; "+ N lines" unfolds (F6, #149). No double-click. |
+| `[~]` | B13 | Fold all / unfold all | `⇧⌥⌘←` / `⇧⌥⌘→`; also the **…** menu | Same, keyboard and list menu | MUST | #190 | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Left/Right (`Invoke-NoteStack` case 27). No list menu. |
+| `[x]` | B14 | Pin notes | Pinned notes stay at list top | Same | MUST | — | **v0.2 score (2026-11-13):** Pin and Unpin from the card menu; pinned cards first (`Invoke-NoteStack` case 22). |
+| `[~]` | B15 | Note colors | Six colors + empty; `⌘0`–`⌘6`; Background or Bar style | Six colors + none; `Ctrl+0`–`Ctrl+6`; both styles | MUST | #191 | Six, not "some" **v0.2 score (2026-11-13):** F7 (#150): six colours and none, Ctrl+0–Ctrl+6, the menu and the bar. One style (tint and edge marker together), not the two. |
+| `[x]` | B16 | First line is the title | Title = line 1; survives folding; excluded by quick-copy; in note URL | Same rule, everywhere the title is used | MUST | — | **Partial** — M2-2 (#60) and M2-3 (#63) derive every displayed title through `NoteTitle.From`; none is stored. Folding, quick-copy and note URLs do not exist yet **v0.2 score (2026-11-13):** Every title is `NoteTitle.From`; a folded card shows it; Search's Ctrl+Shift+C copies without it. Note URLs do not exist (H5). |
+| `[x]` | B17 | Note bottom bar | Per-note action bar (format / share / move) | Per-note action affordance; Noto's own layout | SHOULD | — | Functional, not visual **v0.2 score (2026-11-13):** The card being edited has a bar: colour, format, fold, recycle (B17, F6–F8). |
+| `[~]` | B18 | List bottom bar | List-level **…** menu + note count | List-level menu + note count | SHOULD | #190 | **v0.2 score (2026-11-13):** The list's bar shows the note count and a New note button. No list-level menu. |
+| `[x]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **NOT satisfied by M2-3 (#63, merged)** — save-on-leave is an interim model; deferred to M3, see the note below **v0.2 score (2026-11-13):** Autosave a second after typing stops; every leave, hide and close saves (P2.1; `Invoke-Editor` case 10). |
+| `[x]` | B20 | Switch between notes | `⌘⌥↓` / `⌘⌥↑` | Same action, Windows chord | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up/Down edit the previous or next card (G11, G12; `Invoke-Editor` case 18). |
 | `[ ]` | B21 | Print a note | `⌘P` | `Ctrl+P` | SHOULD | — | Top historic complaint; fixed in 1.6.3 |
 | `[ ]` | B22 | Duplicate note | Not documented (folder duplication is) | Duplicate note | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
-| `[ ]` | B23 | Trash / restore | **None.** Recovery is backups only | Soft delete + recycle bin + restore | BETTER | — | ADR-002; M1 |
+| `[x]` | B23 | Trash / restore | **None.** Recovery is backups only | Soft delete + recycle bin + restore | BETTER | — | ADR-002; M1 **v0.2 score (2026-11-13):** The Recycle Bin restores and permanently deletes notes and folders (`Invoke-RecycleBin`); B7 makes the pair whole. |
 | `[ ]` | B24 | Note templates | Not documented | **Not a parity requirement** | DROP | — | No evidence it exists. Do not build speculatively |
 | `[ ]` | B25 | Per-note width | Notes fill panel width; no per-note size | Notes fill panel width | MUST | — | ⚠ provisional — INFERRED. Met by construction today (the editor fills the panel); scored when the row stops being provisional |
 | `[ ]` | B26 | Empty note placeholder | Placeholder UI for empty notes | Placeholder text in an empty note | SHOULD | — | |
@@ -320,24 +343,24 @@ would be inventing a SideNotes feature, which this document forbids.
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | C1 | Folders | Folder list is top level; entering shows notes | Same two-level navigation model | MUST | — | **Done** — M2-1 (#57) + M2-2 (#60): replacing navigation, folder list ⇄ note list |
-| `[~]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | — | **Partial** — M2-1 (#57): `Ctrl+N` in the folder list focuses the name box, and Create adds the folder. No URI or CLI (H-rows) |
+| `[~]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | #192 | **Partial** — M2-1 (#57): `Ctrl+N` in the folder list focuses the name box, and Create adds the folder. No URI or CLI (H-rows) **v0.2 score (2026-11-13):** Unchanged: Ctrl+N, the **+** button (#148) and the folder menu; no URI or CLI. |
 | `[ ]` | C3 | Nesting depth | Flat, one level (no sub-folders documented) | **Flat, one level** | MUST | — | ⚠ provisional — INFERRED from absence. Met by construction (no `ParentId`; the UI is flat); scored when Q6 is resolved. Do not add nesting |
-| `[~]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | **Partial** — M2-2 (#60): `Ctrl+Down` and double-click. The single-click **setting** is deferred with #9 settings |
-| `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | — | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12's four behaviours landed with #16 slice 6 |
-| `[ ]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | — | |
-| `[~]` | C7 | Show all folders | Command to return to the folder list | Same, incl. from URI / CLI | MUST | — | **Partial** — the folder list is reachable via `Esc`/Back (M2-2). No explicit command, and no URI/CLI surface yet |
-| `[ ]` | C8 | Pin folders | Pinned folders stay at list top | Same | MUST | — | |
-| `[ ]` | C9 | Folder reordering | Drag & drop up / down | Same | MUST | — | |
+| `[x]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | **Partial** — M2-2 (#60): `Ctrl+Down` and double-click. The single-click **setting** is deferred with #9 settings **v0.2 score (2026-11-13):** Ctrl+Down, and Settings › Open with a single click (`Invoke-Settings` case 7). |
+| `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | #193 | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12's four behaviours landed with #16 slice 6 **v0.2 score (2026-11-13):** Unchanged: Back does not list recent folders. |
+| `[ ]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | #193 | **v0.2 score (2026-11-13):** Not built. |
+| `[~]` | C7 | Show all folders | Command to return to the folder list | Same, incl. from URI / CLI | MUST | #192 | **Partial** — the folder list is reachable via `Esc`/Back (M2-2). No explicit command, and no URI/CLI surface yet **v0.2 score (2026-11-13):** Unchanged: no URI or CLI. |
+| `[x]` | C8 | Pin folders | Pinned folders stay at list top | Same | MUST | — | **v0.2 score (2026-11-13):** Pin and Unpin in the folder menu; pinned folders first (`Invoke-NoteStack` case 30). |
+| `[x]` | C9 | Folder reordering | Drag & drop up / down | Same | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Up/Down, Move to top/bottom and dragging (`Invoke-NoteStack` cases 36, 42). |
 | `[ ]` | C10 | Folder sorting | Exists since 1.3; keys not enumerated | Sort by name / created / modified / manual | SHOULD | — | ⚠ provisional — UNKNOWN options |
-| `[ ]` | C11 | Delete folder | Confirmation popover | Soft delete to recycle bin, notes included | MUST | — | Consistent with B23 |
+| `[x]` | C11 | Delete folder | Confirmation popover | Soft delete to recycle bin, notes included | MUST | — | Consistent with B23 **v0.2 score (2026-11-13):** Delete moves the folder and its notes to the Recycle Bin; restore brings them back (`Invoke-RecycleBin`). |
 | `[ ]` | C12 | Duplicate folder | Copy a folder with contents | Same | SHOULD | — | |
 | `[x]` | C13 | Rename folder | Inline rename; Esc cancels | Inline rename; Esc cancels | MUST | — | **Done** — M2-1 (#57): `F2` starts an inline rename, `Enter` commits, `Esc` and focus loss cancel. See *C2 / C13* below |
 | `[ ]` | C14 | Open last folder on restart | Setting | Same setting | SHOULD | — | |
-| `[~]` | C15 | Empty folder guidance | Helper text in an empty folder | Same | SHOULD | — | **Partial** — an empty folder reads "This folder has no notes yet." It does not say how to add one. Principle 2: shown only in the empty state |
+| `[x]` | C15 | Empty folder guidance | Helper text in an empty folder | Same | SHOULD | — | **Partial** — an empty folder reads "This folder has no notes yet." It does not say how to add one. Principle 2: shown only in the empty state **v0.2 score (2026-11-13):** An empty folder reads "This folder has no notes yet. Press Ctrl+N or select New note to write one." |
 | `[ ]` | C16 | Folder URL | `Copy URL` from context menu | `noto://` folder URI, copyable | ADAPT | — | See H5 |
 | `[ ]` | C17 | Folder colors | Not documented | **Not a parity requirement** | DROP | — | Theme has folder *styling*, not per-folder color |
 | `[ ]` | C18 | All-notes / favorites / archive | None documented | **Not a parity requirement** | DROP | — | Pinning + search are the documented access paths |
-| `[ ]` | C19 | Note count | Shown in the list bottom bar | Same | SHOULD | — | |
+| `[x]` | C19 | Note count | Shown in the list bottom bar | Same | SHOULD | — | **v0.2 score (2026-11-13):** Each folder row shows its note count (#147); the list's bar shows the folder's. |
 
 **C3 is the most important restraint in this document.** Every source describes
 a flat folder → notes hierarchy; no sub-folder feature is documented anywhere.
@@ -388,32 +411,32 @@ other.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | D1 | Headers | `#`…`#####`, 5 levels; `⇧⌘H` | 5 levels; `Ctrl+Shift+H` | MUST | — | ADR-004 |
-| `[ ]` | D2 | Bold | `**text**`; `⌘B` | Same; `Ctrl+B` | MUST | — | |
-| `[ ]` | D3 | Italic | `*text*`; `⌘I` | Same; `Ctrl+I` | MUST | — | |
-| `[ ]` | D4 | Bold italic | `***text***` | Same | MUST | — | |
-| `[ ]` | D5 | Strikethrough | `~~text~~` | Same | MUST | — | |
-| `[ ]` | D6 | Mark / highlight | `::text::` (non-standard) | Same syntax, same rendering | SHOULD | — | Non-standard; stored verbatim, export stays lossless |
-| `[ ]` | D7 | Underline | Added 1.6; syntax undocumented | Underline via shortcut + toolbar | SHOULD | — | ⚠ provisional — UNKNOWN syntax. Needs a syntax decision |
-| `[ ]` | D8 | Quote | `> text` | Same | MUST | — | |
-| `[ ]` | D9 | Bullet list | `* item`; `⌘L` | `-` / `*`; `Ctrl+L` | MUST | — | |
-| `[ ]` | D10 | Ordered list | `1. item`; `⇧⌘L` | Same; `Ctrl+Shift+L` | MUST | — | |
-| `[ ]` | D11 | Task (unchecked) | `[ ]`; `⌘T` toggles line to task | `- [ ]`; `Ctrl+T` | MUST | — | ADR-004 uses GFM task lists |
-| `[ ]` | D12 | Task (checked) | `[x]`; `⌘.` toggles state | `- [x]`; `Ctrl+.` | MUST | — | |
-| `[ ]` | D13 | Inline code | `` `code` `` | Same | MUST | — | |
-| `[ ]` | D14 | Code block | ` ``` ` fenced | Fenced, with language | MUST | — | |
-| `[ ]` | D15 | Color swatch preview | `#rrggbb` renders a swatch | Same | SHOULD | — | |
-| `[ ]` | D16 | Horizontal separator | `---` or Aa menu | `---` + formatting menu | MUST | — | |
-| `[ ]` | D17 | Inline links | `[text](url)` | Same; scheme validated before open | MUST | — | ADR-004 security: http/https/mailto/file only |
+| `[x]` | D1 | Headers | `#`…`#####`, 5 levels; `⇧⌘H` | 5 levels; `Ctrl+Shift+H` | MUST | — | ADR-004 **v0.2 score (2026-11-13):** `#`–`######` render as headings; Ctrl+Shift+H cycles levels 1–3, deeper levels are typed. Scored from code and harness; owner to confirm. |
+| `[x]` | D2 | Bold | `**text**`; `⌘B` | Same; `Ctrl+B` | MUST | — | **v0.2 score (2026-11-13):** `**text**`, Ctrl+B (`Invoke-Editor` case 5). |
+| `[x]` | D3 | Italic | `*text*`; `⌘I` | Same; `Ctrl+I` | MUST | — | **v0.2 score (2026-11-13):** `*text*`, Ctrl+I. |
+| `[x]` | D4 | Bold italic | `***text***` | Same | MUST | — | **v0.2 score (2026-11-13):** `***text***` is both (markdown-model.md). |
+| `[x]` | D5 | Strikethrough | `~~text~~` | Same | MUST | — | **v0.2 score (2026-11-13):** `~~text~~`, Ctrl+Shift+E. |
+| `[x]` | D6 | Mark / highlight | `::text::` (non-standard) | Same syntax, same rendering | SHOULD | — | Non-standard; stored verbatim, export stays lossless **v0.2 score (2026-11-13):** F8 (#151): `::text::`, drawn in the editor and on the card (ADR-017 amendment; `Invoke-Editor` case 21). |
+| `[x]` | D7 | Underline | Added 1.6; syntax undocumented | Underline via shortcut + toolbar | SHOULD | — | ⚠ provisional — UNKNOWN syntax. Needs a syntax decision **v0.2 score (2026-11-13):** `==text==`, Ctrl+U, and the formatting toolbar (F8, #151). |
+| `[x]` | D8 | Quote | `> text` | Same | MUST | — | **v0.2 score (2026-11-13):** `> quote`, styled in the editor and on the card. |
+| `[x]` | D9 | Bullet list | `* item`; `⌘L` | `-` / `*`; `Ctrl+L` | MUST | — | **v0.2 score (2026-11-13):** `-` / `*` lists, Ctrl+L; Enter continues them (`Invoke-Editor` case 7). |
+| `[x]` | D10 | Ordered list | `1. item`; `⇧⌘L` | Same; `Ctrl+Shift+L` | MUST | — | **v0.2 score (2026-11-13):** Ordered lists, Ctrl+Shift+L. |
+| `[x]` | D11 | Task (unchecked) | `[ ]`; `⌘T` toggles line to task | `- [ ]`; `Ctrl+T` | MUST | — | ADR-004 uses GFM task lists **v0.2 score (2026-11-13):** `- [ ]`, Ctrl+T (`Invoke-Editor` case 8). |
+| `[x]` | D12 | Task (checked) | `[x]`; `⌘.` toggles state | `- [x]`; `Ctrl+.` | MUST | — | **v0.2 score (2026-11-13):** `- [x]`, Ctrl+.; a click on the drawn box (`Invoke-Editor` case 16). |
+| `[x]` | D13 | Inline code | `` `code` `` | Same | MUST | — | **v0.2 score (2026-11-13):** `` `code` ``, Ctrl+E. |
+| `[x]` | D14 | Code block | ` ``` ` fenced | Fenced, with language | MUST | — | **v0.2 score (2026-11-13):** Fenced code with an info string (markdown-model.md); Code block in the Format menu. |
+| `[x]` | D15 | Color swatch preview | `#rrggbb` renders a swatch | Same | SHOULD | — | **v0.2 score (2026-11-13):** F14 (#155): a swatch after each `#rrggbb` code on the card (`Invoke-Visual` case 16). |
+| `[~]` | D16 | Horizontal separator | `---` or Aa menu | `---` + formatting menu | MUST | #194 | **v0.2 score (2026-11-13):** `---` renders as a separator; the Format menu has no separator command. |
+| `[x]` | D17 | Inline links | `[text](url)` | Same; scheme validated before open | MUST | — | ADR-004 security: http/https/mailto/file only **v0.2 score (2026-11-13):** Links are clickable on the card and with Ctrl+Click in the editor, scheme-checked before opening (ADR-019; `Invoke-Links`). |
 | `[ ]` | D18 | Tables | Absent from all documentation | **Not a parity requirement** | DROP | — | ⚠ provisional — UNKNOWN. ADR-004 defers tables |
-| `[ ]` | D19 | Indent / outdent | `⌘]` / `⌘[` | `Ctrl+]` / `Ctrl+[` | MUST | — | |
-| `[ ]` | D20 | Move line up / down | `⌘⌥[` / `⌘⌥]` | `Alt+Up` / `Alt+Down` | MUST | — | Windows editor convention; see G |
+| `[~]` | D19 | Indent / outdent | `⌘]` / `⌘[` | `Ctrl+]` / `Ctrl+[` | MUST | #194 | **v0.2 score (2026-11-13):** Tab and Shift+Tab indent list items (ADR-017 §10). Ctrl+] and Ctrl+[ are not bound. |
+| `[x]` | D20 | Move line up / down | `⌘⌥[` / `⌘⌥]` | `Alt+Up` / `Alt+Down` | MUST | — | Windows editor convention; see G **v0.2 score (2026-11-13):** Alt+Up/Down move the lines (`Invoke-Editor` case 15). |
 | `[ ]` | D21 | Clear formatting | Exists; chord undocumented | Strip formatting from selection | SHOULD | — | ⚠ provisional — UNKNOWN chord |
-| `[ ]` | D22 | Clear completed tasks | Deletes checked tasks; `⇧⌥⌘T` | Same; deleted text is undoable | MUST | — | |
+| `[x]` | D22 | Clear completed tasks | Deletes checked tasks; `⇧⌥⌘T` | Same; deleted text is undoable | MUST | — | **v0.2 score (2026-11-13):** F19 (#158): Ctrl+Shift+T (implementation plan §10.2) and the Format menu; one undo step (`Invoke-Editor` case 22). |
 | `[ ]` | D23 | Completed tasks to bottom | Checked tasks auto-move to list bottom | Same, as a setting | SHOULD | — | |
-| `[ ]` | D24 | Show / hide markup | **Invisible markdown**, markup hidden by default; `⇧⌘R` | **Live-styled editing, markup hidden by default**; `Ctrl+Shift+R` toggles | MUST | — | **ADR-004 (revised): a parity MUST, not deferred** |
-| `[ ]` | D25 | Quick formatting toolbar | Floating toolbar on selection; above / below / disabled | Same three options | SHOULD | — | Mouse convenience; keyboard path exists already |
-| `[ ]` | D26 | Formatting menu (Aa) | Per-note menu of formatting commands | Equivalent menu; Noto's own layout | SHOULD | — | |
+| `[x]` | D24 | Show / hide markup | **Invisible markdown**, markup hidden by default; `⇧⌘R` | **Live-styled editing, markup hidden by default**; `Ctrl+Shift+R` toggles | MUST | — | **ADR-004 (revised): a parity MUST, not deferred** **v0.2 score (2026-11-13):** Markup hidden while editing; Ctrl+Shift+R shows it (ADR-017 §2; `Invoke-Editor` case 3). |
+| `[~]` | D25 | Quick formatting toolbar | Floating toolbar on selection; above / below / disabled | Same three options | SHOULD | — | Mouse convenience; keyboard path exists already **v0.2 score (2026-11-13):** F8 (#151): a toolbar above the selection (below it with no room), on or off in Settings. Not the three options above / below / disabled. |
+| `[x]` | D26 | Formatting menu (Aa) | Per-note menu of formatting commands | Equivalent menu; Noto's own layout | SHOULD | — | **v0.2 score (2026-11-13):** The card bar's Format menu lists every command with its key. |
 
 **D24 is the single highest-risk row in this document and it is non-negotiable.**
 ADR-004 was revised on 2026-09-14 specifically to move live-styled editing —
@@ -447,7 +470,7 @@ and is what the target audience already has in their fingers.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | D27 | Code mode | Per-note monospace mode; spell check off | Per-note code mode; monospace; spell check off | MUST | — | |
+| `[ ]` | D27 | Code mode | Per-note monospace mode; spell check off | Per-note code mode; monospace; spell check off | MUST | #195 | **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | D28 | Three note modes | code / plain text / markdown; global default | Same three modes + a global default | SHOULD | — | ⚠ provisional — INFERRED naming (Setapp listing) |
 
 **D27 is CONFIRMED and D28 is not.** Code mode is documented directly by
@@ -461,23 +484,23 @@ architecturally.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | D29 | Images | Embed inline; `⇧⌘P`, drag, paste | Same; `Ctrl+Shift+P`, drag, paste | MUST | — | Attachment store, M1 |
-| `[ ]` | D30 | Screenshots | Screenshots as note content via drop | Same via drop and paste | MUST | — | Capture API is M5, not parity |
+| `[~]` | D29 | Images | Embed inline; `⇧⌘P`, drag, paste | Same; `Ctrl+Shift+P`, drag, paste | MUST | #194 | Attachment store, M1 **v0.2 score (2026-11-13):** Pictures are added by drop and paste and drawn in the note (ADR-019; `Invoke-Images`). No Ctrl+Shift+P. |
+| `[x]` | D30 | Screenshots | Screenshots as note content via drop | Same via drop and paste | MUST | — | Capture API is M5, not parity **v0.2 score (2026-11-13):** A screenshot on the clipboard is pasted as a picture; a dropped picture file is kept (`Invoke-Images` cases 9–12). |
 | `[ ]` | D31 | Image from iPhone/iPad | Continuity Camera | **No equivalent** | DROP | — | Apple Continuity. No Windows analogue |
 | `[ ]` | D32 | Copy image quickly | Copy an embedded image to clipboard | Same | SHOULD | — | |
 | `[ ]` | D33 | Save image to file | Export an embedded image | Same | SHOULD | — | |
-| `[ ]` | D34 | File & folder shortcuts | Drop a file → shortcut with preview; standard / compact | Same; both preview styles; double-click opens | MUST | — | Path validation, principle 10 |
+| `[~]` | D34 | File & folder shortcuts | Drop a file → shortcut with preview; standard / compact | Same; both preview styles; double-click opens | MUST | #196 | Path validation, principle 10 **v0.2 score (2026-11-13):** A dropped or pasted file becomes a link to its path, opened with Ctrl+Click (ADR-019). No preview styles, no double-click. |
 | `[ ]` | D35 | Quick Look preview | Space previews an image or file | **In-app preview** on Space for images; Explorer preview otherwise | ADAPT | — | Quick Look is a macOS system service |
-| `[ ]` | D36 | Text snippets | Notes as reusable snippets via search + quick copy | Same pattern; no separate snippet feature | MUST | — | Emergent from E3, not new machinery |
-| `[ ]` | D37 | URL handling | URLs clickable; `⌘R` launches from search | Clickable, scheme-validated; `Ctrl+R` from search | MUST | — | ADR-004 security rules |
-| `[ ]` | D38 | Save web address quickly | Via the system Share extension | Clipboard capture + URI protocol | ADAPT | — | No Windows share sheet equivalent |
+| `[x]` | D36 | Text snippets | Notes as reusable snippets via search + quick copy | Same pattern; no separate snippet feature | MUST | — | Emergent from E3, not new machinery **v0.2 score (2026-11-13):** Search plus Ctrl+C / Ctrl+Shift+C (E3) makes any note a snippet. |
+| `[~]` | D37 | URL handling | URLs clickable; `⌘R` launches from search | Clickable, scheme-validated; `Ctrl+R` from search | MUST | #197 | ADR-004 security rules **v0.2 score (2026-11-13):** Clickable and scheme-validated. No Ctrl+R from Search. |
+| `[~]` | D38 | Save web address quickly | Via the system Share extension | Clipboard capture + URI protocol | ADAPT | — | No Windows share sheet equivalent **v0.2 score (2026-11-13):** A note from the clipboard (F18, #157). No URI protocol. |
 | `[ ]` | D39 | Code detection on paste | Detects pasted code → code block or code note | Same, with the same setting | SHOULD | — | |
-| `[ ]` | D40 | Better pasting from ChatGPT | Cleanup of pasted LLM output | Sane paste cleanup for HTML/rich sources | SHOULD | — | Generalized; no per-product special case |
+| `[x]` | D40 | Better pasting from ChatGPT | Cleanup of pasted LLM output | Sane paste cleanup for HTML/rich sources | SHOULD | — | Generalized; no per-product special case **v0.2 score (2026-11-13):** Ctrl+V pastes a page's HTML as Markdown, scripts and styles dropped (ADR-017 §10; `Invoke-Editor` case 17). |
 | `[ ]` | D41 | No auto-spaces on paste | Setting | Same setting | SHOULD | — | |
 | `[ ]` | D42 | Smarter pasted links | Resolves link titles when accessible | Same, **off by default** | SHOULD | — | Title resolution is a network call — principle 4 and 10 |
-| `[ ]` | D43 | Paste clipboard as note | Note from clipboard contents | Same (= B3) | MUST | — | Duplicate of B3 |
+| `[~]` | D43 | Paste clipboard as note | Note from clipboard contents | Same (= B3) | MUST | #187 | Duplicate of B3 **v0.2 score (2026-11-13):** As B3: a global shortcut and the tray menu, no **+** menu. |
 | `[ ]` | D44 | Text replacement | macOS system Text Replacement works in notes | **No equivalent; do not build one** | DROP | — | Windows has no system-wide equivalent service |
-| `[ ]` | D45 | Spell check | Active in notes; off in code mode | Windows spell check; off in code mode | ADAPT | — | Windows spell-check API, not NSSpellChecker |
+| `[~]` | D45 | Spell check | Active in notes; off in code mode | Windows spell check; off in code mode | ADAPT | — | Windows spell-check API, not NSSpellChecker **v0.2 score (2026-11-13):** Windows spell check is on in the editor. There is no code mode to turn it off in (D27). |
 | `[ ]` | D46 | Word count | Not documented | **Not a parity requirement** | DROP | — | Note count (C19) exists; word count does not |
 
 **D34 is a security surface as well as a feature.** File and folder shortcuts
@@ -508,11 +531,11 @@ inside Noto to replace it would be a new subsystem to maintain for years
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | D47 | Font family | Any installed font, across UI elements | Font family selection; token-driven (ADR-011) | MUST | — | |
-| `[ ]` | D48 | Font size | `⌘+` / `⌘−` | `Ctrl+=` / `Ctrl+-`, persisted | MUST | — | |
+| `[x]` | D47 | Font family | Any installed font, across UI elements | Font family selection; token-driven (ADR-011) | MUST | — | **v0.2 score (2026-11-13):** F13 (#154): Settings › Font, from a closed list of Windows fonts, token-driven. |
+| `[x]` | D48 | Font size | `⌘+` / `⌘−` | `Ctrl+=` / `Ctrl+-`, persisted | MUST | — | **v0.2 score (2026-11-13):** F13 (#154): Settings › Text size, Ctrl+= and Ctrl+-, stored (`Invoke-Settings` case 16). |
 | `[ ]` | D49 | Line height | Tight / Normal / Relaxed | The same three presets | SHOULD | — | |
 | `[ ]` | D50 | Paragraph spacing | Tight / Normal / Relaxed | The same three presets | SHOULD | — | |
-| `[ ]` | D51 | Missing-font fallback | Crash fixed in 1.6.1 | Font fallback; never fails on a missing font | MUST | — | A bug in SideNotes is a requirement here |
+| `[x]` | D51 | Missing-font fallback | Crash fixed in 1.6.1 | Font fallback; never fails on a missing font | MUST | — | A bug in SideNotes is a requirement here **v0.2 score (2026-11-13):** F13 (#154): a chosen family is always followed by the design system's, so a missing font falls back. |
 
 **D51 is included because the inventory recorded the crash.** A user-selected
 font can be uninstalled between sessions. SideNotes crashed on it once; Noto
@@ -524,14 +547,14 @@ must fall back deterministically and say nothing (principle 6).
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | E1 | Search window | Searches notes **and** folders, cross-folder; `⌘F` | Same scope; `Ctrl+F` | MUST | — | FTS5, ADR-003 |
-| `[ ]` | E2 | Global search shortcut | `⌃⌥⌘F` recommended, configurable; works over full-screen apps | Configurable global hotkey; works when unfocused | MUST | — | |
-| `[ ]` | E3 | Quick copy from results | `⌘C` copies all; `⌘⌥C` excludes line 1; window closes, focus returns | `Ctrl+C` / `Ctrl+Shift+C`; same close-and-return-focus | MUST | — | Focus return is the whole point |
+| `[x]` | E1 | Search window | Searches notes **and** folders, cross-folder; `⌘F` | Same scope; `Ctrl+F` | MUST | — | FTS5, ADR-003 **v0.2 score (2026-11-13):** Ctrl+F searches notes and folders across folders (ADR-018; `Invoke-Search`). |
+| `[x]` | E2 | Global search shortcut | `⌃⌥⌘F` recommended, configurable; works over full-screen apps | Configurable global hotkey; works when unfocused | MUST | — | **v0.2 score (2026-11-13):** F21 (#159): a global shortcut shows Noto with Search open; off by default, Ctrl+Shift+Win+F (implementation plan §10.1), rebindable (`Invoke-Settings` case 19). |
+| `[x]` | E3 | Quick copy from results | `⌘C` copies all; `⌘⌥C` excludes line 1; window closes, focus returns | `Ctrl+C` / `Ctrl+Shift+C`; same close-and-return-focus | MUST | — | Focus return is the whole point **v0.2 score (2026-11-13):** In Search, Ctrl+C copies a result and Ctrl+Shift+C copies it without its title; Search closes and Noto hides, focus back to the app (ADR-018). |
 | `[ ]` | E4 | Launch URL from result | Title on line 1, URL on line 2 → `⌘R` opens it | `Ctrl+R`, scheme-validated | SHOULD | — | |
 | `[ ]` | E5 | Open containing folder | Modifier+click on a result | `Ctrl+Click` on a result | SHOULD | — | ⚠ provisional — UNKNOWN modifier (`⌃` vs `⌘`) |
 | `[ ]` | E6 | Search via automation | AppleScript `search`/`search notes`/`search folders` | Search via `noto://` URI and CLI | ADAPT | — | See H3 |
 | `[ ]` | E7 | Search via Shortcuts | Find Notes / Find Folders actions | Covered by the CLI | ADAPT | — | See H4 |
-| `[ ]` | E8 | Live search / filters / in-note find | Not documented | Incremental results as you type | MUST | — | ⚠ provisional — UNKNOWN in SideNotes; required by principle 3 |
+| `[x]` | E8 | Live search / filters / in-note find | Not documented | Incremental results as you type | MUST | — | ⚠ provisional — UNKNOWN in SideNotes; required by principle 3 **v0.2 score (2026-11-13):** Results update as you type (ADR-018; `Invoke-Search`). |
 
 **E3 is not a copy shortcut, it is the snippet workflow.** SideNotes' documented
 use as a snippet store (D36) depends entirely on this behavior: search, copy,
@@ -557,7 +580,7 @@ neither is required by a principle.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[~]` | F1 | Light / dark / system | Follow system, or set manually | Same three states; follows Windows theme | MUST | — | **Partial** — Light, Dark and High Contrast follow the Windows theme (`Noto.UI` ThemeDictionaries, #22). No manual choice (needs the settings UI); Light and High Contrast not yet visually reviewed |
+| `[x]` | F1 | Light / dark / system | Follow system, or set manually | Same three states; follows Windows theme | MUST | — | **Partial** — Light, Dark and High Contrast follow the Windows theme (`Noto.UI` ThemeDictionaries, #22). No manual choice (needs the settings UI); Light and High Contrast not yet visually reviewed **v0.2 score (2026-11-13):** Settings › Theme: System, Light, Dark; System follows Windows live (F2, #145; `Invoke-Settings` case 3). |
 | `[ ]` | F2 | UI themes | Installable color themes | Installable color themes | SHOULD | — | Built on ADR-011 tokens |
 | `[ ]` | F3 | Custom theme files | `.sntheme` = JSON, schema-documented, editable in any editor | JSON theme file + published schema | SHOULD | — | Format is Noto's own |
 | `[ ]` | F4 | Theme structure | `light` / `dark` / `any`; sections incl. notes.clean + 6 colors | Equivalent structure; must cover the six note colors | SHOULD | — | Structure follows ADR-011, not SideNotes' |
@@ -566,7 +589,7 @@ neither is required by a principle.
 | `[ ]` | F7 | Theme installation | Double-click a theme file to install; manage + reveal in Finder | Double-click to install; manage + reveal in Explorer | SHOULD | — | File association needs the package (ADR-008) |
 | `[ ]` | F8 | Theme gallery | Vendor-hosted downloadable gallery | **Not in M3** | DROP | — | A website, not an app feature |
 | `[ ]` | F9 | Theme via automation | AppleScript / Shortcuts set theme | Set theme via CLI | ADAPT | — | |
-| `[ ]` | F10 | Note color display style | Background (default) / Bar | Same two styles | MUST | — | |
+| `[ ]` | F10 | Note color display style | Background (default) / Bar | Same two styles | MUST | #191 | **v0.2 score (2026-11-13):** Not built: one style only (#150). |
 | `[ ]` | F11 | Transparency | Open Bar semi-transparent; theme alpha supported | Alpha in themes; edge handle translucent | SHOULD | — | ⚠ provisional — UNKNOWN whether a window opacity setting exists |
 | `[ ]` | F12 | Density | No global density setting; line height + compact file links only | Same — no global density setting | DROP | — | ⚠ provisional — INFERRED. Do not invent one |
 | `[ ]` | F13 | Icon refresh | Icons refreshed across releases | **Not applicable** | DROP | — | Noto has its own icon set (ADR-011) |
@@ -606,11 +629,11 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
 | `[x]` | G1 | Show / hide app | `⌃⌥⌘␣` | `Ctrl+Alt+Win+Space` | MUST | — | **Done** — #16 slices 4–5: shows and hides from any app, on by default. Rebinding is G50. ⚠ may collide with IME switchers |
-| `[ ]` | G2 | New note in current folder | `⌃⌥⌘N` | `Ctrl+Alt+Win+N` | MUST | — | |
-| `[ ]` | G3 | Search | `⌃⌥⌘F` | `Ctrl+Alt+Win+F` | MUST | — | |
-| `[ ]` | G4 | Note from clipboard | configurable, no default | `Ctrl+Alt+Win+V` | MUST | — | Noto proposes a default |
+| `[x]` | G2 | New note in current folder | `⌃⌥⌘N` | `Ctrl+Alt+Win+N` | MUST | — | **v0.2 score (2026-11-13):** As B2; the chord is Ctrl+Shift+Win+N, the implementation plan's §10.1 final default. |
+| `[x]` | G3 | Search | `⌃⌥⌘F` | `Ctrl+Alt+Win+F` | MUST | — | **v0.2 score (2026-11-13):** As E2; the chord is Ctrl+Shift+Win+F (§10.1). |
+| `[x]` | G4 | Note from clipboard | configurable, no default | `Ctrl+Alt+Win+V` | MUST | — | Noto proposes a default **v0.2 score (2026-11-13):** F18 (#157); the chord is Ctrl+Shift+Win+V (§10.1). |
 | `[ ]` | G5 | Change side | configurable | unbound by default | SHOULD | — | |
-| `[ ]` | G6 | Pin window | configurable | unbound by default | SHOULD | — | |
+| `[x]` | G6 | Pin window | configurable | unbound by default | SHOULD | — | **v0.2 score (2026-11-13):** Owner decision (#146): Ctrl+D inside Noto, no global chord (§10.1). |
 
 ### 7.2 Window / navigation
 
@@ -619,26 +642,26 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G7 | Close panel | `⌘W` | `Ctrl+W` | MUST | — | **Done** — = A10 |
 | `[x]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | **Done** — = A12 |
 | `[x]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | **Done** — M2-2 (#60). Same code as C4, whose `[~]` is the single-click setting |
-| `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | — | |
-| `[ ]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | |
-| `[ ]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | |
+| `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | #193 | **v0.2 score (2026-11-13):** Not built (§10.2 final chord Ctrl+Shift+O). |
+| `[x]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Down. |
+| `[x]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up. |
 | `[ ]` | G13 | Hide (optional binding) | `⌘↩` | `Ctrl+Enter` | SHOULD | — | Off by default; see A11 |
 
 ### 7.3 Note management
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
-| `[~]` | G14 | New note / new folder | `⌘N` | `Ctrl+N` | MUST | — | **Partial** — context-dependent: the folder list focuses the folder name box, the note list creates and opens a note (#63, #87). Unbound in the editor |
-| `[~]` | G15 | Delete note | `⌥⌘⌫` | `Ctrl+Alt+Backspace` ↯ | MUST | — | **Partial** — works in the editor (#63), a soft delete; not from the note list. Order swapped for Windows convention. B7 stays `[ ]` until B23's recycle bin has a UI |
-| `[ ]` | G16 | Move note to folder | `⇧⌘M` | `Ctrl+Shift+M` | MUST | — | |
-| `[ ]` | G17 | Move note up | `⇧⌥⌘↑` | `Ctrl+Alt+Shift+Up` | MUST | — | |
-| `[ ]` | G18 | Move note down | `⇧⌥⌘↓` | `Ctrl+Alt+Shift+Down` | MUST | — | |
-| `[ ]` | G19 | Fold note | `⌥⌘←` | `Ctrl+Alt+Left` | MUST | — | |
-| `[ ]` | G20 | Unfold note | `⌥⌘→` | `Ctrl+Alt+Right` | MUST | — | |
-| `[ ]` | G21 | Fold all | `⇧⌥⌘←` | `Ctrl+Alt+Shift+Left` | MUST | — | |
-| `[ ]` | G22 | Unfold all | `⇧⌥⌘→` | `Ctrl+Alt+Shift+Right` | MUST | — | |
-| `[ ]` | G23 | Set note color 1–6 | `⌘1`…`⌘6` | `Ctrl+1`…`Ctrl+6` | MUST | — | |
-| `[ ]` | G24 | Clear note color | `⌘0` | `Ctrl+0` | MUST | — | ⚠ collides with "reset zoom" convention |
+| `[x]` | G14 | New note / new folder | `⌘N` | `Ctrl+N` | MUST | — | **Partial** — context-dependent: the folder list focuses the folder name box, the note list creates and opens a note (#63, #87). Unbound in the editor **v0.2 score (2026-11-13):** Ctrl+N, also while editing a card (`Invoke-NoteStack` case 7). |
+| `[x]` | G15 | Delete note | `⌥⌘⌫` | `Ctrl+Alt+Backspace` ↯ | MUST | — | **Partial** — works in the editor (#63), a soft delete; not from the note list. Order swapped for Windows convention. B7 stays `[ ]` until B23's recycle bin has a UI **v0.2 score (2026-11-13):** Ctrl+Alt+Backspace (`Invoke-NoteStack` case 11). |
+| `[x]` | G16 | Move note to folder | `⇧⌘M` | `Ctrl+Shift+M` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Shift+M (`Invoke-NoteStack` cases 19–21). |
+| `[x]` | G17 | Move note up | `⇧⌥⌘↑` | `Ctrl+Alt+Shift+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Up. |
+| `[x]` | G18 | Move note down | `⇧⌥⌘↓` | `Ctrl+Alt+Shift+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Down. |
+| `[x]` | G19 | Fold note | `⌥⌘←` | `Ctrl+Alt+Left` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Left (`Invoke-NoteStack` case 23). |
+| `[x]` | G20 | Unfold note | `⌥⌘→` | `Ctrl+Alt+Right` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Right. |
+| `[x]` | G21 | Fold all | `⇧⌥⌘←` | `Ctrl+Alt+Shift+Left` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Left (`Invoke-NoteStack` case 27). |
+| `[x]` | G22 | Unfold all | `⇧⌥⌘→` | `Ctrl+Alt+Shift+Right` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Right. |
+| `[x]` | G23 | Set note color 1–6 | `⌘1`…`⌘6` | `Ctrl+1`…`Ctrl+6` | MUST | — | **v0.2 score (2026-11-13):** F7 (#150): Ctrl+1–Ctrl+6 (`Invoke-NoteStack` case 46). |
+| `[x]` | G24 | Clear note color | `⌘0` | `Ctrl+0` | MUST | — | ⚠ collides with "reset zoom" convention **v0.2 score (2026-11-13):** F7 (#150): Ctrl+0. |
 | `[ ]` | G25 | Print note | `⌘P` | `Ctrl+P` | SHOULD | — | |
 | `[ ]` | G26 | Pin note | none documented | `Ctrl+Shift+P` ↯ | SHOULD | — | Collides with D29 insert-picture — unresolved |
 
@@ -646,22 +669,22 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
-| `[ ]` | G27 | Bold | `⌘B` | `Ctrl+B` | MUST | — | |
-| `[ ]` | G28 | Italic | `⌘I` | `Ctrl+I` | MUST | — | |
-| `[ ]` | G29 | Header | `⇧⌘H` | `Ctrl+Shift+H` | MUST | — | |
-| `[ ]` | G30 | Bullet list | `⌘L` | `Ctrl+L` | MUST | — | |
-| `[ ]` | G31 | Ordered list | `⇧⌘L` | `Ctrl+Shift+L` | MUST | — | |
-| `[ ]` | G32 | Create / remove task | `⌘T` | `Ctrl+T` | MUST | — | |
-| `[ ]` | G33 | Toggle task state | `⌘.` | `Ctrl+.` | MUST | — | |
-| `[ ]` | G34 | Clear completed tasks | `⇧⌥⌘T` | `Ctrl+Alt+Shift+T` | MUST | — | |
-| `[ ]` | G35 | Insert picture | `⇧⌘P` | `Ctrl+Shift+P` | MUST | — | ⚠ collides with G26 and with command-palette convention |
-| `[ ]` | G36 | Indent right | `⌘]` | `Ctrl+]` | MUST | — | Tab also indents in lists |
-| `[ ]` | G37 | Indent left | `⌘[` | `Ctrl+[` | MUST | — | Shift+Tab also outdents |
-| `[ ]` | G38 | Move line up | `⌘⌥[` | `Alt+Up` ↯ | MUST | — | VS/VS Code convention |
-| `[ ]` | G39 | Move line down | `⌘⌥]` | `Alt+Down` ↯ | MUST | — | VS/VS Code convention |
-| `[ ]` | G40 | Show / hide markup | `⇧⌘R` | `Ctrl+Shift+R` | MUST | — | ⚠ browser hard-reload muscle memory; in-app only |
-| `[ ]` | G41 | Increase font size | `⌘+` | `Ctrl+=` / `Ctrl++` | MUST | — | |
-| `[ ]` | G42 | Decrease font size | `⌘−` | `Ctrl+-` | MUST | — | |
+| `[x]` | G27 | Bold | `⌘B` | `Ctrl+B` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+B. |
+| `[x]` | G28 | Italic | `⌘I` | `Ctrl+I` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+I. |
+| `[x]` | G29 | Header | `⇧⌘H` | `Ctrl+Shift+H` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Shift+H. |
+| `[x]` | G30 | Bullet list | `⌘L` | `Ctrl+L` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+L. |
+| `[x]` | G31 | Ordered list | `⇧⌘L` | `Ctrl+Shift+L` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Shift+L. |
+| `[x]` | G32 | Create / remove task | `⌘T` | `Ctrl+T` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+T. |
+| `[x]` | G33 | Toggle task state | `⌘.` | `Ctrl+.` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+. |
+| `[x]` | G34 | Clear completed tasks | `⇧⌥⌘T` | `Ctrl+Alt+Shift+T` | MUST | — | **v0.2 score (2026-11-13):** F19 (#158): Ctrl+Shift+T, the §10.2 final chord. |
+| `[ ]` | G35 | Insert picture | `⇧⌘P` | `Ctrl+Shift+P` | MUST | #194 | ⚠ collides with G26 and with command-palette convention **v0.2 score (2026-11-13):** Not built. |
+| `[ ]` | G36 | Indent right | `⌘]` | `Ctrl+]` | MUST | #194 | Tab also indents in lists **v0.2 score (2026-11-13):** Not bound; Tab indents list items. |
+| `[ ]` | G37 | Indent left | `⌘[` | `Ctrl+[` | MUST | #194 | Shift+Tab also outdents **v0.2 score (2026-11-13):** Not bound; Shift+Tab outdents list items. |
+| `[x]` | G38 | Move line up | `⌘⌥[` | `Alt+Up` ↯ | MUST | — | VS/VS Code convention **v0.2 score (2026-11-13):** Alt+Up. |
+| `[x]` | G39 | Move line down | `⌘⌥]` | `Alt+Down` ↯ | MUST | — | VS/VS Code convention **v0.2 score (2026-11-13):** Alt+Down. |
+| `[x]` | G40 | Show / hide markup | `⇧⌘R` | `Ctrl+Shift+R` | MUST | — | ⚠ browser hard-reload muscle memory; in-app only **v0.2 score (2026-11-13):** Ctrl+Shift+R. |
+| `[x]` | G41 | Increase font size | `⌘+` | `Ctrl+=` / `Ctrl++` | MUST | — | **v0.2 score (2026-11-13):** F13 (#154): Ctrl+= and Ctrl++, keypad + too. |
+| `[x]` | G42 | Decrease font size | `⌘−` | `Ctrl+-` | MUST | — | **v0.2 score (2026-11-13):** F13 (#154): Ctrl+-, keypad - too. |
 | `[ ]` | G43 | Share menu | `⌘↩` | tray / note menu, no chord ↯ | ADAPT | — | No Windows share sheet; see H2 |
 | `[ ]` | G44 | Preview image / file | `Space` | `Space` | ADAPT | — | In-app preview; see D35 |
 
@@ -669,9 +692,9 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
 | :----: | -- | ------ | --------- | --------------- | :---: | :---: | ----- |
-| `[ ]` | G45 | Open search | `⌘F` | `Ctrl+F` | MUST | — | |
-| `[ ]` | G46 | Copy note (incl. line 1) | `⌘C` | `Ctrl+C` | MUST | — | |
-| `[ ]` | G47 | Copy note (excl. line 1) | `⌘⌥C` | `Ctrl+Shift+C` ↯ | MUST | — | Conventional copy-variant chord |
+| `[x]` | G45 | Open search | `⌘F` | `Ctrl+F` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+F, and the header's Search button (#148). |
+| `[x]` | G46 | Copy note (incl. line 1) | `⌘C` | `Ctrl+C` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+C on a search result (E3). |
+| `[x]` | G47 | Copy note (excl. line 1) | `⌘⌥C` | `Ctrl+Shift+C` ↯ | MUST | — | Conventional copy-variant chord **v0.2 score (2026-11-13):** Ctrl+Shift+C on a search result (E3). |
 | `[ ]` | G48 | Launch URL from line 2 | `⌘R` | `Ctrl+R` | SHOULD | — | |
 | `[ ]` | G49 | Open containing folder | `⌃`/`⌘ + Click` | `Ctrl+Click` | SHOULD | — | ⚠ provisional — sources differ |
 
@@ -679,8 +702,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | — | |
-| `[ ]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | The four options exist and are stored (A12); no settings UI to choose one. Re-scored 2026-10-13 from `[~]`: this row is the setting, and no user can reach it |
+| `[~]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | #198 | **v0.2 score (2026-11-13):** Four global shortcuts are rebindable in Settings: show and hide, new note, note from clipboard, search. No global change-side shortcut. |
+| `[x]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | The four options exist and are stored (A12); no settings UI to choose one. Re-scored 2026-10-13 from `[~]`: this row is the setting, and no user can reach it **v0.2 score (2026-11-13):** Settings › Escape, four options (`Invoke-Settings` case 5). |
 | `[ ]` | G52 | Rebind in-app shortcuts | Undocumented whether possible | Rebindable, with conflict detection | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
 
 ### Collisions with standard Windows shortcuts
@@ -724,11 +747,11 @@ because it has no Windows equivalent to bind one to.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[~]` | H1 | Menu bar item | Menu-bar icon + right-click menu | **System tray** icon + context menu | ADAPT | — | = A5, A6; scored with them: partial while A5 is (#16 slice 7) |
-| `[ ]` | H2 | Share extension | System share sheet; also a web-address share extension | **Copy / save-as / open-with**, no share sheet | ADAPT | — | Windows has no NSSharingService analogue |
+| `[x]` | H1 | Menu bar item | Menu-bar icon + right-click menu | **System tray** icon + context menu | ADAPT | — | = A5, A6; scored with them: partial while A5 is (#16 slice 7) **v0.2 score (2026-11-13):** The tray icon and its menu: Show, Hide, Keep Noto open, Start with Windows, New note from clipboard, Settings, Quit (`Invoke-Tray`). |
+| `[~]` | H2 | Share extension | System share sheet; also a web-address share extension | **Copy / save-as / open-with**, no share sheet | ADAPT | — | Windows has no NSSharingService analogue **v0.2 score (2026-11-13):** Copy (Search's Ctrl+C) and save-as (Export as Markdown… on a note or folder). No open-with. |
 | `[ ]` | H3 | AppleScript API | Full scripting API over folders and notes | **`noto://` URI + CLI (+ PowerShell module)** | ADAPT | — | ADR-010 makes this cheap |
 | `[ ]` | H4 | Apple Shortcuts actions | 12+ automation actions | **CLI is the automation surface**; no GUI-flow integration | ADAPT | — | No Windows equivalent worth targeting |
-| `[ ]` | H5 | URL scheme | `sidenotes://open/<uuid>`, `add-note-with-text/<text>` | `noto://` with the same two capabilities | MUST | — | Registered protocol handler; ADR-008 |
+| `[ ]` | H5 | URL scheme | `sidenotes://open/<uuid>`, `add-note-with-text/<text>` | `noto://` with the same two capabilities | MUST | #192 | Registered protocol handler; ADR-008 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | H6 | Alfred workflow | Launcher workflow | **Not in M3** — CLI enables it | DROP | — | Third party writes the plugin, not Noto |
 | `[ ]` | H7 | Hookmark | macOS-only linking app | **No equivalent** | DROP | — | Mac-only product |
 | `[ ]` | H8 | PopClip | macOS-only | **No equivalent** | DROP | — | Mac-only product |
@@ -737,8 +760,8 @@ because it has no Windows equivalent to bind one to.
 | `[ ]` | H11 | Workspaces | Apptorium's own Mac app | **Not applicable** | DROP | — | Vendor's own product |
 | `[ ]` | H12 | MindNode | Mind maps from notes | **No equivalent** | DROP | — | Mac/iOS-only product |
 | `[ ]` | H13 | Things | Tasks from notes via Shortcuts | **No equivalent** | DROP | — | Apple-platform-only product |
-| `[ ]` | H14 | Drag from other apps | Text, files, folders, images from any app | Same, via Windows OLE drag & drop | MUST | — | Explorer is the main source |
-| `[ ]` | H15 | Clipboard behaviors | Note-from-clipboard, quick copy, copy image, code detect, link titles, no auto-space | All six (= B3, E3, D32, D39, D42, D41) | MUST | — | Aggregate row |
+| `[~]` | H14 | Drag from other apps | Text, files, folders, images from any app | Same, via Windows OLE drag & drop | MUST | #31 | Explorer is the main source **v0.2 score (2026-11-13):** As B4: OLE file drops are verified; other apps are the owner's check. Scored from code and harness; owner to confirm. |
+| `[~]` | H15 | Clipboard behaviors | Note-from-clipboard, quick copy, copy image, code detect, link titles, no auto-space | All six (= B3, E3, D32, D39, D42, D41) | MUST | #187 | Aggregate row **v0.2 score (2026-11-13):** Of the six: note from clipboard (partly, B3) and quick copy (E3). |
 | `[ ]` | H16 | Dropshare target | Mac share destination | **No equivalent** | DROP | — | Mac-only product |
 | `[ ]` | H17 | Handoff / Continuity | Not documented | **Not applicable** | DROP | — | Apple-only concept |
 | `[ ]` | H18 | Services menu | Not documented | **Not applicable** | DROP | — | macOS-only concept |
@@ -771,21 +794,21 @@ the documented use cases (D38, I4) without pretending to be a share sheet.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | I1 | Import text files | Drop text files, or whole folders, to create notes | Same, incl. bulk folder import | MUST | — | |
-| `[ ]` | I2 | Import images | Dropped images embedded; behavior configurable | Same | MUST | — | |
-| `[ ]` | I3 | Import as shortcuts | Files become previewed shortcuts, not content | Same; standard / compact styles | MUST | — | = D34 |
+| `[x]` | I1 | Import text files | Drop text files, or whole folders, to create notes | Same, incl. bulk folder import | MUST | — | **v0.2 score (2026-11-13):** Settings › Import brings in a folder of Markdown; dropped `.md` / `.txt` files become notes (ADR-020; F9, #152). |
+| `[x]` | I2 | Import images | Dropped images embedded; behavior configurable | Same | MUST | — | **v0.2 score (2026-11-13):** A dropped picture becomes a note holding it; an imported folder brings the pictures its notes use (F9, #152; ADR-020). |
+| `[~]` | I3 | Import as shortcuts | Files become previewed shortcuts, not content | Same; standard / compact styles | MUST | #196 | = D34 **v0.2 score (2026-11-13):** A file dropped into a note becomes a link to it. No preview styles. |
 | `[ ]` | I4 | Export note to image | Share → save/copy image; background, margins, ratio, bottom bar | Same, with the same four export settings | SHOULD | — | |
 | `[ ]` | I5 | Export via Shortcuts | Shortcuts action wrapping image export | Image export via CLI | ADAPT | — | |
 | `[ ]` | I6 | Print | `⌘P` | `Ctrl+P` | SHOULD | — | = B21 |
-| `[ ]` | I7 | Text / markdown export | **None.** Image export and print only | **Bulk export to markdown files** | BETTER | — | ADR-002; ships in M1 |
-| `[ ]` | I8 | Automatic backups | Auto backup to the data folder; 15 / 30 / 45 min; auto-cleanup | Same, incl. the three intervals and cleanup | MUST | — | |
-| `[ ]` | I9 | Manual backup | Browse Backups → Make backup; manual backups locked from cleanup | Same, incl. the lock | MUST | — | |
-| `[ ]` | I10 | Restore a backup | Restore from a chosen backup | Same, verified in M4 | MUST | — | |
-| `[ ]` | I11 | Backups in cloud drive | Backup folder may be iCloud Drive | **User-chosen backup folder** (OneDrive etc.) | ADAPT | — | Noto writes to a folder; the user picks it |
-| `[ ]` | I12 | iCloud sync | Automatic cross-device sync; last-write-wins; iCloud canonical | **No sync in v1** — local-first only | ADAPT | — | ADR-002. BYO-folder sync is post-v1 |
+| `[x]` | I7 | Text / markdown export | **None.** Image export and print only | **Bulk export to markdown files** | BETTER | — | ADR-002; ships in M1 **v0.2 score (2026-11-13):** Export as Markdown: everything, a folder or a note, with pictures and an index (ADR-020; `Invoke-Portability`). |
+| `[~]` | I8 | Automatic backups | Auto backup to the data folder; 15 / 30 / 45 min; auto-cleanup | Same, incl. the three intervals and cleanup | MUST | #199 | **v0.2 score (2026-11-13):** F15 (#15): once a day, the last seven kept. Not the three intervals. |
+| `[x]` | I9 | Manual backup | Browse Backups → Make backup; manual backups locked from cleanup | Same, incl. the lock | MUST | — | **v0.2 score (2026-11-13):** Settings › Back up writes a whole backup where the user chooses; automatic cleanup only removes Noto's own `auto-` backups, so a manual one is never pruned (F15). |
+| `[x]` | I10 | Restore a backup | Restore from a chosen backup | Same, verified in M4 | MUST | — | **v0.2 score (2026-11-13):** Settings › Restore, with a backup taken first (ADR-020; `Invoke-Portability`). |
+| `[~]` | I11 | Backups in cloud drive | Backup folder may be iCloud Drive | **User-chosen backup folder** (OneDrive etc.) | ADAPT | — | Noto writes to a folder; the user picks it **v0.2 score (2026-11-13):** A manual backup goes to any folder the user picks, OneDrive included. Automatic backups go to the data folder only. |
+| `[x]` | I12 | iCloud sync | Automatic cross-device sync; last-write-wins; iCloud canonical | **No sync in v1** — local-first only | ADAPT | — | ADR-002. BYO-folder sync is post-v1 **v0.2 score (2026-11-13):** Local-first, no sync (ADR-001). |
 | `[x]` | I13 | Local storage location | SQLite in Application Support; paths vary by channel | SQLite under `%LOCALAPPDATA%`; one location | ADAPT | — | **Done** — ADR-003; `NotoStoragePaths`: `%LOCALAPPDATA%\Noto\noto.db`, one channel, one path |
 | `[ ]` | I14 | Legacy storage format | Pre-1.3 JSON format | **Not applicable** | DROP | — | Noto has no legacy format |
-| `[ ]` | I15 | Data portability | Effectively via SQLite + backups | Documented schema + markdown export + open backups | BETTER | — | ADR-002 makes this a contract |
+| `[x]` | I15 | Data portability | Effectively via SQLite + backups | Documented schema + markdown export + open backups | BETTER | — | ADR-002 makes this a contract **v0.2 score (2026-11-13):** The schema is documented (data-model.md), notes export to Markdown, and a backup is an open archive (ADR-020). |
 
 **I12 is the biggest single deviation in this document, and it is decided, not
 open.** SideNotes' iCloud sync is a headline feature: automatic, cross-device,
@@ -821,44 +844,44 @@ also the list of every configuration surface M3 is allowed to ship.
 | :----: | -- | -------------- | ----------------- | ---------------- | :---: | :---: | ----- |
 | `[ ]` | J1 | General → Show or Hide Notes | Open Bar / Hot Side / Menubar Icon | Edge handle / Hover / Tray — **independently toggled** | ADAPT | — | Not exclusive modes; see A3/A4 and §12 |
 | `[ ]` | J2 | General → Hide Open Bar | never / mouse inactive / always | Same three, **unconditionally available** | BETTER | — | SideNotes gates `always` on other modes |
-| `[ ]` | J3 | General → Side | Left / Right (default Right) | Same | MUST | — | = A2 |
-| `[ ]` | J4 | General → Launch on Startup | on / off | Same, off by default | MUST | #94 | = A16. The setting exists in Windows (ADR-015) and in the tray; the settings surface does not |
-| `[ ]` | J5 | General → Close on outside click | on / off | Same | MUST | — | = A13 |
-| `[ ]` | J6 | Notes → Quick Formatting Toolbar | above / below / disabled | Same three | SHOULD | — | = D25 |
-| `[ ]` | J7 | Folders → Single-click opening | on / off | Same | MUST | — | = C4 |
-| `[ ]` | J8 | Creating Notes → Placement | top / bottom / over / under current | Same four | MUST | — | = B5 |
+| `[x]` | J3 | General → Side | Left / Right (default Right) | Same | MUST | — | = A2 **v0.2 score (2026-11-13):** Settings › Side. |
+| `[x]` | J4 | General → Launch on Startup | on / off | Same, off by default | MUST | #94 | = A16. The setting exists in Windows (ADR-015) and in the tray; the settings surface does not **v0.2 score (2026-11-13):** Settings › Start with Windows, off by default, read from Windows (#94). |
+| `[x]` | J5 | General → Close on outside click | on / off | Same | MUST | — | = A13 **v0.2 score (2026-11-13):** Settings › Hide when I click elsewhere. |
+| `[~]` | J6 | Notes → Quick Formatting Toolbar | above / below / disabled | Same three | SHOULD | — | = D25 **v0.2 score (2026-11-13):** Settings › Formatting toolbar, on or off (F8, #151). Not the three options. |
+| `[x]` | J7 | Folders → Single-click opening | on / off | Same | MUST | — | = C4 **v0.2 score (2026-11-13):** Settings › Open with a single click. |
+| `[ ]` | J8 | Creating Notes → Placement | top / bottom / over / under current | Same four | MUST | #188 | = B5 **v0.2 score (2026-11-13):** No Settings row; the value is stored only. |
 | `[ ]` | J9 | Creating Notes → Ask for folder | on / off | Same | SHOULD | — | = B6 |
 | `[ ]` | J10 | Creating Notes → Open last folder on restart | on / off | Same | SHOULD | — | = C14 |
 | `[ ]` | J11 | Text → Default text formatting | Markdown / Code (/ plain) | Same | SHOULD | — | = D28 |
-| `[ ]` | J12 | Text → Font family | any installed font | Same | MUST | — | = D47 |
-| `[ ]` | J13 | Text → Font size | adjustable | Same | MUST | — | = D48 |
+| `[x]` | J12 | Text → Font family | any installed font | Same | MUST | — | = D47 **v0.2 score (2026-11-13):** Settings › Font (F13, #154). |
+| `[x]` | J13 | Text → Font size | adjustable | Same | MUST | — | = D48 **v0.2 score (2026-11-13):** Settings › Text size (F13, #154). |
 | `[ ]` | J14 | Text → Line height | Tight / Normal / Relaxed | Same | SHOULD | — | = D49 |
 | `[ ]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 |
-| `[ ]` | J16 | Text → File links | standard / compact | Same | MUST | — | = D34 |
+| `[ ]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | |
 | `[ ]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 |
 | `[ ]` | J19 | Text → No auto-spaces on paste | on / off | Same | SHOULD | — | = D41 |
 | `[ ]` | J20 | Text → Code detection on paste | code block / code note | Same | SHOULD | — | = D39 |
-| `[ ]` | J21 | Appearance → Light / Dark / System | manual or follow system | Same | MUST | — | = F1 |
+| `[x]` | J21 | Appearance → Light / Dark / System | manual or follow system | Same | MUST | — | = F1 **v0.2 score (2026-11-13):** Settings › Theme. |
 | `[ ]` | J22 | Appearance → Themes → Manage | install, list, reveal | Install, list, reveal in Explorer | SHOULD | — | = F2, F7 |
-| `[ ]` | J23 | Appearance → Note colors | Background / Bar | Same | MUST | — | = F10 |
+| `[ ]` | J23 | Appearance → Note colors | Background / Bar | Same | MUST | #191 | = F10 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 |
-| `[ ]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | — | = G50 |
-| `[ ]` | J26 | Shortcuts → Escape behavior | 4 options | Same 4 | MUST | — | = A12 |
-| `[ ]` | J27 | Importing → DnD on screen edge | enable / disable | Same | MUST | — | = A15 |
-| `[ ]` | J28 | Importing → Show while dragging | enable / disable | Same | MUST | — | = A15 |
+| `[~]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | #198 | = G50 **v0.2 score (2026-11-13):** As G50: four of the six are recorded in Settings. |
+| `[x]` | J26 | Shortcuts → Escape behavior | 4 options | Same 4 | MUST | — | = A12 **v0.2 score (2026-11-13):** Settings › Escape. |
+| `[ ]` | J27 | Importing → DnD on screen edge | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. |
+| `[ ]` | J28 | Importing → Show while dragging | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J29 | Importing → Move imported files to Trash | on / off | Move to **Recycle Bin**, off by default | ADAPT | — | Destructive — never default on |
-| `[ ]` | J30 | Importing → Import behavior | images and text files | Same | MUST | — | = I1, I2 |
+| `[ ]` | J30 | Importing → Import behavior | images and text files | Same | MUST | #196 | = I1, I2 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J31 | Exporting → Image background | color or transparent | Same | SHOULD | — | = I4 |
 | `[ ]` | J32 | Exporting → Image margins | adjustable | Same | SHOULD | — | = I4 |
 | `[ ]` | J33 | Exporting → Image ratio | selectable | Same | SHOULD | — | = I4 |
 | `[ ]` | J34 | Exporting → Bottom bar in image | on / off | Same | SHOULD | — | = I4 |
 | `[ ]` | J35 | Data → iCloud sync | enable / disable | **Absent** — no sync in v1 | DROP | — | = I12, ADR-002 |
-| `[ ]` | J36 | Data → Data locations | reveal data folders | Reveal data folder in Explorer | MUST | — | One location, not two |
-| `[ ]` | J37 | Backups → Automatic backups | enable / disable | Same, **on by default** | MUST | — | = I8 |
-| `[ ]` | J38 | Backups → Frequency | 15 / 30 / 45 min | Same three | MUST | — | = I8 |
+| `[x]` | J36 | Data → Data locations | reveal data folders | Reveal data folder in Explorer | MUST | — | One location, not two **v0.2 score (2026-11-13):** Settings › Open data folder in Explorer (`Invoke-Settings` case 10). |
+| `[x]` | J37 | Backups → Automatic backups | enable / disable | Same, **on by default** | MUST | — | = I8 **v0.2 score (2026-11-13):** Settings › Back up automatically, on by default (F15, #15). |
+| `[ ]` | J38 | Backups → Frequency | 15 / 30 / 45 min | Same three | MUST | #199 | = I8 **v0.2 score (2026-11-13):** Not built: once a day. |
 | `[ ]` | J39 | Backups → Backup folder | custom, incl. iCloud Drive | Custom folder, any path incl. OneDrive | ADAPT | — | = I11 |
-| `[ ]` | J40 | Backups → Browse backups | make / restore / lock | Same | MUST | — | = I9, I10 |
+| `[x]` | J40 | Backups → Browse backups | make / restore / lock | Same | MUST | — | = I9, I10 **v0.2 score (2026-11-13):** Settings › Back up and Restore; manual backups are never pruned (I9). |
 
 **Most J rows are the settings-surface half of a row elsewhere** — the `=` in
 Notes says which. They are enumerated separately because the settings window is

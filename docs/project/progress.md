@@ -2,22 +2,23 @@
 
 ```
 Project:            Noto — a Windows-native notes application
-Phase:              closing M0; the product phase (M3 slices) is prepared, not started
-Last updated:       2026-10-13
-Evidence baseline:  main @ 4d085d5 (PR #96, run at login)
-In review:          PR #102 Noto icon (#95) · PR #98 architecture enforcement (#20)
-                    PR #99 logging (#7) · PR #100 failure handling (#10)
-                    PR #101 performance baseline (#11) · PR #103 code-signing research (#5)
+Phase:              v0.1 released (2026-11-06); v0.2 built, its owner checks open
+Last updated:       2026-11-13
+Evidence baseline:  main @ 30a8fea (PR #184, idle memory)
+In review:          the parity score (#162)
 ```
 
-> **Read this first.** The technical Windows shell is strong: a docked,
-> topmost drawer with a global hotkey, a tray, single instance, inner-edge
-> resize, and (in review) a hidden start at sign-in — each runtime-validated on
-> frozen Release builds. **The Noto product on top of it is still early.**
-> A user can create, rename and enter folders, and create, edit and delete
-> notes in a plain-text editor. Nothing else a SideNotes user would reach for
-> exists yet: no settings, no markdown rendering, no search, no recycle bin, no
-> reordering, pinning, colours or folding in the UI, no export or backup.
+> **Read this first.** v0.1, the Basic Release, shipped on 2026-11-06: a
+> docked, topmost notes drawer with a rendered markdown editor, folders, the
+> Recycle Bin, search, pictures, links, export, backup and restore, settings,
+> and a global shortcut, each runtime-validated on frozen Release builds. v0.2
+> added the items in [release-v0.2.md](../roadmap/release-v0.2.md): note
+> colours, folding with "+ N lines", fonts and text size, colour swatches,
+> highlight and a formatting toolbar, drag and drop to import, three more
+> global shortcuts (new note, note from the clipboard, search), clear checked
+> tasks, automatic backups, crash-loop detection and idle memory within budget.
+> **Open:** the owner's checks (V1–V3, #31), the dock spike (#153), and the
+> SideNotes rows still open after the v0.2 score (#30, #31, #185–#199).
 
 ```
 engine command exists  ≠  a user can reach it  ≠  the parity row is met
@@ -26,7 +27,7 @@ WinUI 3 validated      ≠  Noto UI designed
 
 This document is the **current state only**. How each piece was delivered and
 validated is in [history.md](history.md); what comes next is
-[product-slices.md](../roadmap/product-slices.md).
+[release-v0.2.md](../roadmap/release-v0.2.md) and the milestones below.
 
 **Status vocabulary** (the only words used for status here): implemented ·
 validated (implemented and runtime-validated on a frozen Release build) · in
@@ -39,18 +40,17 @@ not implemented · not started · deferred · dropped.
 
 | Milestone | Status | GitHub (open / closed) |
 | --------- | ------ | ---------------------- |
-| **M0** Foundation & Architecture | **Not complete** — four items in review; #21's dispatcher and events not built; #5 in review; #19 open; #11's independent-reproduction requirement open (§2) | 7 / 6 |
-| **M1** Core Note Engine | **Engine complete, product not** — notes, folders and tags are complete in the engine; markdown (#14) and export/backup (#15) are not started (§3) | 3 / 0 |
-| **M2** SideNotes Workspace | **Partially implemented** — the shell is validated; settings, multi-monitor, motion and side switching are not built (§4) | 3 / 1 |
-| **M3** SideNotes Parity | **Not started as M3 work** — 15 of 264 rows `[x]` with #96 (13 of 147 MUSTs), all by-products of M2 (§5) | 2 / 0 |
-| **M4** Hardening | Not started; the performance baseline (#11) is its first input | 1 / 0 |
-| **M5** Windows Enhancements | Not started | — |
-| **M6** Contextual Notes | Not started; ADR-005, ADR-006 Proposed | 3 / 0 |
+| **M0** Foundation & Architecture | **Not complete on GitHub** — #5 (code-signing RFC) and #11 (performance harness) open; the harness is in use (quality-gates.md) | 2 / 10 |
+| **M1** Core Note Engine | **Complete** — markdown (#14) and the engine (#13) closed; export and backup (#15) closed in v0.2 | 0 / 2 |
+| **M2** SideNotes Workspace | **Implemented** — the shell, settings, side switching and motion are built; open: exclusive full-screen (#186); multi-monitor is #30 (v0.2) | 1 / 3 |
+| **M3** SideNotes Parity | **Partially implemented** — 122 of 264 rows `[x]`, 103 of 147 MUSTs (§5); the open MUSTs are #185–#199 here, and #30, #31 in v0.2 | 15 / 0 |
+| **M4** Hardening | Not started as a milestone; v0.1's performance and stability campaign is recorded in quality-gates.md | 0 / 0 |
+| **M5** Windows Enhancements | Not started | 1 / 0 |
+| **M6** Contextual Notes | Not started; ADR-005, ADR-006 Proposed | 4 / 0 |
 | **M7–M9** | Not started | — |
+| **v0.2** | **Built** — every F item merged; open: V1 (#161), V2 (#30), V3 (#32), V4 (#162, in review), #31 and the dock spike (#153) | 6 / 33 |
 
-#94 and #95 have no milestone; they are M2 work. #94 is merged. #95's PR #97 merged into
-its stacked base (`feat/94-run-at-login`) after that branch had already been merged, so
-the icon is not on `main`; PR #102 carries the same commits onto `main`.
+#17 (FTS5 search) is open in M3 although search is built (ADR-018); closing it is the owner's decision.
 
 ---
 
@@ -58,44 +58,12 @@ the icon is not on `main`; PR #102 carries the same commits onto `main`.
 
 | Item | Status | Evidence |
 | ---- | ------ | -------- |
-| Governance, research, ADRs | implemented | ADR-001–015 on `main` |
-| Window spike / framework gate | validated on Windows 11 | ADR-001. Windows 10 22H2 not verified (#32, M4) |
-| Solution structure (ADR-009) | implemented | 6 source, 4 test projects |
-| Architecture tests | implemented; **#20 in review** | Core boundary on `main`. PR #98: layer graph and ADR-010 handler rules over the built output, `Noto.UI` isolation. Complete; mutation-tested 8/8 |
-| CI | implemented | build and test, C# analysis, CodeQL, docs governance; branch protection |
-| Commands (ADR-010) | **in review** | Every mutation is a UseCases handler, and #20 enforces it. ADR-010's registry and dispatcher are built in PR #104 (#21, draft); on `main` today, callers still call handlers directly |
-| Domain events (ADR-010) | **in review** | #21, PR #104 (draft): events published only after success, throwing subscribers isolated and logged; `CreateNote` announces `NoteCreated`. Runtime and performance runs pending |
-| Design tokens (ADR-011) | implemented | #22, PR #56 |
-| SQLite, migrations | implemented | schema v1, migration 002, safety copy |
-| Settings persistence | implemented | #9, PR #65 |
-| Test infrastructure | implemented | SQLite pool isolation (#47, #85); `tools/validation` runtime harness |
-| Structured logging | **#7 in review** | PR #99: no event takes a parameter that can carry free text — a signature test enforces it; a migration is logged by its version, a setting by its declared name, never a scope or value; rolling JSON-lines file. Mutation-tested; runtime-validated 8/8 on frozen `c36674b` |
-| Error handling | **#10 in review** | PR #100 (stacked on #99): one failure boundary — logged once, the open note saved once, ended once, and the end does not depend on the log or on releasing resources succeeding; startup database failures shown, not crashed. 18/18 mutants killed; runtime-validated 32/32 on frozen `c36674b` (Debug, for its fault trigger) |
-| Performance harness and baseline | **#11 in review** | PR #101: `Invoke-Performance.ps1`, the baseline and its budgets in [quality-gates.md](../architecture/quality-gates.md#performance-budgets). Five budgets not met; recorded, not revised. Two runs by independent agents from fresh clones and the documents alone reproduced every verdict, but **#11's "someone other than its author" is not shown to be met**: no repository document says an agent counts. The cold start is measured with none of Noto's files cached (a first start after install, antivirus scan included); a start right after sign-in is not measured, and #11 does not require it |
-| Project board | **decided: optional** | #19, option B: GitHub Issues are the source of truth. PR #105 removes the board step from CONTRIBUTING |
-| Code-signing RFC | **in review** | #5, PR #103: options, prices, lead times and the unsigned fallback recorded in ADR-008. The roadmap requires this to be confirmed **during M0**. The recommendation's branch depends on the publisher's identity, which is the owner's input |
-
-### What closes M0
-
-Each item is either done by evidence or settled by a recorded owner decision.
-Nothing is closed by moving an issue out of the milestone.
-
-```
-#20  merge PR #98
-#7   merge PR #99
-#10  merge PR #100 (after #99)
-#11  merge PR #101; its testing requirement ("followed by someone other than its
-     author") is open, and the owner will settle it with one human reproduction.
-     The agent runs are not counted
-#21  approved and built in PR #104 (draft): its runtime and performance runs
-     are pending a clean desktop
-#5   merge PR #103 (research accepted); the release decision waits for the
-     owner's publisher identity (individual or organization, and country)
-#19  decided (option B): Issues are the source of truth and a board is
-     optional; merge PR #105
-```
-
-When every line holds, M0 is **complete**, and no new M0 work is opened after it.
+| Governance, research, ADRs | implemented | ADR-001–021 on `main` |
+| Window spike / framework gate | validated on Windows 11 | ADR-001. Windows 10 22H2 not verified (#32, v0.2) |
+| Architecture tests, commands, events | implemented | #20, #21: every mutation is a UseCases handler through the dispatcher, enforced over the built output |
+| Logging, error handling | implemented | #7, #10: logs never carry note content; one failure boundary; crash-loop detection (v0.2) |
+| Performance harness | implemented; **#11 open** | `Invoke-Performance.ps1`; budgets and verdicts in [quality-gates.md](../architecture/quality-gates.md#performance-budgets) |
+| Code signing | **#5 open** | ADR-008; the release decision waits for the owner's publisher identity |
 
 ---
 
@@ -103,47 +71,39 @@ When every line holds, M0 is **complete**, and no new M0 work is opened after it
 
 | | Engine foundation | Product capability (a user can do it) |
 | - | ----------------- | -------------------------------------- |
-| Notes | create, get, update content, move, reorder, pin, fold, colour, delete, restore, list deleted | create, open, edit (plain text), delete |
-| Folders | create, rename, delete, restore, pin, reorder, list, list deleted | create, rename, enter |
-| Tags | create, rename, delete, assign, remove, list, list notes for a tag | none (and no parity row) |
-| Markdown (#14) | content stored as markdown source | **not started** — the editor is a plain `TextBox` |
-| Export and backup (#15) | — | **not started** — ADR-002's promise is unbacked |
-| Search (#17) | — | **not started**; FTS5 deferred to M3 |
-| Attachments, tasks | folder path named only | not started |
-
-**Of the engine's 30 commands and queries, a user reaches 8**: create and
-rename a folder; list folders and the notes in one; get, create, update and
-delete a note. #13 is complete in substance and still open on GitHub.
+| Notes | create, update, move, reorder, pin, fold, colour, delete, restore | all of these, from keys, menus and the card bar |
+| Folders | create, rename, delete, restore, pin, reorder | all of these, with note counts |
+| Tags | the full set | none (and no parity row) |
+| Markdown | parsed by Core (ADR-017) | a rendered editor with hidden markup, a formatting menu and toolbar |
+| Export, backup, import | ADR-020 | export to Markdown, backup and restore, daily automatic backups, import of folders and dropped files |
+| Search | FTS5 (ADR-018) | Ctrl+F, the header button and a global shortcut |
+| Pictures, links | ADR-019 | paste, drop and draw pictures; open links and file paths, checked first |
 
 ---
 
 ## 4. M2 — what exists and what does not
 
-**Implemented mechanisms**, all validated on one display unless marked:
+**Implemented and validated**, on one display unless marked:
 
 ```
-docked to the right or left edge, at a remembered width     #16 slices 1–3
-inner-edge resize, width remembered per display             #16 slice 3
-global hotkey Ctrl+Alt+Win+Space: show / hide / restore     #16 slices 4–5, #82
-topmost drawer; put away by Ctrl+W, Escape, deactivation    #16 slice 6
-session pin (header toggle, tray)                           #16 slice 6–7
-tray icon and menu; session end saves unsaved text          #16 slice 7
-one Noto per data root; a second launch hands off           A17
-save on leave, on hide and on close                         M2-3, #86, slice 5
-hidden start at sign-in (Start Noto with Windows)           #94
-Noto's own icon                                             #95 — in review (PR #102)
+docked to the right or left edge, at a remembered width       Settings › Side
+a global shortcut, rebindable                                 Settings › Shortcuts
+topmost; put away by Ctrl+W, Escape (four modes), deactivation
+keep open (header, tray, Ctrl+D)                              #146
+tray icon and menu                                            ADR-014
+one Noto per data root; a second launch hands off             ADR-013
+start at sign-in, hidden                                      #94
+the drawer slides in and out                                  #145
+a hidden Noto gives back its unused memory                    #160
 ```
 
-**What M2 does not provide as a finished product:**
+**Not built:**
 
 ```
-no settings surface        every preference lives only in the settings table
-no side switching          workspace.edge is honoured; nothing a user presses changes it
-no Open Bar, no Hot Side   the hotkey and tray are the only activation surfaces
-no motion                  hide is AppWindow.Hide(); no slide
-no multi-monitor / mixed DPI correctness    #16 slices 8a/8b, #30
-no reorder, drag & drop, pin, colour, fold, move in the UI
-no continuous persistence  B19, deferred to M3 by decision
+no Open Bar, no Hot Side, no drag to reveal      #185
+exclusive full-screen not validated              #186
+multi-monitor and mixed DPI not validated        #30
+dock that pushes other windows aside             #153 (spike, not run)
 ```
 
 ---
@@ -151,30 +111,30 @@ no continuous persistence  B19, deferred to M3 by decision
 ## 5. SideNotes parity
 
 **Authoritative source: [sidenotes-parity.md](../product/sidenotes-parity.md),
-*Current status*.** Re-scored against the running application on 2026-10-13.
+*Current status*.** Re-scored against `main` for v0.2 on 2026-11-13 (#162).
 
 ```
-264 rows:  15 [x] · 16 [~] · 233 [ ]
-MUST: 13 of 147 done
+264 rows:  122 [x] · 32 [~] · 110 [ ]      (2026-10-13: 15 · 16 · 233)
+MUST: 103 of 147 done · 24 partial · 20 not started (B25 and C3 provisional, not scored)
 ```
 
-The re-score took two rows down (A12, G51: a stored option no user can choose
-is not delivered) and eleven up that had never been re-read (A19, C13, G1, G9,
-I13 to `[x]`; A7, C2, C15, F1, G14, G15 to `[~]`).
+Every MUST still open has an issue: #30, #31 (v0.2) and #185–#199 (M2, M3).
+Rows scored from code and harness that the owner should confirm by hand: A18,
+B4, H14, D1.
 
 ---
 
 ## 6. Product gaps
 
-| Area | What a SideNotes user expects that Noto lacks | Parity rows |
-| ---- | --------------------------------------------- | ----------- |
-| **Workspace** | Settings to change side, escape behaviour, hotkey and outside-click; Open Bar and Hot Side; slide animation; multi-monitor | A2–A4, A12, A18, A20, J1–J5 |
-| **Note management** | Recycle bin and restore; reorder (keys and drag); move between folders; pin, colour, fold; duplicate; note and list bottom bars; placement of new notes | B5–B15, B17–B23, B26, C8–C12 |
-| **Editor / markdown** | Rendered (invisible) markdown; formatting shortcuts and toolbar; checklists, code, tables policy; autosave | D1–D51, B19, G27–G42 |
-| **Content / productivity** | Images and attachments, file and folder links, clipboard and drag-in capture, search | B2–B4, D-content rows, E1–E8 |
-| **Integration** | `noto://` URL scheme, CLI, export, backup, import | H1–H5, I1–I15, J27–J40 |
-| **Settings / personalization** | A settings surface at all; theme choice; fonts and text size; note colours; rebinding | F1–F14, G50–G52, J6–J26 |
-| **UX / polish** | Control states, focus visuals, motion, menus, empty states that guide, Light and High Contrast review | F1, B26, C15, §7 below |
+| Area | What a SideNotes user expects that Noto lacks | Issues |
+| ---- | --------------------------------------------- | ------ |
+| **Workspace** | Open Bar, Hot Side, drag to reveal; exclusive full-screen; multi-monitor | #185, #186, #30 |
+| **Note management** | A list menu and double-click folding; inline folder create in Move to; the new-note placement setting; colour styles; duplicate; print | #188–#191 |
+| **Editor** | Code mode; insert picture (Ctrl+Shift+P); Ctrl+] / Ctrl+[; separator command; file shortcuts with previews | #194–#196 |
+| **Capture and clipboard** | A **+** menu with note from clipboard; copy picture; code detection; link titles; drags from other apps | #187, #31 |
+| **Integration** | `noto://` URI and a command line | #192 |
+| **Search** | Ctrl+R to launch a result's link; Ctrl+Click to open its folder | #197 |
+| **Settings** | Folder history; the two remaining global shortcuts; backup frequency; themes | #193, #198, #199 |
 
 ---
 
@@ -182,65 +142,50 @@ I13 to `[x]`; A7, C2, C15, F1, G14, G15 to `[~]`).
 
 | Aspect | Maturity | Evidence |
 | ------ | -------- | -------- |
-| Design tokens | implemented, minimal | `Noto.UI/Tokens/Tokens.xaml`: 4 spacing steps, body and caption type (Segoe UI Variable), one radius, two border weights |
-| Typography | early | two sizes; no title, subtitle or display steps; no editor typography choices |
-| Spacing and layout | early | tokens applied; one header row, three surfaces that replace each other |
-| Components | early | styles for folder row, note row, folder-pane button, name input, editor; no context menus, flyouts, dialogs, toggles or settings controls of Noto's own |
-| Themes | partially implemented | Light, Dark, High Contrast follow Windows; no manual choice; Light and High Contrast not visually reviewed |
-| Surfaces | partially implemented | folder list, note list, editor; Loading / Loaded / Empty / Error + Retry on both lists; no settings, bin or search surface |
-| Editor | early | plain `TextBox`; no rendering, no placeholder, no formatting |
-| Motion | not started | no transitions or animations anywhere |
-| Settings | not started | none |
-| Interaction polish | early | keyboard paths exist (`Ctrl+N`, `Ctrl+Down`, `F2`, `Enter`, `Esc`, `Ctrl+W`); 22 UI Automation annotations; one tooltip; no access keys |
-
-The target is SideNotes-level function and polish in Noto's own Windows-native
-visual language (ADR-011), not a macOS copy. Slice 1 starts the interaction
-foundation ([product-slices.md](../roadmap/product-slices.md)).
+| Design tokens | implemented | ADR-011; contrast checked by `DesignSystemGuardTests`, High Contrast included |
+| Typography | implemented | heading steps scaled to the chosen note text size (F13) |
+| Components | implemented | rows, cards, menus, flyouts, settings controls, toolbar, all from tokens |
+| Themes | implemented | System, Light, Dark in Settings; High Contrast follows Windows; screenshots of Light and Dark per release (`Invoke-Visual`) |
+| Surfaces | implemented | folder list, note stack, editor, search, Recycle Bin, settings, welcome tour |
+| Motion | implemented | drawer slide (F2), surface transitions; off with Windows' animation effects |
+| Accessibility | implemented; **hand check open** | UI Automation names and help text throughout; the hand check with Narrator is V1 (#161) |
 
 ---
 
 ## 8. Performance
 
-Baseline measured by `tools/validation/Invoke-Performance.ps1` (#11). The
-numbers, budgets and verdicts are recorded once, in
-[quality-gates.md](../architecture/quality-gates.md#performance-budgets).
+Measured by `tools/validation/Invoke-Performance.ps1` and `Invoke-Baseline.ps1`;
+the budgets and verdicts are recorded once, in
+[quality-gates.md](../architecture/quality-gates.md#performance-budgets). Idle
+memory is within its budget since v0.2 (#160).
 
 ---
 
 ## 9. Quality gates
 
 ```
-Tests          main @ 4d085d5: 1574
-               the foundation PRs merged locally (c36674b): 1654 (Core 273 · UseCases 59 · Infrastructure 645 · Windows 677)
+Tests          main @ 30a8fea: 3169 (Core 1087 · UseCases 128 · Infrastructure 935 · Windows 1019)
 Format         dotnet format --verify-no-changes   exit 0
-CI             Build & test · Analyze C# · CodeQL · Validate docs & governance
+CI             Build & test · Analyze C# · Package · CodeQL · Validate docs & governance
 Runtime        tools/validation — every harness on a frozen Release build,
-               isolated data, shell-started, negative controls; see history.md
+               isolated data, a temporary desktop, negative controls; see history.md
 ```
 
-UI behaviour is validated by running the application (`tools/validation`);
-`Noto.Windows.Tests` covers the platform and source guards, not the XAML.
-
-**Not validated anywhere:** a real logoff, shutdown or sign-in; Windows 10;
-more than one display; a non-US keyboard layout.
+**Not validated anywhere:** a real logoff, shutdown or sign-in; Windows 10
+(#32); more than one display (#30); a non-US keyboard layout; drags from
+apps other than Explorer (#31).
 
 ---
 
 ## 10. Open work on GitHub
 
-| PR | Issue | Base | State |
-| -- | ----- | ---- | ----- |
-| #102 | #95 Noto icon | `main` | ready; #97's two commits, unchanged |
-| #98 | #20 architecture enforcement | `main` | ready |
-| #99 | #7 structured logging | `main` | ready |
-| #100 | #10 failure handling | `main` | ready once #99 is merged (until then its diff includes #99) |
-| #103 | #5 code-signing research | `main` | ready; documentation only |
-| #101 | #11 performance baseline | `main` | ready; last |
+| PR | Issue | State |
+| -- | ----- | ----- |
+| this score | #162 parity score | in review |
 
-Merged locally together (`c36674b`), the foundation PRs build with no warnings
-and pass 1654 tests. **#16 stays open**: slices 8a/8b (multi-monitor, mixed DPI)
-and 9 (hardening) remain. #69 is fixed by PR #87 and still open; #13 is
-complete in substance and still open — closing either is the owner's decision.
+Open issues without a PR: the owner's checks (#30, #31, #32, #161), the dock
+spike (#153), the parity issues (#185–#199), #5, #11, #17, and M5–M6 research
+(#4, #12, #18, #163, #164).
 
 ---
 
@@ -250,17 +195,14 @@ complete in substance and still open — closing either is the owner's decision.
 | -------- | ------ |
 | **Folders are flat** — no `ParentId`, no nesting | parity C3; design §5 |
 | **Folder names are not unique** | Case G |
-| **Schema v2 is sufficient** for the engine | contract §12 |
 | **Case B / Case D** deletion and restore semantics | contract §7; deletion-semantics |
-| **I1/I2** — ordinary queries are active-only; no `includeDeleted` flag | deletion-semantics §6 |
-| **Exactly four failure reasons** | contract §6 |
 | **Title is computed, never stored** | parity B16 |
 | **ULID C′** | ADR-012 |
 | **Local-first SQLite** — no sync architecture until it is built | ADR-002 |
-| **Every mutation goes through a UseCases handler**; enforced over the built output | ADR-010; #20 |
+| **Every mutation goes through a UseCases handler** | ADR-010; #20 |
 | **Logs never carry note content, messages or paths** — by type | #7 |
-| **One failure boundary** — logged once, saved once, ended once | #10 |
-| **Save on leave, hide and close is interim** — B19 continuous persistence is designed with the editor (product slice 3); no save command, button or autosave before it | parity B19 |
+| **The markdown source is the truth**; markup hidden by format, never removed | ADR-017 |
+| **New global shortcuts are rebindable and off by default** | principle 7; implementation plan §10.1 |
 | **A parity row moves only when a user can do every clause** | sidenotes-parity.md |
 
 ---
@@ -268,11 +210,10 @@ complete in substance and still open — closing either is the owner's decision.
 ## 12. Deferred and dropped
 
 ```
-deferred   FTS5 search foundation   to M3 with search (#17)
 deferred   Purge / retention        Cases E/F — needs a policy decision
 deferred   Contextual notes         ADR-005/006 Proposed, M6
 deferred   Sync / cloud             ADR-002; post-v1
-deferred   Continuous persistence   B19 → product slice 3
+deferred   Dock that reserves space #153 — a spike first (ADR-007 §4)
 dropped    Nested folders           C3: flat is the requirement
 dropped    Folder colours, all-notes view, templates   C17, C18, B24
 dropped    23 DROP parity rows      each with its reason in sidenotes-parity.md
@@ -283,10 +224,9 @@ not on the roadmap   AI, plugins, sharing
 
 ## 13. Next
 
-M0 closes (§2), then **product slice 1 — Workspace + Settings + premium
-interaction foundation**, then slice 2 (note management and folders), then
-slice 3 (the editor). Scope, parity rows, acceptance criteria and validation:
-[product-slices.md](../roadmap/product-slices.md).
+The owner's checks for v0.2 (V1–V3, #31), then deciding which of the parity
+issues (#185–#199) join the next release, and whether to run the dock spike
+(#153).
 
 ---
 
