@@ -76,7 +76,7 @@ try {
         $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
         $m = Trace-Mark
         Start-Sleep -Seconds 45
-        Add-Result $run '2  a second start the same day writes none' ((Compare-Object (Autos) $before).Count -eq 0 -and (Trace-Since $m) -notmatch 'Noto\.Backup automatic') "autos=$((Autos).Count); trace: $(Trace-Since $m)"
+        Add-Result $run '2  a second start the same day writes none' ((Compare-Object (Autos) $before).Count -eq 0 -and (Trace-Since $m) -match 'Noto\.Backup automatic not-due' -and (Trace-Since $m) -notmatch 'Noto\.Backup automatic (written|failed)') "autos=$((Autos).Count); trace: $(Trace-Since $m)"
         if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
 
         # 3 - off: none
@@ -85,7 +85,7 @@ try {
         $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
         $m = Trace-Mark
         Start-Sleep -Seconds 45
-        Add-Result $run '3  with Back up automatically off, a start writes none' ((Autos).Count -eq 0 -and (Trace-Since $m) -notmatch 'Noto\.Backup automatic') "autos=$((Autos).Count); trace: $(Trace-Since $m)"
+        Add-Result $run '3  with Back up automatically off, a start writes none' ((Autos).Count -eq 0 -and (Trace-Since $m) -match 'Noto\.Backup automatic off' -and (Trace-Since $m) -notmatch 'Noto\.Backup automatic (written|failed)') "autos=$((Autos).Count); trace: $(Trace-Since $m)"
         Add-Result $run 'teardown: Noto exited cleanly' (Stop-Noto $script:noto) ''
     }
 }
