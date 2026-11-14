@@ -96,6 +96,7 @@ format or behavior. Breaking changes are always called out explicitly.
   adds it (#31).
 - Narrator now hears Noto's messages as they change: notices, results lines and Search's count were never announced
   (#161).
+- Ctrl+C in Search hides Noto every time; about one copy in two, Noto came straight back.
 
 ### Known limitations
 

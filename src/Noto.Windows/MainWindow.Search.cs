@@ -234,6 +234,10 @@ public sealed partial class MainWindow
         }
 
         CloseSearch();
-        DismissRequested?.Invoke(this, EventArgs.Empty);
+
+        // Queued behind CloseSearch's focus restore, at the same priority: that focus lands while Noto is still in
+        // front. Run after the hide, focusing the hidden window activates it again, and Noto came back (measured: about
+        // one Ctrl+C in two).
+        _ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, () => DismissRequested?.Invoke(this, EventArgs.Empty));
     }
 }

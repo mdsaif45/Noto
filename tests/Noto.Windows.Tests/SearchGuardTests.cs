@@ -74,7 +74,9 @@ public sealed class SearchGuardTests
     public void Quick_copy_hides_only_after_the_clipboard_took_the_text()
     {
         string copy = Body(Search, "OnSearchCopyRequested");
-        Assert.Matches(@"catch \(COMException\)\s*\{\s*SearchSurface\?\.ShowNotice\([^;]+\);\s*return;\s*\}\s*CloseSearch\(\);\s*DismissRequested\?\.Invoke\(this, EventArgs\.Empty\);", copy);
+        Assert.Matches(@"catch \(COMException\)\s*\{\s*SearchSurface\?\.ShowNotice\([^;]+\);\s*return;\s*\}\s*CloseSearch\(\);\s*(//[^\n]*\s*)*_ = DispatcherQueue\.TryEnqueueGuarded\(DispatcherQueuePriority\.Low, \(\) => DismissRequested\?\.Invoke\(this, EventArgs\.Empty\)\);", copy);
+        // The hide is queued at the focus restore's own priority, so it runs after it: never a focus on a hidden window.
+        Assert.Contains("_ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, () => restore.Focus(FocusState.Programmatic));", Body(Search, "CloseSearch"), StringComparison.Ordinal);
     }
 
     [Fact]
