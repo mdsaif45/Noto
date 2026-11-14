@@ -10,6 +10,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-14
+
 ### Added
 
 - A shortcut to search your notes from any app: Noto opens with Search ready to type in. Turn it on in Settings ›
@@ -104,6 +106,10 @@ format or behavior. Breaking changes are always called out explicitly.
 - With Narrator on, Ctrl+Alt+arrows are Narrator's own keys: fold and unfold from the card's menu instead (#202).
 - High Contrast, display scaling, input methods, two monitors and Windows 10 are not yet checked by hand for this
   release (#161, #30, #32).
+- The installer is still not signed: Windows shows *Windows protected your PC* the first time (choose *More info*, then
+  *Run anyway*), and Smart App Control blocks it.
+- Noto still never uses the network, so v0.1 does not update itself: run the v0.2 installer over it. Your notes, in
+  `%LOCALAPPDATA%\Noto`, are kept.
 
 ## [0.1.0] - 2026-11-06
 
@@ -208,5 +214,6 @@ newer version, run its installer; your notes are kept.
 
 Your notes are stored in `%LOCALAPPDATA%\Noto`.
 
-[Unreleased]: https://github.com/mdsaif45/Noto/compare/v0.1.0...main
+[Unreleased]: https://github.com/mdsaif45/Noto/compare/v0.2.0...main
+[0.2.0]: https://github.com/mdsaif45/Noto/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mdsaif45/Noto/releases/tag/v0.1.0
