@@ -26,9 +26,9 @@ public sealed partial class WorkspaceDrawerGuardTests
     [Fact]
     public void The_window_never_hides_itself()
     {
-        // A flyout dismissing itself (the folder-delete confirmation) is not the window hiding.
+        // A flyout dismissing itself (the folder-delete confirmation, Move to › New folder…) is not the window hiding.
         Assert.DoesNotMatch(@"(?<!flyout)\.Hide\(\)", Code(Main));
-        Assert.Equal(2, Regex.Count(Code(Main), @"flyout\.Hide\(\)"));
+        Assert.Equal(4, Regex.Count(Code(Main), @"flyout\.Hide\(\)"));
         Assert.DoesNotContain("ShowWindow", Code(Main), StringComparison.Ordinal);
     }
 

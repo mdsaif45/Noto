@@ -30,7 +30,8 @@
     16  the folder list still works: Shift+F10 (Open, Rename, New folder); Ctrl+N focuses the name box
     17  the New note button and Back are named
     18  closing while editing: saved, a clean exit
-    19  Ctrl+Shift+M on a card: All folders (no recent yet), never the card's own; choosing one moves it, focus stays
+    19  Ctrl+Shift+M on a card: All folders (no recent yet) then New folder…, never the card's own; choosing one
+        moves it, focus stays
     20  the card menu's Move to: the recent folder first; choosing it moves the card
     21  Ctrl+Shift+M from the editor with unsaved text: saved first, then moved
     22  the card menu's Pin: the card goes first, stored, help text "Pinned", focus on it; Unpin returns it
@@ -64,6 +65,9 @@
     47  F6 (#149): the card bar's Fold saves, folds and leaves the card being edited; its "+ 3 lines" pill (named
         "Unfold, 3 lines hidden"; help text "Folded, 3 lines hidden") unfolds it, focus on the card. A folded one-line
         note shows no pill
+    48  #189: Ctrl+Shift+M ends with New folder…; choosing it focuses a named name box; Enter on an empty name is
+        refused in the pane's words and creates nothing; Escape creates nothing; a name and Enter create the folder,
+        move the card into it (the card leaves the stack, focus stays on a card), and the folder's row says "1 note"
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -239,6 +243,17 @@ function Enter-Folder {
     $null = Find-ById 'BackButton'
     Start-Sleep -Milliseconds 600
 }
+function Mine-ById([string] $Id) {
+    <# A flyout's content: searched from the desktop, as the menus are, since a popup need not sit under Noto's window. #>
+    $deadline = (Get-Date).AddSeconds(5)
+    while ((Get-Date) -lt $deadline) {
+        $e = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid -and -not $_.Current.IsOffscreen }) | Select-Object -First 1
+        if ($e) { return $e }
+        Start-Sleep -Milliseconds 200
+    }
+    $null
+}
+function Folders-Named([string] $Name) { [int](Sql $script:data 'SELECT COUNT(*) FROM Folders WHERE Name = $n AND DeletedAt IS NULL' @{ '$n' = $Name } -Scalar) }
 function Edit-Card([string] $Name) {
     $card = Card $Name
     if (-not $card) { throw "no card '$Name' is realised" }
@@ -400,7 +415,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $all = @(Menu-Items | Where-Object { $_ -notin $top })
     Choose 'Elsewhere'
     $id4 = [string](Sql $script:data "SELECT Id FROM Notes WHERE Content = 'Filler 4'" -Scalar)
-    Add-Result $run '19 Ctrl+Shift+M: All folders without its own; choosing one moves it; focus stays' (($top -join ',') -eq 'All folders' -and ($all -join ',') -eq 'Elsewhere' -and (FolderOf $id4) -eq $Elsewhere -and (ActiveCount) -eq $before - 1 -and -not (Card 'Filler 4') -and (Focused) -match 'ListItem') "top=$($top -join ',') all=$($all -join ',') folder=$(FolderOf $id4) notes=$before->$(ActiveCount) focus=$(Focused)"
+    Add-Result $run '19 Ctrl+Shift+M: All folders without its own; choosing one moves it; focus stays' (($top -join ',') -eq 'All folders,New folder…' -and ($all -join ',') -eq 'Elsewhere' -and (FolderOf $id4) -eq $Elsewhere -and (ActiveCount) -eq $before - 1 -and -not (Card 'Filler 4') -and (Focused) -match 'ListItem') "top=$($top -join ',') all=$($all -join ',') folder=$(FolderOf $id4) notes=$before->$(ActiveCount) focus=$(Focused)"
 
     # 20 - the card menu's Move to: the recent folder first
     $card = Card 'Filler 5'
@@ -703,6 +718,40 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $oneHelp = Card-Help $one; $oneFolded = (Flag $B 'IsFolded') -eq 1
     Send-ToNoto @(0x11, 0x12) 0x27   # Ctrl+Alt+Right
     Add-Result $run '47 a folded one-line note hides nothing: no pill, help text "Folded"' ($oneFolded -and (-not $onePill -or $onePill.Current.IsOffscreen) -and $oneHelp -eq 'Folded' -and (Flag $B 'IsFolded') -eq 0) "card='$one' folded=$oneFolded pill=$([bool]$onePill) help='$oneHelp' unfolded=$((Flag $B 'IsFolded') -eq 0)"
+
+    # 48 - #189: Move to › New folder…, a name, Enter
+    $mover = (Cards | Where-Object { $_.Current.Name -like 'Filler *' } | Select-Object -First 1).Current.Name
+    $moverId = IdOf $mover
+    $folderCount = [int](Sql $script:data 'SELECT COUNT(*) FROM Folders WHERE DeletedAt IS NULL' -Scalar)
+    (Card $mover).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11, 0x10) 0x4D   # Ctrl+Shift+M
+    $top = @(Menu-Items)
+    Choose 'New folder…'
+    $box = Mine-ById 'MoveNewFolderName'
+    $boxName = if ($box) { $box.Current.Name } else { '' }
+    $boxFocused = (Focused) -match 'id=MoveNewFolderName'
+    Send-ToNoto @() 0x0D   # Enter on an empty name
+    $refusal = (Mine-ById 'MoveNewFolderNotice')
+    $refused = if ($refusal) { $refusal.Current.Name } else { '' }
+    $emptyCreatedNone = ([int](Sql $script:data 'SELECT COUNT(*) FROM Folders WHERE DeletedAt IS NULL' -Scalar)) -eq $folderCount
+    $box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('Cancelled folder'); Start-Sleep -Milliseconds 300
+    Send-ToNoto @() 0x1B   # Escape
+    $cancelled = (Folders-Named 'Cancelled folder') -eq 0 -and -not (Mine-ById 'MoveNewFolderName') -and (FolderOf $moverId) -eq $FolderId
+    (Card $mover).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11, 0x10) 0x4D
+    Choose 'New folder…'
+    $box = Mine-ById 'MoveNewFolderName'
+    $box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('Made by Move to'); Start-Sleep -Milliseconds 300
+    $before = ActiveCount
+    Send-ToNoto @() 0x0D
+    $made = [string](Sql $script:data 'SELECT Id FROM Folders WHERE Name = $n AND DeletedAt IS NULL' @{ '$n' = 'Made by Move to' } -Scalar)
+    $inside = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL' @{ '$f' = $made } -Scalar)
+    $left = -not (Card $mover) -and (ActiveCount) -eq $before - 1; $focusAfter = Focused
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $row = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { $_.Current.Name -eq 'Made by Move to' }
+    $rowHelp = if ($row) { $row.Current.HelpText } else { '(no row)' }
+    Add-Result $run '48 Move to › New folder…: a named box; empty refused, Escape creates nothing; a name and Enter make the folder with the card, which left the stack' ($top[-1] -eq 'New folder…' -and $boxName -eq 'New folder name' -and $boxFocused -and $refused -eq 'A folder name cannot be empty.' -and $emptyCreatedNone -and $cancelled -and $made -ne '' -and (Folders-Named 'Made by Move to') -eq 1 -and (FolderOf $moverId) -eq $made -and $inside -eq 1 -and $left -and $focusAfter -match 'ListItem' -and $rowHelp -eq '1 note') "top=$($top -join ',') box='$boxName' focused=$boxFocused refused='$refused' empty created none=$emptyCreatedNone cancelled=$cancelled made=$made inside=$inside left=$left focus=$focusAfter row='$rowHelp'"
+    Enter-Folder
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'
