@@ -80,6 +80,8 @@ $CT = [System.Windows.Automation.ControlType]
 $TP = [System.Windows.Automation.TextPattern]
 $FolderId = '01J0000000000000000000F018'
 $Meeting = '01J00000000000000000000E01'; $Groceries = '01J00000000000000000000E02'; $Plain = '01J00000000000000000000E03'
+# Case 25's note, by a name no case reuses: PowerShell's names ignore case, and an earlier case's $plain is a flag.
+$CodeModeNoteId = $Plain
 $MeetingText = "## Weekly sync`n`n**Attendees:** Priya, Tom, me`n`n- [ ] Tom: fix the *startup* crash`n- [x] book the room`n`nSee [the RFC](https://example.com/rfc) and ``release.md``."
 $Seed = [ordered]@{
     $Meeting   = $MeetingText
@@ -566,7 +568,7 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     # 'bold' not bold, '# heading' no larger than the rest, all in the code font; Tab types four spaces; the card reads
     # it raw and is titled by its raw first line; and the mode survives a restart. Then Markdown again renders it.
     $before23 = Card-Mode 'A plain note with no markup at all.' 'Code'
-    $storedCode = Stored-Mode $Plain
+    $storedCode = Stored-Mode $CodeModeNoteId
     $helpCode = (Card 'A plain note with no markup at all.').Current.HelpText
     Edit-Card 'A plain note with no markup at all.'
     $raw = "# heading`n**bold** and _it_ text"
@@ -588,13 +590,13 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
     Start-Fresh 'Dark'
     $card23 = Card '# heading'
-    $kept23 = (Stored-Mode $Plain) -eq 'Code' -and $card23 -and $card23.Current.HelpText -match 'Code' -and (Read-Text $card23) -match '\*\*bold\*\*'
+    $kept23 = (Stored-Mode $CodeModeNoteId) -eq 'Code' -and $card23 -and $card23.Current.HelpText -match 'Code' -and (Read-Text $card23) -match '\*\*bold\*\*'
     Edit-Card '# heading'
     $reopened = (Editor-Value) -eq $raw -and (Range-Of '**').GetAttributeValue($TP::IsHiddenAttribute) -eq $false
     Send-ToNoto @() 0x1B 900
     $beforeBack = Card-Mode '# heading' 'Markdown'
     $rendered23 = Read-Text (Card 'heading')
-    Add-Result $run '25 Code from the menu: markup raw, not hidden, bold or larger, in the code font; Tab types 4 spaces; kept across a restart; Markdown renders it again' ($before23 -eq 'Markdown' -and $storedCode -eq 'Code' -and $helpCode -match 'Code' -and $hidden23 -eq $false -and [int]$weight23 -lt 600 -and [double]$headSize -eq [double]$textSize -and $font23 -match 'Cascadia Mono|Consolas' -and $tabbed -and $read23 -match '# heading' -and $read23 -match '\*\*bold\*\*' -and $kept23 -and $reopened -and $beforeBack -eq 'Code' -and (Stored-Mode $Plain) -eq 'Markdown' -and $rendered23 -notmatch '\*\*|#') "checked=$before23 stored=$storedCode help='$helpCode' hidden=$hidden23 weight=$weight23 size=$headSize/$textSize font='$font23' tab=$tabbed read='$($read23 -replace "`r|`n", ' | ')' restart=$kept23 reopened=$reopened back-checked=$beforeBack rendered='$($rendered23 -replace "`r|`n", ' | ')' $shot23"
+    Add-Result $run '25 Code from the menu: markup raw, not hidden, bold or larger, in the code font; Tab types 4 spaces; kept across a restart; Markdown renders it again' ($before23 -eq 'Markdown' -and $storedCode -eq 'Code' -and $helpCode -match 'Code' -and $hidden23 -eq $false -and [int]$weight23 -lt 600 -and [double]$headSize -eq [double]$textSize -and $font23 -match 'Cascadia Mono|Consolas' -and $tabbed -and $read23 -match '# heading' -and $read23 -match '\*\*bold\*\*' -and $kept23 -and $reopened -and $beforeBack -eq 'Code' -and (Stored-Mode $CodeModeNoteId) -eq 'Markdown' -and $rendered23 -notmatch '\*\*|#') "checked=$before23 stored=$storedCode help='$helpCode' hidden=$hidden23 weight=$weight23 size=$headSize/$textSize font='$font23' tab=$tabbed read='$($read23 -replace "`r|`n", ' | ')' restart=$kept23 reopened=$reopened back-checked=$beforeBack rendered='$($rendered23 -replace "`r|`n", ' | ')' $shot23"
     Edit-Card 'heading'
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
