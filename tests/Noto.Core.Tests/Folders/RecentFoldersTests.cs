@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Noto.Core.Tests.Folders;
 
-/// <summary>The folders notes were most recently moved to (workspace-management.md §3).</summary>
+/// <summary>The folders notes were most recently moved to (workspace-management.md §3), and those last opened (#193).</summary>
 public sealed class RecentFoldersTests
 {
     private static readonly FolderId A = FolderId.New();
@@ -90,6 +90,34 @@ public sealed class RecentFoldersTests
         Assert.Equal([c, a], shown);
 
         Assert.Equal([c], RecentFolders.Shown([C, B, A], [a, c], excluding: A));
+    }
+
+    [Fact]
+    public void Opening_the_first_shown_other_folder_toggles_between_the_last_two_like_alt_tab()
+    {
+        // #193: Ctrl+Shift+O opens the first recent folder that is not the open one, and opening pushes it first.
+        Folder a = Folder(A, "A"), b = Folder(B, "B"), c = Folder(C, "C");
+        IReadOnlyList<FolderId> recent = RecentFolders.Push(RecentFolders.Push(RecentFolders.Push([], C), A), B);
+        FolderId open = B;
+
+        for (int i = 0; i < 4; i++)
+        {
+            Folder previous = RecentFolders.Shown(recent, [a, b, c], open)[0];
+            Assert.Equal(open == B ? A : B, previous.Id);
+            recent = RecentFolders.Push(recent, previous.Id);
+            open = previous.Id;
+        }
+    }
+
+    [Fact]
+    public void From_the_folder_list_the_last_open_folder_is_first_and_a_deleted_one_is_passed_over()
+    {
+        // #193: with no folder open (the folder list, or a start) nothing is excluded; a binned folder is skipped.
+        Folder a = Folder(A, "A"), c = Folder(C, "C");
+
+        Assert.Equal(a, RecentFolders.Shown([A, C], [a, c], excluding: null)[0]);
+        Assert.Equal(c, RecentFolders.Shown([B, C], [a, c], excluding: null)[0]);
+        Assert.Empty(RecentFolders.Shown([B], [a, c], excluding: null));
     }
 
     private static Folder Folder(FolderId id, string name) => new()

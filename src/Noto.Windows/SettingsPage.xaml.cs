@@ -173,6 +173,7 @@ public sealed partial class SettingsPage : UserControl
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
+            OpenLastFolderSetting.IsOn = preferences.OpenLastFolder;
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
             BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
@@ -295,6 +296,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnSingleClickToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetSingleClickOpen(SingleClickSetting.IsOn));
+
+    private void OnOpenLastFolderToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetOpenLastFolder(OpenLastFolderSetting.IsOn));
 
     private void OnNewNotePlacementChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => NewNotePlacementSetting.SelectedItem is not null && p.SetNewNotePlacement(Selected<NewNotePlacement>(NewNotePlacementSetting)));

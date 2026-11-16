@@ -837,6 +837,11 @@ public partial class App : Application
             SingleClickOpen = preferences.SingleClickOpen,
             NewNotePlacement = preferences.NewNotePlacement,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
+
+            // Folder history (#193): its own list, not the move list's; a failed write never stops a folder opening.
+            RecentOpenedFolders = () => preferences.RecentOpenedFolders,
+            FolderOpened = (folder, existing) => preferences.RememberOpenedFolder(folder, existing),
+            OpenLastFolderOnStart = preferences.OpenLastFolder,
             Search = new SearchWorkspaceQuery(notes, folders),
             Images = images,
             Bin = new RecycleBin(

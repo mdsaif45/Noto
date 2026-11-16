@@ -123,7 +123,8 @@
                 -->
                 <Grid.KeyboardAccelerators>
                     <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnCreateAccelerator" />
-
+                    <!-- Ctrl+Shift+O enters the folder last opened (G10, C6, #193). -->
+                    <KeyboardAccelerator Key="O" Modifiers="Control,Shift" Invoked="OnLastFolderAccelerator" />
                 </Grid.KeyboardAccelerators>
 
                 <Grid.RowDefinitions>
@@ -365,6 +366,8 @@
                     <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnCreateNoteAccelerator" />
                     <!-- Move the current card to another folder (B11, G16), from a card or its editor. -->
                     <KeyboardAccelerator Key="M" Modifiers="Control,Shift" Invoked="OnMoveAccelerator" />
+                    <!-- Switch to the folder open before this one (G10, C6, #193), from a card or its editor, saving first. -->
+                    <KeyboardAccelerator Key="O" Modifiers="Control,Shift" Invoked="OnLastFolderAccelerator" />
                 </Grid.KeyboardAccelerators>
 
                 <Grid.RowDefinitions>
@@ -376,10 +379,12 @@
 
                 <!--
                     The stack's heading: Back, then the folder's name, as Settings and the Recycle Bin head theirs. Back is
-                    the pointer route out; Escape is the keyboard's (C5).
+                    the pointer route out; Escape is the keyboard's (C5). Back's context menu (right-click, Shift+F10, the
+                    Menu key) and the chevron beside it list the folders opened recently (#193).
                 -->
                 <Grid Grid.Row="0" ColumnSpacing="{StaticResource SpaceXS}">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
@@ -387,13 +392,23 @@
                         x:Name="BackButton"
                         Style="{StaticResource HeaderButtonStyle}"
                         Click="OnBackClick"
+                        ContextRequested="OnBackContextRequested"
                         ToolTipService.ToolTip="Back to folders (Esc)"
                         AutomationProperties.Name="Back to folders">
                         <FontIcon Glyph="&#xE72B;" FontSize="{StaticResource IconSize}" />
                     </Button>
+                    <Button
+                        x:Name="RecentFoldersButton"
+                        Grid.Column="1"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        Click="OnRecentFoldersClick"
+                        ToolTipService.ToolTip="Recent folders"
+                        AutomationProperties.Name="Recent folders">
+                        <FontIcon Glyph="&#xE70D;" FontSize="{StaticResource FontSizeCaption}" />
+                    </Button>
                     <TextBlock
                         x:Name="NoteFolderTitle"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Style="{StaticResource SurfaceTitleStyle}"
                         AutomationProperties.HeadingLevel="Level1" />
                 </Grid>

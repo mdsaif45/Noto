@@ -132,6 +132,25 @@
                                     AutomationProperties.HelpText="Folders. Otherwise, double-click. A note is edited with one click either way." />
                             </Grid>
 
+                            <!-- C14, J10 (#193): read at start, so a change applies from the next start. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Open the last folder when Noto starts" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Otherwise, Noto starts on the folder list." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="OpenLastFolderSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnOpenLastFolderToggled"
+                                    AutomationProperties.Name="Open the last folder when Noto starts"
+                                    AutomationProperties.HelpText="Otherwise, Noto starts on the folder list." />
+                            </Grid>
+
                             <!-- #188: where a new note goes in its folder (B5, J8). -->
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>

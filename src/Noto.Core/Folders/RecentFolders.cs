@@ -1,12 +1,18 @@
 namespace Noto.Core.Folders;
 
 /// <summary>
-/// The folders notes were most recently moved to (B11; workspace-management.md §3): the first choices when moving.
+/// A list of recent folders. Two lists use it, each stored under its own setting: the folders notes were most
+/// recently moved to (B11; workspace-management.md §3), the first choices when moving; and the folders most recently
+/// opened (#193), which Back lists, Ctrl+Shift+O switches between and a start can reopen.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Most recent first, no duplicates, at most <see cref="Capacity"/>. Only a move's destination counts. Stored as the
-/// ids in order, comma-separated; anything that is not exactly that reads as empty rather than as a partial list.
+/// Most recent first, no duplicates, at most <see cref="Capacity"/>. Stored as the ids in order, comma-separated;
+/// anything that is not exactly that reads as empty rather than as a partial list.
+/// </para>
+/// <para>
+/// The previous folder is the first <see cref="Shown"/> excluding the open one: opening it pushes it first, so the
+/// next time it is the excluded one and the folder just left is first, which is how Ctrl+Shift+O toggles (#193).
 /// </para>
 /// <para>
 /// A folder that has since been binned or purged is not removed here: <see cref="Shown"/> skips it, and it falls
@@ -20,7 +26,7 @@ public static class RecentFolders
 
     private const char Separator = ',';
 
-    /// <summary>The list after a note was moved to <paramref name="folder"/>: it first, the rest after, still at most <see cref="Capacity"/>.</summary>
+    /// <summary>The list after <paramref name="folder"/> was moved to or opened: it first, the rest after, still at most <see cref="Capacity"/>.</summary>
     public static IReadOnlyList<FolderId> Push(IReadOnlyList<FolderId> recent, FolderId folder)
     {
         ArgumentNullException.ThrowIfNull(recent);
@@ -64,8 +70,8 @@ public static class RecentFolders
     }
 
     /// <summary>
-    /// What the move menu offers: the recent folders that are still among <paramref name="active"/>, most recent first,
-    /// without <paramref name="excluding"/> (the note's own folder: a move there is not a move).
+    /// What a menu offers: the recent folders that are still among <paramref name="active"/>, most recent first,
+    /// without <paramref name="excluding"/> (the open folder: a move there is not a move, and Back does not list it).
     /// </summary>
     public static IReadOnlyList<Folder> Shown(IReadOnlyList<FolderId> recent, IReadOnlyList<Folder> active, FolderId? excluding)
     {

@@ -240,6 +240,7 @@ public sealed partial class MainWindow : Window
         PaneRoot.Loaded -= OnPaneFirstLoaded;
 
         Refresh();
+        OpenLastFolderAtStart();
         OpenWelcomeAtStart();
     }
 
@@ -750,6 +751,9 @@ public sealed partial class MainWindow : Window
         _openFolderId = FolderId.From(item.Id);
         _stack.Open(_openFolderId.Value);
         ForgetUndo();
+
+        // Every route into a folder comes through here, so each is recorded as the folder last opened (#193).
+        FolderOpened?.Invoke(_openFolderId.Value, [.. Folders.Select(f => FolderId.From(f.Id))]);
 
         // A folder is entered fresh: no card is selected or edited.
         _selectedNoteId = null;
@@ -2409,8 +2413,8 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>At the pointer for a right-click; at the row for Shift+F10 or the Menu key.</summary>
-    private static void ShowMenu(MenuFlyout menu, ListViewItem container, ContextRequestedEventArgs args)
+    /// <summary>At the pointer for a right-click; at the row (or button) for Shift+F10 or the Menu key.</summary>
+    private static void ShowMenu(MenuFlyout menu, FrameworkElement container, ContextRequestedEventArgs args)
     {
         if (args.TryGetPosition(container, out Windows.Foundation.Point point))
         {
