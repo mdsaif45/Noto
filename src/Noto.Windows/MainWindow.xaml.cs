@@ -115,6 +115,12 @@ public sealed partial class MainWindow : Window
     /// <summary>When one click last entered a folder (an <see cref="Environment.TickCount64"/>), see <see cref="OnNoteListTapped"/>.</summary>
     private long _enteredByClickAt;
 
+    /// <summary>The click that last began editing a card, see <see cref="OnNoteListPointerPressed"/>; <see langword="null"/> once used.</summary>
+    private CardClick? _cardClick;
+
+    /// <summary>When a double-click last folded or unfolded a card (an <see cref="Environment.TickCount64"/>), see <see cref="OnNoteListTapped"/>.</summary>
+    private long _foldedByClickAt;
+
     /// <summary>Windows' own settings, read live: the double-click time.</summary>
     private readonly UISettings _system = new();
 
@@ -133,6 +139,10 @@ public sealed partial class MainWindow : Window
         // Each row's states for assistive technology go on its container (OnRowContainerContentChanging).
         FolderList.ContainerContentChanging += OnRowContainerContentChanging;
         NoteList.ContainerContentChanging += OnRowContainerContentChanging;
+
+        // A double-click on a card folds or unfolds it (B12, #190). Handled events too: the second press lands in the
+        // editor the first click opened, which handles it.
+        NoteList.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnNoteListPointerPressed), handledEventsToo: true);
 
         // Files dropped on a folder or the stack are imported (F9, #152).
         AttachDropTargets();
@@ -910,6 +920,7 @@ public sealed partial class MainWindow : Window
 
         NoteList.IsEnabled = interactive;
         NewNoteButton.IsEnabled = interactive;
+        NoteListMenuButton.IsEnabled = interactive;
 
         NoteRetryButton.Visibility = _noteState == NoteState.Error
             ? Visibility.Visible
@@ -1051,12 +1062,66 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // The second click of a double-click that folded or unfolded a card (B12, #190): it must not edit it again.
+        if (Environment.TickCount64 - _foldedByClickAt <= _system.DoubleClickTime)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if ((e.OriginalSource as FrameworkElement)?.DataContext is NoteCard { IsEditing: false } card)
         {
             e.Handled = true;
+            bool wasFolded = card.IsFolded;
             EditCard(card.Id, CaretPlacement.End);
+
+            // Perhaps the first click of a double-click: OnNoteListPointerPressed decides on the second press.
+            _cardClick = _stack.Editing?.Value == card.Id
+                ? new CardClick(card.Id, wasFolded, Environment.TickCount64, e.GetPosition(NoteList))
+                : null;
         }
     }
+
+    /// <summary>
+    /// A double-click on a card that is not being edited folds it, or unfolds a folded one (B12, #190), and leaves it not
+    /// editing, as the card bar's Fold and the "+ N lines" pill do.
+    /// </summary>
+    /// <remarks>
+    /// The first click has already edited the card (<see cref="OnNoteListTapped"/>: one click edits, ADR-016 §6), so the
+    /// second press lands in its editor. Decided here, on that press, not on a double tap: the click's element was
+    /// replaced, and on its release the editor would toggle a checklist box under the pointer. The fold saves and leaves
+    /// editing (nothing was typed between the clicks), so the card is never left half entered. A double-click in a card
+    /// that was already being edited began no <see cref="_cardClick"/>, so it stays the editor's: it selects a word.
+    /// </remarks>
+    private void OnNoteListPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        PointerPoint point = e.GetCurrentPoint(NoteList);
+
+        if (_cardClick is not { } first || !point.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _cardClick = null;
+        long now = Environment.TickCount64;
+
+        if (_stack.Editing?.Value != first.Id
+            || !DoubleClick.IsSecond(first.At, first.Position.X, first.Position.Y, now, point.Position.X, point.Position.Y, _system.DoubleClickTime))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _foldedByClickAt = now;
+
+        if (TryEndEdit())
+        {
+            FoldCard(first.Id, folded: !first.WasFolded);
+        }
+    }
+
+    /// <summary>A click that began editing a card: which card, whether it was folded, and when and where (in the list).</summary>
+    private readonly record struct CardClick(string Id, bool WasFolded, long At, Windows.Foundation.Point Position);
 
     private void OnNoteSelectionChanged(object sender, SelectionChangedEventArgs e) =>
         _selectedNoteId = (NoteList.SelectedItem as NoteCard)?.Id;
@@ -2429,6 +2494,18 @@ public sealed partial class MainWindow : Window
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// The list bar's menu (B13, B18, #190): Fold all and Unfold all, the same commands as Ctrl+Alt+Shift+Left and Right.
+    /// Built when opened, so an item that would change no card is disabled.
+    /// </summary>
+    private void OnNoteListMenuClick(object sender, RoutedEventArgs e)
+    {
+        var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.TopEdgeAlignedRight };
+        menu.Items.Add(MenuItem("Fold all", "Ctrl+Alt+Shift+Left", () => FoldAll(folded: true), _stack.CanFoldAll(folded: true)));
+        menu.Items.Add(MenuItem("Unfold all", "Ctrl+Alt+Shift+Right", () => FoldAll(folded: false), _stack.CanFoldAll(folded: false)));
+        menu.ShowAt((FrameworkElement)sender);
     }
 
     /// <summary>The card bar's Colour button: the palette, above the button.</summary>

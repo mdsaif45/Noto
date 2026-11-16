@@ -398,6 +398,12 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     /// <summary>Whether moving <paramref name="note"/> in <paramref name="direction"/> would move it at all.</summary>
     public bool CanReorder(NoteId note, RepositionDirection direction) => Target(note, direction).Moves;
 
+    /// <summary>
+    /// Whether folding (or unfolding) every card would change one (B13, #190): the list's menu disables an item that
+    /// would do nothing. The card being edited is never folded (editing unfolds), so it is one fold all would fold.
+    /// </summary>
+    public bool CanFoldAll(bool folded) => Notes.Any(n => n.IsFolded != folded);
+
     private RepositionTarget<NoteId> Target(NoteId note, RepositionDirection direction) =>
         Reposition.Of(Notes, note, direction, n => n.Id, n => n.IsPinned, n => n.SortOrder);
 

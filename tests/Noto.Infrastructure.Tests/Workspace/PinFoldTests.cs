@@ -410,6 +410,25 @@ public sealed class PinFoldTests : IDisposable
     }
 
     [Fact]
+    public void Fold_all_and_unfold_all_are_offered_only_when_they_would_change_a_card()
+    {
+        Assert.True(_stack.CanFoldAll(true));
+        Assert.False(_stack.CanFoldAll(false));
+
+        Assert.True(_stack.SetFolded(_b, true).IsSuccess);
+        Assert.True(_stack.CanFoldAll(true));
+        Assert.True(_stack.CanFoldAll(false));
+
+        Assert.True(_stack.SetAllFolded(true).IsSuccess);
+        Assert.False(_stack.CanFoldAll(true));
+        Assert.True(_stack.CanFoldAll(false));
+
+        // Editing a folded card unfolds it, so there is one to fold again.
+        Assert.True(_stack.BeginEdit(_c).IsSuccess);
+        Assert.True(_stack.CanFoldAll(true));
+    }
+
+    [Fact]
     public void Fold_all_reports_how_many_cards_changed()
     {
         Assert.True(_stack.SetFolded(_a, true).IsSuccess);
