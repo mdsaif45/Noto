@@ -879,6 +879,7 @@ public partial class App : Application
         // which comes back here as any change does.
         main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
         NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
+        NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
         main.StepNoteSize = direction =>
         {
             double next = NoteText.Step(preferences.NoteSize, direction);
@@ -1406,6 +1407,10 @@ public partial class App : Application
         else if (key == SettingKeys.EditorFormatToolbar)
         {
             NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
+        }
+        else if (key == SettingKeys.EditorPasteCodeBlock)
+        {
+            NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
         }
         else if (key == SettingKeys.BackupAutomatic || key == SettingKeys.BackupFrequency)
         {

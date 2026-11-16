@@ -362,6 +362,13 @@ public static class SettingKeys
         new("editor.format-toolbar", true);
 
     /// <summary>
+    /// Whether plain text that reads as code is pasted in a fenced code block (D39, J20, #187; <c>PastedCode</c>).
+    /// </summary>
+    /// <remarks>Default off: a paste the user did not ask to reformat stays exactly what they copied.</remarks>
+    public static readonly SettingKey<bool> EditorPasteCodeBlock =
+        new("editor.paste-code-block", false);
+
+    /// <summary>
     /// Whether Noto backs itself up into the data root's backups, keeping the last seven (F15, #15), as often as
     /// <see cref="BackupFrequency"/> says.
     /// </summary>
@@ -460,6 +467,7 @@ public static class SettingKeys
         AppearanceNoteSize,
         AppearanceNoteColorStyle,
         EditorFormatToolbar,
+        EditorPasteCodeBlock,
         BackupAutomatic,
         BackupFrequency,
         NotesNewPlacement,

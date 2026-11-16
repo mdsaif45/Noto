@@ -101,6 +101,33 @@ public sealed class EditorHostGuardTests
     }
 
     [Fact]
+    public void Code_is_fenced_by_Core_only_on_a_formatted_paste_the_setting_asks_for_after_a_link()
+    {
+        // D39 (#187): off unless Settings turns it on (the app sets it at start and on change); Ctrl+Shift+V stays plain;
+        // a web address over a selection is still a link first; the rule, the HTML's own code block included, is Core's.
+        string paste = Body(Host, "PasteAsync");
+        Assert.Contains("internal static bool PastesCodeBlock { get; set; }", Host, StringComparison.Ordinal);
+        Assert.Matches(@"MarkdownCommands\.LinkSelection\(_text, at, plain\) : null;\s*if \(edit is null && formatted && PastesCodeBlock && plain is not null\)\s*\{\s*edit = PastedCode\.Fence\(_text, at, plain, html\);\s*\}\s*if \(edit is null && \(html \?\? plain\) is \{ \} pasted\)", paste);
+        Assert.Matches(@"if \(edit is \{ \} paste\)\s*\{\s*Apply\(paste, record: true\);", paste);
+        Assert.Contains("NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;", Code(Path.Join(Windows, "App.xaml.cs")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_paste_inserts_exactly_the_clipboard_text_and_RichEdit_never_pastes_or_adds_spaces()
+    {
+        // D41 (#187): no auto-spaces on paste. RichEdit's own paste is always handled, so its smart spacing never runs;
+        // the text replaces the selection as it came, with only its line breaks made LF; one undo step.
+        Assert.Matches(@"^\s*\{\s*e\.Handled = true;\s*PasteAsync\(formatted: true\);\s*\}\s*$", Body(Host, "OnPaste"));
+        Assert.Contains("NoteEditor.Paste += OnPaste;", Host, StringComparison.Ordinal);
+        Assert.Contains("plain = Normalize(await clipboard.GetTextAsync());", Body(Host, "PasteAsync"), StringComparison.Ordinal);
+        Assert.Contains("edit = new TextEdit(at.Start, at.Length, pasted, TextSelection.Caret(at.Start + pasted.Length));", Body(Host, "PasteAsync"), StringComparison.Ordinal);
+        Assert.Contains("""private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');""", Host, StringComparison.Ordinal);
+
+        string editor = string.Join('\n', Directory.EnumerateFiles(Windows, "NoteEditorHost*.cs").Select(Code));
+        Assert.DoesNotMatch(@"\.Paste\(|PasteSpecial|SmartSpac", editor);
+    }
+
+    [Fact]
     public void A_click_toggles_a_task_only_on_its_drawn_checkbox()
     {
         // RichEdit's client coordinates start inside the border and padding; both the hit test and the overlay say so.

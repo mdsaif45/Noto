@@ -76,6 +76,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether the formatting toolbar shows above selected text (F8).</summary>
     public bool FormatToolbar => _settings.Read(SettingKeys.EditorFormatToolbar);
 
+    /// <summary>Whether plain text that reads as code is pasted in a fenced code block (D39).</summary>
+    public bool PasteCodeBlock => _settings.Read(SettingKeys.EditorPasteCodeBlock);
+
     /// <summary>Whether Noto backs itself up (F15).</summary>
     public bool AutomaticBackups => _settings.Read(SettingKeys.BackupAutomatic);
 
@@ -186,6 +189,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether the formatting toolbar shows above selected text.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetFormatToolbar(bool shown) => TryWrite(SettingKeys.EditorFormatToolbar, shown);
+
+    /// <summary>Sets whether plain text that reads as code is pasted in a fenced code block.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetPasteCodeBlock(bool fenced) => TryWrite(SettingKeys.EditorPasteCodeBlock, fenced);
 
     /// <summary>Sets whether Noto backs itself up.</summary>
     /// <returns>Whether it was kept.</returns>
