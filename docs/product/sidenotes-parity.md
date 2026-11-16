@@ -1,7 +1,7 @@
 # SideNotes Parity Specification
 
 **Status:** Draft
-**Last updated:** 2026-11-13 — every row re-scored against `main` for v0.2 (#162; see *Current status*)
+**Last updated:** 2026-11-17 — v0.3's rows scored as each slice merged, the counts recounted (see *Current status*)
 **Milestone:** [M3 — SideNotes Parity](../roadmap/roadmap.md#m3--sidenotes-parity--the-first-product)
 **Source:** [sidenotes-feature-inventory.md](../research/_raw/sidenotes-feature-inventory.md) — SideNotes 1.6.5, macOS
 
@@ -70,28 +70,40 @@ not scored, even when the application happens to meet it today (B25, C3).
 
 ### Current status
 
-Counted from the rows below on 2026-11-13, re-scored against `main` for v0.2
-(#162: v0.1 and the v0.2 items, F1–F22):
+Counted from the rows below on 2026-11-17, after v0.3's batches 1–3 merged (#208–#225). Each row a v0.3
+slice delivered says so in its Notes (**v0.3 score**), with its harness case:
 
 | Level | Rows | `[x]` | `[~]` | `[ ]` |
 | ----- | ---: | ----: | ----: | ----: |
-| MUST | 147 | 103 | 24 | 20 |
-| SHOULD | 66 | 11 | 3 | 52 |
-| ADAPT | 23 | 4 | 5 | 14 |
+| MUST | 147 | 138 | 2 | 7 |
+| SHOULD | 66 | 23 | 2 | 41 |
+| ADAPT | 23 | 8 | 4 | 11 |
 | BETTER | 5 | 4 | 0 | 1 |
 | DROP | 23 | — | — | 23 (never checked) |
-| **Total** | **264** | **122** | **32** | **110** |
+| **Total** | **264** | **173** | **8** | **83** |
 
 ```
-MUST [x]   A1 A2 A7 A9 A10 A12 A13 A14 A16 A17 A19 · B1 B2 B8 B10 B14 B16 B19 B20
-           C1 C4 C8 C9 C11 C13 · D1 D2 D3 D4 D5 D8 D9 D10 D11 D12 D13 D14 D17 D20
-           D22 D24 D30 D36 D47 D48 D51 · E1 E2 E3 E8 · F1 · G1 G2 G3 G4 G7 G8 G9
-           G11 G12 G14–G24 G27–G34 G38–G42 G45 G46 G47 G51 · I1 I2 I9 I10
-           J3 J4 J5 J7 J12 J13 J21 J26 J36 J37 J40
-SHOULD [x] A20 B9 B17 C15 C19 D6 D7 D15 D26 D40 G6
-ADAPT [x]  A6 H1 I12 I13
+MUST [x]   A1 A2 A7 A9 A10 A12 A13 A14 A16 A17 A19 · B1–B5 B8 B10–B16 B19 B20
+           C1 C2 C4–C9 C11 C13 · D1–D5 D8–D14 D16 D17 D19 D20 D22 D24 D27 D29 D30
+           D34 D36 D37 D43 D47 D48 D51 · E1 E2 E3 E8 · F1 F10 · G1–G4 G7–G12
+           G14–G24 G27–G42 G45 G46 G47 G50 G51 · H5 H14 H15 · I1 I2 I3 I8 I9 I10
+           J3 J4 J5 J7 J8 J12 J13 J16 J21 J23 J25 J26 J30 J36 J37 J38 J40
+SHOULD [x] A20 B9 B17 B18 C14 C15 C19 D6 D7 D15 D26 D28 D32 D39 D40 E4 E5 G5 G6
+           G48 G49 J10 J20
+ADAPT [x]  A6 C16 D45 E6 H1 H3 I12 I13
 BETTER [x] B7 B23 I7 I15
 ```
+
+**The MUST rows still open (9):**
+- **#185, the edge surfaces:** A3 (Open Bar), A4 (Hot Side), A15, J27 and J28 (drag to the edge). A4, A15, J27 and
+  J28 are in v0.3's batch 4; A3 follows.
+- **#186:** A8, exclusive full-screen.
+- **#30:** A18, two monitors, the owner's check.
+- **Provisional, met by construction:** B25 (per-note width) and C3 (nesting). Scored when they stop being provisional.
+
+**The 2026-11-16/17 scoring (v0.3).** Rows were scored as each slice merged, against the code on `main` and that slice's
+harness case. B4, H14 and H15 were scored at the recount, from #204's shell drops and #187's two slices. Before v0.3:
+MUST 103 / 24 / 20, SHOULD 11 / 3 / 52, ADAPT 4 / 5 / 14, BETTER 4 / 0 / 1.
 
 **The 2026-11-13 re-score (#162).** Every row was read against its own
 requirement cell and the code on `main`, with the guard tests and the
@@ -237,7 +249,7 @@ never as the only path to anything (principle 7).
 | `[x]` | B1 | Create note (in app) | `⌘N`; creates a folder in folder list | `Ctrl+N`, context-dependent | MUST | — | **Partial** — M2-3 (#63) binds it in the note list; unbound in the editor. B2–B5 creation surfaces remain — see the note below **v0.2 score (2026-11-13):** Ctrl+N makes a folder on the folder list and a note in a folder, also while editing (`Invoke-NoteStack` case 7, #69). |
 | `[x]` | B2 | Create note (global) | `⌃⌥⌘N`; panel opens with note active | Global hotkey, note focused and ready to type | MUST | — | **v0.2 score (2026-11-13):** F17 (#156): a global shortcut shows Noto with a new note being edited; off by default, Ctrl+Shift+Win+N (implementation plan §10.1), rebindable (`Invoke-Settings` case 17). |
 | `[x]` | B3 | Note from clipboard | New note from clipboard; long-press **+** or global shortcut | Same, via global hotkey and **+** menu | MUST | #187 | **v0.2 score (2026-11-13):** F18 (#157): from a global shortcut and the tray menu. No **+** menu offers it. **v0.3 score (2026-11-16):** The **+** button's menu offers New note from clipboard, through #157's own path (#187; `Invoke-NoteStack` case 48), beside the shortcut and the tray. |
-| `[~]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | #31 | **v0.2 score (2026-11-13):** F9 (#152): files dropped from an OLE file list (as Explorer gives) become notes (`Invoke-DropImport`). Drags from other apps, a browser included, are the owner's check (#31). Scored from code and harness; owner to confirm. |
+| `[x]` | B4 | Create by drag & drop | Drop text / files / images to create a note | Same, Explorer and app drag sources | MUST | #31 | **v0.2 score (2026-11-13):** F9 (#152): files dropped from an OLE file list (as Explorer gives) become notes (`Invoke-DropImport`). Drags from other apps, a browser included, are the owner's check (#31). Scored from code and harness; owner to confirm. **v0.3 score (2026-11-17):** Files from Explorer (one or several), a picture and text from a browser are taken: `Invoke-ShellDrops` (#31, closed in #204). A drag from the desktop is the owner's check, its icons hidden on this machine. |
 | `[x]` | B5 | New note placement | top / bottom / over current / under current | The same four options | MUST | #188 | **v0.2 score (2026-11-13):** The four placements are built and stored (`notes.new-placement`) but Settings has no row: a user reaches only Bottom. **v0.3 score (2026-11-16):** Settings › General › Where new notes go chooses any of the four placements, applied at once; every way of creating a note goes through the one rule (#188; `Invoke-Settings` case 20). |
 | `[ ]` | B6 | Ask for folder on global create | Setting: prompt for destination folder | Same setting | SHOULD | — | |
 | `[x]` | B7 | Delete note | `⌥⌘⌫`; confirmation popover since 1.6 | `Alt+Ctrl+Backspace`; **soft delete**, no blocking confirm | BETTER | — | M2-3 (#63) wires the chord to a soft delete with no confirmation. **Not `[~]`** — B7 and B23 are one decision, and the recycle bin and restore B23 requires have no UI — see B23 / section 12 **v0.2 score (2026-11-13):** Ctrl+Alt+Backspace moves the note to the Recycle Bin, no confirm; with B23 the pair is whole (`Invoke-NoteStack` case 11, `Invoke-RecycleBin`). |
@@ -760,8 +772,8 @@ because it has no Windows equivalent to bind one to.
 | `[ ]` | H11 | Workspaces | Apptorium's own Mac app | **Not applicable** | DROP | — | Vendor's own product |
 | `[ ]` | H12 | MindNode | Mind maps from notes | **No equivalent** | DROP | — | Mac/iOS-only product |
 | `[ ]` | H13 | Things | Tasks from notes via Shortcuts | **No equivalent** | DROP | — | Apple-platform-only product |
-| `[~]` | H14 | Drag from other apps | Text, files, folders, images from any app | Same, via Windows OLE drag & drop | MUST | #31 | Explorer is the main source **v0.2 score (2026-11-13):** As B4: OLE file drops are verified; other apps are the owner's check. Scored from code and harness; owner to confirm. |
-| `[~]` | H15 | Clipboard behaviors | Note-from-clipboard, quick copy, copy image, code detect, link titles, no auto-space | All six (= B3, E3, D32, D39, D42, D41) | MUST | #187 | Aggregate row **v0.2 score (2026-11-13):** Of the six: note from clipboard (partly, B3) and quick copy (E3). |
+| `[x]` | H14 | Drag from other apps | Text, files, folders, images from any app | Same, via Windows OLE drag & drop | MUST | #31 | Explorer is the main source **v0.2 score (2026-11-13):** As B4: OLE file drops are verified; other apps are the owner's check. Scored from code and harness; owner to confirm. **v0.3 score (2026-11-17):** As B4: Explorer and Edge drags verified with real pointer input (`Invoke-ShellDrops`, #31 closed in #204). |
+| `[x]` | H15 | Clipboard behaviors | Note-from-clipboard, quick copy, copy image, code detect, link titles, no auto-space | All six (= B3, E3, D32, D39, D42, D41) | MUST | #187 | Aggregate row **v0.2 score (2026-11-13):** Of the six: note from clipboard (partly, B3) and quick copy (E3). **v0.3 score (2026-11-17):** All six: note from clipboard (B3, the **+** menu, the shortcut and the tray), quick copy (E3), copy picture (D32), code detection (D39) are built; no auto-spaces (D41) holds without a setting; link titles (D42) are deliberately not fetched, Noto never uses the network (#187). |
 | `[ ]` | H16 | Dropshare target | Mac share destination | **No equivalent** | DROP | — | Mac-only product |
 | `[ ]` | H17 | Handoff / Continuity | Not documented | **Not applicable** | DROP | — | Apple-only concept |
 | `[ ]` | H18 | Services menu | Not documented | **Not applicable** | DROP | — | macOS-only concept |

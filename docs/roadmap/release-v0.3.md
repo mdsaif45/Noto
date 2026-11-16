@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batches 1 and 2 in review (PRs #208–#217), batch 3 in progress. **Planned:** 2026-11-16.
+**Status:** batches 1–3 merged (PRs #208–#225, 2026-11-17), batch 4 in progress. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -58,6 +58,31 @@ ids in the same change.
 | 13 | `noto://` and a command line | #192 | H3, H5, C2, C7, C16, E6 | M–L | ADR-022. `new`, `open`, `folders`, `new-folder` and `search`, with the same verbs on the command line. One parser in Core. A URI may only create or show, never delete, move or read files. The scheme is registered per user by the installer's hooks; a portable build never registers it. Folders get Copy link |
 | 14 | File shortcuts with previews | #196 | D34, I3, J16, J30 | M–L | A file link shows its shell icon and name, in Standard or Compact style. A double-click opens it through `ShellLaunch`'s checks. Two drop settings, whose defaults keep today's behaviour |
 | 15 | Code mode | #195 | D27, D28, D45 | M–L | Markdown (the default), Code (monospace, raw, spell check off) or Plain text, per note. A schema migration defaults existing notes to Markdown. Mode › in the card menu, and a default for new notes in Settings |
+
+## Batches 1–3: merged
+
+All 15 slices merged on 2026-11-17, one PR each (two for #187). Each was rebased on the one before it, and its runtime
+harness passed on the rebased build before it merged. The harnesses found three product defects, all fixed before
+merging:
+- Copy picture was offered for another note's picture: text controls share one menu.
+- Copy picture looked at the whole paragraph, not the clicked line.
+- A note made from a `noto://` link did not take the new-note mode.
+
+After the batches, MUST rows stand at 138 of 147 done ([sidenotes-parity.md](../product/sidenotes-parity.md),
+*Current status*).
+
+## Batch 4: the last parity rows within reach, and housekeeping
+
+| # | Item | Issue | Rows | Decision taken |
+|---|---|---|---|---|
+| 16 | Narrator says a row's state | #201 | (M4) | The state follows the title in the row's name, from the same words as its help text (ADR-016 §8 amended). The harnesses find rows by title |
+| 17 | Hot Side, and drag to reveal | #185 (1 of 2) | A4, A15, J27, J28 | One low-level mouse hook, present only while either is on. Both off by default. A short dwell at the docked edge reveals Noto, never over a full-screen app (ADR-007 amended) |
+| 18 | Search and performance close-out | #17, #11 | — | Audited against their own scope. Small gaps filled, then closed with the evidence |
+| 19 | Dependency updates | #221–#223 | — | Each checked for breaking changes, Microsoft.Data.Sqlite 10 most of all. Taken only if the gates and the harness's PowerShell load still pass |
+| 20 | The parity recount, and this status | — | — | Done with this change |
+
+**Then:** #185's Open Bar (A3) and the v0.3 release. #186 and #203 stay after it: each needs an ADR-007 decision and
+hardware this machine lacks.
 
 ## Later in v0.3, or v0.4: the edge and the platform
 
