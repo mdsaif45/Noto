@@ -470,7 +470,7 @@ and is what the target audience already has in their fingers.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[x]` | D27 | Code mode | Per-note monospace mode; spell check off | Per-note code mode; monospace; spell check off | MUST | #195 | **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** A per-note Code mode: monospace, spell check off, no Markdown styling, kept in the database (schema v5) and across restarts (#195; `Invoke-Editor` case 23). |
+| `[x]` | D27 | Code mode | Per-note monospace mode; spell check off | Per-note code mode; monospace; spell check off | MUST | #195 | **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** A per-note Code mode: monospace, spell check off, no Markdown styling, kept in the database (schema v5) and across restarts (#195; `Invoke-Editor` case 25). |
 | `[x]` | D28 | Three note modes | code / plain text / markdown; global default | Same three modes + a global default | SHOULD | — | ⚠ provisional — INFERRED naming (Setapp listing) **v0.3 score (2026-11-16):** Markdown, Code or Plain text from the card's menu, and a global default in Settings › New notes are (#195). |
 
 **D27 is CONFIRMED and D28 is not.** Code mode is documented directly by
