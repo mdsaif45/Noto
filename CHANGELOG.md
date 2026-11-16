@@ -35,6 +35,8 @@ format or behavior. Breaking changes are always called out explicitly.
   shows only the coloured edge (#191).
 - The note list's **+** button has a menu (right-click or Shift+F10) with *New note from clipboard*, and a picture in a
   note can be copied as a picture from the editor's menu, or with Ctrl+C when it alone is selected (#187).
+- Noto remembers the folders you open: Ctrl+Shift+O switches back to the folder you were in, Back's menu and its
+  chevron list your recent folders, and Settings can open the last folder when Noto starts (#193).
 
 ## [0.2.0] - 2026-11-14
 
