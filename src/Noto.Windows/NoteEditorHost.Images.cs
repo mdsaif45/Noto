@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Noto.Core.Editing;
 using Noto.Core.Images;
+using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics.Imaging;
@@ -210,13 +211,19 @@ public sealed partial class NoteEditorHost
     };
 
     /// <summary>
-    /// Files given to the editor (pasted after Explorer's Copy, or dropped), at the caret: anything that is not an image
-    /// linked (D34), then each image kept beside the notes and shown on a line of its own.
+    /// Files given to the editor (pasted after Explorer's Copy, or dropped), at the caret, each as the Importing settings
+    /// say (J30, #196; by default as before): a text file's text inserted, if asked for; anything not kept linked as a
+    /// shortcut on a line of its own (D34); then each image kept beside the notes and shown on a line of its own.
     /// </summary>
-    private void AddFiles(IReadOnlyList<string> paths)
+    /// <param name="paths">The files' paths.</param>
+    /// <param name="copies">The folder of a drop's copies of files with no path of their own, removed after the drop.</param>
+    private void AddFiles(IReadOnlyList<string> paths, string? copies = null)
     {
-        var images = paths.Where(p => Images is not null && ImageReference.TypeOf(p) is not null).ToList();
-        var others = paths.Except(images).ToList();
+        var chosen = paths.ToLookup(p => FileShortcuts.Choose(p, PictureDrops, TextFileDrops, Images is not null, copies is null || !p.StartsWith(copies, StringComparison.OrdinalIgnoreCase)));
+        var images = chosen[FileDrop.KeepPicture].ToList();
+
+        // A text file that can't be read as text is linked instead.
+        var others = chosen[FileDrop.InsertText].Where(p => !InsertTextOf(p)).Concat(chosen[FileDrop.Link]).ToList();
 
         if (others.Count > 0)
         {
@@ -533,7 +540,7 @@ public sealed partial class NoteEditorHost
             _selection = TextSelection.Caret(at);
             try
             {
-                AddFiles(paths);
+                AddFiles(paths, copies);
             }
             finally
             {

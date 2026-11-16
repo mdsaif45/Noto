@@ -20,6 +20,8 @@
      7  a bare address in the text is styled as a link (underlined in the editor)
      8  a web address pasted over a selected word makes that word its link
      9  a copied folder and file paste as links to them
+    10  a double-click on a file shortcut opens it, once, through the same checked path; one to a folder that is gone
+        says so and opens nothing (#196)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Links.ps1 -NotoExe <path>\Noto.exe
@@ -78,6 +80,18 @@ function Click-At([int] $X, [int] $Y, [switch] $Ctrl) {
     [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 100
     if ($Ctrl) { [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x11, $true))) }
     Start-Sleep -Milliseconds 700
+}
+function Double-Click-At([int] $X, [int] $Y) {
+    <# A real left double-click, only while Noto is in front and only where the window under the point is Noto. #>
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to click: Noto is not the foreground window' }
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
+    if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing to click at ($X,$Y): it is not Noto" }
+    [void][NotoVal.Win32]::SetCursorPos($X, $Y); Start-Sleep -Milliseconds 150
+    foreach ($press in 1..2) {
+        [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 40
+        [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 60
+    }
+    Start-Sleep -Milliseconds 1200
 }
 function Centre-Of($Range) { $r = @($Range.GetBoundingRectangles())[0]; @([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2)) }
 function Bring-Forward {
@@ -226,6 +240,21 @@ exit (Invoke-IsolatedRun $run -Title 'Links (ADR-019)' -Body {
     $bare = Range-Of 'https://example.com/spec'
     $underline = $bare.GetAttributeValue($TP::UnderlineStyleAttribute)
     Add-Result $run '7  a bare address in the text is styled as a link' ("$underline" -ne 'None' -and "$underline" -ne '0') "underline=$underline"
+
+    # 10 - a double-click on a shortcut opens it through the same checked path; a gone one says so (#196)
+    $at = Centre-Of (Range-Of 'Project folder')
+    $mark = (Traces 'Noto\.Link open').Count
+    Double-Click-At $at[0] $at[1]
+    $opened = @(Opened-Since $mark)
+    $closed = Close-Explorer $linked
+    Bring-Forward
+    $unchanged = (Editor-Value) -eq $text
+    $at = Centre-Of (Range-Of 'Gone')
+    $mark = (Traces 'Noto\.Link open').Count
+    Double-Click-At $at[0] $at[1]
+    $goneNotice = Notice
+    $goneOpened = @(Opened-Since $mark).Count
+    Add-Result $run '10 a double-click on a shortcut opens it once; one that is gone says so and opens nothing' ($opened.Count -eq 1 -and $opened[0] -match 'kind=Local folder=True outcome=Opened' -and $closed -ge 1 -and $unchanged -and $goneNotice -eq 'That file or folder is no longer there.' -and $goneOpened -eq 0) "trace='$($opened -join ' | ')' closed=$closed unchanged=$unchanged gone: notice='$goneNotice' opens=$goneOpened"
 
     # 8 - a web address pasted over a selection; 9 - copied files and folders
     $savedClip = Get-Clipboard -Raw

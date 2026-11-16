@@ -23,7 +23,7 @@
      8  the picture is not in the accessibility tree; the caption, the source, is
      9  a pasted picture is kept as PNG and written on its own line; one undo removes it
     10  a clipboard with text and a picture pastes the text
-    11  a copied image file is kept as a copy and shown; a copied text file is linked
+    11  a copied image file is kept as a copy and shown; a copied text file is linked, on a line of its own (#196)
     12  an image file dropped on the editor is kept and written where it was dropped
     13  a picture removed and older than a week is swept at the next start
     14  cost: a note with five 1200x800 images, Noto's own load, first-frame and images-drawn traces
@@ -32,6 +32,9 @@
     16  D32 (#187): Shift+F10 on a picture's line offers Copy picture, which puts the picture itself (400x200) and its
         file on the clipboard; a line without one does not offer it; Ctrl+C with the picture's line alone selected
         copies the picture and its source text. Read back by Windows PowerShell's Get-Clipboard -Format Image
+    17  a text file dropped on the editor (#196, J30): by default a shortcut on a line of its own, its type and size drawn
+        below its name (Standard); with Settings' "When you drop a text file into a note" set to "Insert its text"
+        (stored), its text where it was dropped; one undo each
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Images.ps1 -NotoExe <path>\Noto.exe
@@ -403,7 +406,7 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
         $added = @(Attachments | Where-Object { $before -notcontains $_ })
         $lines = (Editor-Value).Split("`n")
         $same = $added.Count -eq 1 -and (Get-FileHash (Join-Path $folderOfImages $added[0])).Hash -eq (Get-FileHash $photo).Hash
-        $copied = $same -and ($lines[-1] -eq "![holiday.png](attachments/$($added[0]))") -and ($lines[-2] -eq "last line[paper.txt]($(([Uri]$paper).AbsoluteUri))")
+        $copied = $same -and ($lines[-1] -eq "![holiday.png](attachments/$($added[0]))") -and ($lines[-2] -eq "[paper.txt]($(([Uri]$paper).AbsoluteUri))") -and ($lines[-3] -eq 'last line')
         Shot 'pasted'
         Add-Result $run '11 a copied image file is kept as a copy and shown; a copied text file is linked' $copied "added=$($added -join ',') same=$same tail='$($lines[-3..-1] -join ' | ')'"
         Send-ToNoto @(0x11) 0x5A 600
@@ -491,6 +494,71 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
 
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
 
+
+    # 17 - a text file dropped on the editor, with each "When you drop a text file into a note" choice (#196)
+    $txt = Join-Path $run.Root 'notes.txt'; [System.IO.File]::WriteAllText($txt, "first dropped line`nsecond dropped line")   # 38 bytes
+    function Drop-Onto([string] $Needle, [string] $File) {
+        # As case 12: dropped at the end of the line holding $Needle, the drag starting below the note's last line.
+        $target = @((Range-Of $Needle).GetBoundingRectangles())[0]
+        $x = [int]($target.X + $target.Width - 2); $y = [int]($target.Y + $target.Height / 2)
+        $last = @((Range-Of 'last line').GetBoundingRectangles())[0]
+        $fromX = [int]($last.X + 30); $fromY = [int]($last.Y + $last.Height + 40)
+        if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to drop: Noto is not the foreground window' }
+        foreach ($point in @(@($x, $y), @($fromX, $fromY))) {
+            $pt = New-Object NotoVal.Win32+POINT; $pt.X = $point[0]; $pt.Y = $point[1]
+            if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing to drag at ($($point[0]),$($point[1])): it is not Noto" }
+        }
+        $effect = & powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'helpers/drop-files.ps1') "$fromX" "$fromY" "$x" "$y" $File
+        Start-Sleep -Milliseconds 1500
+        if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'the drag took the foreground from Noto' }
+        "$effect at=($x,$y)"
+    }
+    function Raw-Like($Root, [string] $Pattern) {
+        <# As Raw-Find, by pattern: the drawn details are out of the control view. #>
+        $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+        $stack = [System.Collections.Generic.Stack[object]]::new(); $stack.Push($Root)
+        while ($stack.Count -gt 0) {
+            $e = $stack.Pop()
+            if ($e.Current.Name -match $Pattern) { return $e }
+            for ($c = $walker.GetFirstChild($e); $c; $c = $walker.GetNextSibling($c)) { $stack.Push($c) }
+        }
+        $null
+    }
+    $original = $Notes['01J00000000000000000000N67']
+    Edit-Note 'Paste here'
+    $effect = Drop-Onto 'drop here' $txt
+    Start-Sleep -Milliseconds 800
+    $lines = (Editor-Value).Split("`n")
+    $link = "[notes.txt]($(([Uri]$txt).AbsoluteUri))"
+    $linked = $lines.Count -eq 5 -and $lines[2] -eq 'drop here' -and $lines[3] -eq $link -and $lines[4] -eq 'last line'
+    $details = Raw-Like $AE::FromHandle($script:noto.Hwnd) ' · 38 bytes$'
+    Shot 'shortcut'
+    Send-ToNoto @(0x11) 0x5A 900
+    $undoneLink = (Editor-Value) -eq $original
+    Leave-Editor
+
+    Send-ToNoto @(0x11) 0xBC 1200   # Ctrl+, : Settings
+    $choice = Find-ById 'TextFileDropSetting'
+    $choice.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600
+    $item = $AE::RootElement.FindFirst($Scope::Descendants, [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Insert its text'),
+        [System.Windows.Automation.PropertyCondition]::new($AE::ProcessIdProperty, $script:noto.Pid)))
+    if (-not $item) { throw 'no "Insert its text" choice in the open list' }
+    $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); Start-Sleep -Milliseconds 500
+    try { $choice.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
+    Start-Sleep -Milliseconds 300
+    $stored = [string](Sql $script:data 'SELECT Value FROM Settings WHERE Key = $k' @{ '$k' = 'importing.text-file' } -Scalar)
+    Send-ToNoto @() 0x1B 1200   # Escape: back to the note list
+
+    Edit-Note 'Paste here'
+    $effect += ' | ' + (Drop-Onto 'drop here' $txt)
+    Start-Sleep -Milliseconds 800
+    $inserted = Editor-Value
+    $asText = $inserted -eq "Paste here`nfirst line`ndrop herefirst dropped line`nsecond dropped line`nlast line"
+    Send-ToNoto @(0x11) 0x5A 900
+    $undoneText = (Editor-Value) -eq $original
+    Leave-Editor
+    Add-Result $run '17 a dropped text file is a shortcut by default, drawn with its type and size; set to insert its text, its text; one undo each' ($linked -and $null -ne $details -and $undoneLink -and $stored -eq 'InsertText' -and $asText -and $undoneText) "$effect linked=$linked details='$(if ($details) { $details.Current.Name })' undone=$undoneLink stored=$stored inserted='$($inserted -replace "`n", ' | ')' undone=$undoneText"
     # 13 - the picture pasted and undone in case 9 is no note's: aged a week, the next start sweeps it
     if ($script:pasted) { (Get-Item (Join-Path $folderOfImages $script:pasted)).LastWriteTime = $week }
     $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data

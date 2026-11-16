@@ -164,6 +164,7 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);
         EditorRoot.SizeChanged += (_, e) => EditorRoot.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
         NoteEditor.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnPointerReleased), handledEventsToo: true);
+        NoteEditor.AddHandler(DoubleTappedEvent, new DoubleTappedEventHandler(OnDoubleTapped), handledEventsToo: true);
         NoteEditor.AddHandler(DragEnterEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
         NoteEditor.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
         NoteEditor.AddHandler(DropEvent, new DragEventHandler(OnDrop), handledEventsToo: true);
@@ -595,6 +596,8 @@ public sealed partial class NoteEditorHost : UserControl
         {
             return;
         }
+
+        PlaceShortcuts();
 
         var tasks = _document.Blocks.Where(b => b.Kind == MarkdownBlockKind.TaskItem).Take(TaskMarkLimit + 1).ToList();
         if (tasks.Count > TaskMarkLimit)

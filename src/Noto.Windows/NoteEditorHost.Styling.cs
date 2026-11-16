@@ -178,10 +178,12 @@ internal static class MarkdownStyling
                 }
 
                 // A heading's space above, as the load gave it; any other block in the region has none. No block has
-                // space below until an image's is set again where it is drawn (NoteEditorHost.PlaceImages).
+                // space below or an indent until an image's or a shortcut's is set again where it is drawn
+                // (NoteEditorHost.PlaceImages, PlaceShortcuts).
                 ITextParagraphFormat paragraph = target.GetRange(block.Start, block.End).ParagraphFormat;
                 paragraph.SpaceBefore = block.Kind == MarkdownBlockKind.Heading && block.Start > 0 ? HeadingSpaceBefore : 0;
                 paragraph.SpaceAfter = 0;
+                paragraph.SetIndents(0, 0, 0);
 
                 foreach (MarkdownSpan span in block.Spans)
                 {

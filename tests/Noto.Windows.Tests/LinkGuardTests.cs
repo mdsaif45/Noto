@@ -15,6 +15,7 @@ public sealed class LinkGuardTests
     private static readonly string Links = Code(Path.Join(Windows, "MainWindow.Links.cs"));
     private static readonly string ReadView = Code(Path.Join(Windows, "MarkdownReadView.cs"));
     private static readonly string Images = Code(Path.Join(Windows, "NoteEditorHost.Images.cs"));
+    private static readonly string Shortcuts = Code(Path.Join(Windows, "NoteEditorHost.Shortcuts.cs"));
 
     [Fact]
     public void Ctrl_Click_and_Ctrl_Enter_open_a_link_and_a_plain_click_only_places_the_caret()
@@ -56,6 +57,78 @@ public sealed class LinkGuardTests
         string all = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
         Assert.DoesNotMatch(@"Process\.Start|Launcher\.Launch", all);
         Assert.Equal(1, Regex.Count(all, @"ShellLaunch\.OpenLink\("));
+    }
+
+    [Fact]
+    public void A_double_click_on_a_shortcut_opens_it_through_the_same_checked_path_as_ctrl_click()
+    {
+        // #196 (D34): the editor only asks; the window queues it and ShellLaunch checks it (gone, asks first).
+        Assert.Contains("NoteEditor.AddHandler(DoubleTappedEvent, new DoubleTappedEventHandler(OnDoubleTapped), handledEventsToo: true);", Host, StringComparison.Ordinal);
+
+        string tapped = Body(Shortcuts, "OnDoubleTapped");
+        Assert.Matches(@"if \(_showMarkup \|\| IsDown\(VirtualKey\.Control\)\)\s*\{\s*return;", tapped);
+        Assert.Contains("FileShortcuts.In(_document).Where(s => s.Line.Start <= at && at <= s.Line.End)", tapped, StringComparison.Ordinal);
+        Assert.Matches(@"HideToolbar\(\);\s*LinkOpenRequested\?\.Invoke\(this, shortcut\.Destination\);\s*\}$", tapped);
+
+        // Never launched from the editor itself.
+        Assert.DoesNotMatch(@"ShellLaunch\.|Process\.Start|Launcher\.Launch", Shortcuts);
+    }
+
+    [Fact]
+    public void Shortcuts_are_drawn_over_the_editor_from_their_lines_and_their_room_is_reset_with_the_style()
+    {
+        // ADR-017 §1: the line keeps its source; an indent and space below make room, and the overlay draws in it.
+        Assert.Matches(@"if \(_showMarkup\)\s*\{\s*return;\s*\}\s*PlaceShortcuts\(\);", Body(Host, "PlaceTaskMarks"));
+        string place = Body(Shortcuts, "PlaceShortcuts");
+        Assert.Contains("var shortcuts = FileShortcuts.In(_document).Take(ShortcutLimit + 1).ToList();", place, StringComparison.Ordinal);
+        Assert.Contains("bool large = FileLinks == FileLinkStyle.Standard;", place, StringComparison.Ordinal);
+        Assert.Matches(@"line\.SetIndents\(0, indent, 0\);\s*line\.SpaceAfter = below;", place);
+        Assert.Contains("AutomationProperties.SetAccessibilityView(element, AccessibilityView.Raw);", place, StringComparison.Ordinal);
+        Assert.Contains("TaskMarks.Children.Add(element);", place, StringComparison.Ordinal);
+
+        // An edit, Show markup or a theme change restyles a line: its indent goes with its space below.
+        Assert.Matches(@"paragraph\.SpaceAfter = 0;\s*paragraph\.SetIndents\(0, 0, 0\);", Code(Path.Join(Windows, "NoteEditorHost.Styling.cs")));
+
+        // The style applies to the editor open now, at once.
+        Assert.Matches(@"NoteEditorHost\.FileLinks = style;\s*_editor\?\.ShowFileLinks\(\);", Body(Links, "ApplyFileLinks"));
+        Assert.Contains("internal void ShowFileLinks() => QueueTaskMarks();", Shortcuts, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_shortcuts_icon_is_the_shells_read_off_the_ui_thread_and_kept_never_the_files_content()
+    {
+        // The seam: one platform call, SHGetFileInfo, for the icon and the type's name; never a thumbnail, never the file.
+        string icons = Code(SourcePath("src", "Noto.Platform.Windows", "ShellIcons.cs"));
+        Assert.Contains("uint flags = SHGFI_ICON | SHGFI_TYPENAME | (large ? SHGFI_LARGEICON : SHGFI_SMALLICON);", icons, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"File\.|FileStream|Thumbnail|IShellItemImageFactory|SHGFI_USEFILEATTRIBUTES|Trace\.|Log", icons);
+
+        string windows = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
+        Assert.Equal(1, Regex.Count(windows, @"ShellIcons\.Of\("));
+        Assert.DoesNotMatch(@"SHGetFileInfo|GetThumbnailAsync", windows);
+
+        // Off the UI thread, once per target and size; its size is the file system's, never its content.
+        string describe = Body(Shortcuts, "Describe");
+        Assert.Matches(@"await Task\.Run\(\(\) =>\s*\{\s*ShellIcon\? shell = ShellIcons\.Of\(path, large\);", describe);
+        Assert.Contains("new FileInfo(path).Length", describe, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"File\.(Open|Read)|FileStream|Trace\.", Shortcuts.Replace("MarkdownImporter.Text(path)", string.Empty, StringComparison.Ordinal));
+        Assert.Matches(@"if \(_shortcuts\.TryGetValue\(\(path, large\), out Shortcut\? known\)\)\s*\{\s*return known;\s*\}\s*_shortcuts\[\(path, large\)\] = null;\s*_ = Describe\(path, large\);", Body(Shortcuts, "Described"));
+    }
+
+    [Fact]
+    public void The_importing_and_file_link_settings_are_applied_from_the_first_frame()
+    {
+        string app = Code(Path.Join(Windows, "App.xaml.cs"));
+        Assert.Contains("main.ApplyFileLinks(preferences.FileLinks);", app, StringComparison.Ordinal);
+        Assert.Contains("NoteEditorHost.PictureDrops = preferences.PictureDrop;", app, StringComparison.Ordinal);
+        Assert.Contains("NoteEditorHost.TextFileDrops = preferences.TextFileDrop;", app, StringComparison.Ordinal);
+
+        // Each choice's tag is the setting's member name, as the page parses it; the default is first.
+        var page = System.Xml.Linq.XDocument.Load(Path.Join(Windows, "SettingsPage.xaml"));
+        string[] Tags(string box) => [.. page.Descendants().Single(e => (string?)e.Attribute(System.Xml.Linq.XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == box)
+            .Elements().Select(i => (string?)i.Attribute("Tag") ?? string.Empty)];
+        Assert.Equal(["Standard", "Compact"], Tags("FileLinksSetting"));
+        Assert.Equal(["KeepCopy", "Shortcut"], Tags("PictureDropSetting"));
+        Assert.Equal(["Shortcut", "InsertText"], Tags("TextFileDropSetting"));
     }
 
     [Fact]

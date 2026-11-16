@@ -41,6 +41,9 @@ public sealed class SettingsSurfaceGuardTests
             ("BackupFrequency", @"_ = CheckAutomaticBackup\(\)"),
             ("EditorFormatToolbar", @"NoteEditorHost\.ShowsFormatToolbar = preferences\.FormatToolbar"),
             ("EditorPasteCodeBlock", @"NoteEditorHost\.PastesCodeBlock = preferences\.PasteCodeBlock"),
+            ("EditorFileLinks", @"_main\.ApplyFileLinks\(preferences\.FileLinks\)"),
+            ("ImportingPicture", @"NoteEditorHost\.PictureDrops = preferences\.PictureDrop"),
+            ("ImportingTextFile", @"NoteEditorHost\.TextFileDrops = preferences\.TextFileDrop"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
@@ -100,7 +103,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(20, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(23, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -355,7 +358,7 @@ public sealed class SettingsSurfaceGuardTests
     // ---------------------------------------------------------------- structure and accessibility
 
     [Fact]
-    public void The_page_has_the_approved_ids_one_title_and_the_six_sections_in_order()
+    public void The_page_has_the_approved_ids_one_title_and_the_seven_sections_in_order()
     {
         string[] ids =
         [
@@ -370,7 +373,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var headings = PageXaml.Descendants().Where(e => e.Attribute("AutomationProperties.HeadingLevel") is not null).ToList();
         Assert.Equal(["Settings"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level1").Select(h => (string?)h.Attribute("Text")));
-        Assert.Equal(["General", "Sidebar", "Appearance", "Shortcuts", "Data", "Help"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2").Select(h => (string?)h.Attribute("Text")));
+        Assert.Equal(["General", "Sidebar", "Appearance", "Importing", "Shortcuts", "Data", "Help"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2").Select(h => (string?)h.Attribute("Text")));
 
         // Messages announce themselves; the text is the name.
         foreach (string message in new[] { "HotkeyMessage", "SettingsNoticeText" })
@@ -395,7 +398,7 @@ public sealed class SettingsSurfaceGuardTests
         var rows = scroll.Descendants().Where(e => e.Name.LocalName == "Grid").ToList();
         var failures = new List<string>();
 
-        Assert.Equal(6, groups.Count);
+        Assert.Equal(7, groups.Count);
 
         foreach (XElement panel in groups.Select(group => Assert.Single(group.Elements())))
         {
@@ -407,8 +410,8 @@ public sealed class SettingsSurfaceGuardTests
         // often, #199; the formatting toolbar, F8; pasting code as a code block, D39 (#187); the new-note shortcut and its
         // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188; change side's and keep open's,
         // #198), the Data group's Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour
-        // (ADR-021), and opening the last folder at start (#193).
-        Assert.Equal(34, rows.Count);
+        // (ADR-021), opening the last folder at start (#193), and file links and the two Importing choices (#196).
+        Assert.Equal(37, rows.Count);
 
         foreach (XElement row in rows)
         {
