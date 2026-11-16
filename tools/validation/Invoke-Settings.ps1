@@ -109,20 +109,23 @@ function Until([scriptblock] $Condition, [int] $Seconds = 5) {
 }
 function Element([string] $Id) { $AE::FromHandle($noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) }
 function Visible-Id([string] $Id) { $e = Element $Id; [bool]($e -and -not $e.Current.IsOffscreen) }
-function Find-ById([string] $Id, [int] $Seconds = 10) {
-    if (-not (Until { Visible-Id $Id } $Seconds)) {
-        # The page is taller than the window since the Data rows (ADR-020): a control that is there but scrolled out
-        # of view is brought into it, as a person would scroll, by the page's own scroll pattern; never by focus.
-        $scroll = Element 'SettingsScroll'
-        if ((Element $Id) -and $scroll) {
-            foreach ($percent in 0, 100) {
-                $scroll.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, $percent)
-                if (Until { Visible-Id $Id } 2) { return Element $Id }
-            }
-        }
-
-        throw "no visible element '$Id' within ${Seconds}s"
+function Show-Id([string] $Id) {
+    <#
+      The page is taller than the window since the Data rows (ADR-020), and each new row pushes the middle sections
+      further down: a control that is there but scrolled out of view is brought into it, as a person would scroll, by
+      the page's own scroll pattern in steps from the top (never by focus). Whether it is in view at the end.
+    #>
+    if (Visible-Id $Id) { return $true }
+    $scroll = Element 'SettingsScroll'
+    if (-not ((Element $Id) -and $scroll)) { return $false }
+    foreach ($percent in 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100) {
+        $scroll.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, $percent)
+        if (Until { Visible-Id $Id } 1) { return $true }
     }
+    $false
+}
+function Find-ById([string] $Id, [int] $Seconds = 10) {
+    if (-not (Until { Visible-Id $Id } $Seconds) -and -not (Show-Id $Id)) { throw "no visible element '$Id' within ${Seconds}s" }
     Element $Id
 }
 function Items([string] $ListId) {
@@ -760,7 +763,7 @@ try {
             $holder = Start-HotkeyHolder $run
             try {
                 $m = Trace-Mark; Set-Toggle 'HotkeyEnabledSetting' $true
-                $message = if (Until { Visible-Id 'HotkeyMessage' }) { (Element 'HotkeyMessage').Current.Name } else { '' }
+                $message = if (Until { Show-Id 'HotkeyMessage' }) { (Element 'HotkeyMessage').Current.Name } else { '' }
                 Add-Result $run '8  held by another process: refused, announced, the choice kept' ((Wait-Trace $m 'Noto\.Hotkey enabled=True registered=False') -and $message -match 'in use by another app' -and (Stored 'activation.hotkey.enabled') -eq 'True') "message='$message'; trace: $(Trace-Since $m)"
             }
             finally { $null = Stop-HotkeyHolder $holder }
