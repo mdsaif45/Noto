@@ -632,8 +632,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G2 | New note in current folder | `⌃⌥⌘N` | `Ctrl+Alt+Win+N` | MUST | — | **v0.2 score (2026-11-13):** As B2; the chord is Ctrl+Shift+Win+N, the implementation plan's §10.1 final default. |
 | `[x]` | G3 | Search | `⌃⌥⌘F` | `Ctrl+Alt+Win+F` | MUST | — | **v0.2 score (2026-11-13):** As E2; the chord is Ctrl+Shift+Win+F (§10.1). |
 | `[x]` | G4 | Note from clipboard | configurable, no default | `Ctrl+Alt+Win+V` | MUST | — | Noto proposes a default **v0.2 score (2026-11-13):** F18 (#157); the chord is Ctrl+Shift+Win+V (§10.1). |
-| `[ ]` | G5 | Change side | configurable | unbound by default | SHOULD | — | |
-| `[x]` | G6 | Pin window | configurable | unbound by default | SHOULD | — | **v0.2 score (2026-11-13):** Owner decision (#146): Ctrl+D inside Noto, no global chord (§10.1). |
+| `[x]` | G5 | Change side | configurable | unbound by default | SHOULD | — | **v0.3 score (2026-11-16):** A global change-side shortcut, off by default, Ctrl+Shift+Win+S, rebindable; it re-docks at once and is stored (#198; `Invoke-Settings` case 20). |
+| `[x]` | G6 | Pin window | configurable | unbound by default | SHOULD | — | **v0.2 score (2026-11-13):** Owner decision (#146): Ctrl+D inside Noto, no global chord (§10.1). **v0.3 score (2026-11-16):** Ctrl+D inside Noto, and an optional global chord, Ctrl+Shift+Win+K, off by default (#198). |
 
 ### 7.2 Window / navigation
 
@@ -702,7 +702,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[~]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | #198 | **v0.2 score (2026-11-13):** Four global shortcuts are rebindable in Settings: show and hide, new note, note from clipboard, search. No global change-side shortcut. |
+| `[x]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | #198 | **v0.2 score (2026-11-13):** Four global shortcuts are rebindable in Settings: show and hide, new note, note from clipboard, search. No global change-side shortcut. **v0.3 score (2026-11-16):** All six global shortcuts are rebindable in Settings with a recorder: show and hide, new note, note from clipboard, Search, change side, keep open (#198). |
 | `[x]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | The four options exist and are stored (A12); no settings UI to choose one. Re-scored 2026-10-13 from `[~]`: this row is the setting, and no user can reach it **v0.2 score (2026-11-13):** Settings › Escape, four options (`Invoke-Settings` case 5). |
 | `[ ]` | G52 | Rebind in-app shortcuts | Undocumented whether possible | Rebindable, with conflict detection | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
 
@@ -866,7 +866,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J22 | Appearance → Themes → Manage | install, list, reveal | Install, list, reveal in Explorer | SHOULD | — | = F2, F7 |
 | `[ ]` | J23 | Appearance → Note colors | Background / Bar | Same | MUST | #191 | = F10 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 |
-| `[~]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | #198 | = G50 **v0.2 score (2026-11-13):** As G50: four of the six are recorded in Settings. |
+| `[x]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | #198 | = G50 **v0.2 score (2026-11-13):** As G50: four of the six are recorded in Settings. **v0.3 score (2026-11-16):** = G50: all six global chords recorded in Settings (#198). |
 | `[x]` | J26 | Shortcuts → Escape behavior | 4 options | Same 4 | MUST | — | = A12 **v0.2 score (2026-11-13):** Settings › Escape. |
 | `[ ]` | J27 | Importing → DnD on screen edge | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J28 | Importing → Show while dragging | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. |

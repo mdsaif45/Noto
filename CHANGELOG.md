@@ -26,6 +26,9 @@ format or behavior. Breaking changes are always called out explicitly.
 - With Narrator on, Alt+Shift+Left and Alt+Shift+Right fold and unfold a note, and Alt+Shift+Up and Alt+Shift+Down
   move to the previous and next note while editing. Narrator keeps Ctrl+Alt+arrows for itself; without Narrator they
   still work (#202).
+- Two more global shortcuts, off by default and rebindable in Settings › Shortcuts: *change side*
+  (Ctrl+Shift+Win+S) moves Noto to the other edge, and *keep open* (Ctrl+Shift+Win+K) turns Keep Noto open on or off.
+  Neither shows or hides Noto; Ctrl+D inside Noto is unchanged (#198).
 
 ## [0.2.0] - 2026-11-14
 
