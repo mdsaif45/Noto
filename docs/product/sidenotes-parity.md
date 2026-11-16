@@ -492,7 +492,7 @@ architecturally.
 | `[~]` | D34 | File & folder shortcuts | Drop a file → shortcut with preview; standard / compact | Same; both preview styles; double-click opens | MUST | #196 | Path validation, principle 10 **v0.2 score (2026-11-13):** A dropped or pasted file becomes a link to its path, opened with Ctrl+Click (ADR-019). No preview styles, no double-click. |
 | `[ ]` | D35 | Quick Look preview | Space previews an image or file | **In-app preview** on Space for images; Explorer preview otherwise | ADAPT | — | Quick Look is a macOS system service |
 | `[x]` | D36 | Text snippets | Notes as reusable snippets via search + quick copy | Same pattern; no separate snippet feature | MUST | — | Emergent from E3, not new machinery **v0.2 score (2026-11-13):** Search plus Ctrl+C / Ctrl+Shift+C (E3) makes any note a snippet. |
-| `[~]` | D37 | URL handling | URLs clickable; `⌘R` launches from search | Clickable, scheme-validated; `Ctrl+R` from search | MUST | #197 | ADR-004 security rules **v0.2 score (2026-11-13):** Clickable and scheme-validated. No Ctrl+R from Search. |
+| `[x]` | D37 | URL handling | URLs clickable; `⌘R` launches from search | Clickable, scheme-validated; `Ctrl+R` from search | MUST | #197 | ADR-004 security rules **v0.2 score (2026-11-13):** Clickable and scheme-validated. No Ctrl+R from Search. **v0.3 score (2026-11-16):** Ctrl+R in Search launches the chosen note's first link the allow-list accepts, through the editor's own launch path (#197; `Invoke-Search` case 12). |
 | `[~]` | D38 | Save web address quickly | Via the system Share extension | Clipboard capture + URI protocol | ADAPT | — | No Windows share sheet equivalent **v0.2 score (2026-11-13):** A note from the clipboard (F18, #157). No URI protocol. |
 | `[ ]` | D39 | Code detection on paste | Detects pasted code → code block or code note | Same, with the same setting | SHOULD | — | |
 | `[x]` | D40 | Better pasting from ChatGPT | Cleanup of pasted LLM output | Sane paste cleanup for HTML/rich sources | SHOULD | — | Generalized; no per-product special case **v0.2 score (2026-11-13):** Ctrl+V pastes a page's HTML as Markdown, scripts and styles dropped (ADR-017 §10; `Invoke-Editor` case 17). |
@@ -550,8 +550,8 @@ must fall back deterministically and say nothing (principle 6).
 | `[x]` | E1 | Search window | Searches notes **and** folders, cross-folder; `⌘F` | Same scope; `Ctrl+F` | MUST | — | FTS5, ADR-003 **v0.2 score (2026-11-13):** Ctrl+F searches notes and folders across folders (ADR-018; `Invoke-Search`). |
 | `[x]` | E2 | Global search shortcut | `⌃⌥⌘F` recommended, configurable; works over full-screen apps | Configurable global hotkey; works when unfocused | MUST | — | **v0.2 score (2026-11-13):** F21 (#159): a global shortcut shows Noto with Search open; off by default, Ctrl+Shift+Win+F (implementation plan §10.1), rebindable (`Invoke-Settings` case 19). |
 | `[x]` | E3 | Quick copy from results | `⌘C` copies all; `⌘⌥C` excludes line 1; window closes, focus returns | `Ctrl+C` / `Ctrl+Shift+C`; same close-and-return-focus | MUST | — | Focus return is the whole point **v0.2 score (2026-11-13):** In Search, Ctrl+C copies a result and Ctrl+Shift+C copies it without its title; Search closes and Noto hides, focus back to the app (ADR-018). |
-| `[ ]` | E4 | Launch URL from result | Title on line 1, URL on line 2 → `⌘R` opens it | `Ctrl+R`, scheme-validated | SHOULD | — | |
-| `[ ]` | E5 | Open containing folder | Modifier+click on a result | `Ctrl+Click` on a result | SHOULD | — | ⚠ provisional — UNKNOWN modifier (`⌃` vs `⌘`) |
+| `[x]` | E4 | Launch URL from result | Title on line 1, URL on line 2 → `⌘R` opens it | `Ctrl+R`, scheme-validated | SHOULD | — | **v0.3 score (2026-11-16):** Ctrl+R opens the result's first allowed link; a note without one says so (#197; `Invoke-Search` case 12). |
+| `[x]` | E5 | Open containing folder | Modifier+click on a result | `Ctrl+Click` on a result | SHOULD | — | ⚠ provisional — UNKNOWN modifier (`⌃` vs `⌘`) **v0.3 score (2026-11-16):** Ctrl+Click on a note result enters its folder with Search closed; Ctrl+Enter from the keyboard (#197; `Invoke-Search` case 13). |
 | `[ ]` | E6 | Search via automation | AppleScript `search`/`search notes`/`search folders` | Search via `noto://` URI and CLI | ADAPT | — | See H3 |
 | `[ ]` | E7 | Search via Shortcuts | Find Notes / Find Folders actions | Covered by the CLI | ADAPT | — | See H4 |
 | `[x]` | E8 | Live search / filters / in-note find | Not documented | Incremental results as you type | MUST | — | ⚠ provisional — UNKNOWN in SideNotes; required by principle 3 **v0.2 score (2026-11-13):** Results update as you type (ADR-018; `Invoke-Search`). |
@@ -695,8 +695,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G45 | Open search | `⌘F` | `Ctrl+F` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+F, and the header's Search button (#148). |
 | `[x]` | G46 | Copy note (incl. line 1) | `⌘C` | `Ctrl+C` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+C on a search result (E3). |
 | `[x]` | G47 | Copy note (excl. line 1) | `⌘⌥C` | `Ctrl+Shift+C` ↯ | MUST | — | Conventional copy-variant chord **v0.2 score (2026-11-13):** Ctrl+Shift+C on a search result (E3). |
-| `[ ]` | G48 | Launch URL from line 2 | `⌘R` | `Ctrl+R` | SHOULD | — | |
-| `[ ]` | G49 | Open containing folder | `⌃`/`⌘ + Click` | `Ctrl+Click` | SHOULD | — | ⚠ provisional — sources differ |
+| `[x]` | G48 | Launch URL from line 2 | `⌘R` | `Ctrl+R` | SHOULD | — | **v0.3 score (2026-11-16):** Ctrl+R in Search (#197). |
+| `[x]` | G49 | Open containing folder | `⌃`/`⌘ + Click` | `Ctrl+Click` | SHOULD | — | ⚠ provisional — sources differ **v0.3 score (2026-11-16):** Ctrl+Click on a result, and Ctrl+Enter (#197). |
 
 ### 7.6 Customization
 
