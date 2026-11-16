@@ -55,9 +55,11 @@ public sealed class ImageGuardTests
     [Fact]
     public void Image_files_are_kept_as_copies_and_other_files_linked()
     {
+        // What each file becomes is Core's answer from the Importing settings (#196): by default, as before.
         string files = Body(Images, "AddFiles");
-        Assert.Contains("var images = paths.Where(p => Images is not null && ImageReference.TypeOf(p) is not null).ToList();", files, StringComparison.Ordinal);
-        Assert.Contains("var others = paths.Except(images).ToList();", files, StringComparison.Ordinal);
+        Assert.Contains("var chosen = paths.ToLookup(p => FileShortcuts.Choose(p, PictureDrops, TextFileDrops, Images is not null, copies is null || !p.StartsWith(copies, StringComparison.OrdinalIgnoreCase)));", files, StringComparison.Ordinal);
+        Assert.Contains("var images = chosen[FileDrop.KeepPicture].ToList();", files, StringComparison.Ordinal);
+        Assert.Contains("var others = chosen[FileDrop.InsertText].Where(p => !InsertTextOf(p)).Concat(chosen[FileDrop.Link]).ToList();", files, StringComparison.Ordinal);
         Assert.Contains("Images!.KeepCopyOf(path)", files, StringComparison.Ordinal);
         Assert.Matches(@"if \(outcome == ImageKeeping\.Kept && reference is not null\)\s*\{\s*Apply\(MarkdownCommands\.InsertImage\(_text, _selection, reference, Path\.GetFileName\(path\)\), record: true\);\s*\}\s*else\s*\{\s*ImageNotice\?\.Invoke\(this, Explain\(outcome\)\);", files);
     }
@@ -79,7 +81,7 @@ public sealed class ImageGuardTests
 
         // A browser's picture has no path: copied first, then added as any file is, the copy removed after (#31).
         Assert.Contains("(IReadOnlyList<string> paths, string? copies) = await DroppedItems.PathsOf(e.DataView);", drop, StringComparison.Ordinal);
-        Assert.Matches(@"_selection = TextSelection\.Caret\(at\);\s*try\s*\{\s*AddFiles\(paths\);\s*\}\s*finally\s*\{\s*DroppedItems\.Release\(copies\);", drop);
+        Assert.Matches(@"_selection = TextSelection\.Caret\(at\);\s*try\s*\{\s*AddFiles\(paths, copies\);\s*\}\s*finally\s*\{\s*DroppedItems\.Release\(copies\);", drop);
 
         // Text is read while the drop lasts, then pasted as Ctrl+V pastes it.
         Assert.Contains("PasteAsync(formatted: true, from: text.GetView());", drop, StringComparison.Ordinal);

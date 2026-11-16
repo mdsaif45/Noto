@@ -590,4 +590,81 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("shell32.dll", StringMarshalling = StringMarshalling.Utf16)]
     internal static partial int SetCurrentProcessExplicitAppUserModelID(string AppID);
+
+    // A file shortcut's icon and type name, as Explorer shows them (#196).
+    internal const uint SHGFI_ICON = 0x000000100;
+    internal const uint SHGFI_TYPENAME = 0x000000400;
+    internal const uint SHGFI_LARGEICON = 0x000000000;
+    internal const uint SHGFI_SMALLICON = 0x000000001;
+    internal const uint DIB_RGB_COLORS = 0;
+
+    /// <summary><c>SHFILEINFOW</c>, with fixed buffers so it stays blittable.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SHFILEINFOW
+    {
+        public nint hIcon;
+        public int iIcon;
+        public uint dwAttributes;
+        public fixed char szDisplayName[260];
+        public fixed char szTypeName[80];
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct ICONINFO
+    {
+        public int fIcon;
+        public uint xHotspot;
+        public uint yHotspot;
+        public nint hbmMask;
+        public nint hbmColor;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct BITMAP
+    {
+        public int bmType;
+        public int bmWidth;
+        public int bmHeight;
+        public int bmWidthBytes;
+        public ushort bmPlanes;
+        public ushort bmBitsPixel;
+        public nint bmBits;
+    }
+
+    /// <summary><c>BITMAPINFO</c> with room for a full colour table, which GetDIBits may write for a mask.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct BITMAPINFO
+    {
+        public uint biSize;
+        public int biWidth;
+        public int biHeight;
+        public ushort biPlanes;
+        public ushort biBitCount;
+        public uint biCompression;
+        public uint biSizeImage;
+        public int biXPelsPerMeter;
+        public int biYPelsPerMeter;
+        public uint biClrUsed;
+        public uint biClrImportant;
+        public fixed uint bmiColors[256];
+    }
+
+    [LibraryImport("shell32.dll", EntryPoint = "SHGetFileInfoW", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint SHGetFileInfo(string pszPath, uint dwFileAttributes, SHFILEINFOW* psfi, uint cbFileInfo, uint uFlags);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetIconInfo(nint hIcon, ICONINFO* piconinfo);
+
+    [LibraryImport("gdi32.dll", EntryPoint = "GetObjectW")]
+    internal static partial int GetObject(nint h, int c, void* pv);
+
+    [LibraryImport("gdi32.dll")]
+    internal static partial int GetDIBits(nint hdc, nint hbm, uint start, uint cLines, void* lpvBits, BITMAPINFO* lpbmi, uint usage);
+
+    [LibraryImport("user32.dll")]
+    internal static partial nint GetDC(nint hWnd);
+
+    [LibraryImport("user32.dll")]
+    internal static partial int ReleaseDC(nint hWnd, nint hDC);
 }

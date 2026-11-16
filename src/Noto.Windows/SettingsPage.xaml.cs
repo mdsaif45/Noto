@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
+using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;
 using Noto.Core.Workspace;
@@ -178,6 +179,9 @@ public sealed partial class SettingsPage : UserControl
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
             BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
+            Select(FileLinksSetting, preferences.FileLinks.ToString());
+            Select(PictureDropSetting, preferences.PictureDrop.ToString());
+            Select(TextFileDropSetting, preferences.TextFileDrop.ToString());
             PasteCodeBlockSetting.IsOn = preferences.PasteCodeBlock;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
@@ -277,6 +281,15 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnFormatToolbarToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetFormatToolbar(FormatToolbarSetting.IsOn));
+
+    private void OnFileLinksChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => FileLinksSetting.SelectedItem is not null && p.SetFileLinks(Selected<FileLinkStyle>(FileLinksSetting)));
+
+    private void OnPictureDropChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => PictureDropSetting.SelectedItem is not null && p.SetPictureDrop(Selected<PictureDrop>(PictureDropSetting)));
+
+    private void OnTextFileDropChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => TextFileDropSetting.SelectedItem is not null && p.SetTextFileDrop(Selected<TextFileDrop>(TextFileDropSetting)));
 
     private void OnPasteCodeBlockToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetPasteCodeBlock(PasteCodeBlockSetting.IsOn));

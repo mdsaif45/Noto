@@ -9,6 +9,13 @@ public sealed partial class MainWindow
 {
     private void OnEditorLinkOpenRequested(object? sender, string destination) => QueueOpenLink(destination);
 
+    /// <summary>How file links are drawn (J16, #196): every editor from now, and the one open now at once.</summary>
+    internal void ApplyFileLinks(FileLinkStyle style)
+    {
+        NoteEditorHost.FileLinks = style;
+        _editor?.ShowFileLinks();
+    }
+
     /// <summary>
     /// Opens a link once the input that asked for it is done. Measured (Invoke-Links.ps1 case 2): the shell launch
     /// run inside the editor's key handler left the UI thread stuck, the window half hidden and the hotkey unanswered;

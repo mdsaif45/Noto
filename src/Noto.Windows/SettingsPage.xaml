@@ -354,6 +354,28 @@
                                     AutomationProperties.HelpText="Above selected text in a note. The keys and the Format menu work either way." />
                             </Grid>
 
+                            <!-- #196: how a link to a file or folder is drawn in a note (D34, J16). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="File links" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Standard shows a file's type and size under its name. Double-click one to open it." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="FileLinksSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnFileLinksChanged"
+                                    AutomationProperties.Name="File links"
+                                    AutomationProperties.HelpText="Standard shows a file's type and size under its name. Double-click one to open it.">
+                                    <ComboBoxItem Content="Standard" Tag="Standard" />
+                                    <ComboBoxItem Content="Compact" Tag="Compact" />
+                                </ComboBox>
+                            </Grid>
+
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -370,6 +392,58 @@
                                     Toggled="OnPasteCodeBlockToggled"
                                     AutomationProperties.Name="Paste code as a code block"
                                     AutomationProperties.HelpText="Lines of code you paste go in a code block. Ctrl+Shift+V always pastes plain text." />
+                            </Grid>
+
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- IMPORTING (#196, J30): what a file dropped into a note becomes. Files dropped on the list are imported as notes either way. -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Importing" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="When you drop a picture" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Into a note, or paste one copied in File Explorer." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="PictureDropSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnPictureDropChanged"
+                                    AutomationProperties.Name="When you drop a picture"
+                                    AutomationProperties.HelpText="Into a note, or paste one copied in File Explorer.">
+                                    <ComboBoxItem Content="Keep a copy in the note" Tag="KeepCopy" />
+                                    <ComboBoxItem Content="Add a shortcut to the file" Tag="Shortcut" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="When you drop a text file into a note" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A .txt or Markdown file, dropped or pasted. Dropped on the list, it becomes a note." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="TextFileDropSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnTextFileDropChanged"
+                                    AutomationProperties.Name="When you drop a text file into a note"
+                                    AutomationProperties.HelpText="A .txt or Markdown file, dropped or pasted. Dropped on the list, it becomes a note.">
+                                    <ComboBoxItem Content="Add a shortcut" Tag="Shortcut" />
+                                    <ComboBoxItem Content="Insert its text" Tag="InsertText" />
+                                </ComboBox>
                             </Grid>
 
                         </StackPanel>

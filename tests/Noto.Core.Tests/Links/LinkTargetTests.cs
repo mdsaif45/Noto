@@ -133,7 +133,20 @@ public sealed class LinkTargetTests
         TextEdit edit = MarkdownCommands.LinkPaths("x", TextSelection.Caret(1), [@"C:\Docs\a [1].pdf", @"D:\Projects\", @"E:\"]);
 
         Assert.Equal(
-            "x[a \\[1\\].pdf](file:///C:/Docs/a%20[1].pdf)\n[Projects](file:///D:/Projects/)\n[E:\\](file:///E:/)",
+            "x\n[a \\[1\\].pdf](file:///C:/Docs/a%20[1].pdf)\n[Projects](file:///D:/Projects/)\n[E:\\](file:///E:/)",
             edit.ApplyTo("x"));
+    }
+
+    [Theory]
+    [InlineData("", 0, "[a.pdf](file:///C:/a.pdf)", 25)]
+    [InlineData("ab", 1, "a\n[a.pdf](file:///C:/a.pdf)\nb", 27)]
+    [InlineData("a\nb", 2, "a\n[a.pdf](file:///C:/a.pdf)\nb", 27)]
+    public void Links_go_on_lines_of_their_own_so_each_is_a_shortcut(string text, int at, string expected, int caret)
+    {
+        // #196: a line that is one file link is drawn as a shortcut, so a link is never run into the text around it.
+        TextEdit edit = MarkdownCommands.LinkPaths(text, TextSelection.Caret(at), [@"C:\a.pdf"]);
+
+        Assert.Equal(expected, edit.ApplyTo(text));
+        Assert.Equal(TextSelection.Caret(caret), edit.After);
     }
 }

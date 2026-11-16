@@ -879,6 +879,11 @@ public partial class App : Application
         // which comes back here as any change does.
         main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
         NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
+
+        // File shortcuts and what a file dropped into a note becomes (#196).
+        main.ApplyFileLinks(preferences.FileLinks);
+        NoteEditorHost.PictureDrops = preferences.PictureDrop;
+        NoteEditorHost.TextFileDrops = preferences.TextFileDrop;
         NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
         main.StepNoteSize = direction =>
         {
@@ -1407,6 +1412,18 @@ public partial class App : Application
         else if (key == SettingKeys.EditorFormatToolbar)
         {
             NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
+        }
+        else if (key == SettingKeys.EditorFileLinks && _main is not null)
+        {
+            _main.ApplyFileLinks(preferences.FileLinks);
+        }
+        else if (key == SettingKeys.ImportingPicture)
+        {
+            NoteEditorHost.PictureDrops = preferences.PictureDrop;
+        }
+        else if (key == SettingKeys.ImportingTextFile)
+        {
+            NoteEditorHost.TextFileDrops = preferences.TextFileDrop;
         }
         else if (key == SettingKeys.EditorPasteCodeBlock)
         {

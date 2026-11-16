@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Noto.Core.Editing;
 using Noto.Core.Folders;
 using Noto.Core.Images;
+using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;
 using Noto.Infrastructure.Storage;
@@ -22,7 +23,7 @@ public static class MarkdownImporter
     public const long MaxNoteBytes = 25L * 1024 * 1024;
 
     /// <summary>The file types imported as notes.</summary>
-    public static IReadOnlyList<string> NoteTypes { get; } = [".md", ".markdown", ".txt"];
+    public static IReadOnlyList<string> NoteTypes => FileShortcuts.TextTypes;
 
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
@@ -260,8 +261,13 @@ public static class MarkdownImporter
         return plan;
     }
 
-    /// <summary>The file's text exactly (a UTF-8 byte order mark dropped), or <see langword="null"/> when it is too large or not UTF-8.</summary>
-    private static string? Text(string file)
+    /// <summary>
+    /// The file's text exactly (a UTF-8 byte order mark dropped), or <see langword="null"/> when it is too large or not
+    /// UTF-8: what a note imported holds, and what the editor inserts for a text file dropped into a note (#196).
+    /// </summary>
+    /// <exception cref="IOException">The file could not be read.</exception>
+    /// <exception cref="UnauthorizedAccessException">The file may not be read.</exception>
+    public static string? Text(string file)
     {
         if (new FileInfo(file).Length > MaxNoteBytes)
         {

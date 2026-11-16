@@ -1,5 +1,6 @@
 using Noto.Core.Activation;
 using Noto.Core.Folders;
+using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;
 using Noto.Core.Settings;
@@ -75,6 +76,15 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
 
     /// <summary>Whether the formatting toolbar shows above selected text (F8).</summary>
     public bool FormatToolbar => _settings.Read(SettingKeys.EditorFormatToolbar);
+
+    /// <summary>How a file or folder link is drawn in the editor (J16, #196).</summary>
+    public FileLinkStyle FileLinks => _settings.Read(SettingKeys.EditorFileLinks);
+
+    /// <summary>What a picture dropped into a note becomes (J30, #196).</summary>
+    public PictureDrop PictureDrop => _settings.Read(SettingKeys.ImportingPicture);
+
+    /// <summary>What a text file dropped into a note becomes (J30, #196).</summary>
+    public TextFileDrop TextFileDrop => _settings.Read(SettingKeys.ImportingTextFile);
 
     /// <summary>Whether plain text that reads as code is pasted in a fenced code block (D39).</summary>
     public bool PasteCodeBlock => _settings.Read(SettingKeys.EditorPasteCodeBlock);
@@ -189,6 +199,18 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether the formatting toolbar shows above selected text.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetFormatToolbar(bool shown) => TryWrite(SettingKeys.EditorFormatToolbar, shown);
+
+    /// <summary>Sets how a file or folder link is drawn in the editor.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetFileLinks(FileLinkStyle style) => TryWrite(SettingKeys.EditorFileLinks, style);
+
+    /// <summary>Sets what a picture dropped into a note becomes.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetPictureDrop(PictureDrop drop) => TryWrite(SettingKeys.ImportingPicture, drop);
+
+    /// <summary>Sets what a text file dropped into a note becomes.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetTextFileDrop(TextFileDrop drop) => TryWrite(SettingKeys.ImportingTextFile, drop);
 
     /// <summary>Sets whether plain text that reads as code is pasted in a fenced code block.</summary>
     /// <returns>Whether it was kept.</returns>

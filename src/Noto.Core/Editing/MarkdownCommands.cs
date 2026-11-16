@@ -315,7 +315,8 @@ public static class MarkdownCommands
 
     /// <summary>
     /// Links to local files and folders (D34), one per line, replacing the selection: each reads as its name and opens
-    /// its full path. The caret goes after the last.
+    /// its full path. They go on lines of their own, as an image does, with a line break added before or after where
+    /// the line goes on: a line that is one file link is drawn as a shortcut (#196). The caret goes after the last.
     /// </summary>
     public static TextEdit LinkPaths(string text, TextSelection selection, IReadOnlyList<string> paths)
     {
@@ -329,7 +330,11 @@ public static class MarkdownCommands
             return "[" + label + "](" + LinkTarget.ForPath(p) + ")";
         }));
 
-        return new TextEdit(selection.Start, selection.Length, links, TextSelection.Caret(selection.Start + links.Length));
+        bool before = selection.Start > 0 && text[selection.Start - 1] != '\n';
+        bool after = selection.End < text.Length && text[selection.End] != '\n';
+        string inserted = (before ? "\n" : string.Empty) + links + (after ? "\n" : string.Empty);
+        int caret = selection.Start + inserted.Length - (after ? 1 : 0);
+        return new TextEdit(selection.Start, selection.Length, inserted, TextSelection.Caret(caret));
     }
 
     /// <summary>

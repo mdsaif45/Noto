@@ -1,6 +1,7 @@
 using Noto.Core.Activation;
 using Noto.Core.Diagnostics;
 using Noto.Core.Folders;
+using Noto.Core.Links;
 using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
@@ -362,6 +363,37 @@ public static class SettingKeys
         new("editor.format-toolbar", true);
 
     /// <summary>
+    /// How a file or folder link is drawn in the editor (J16, #196): Standard or Compact.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="FileLinkStyle.Standard"/>: the icon, the name, and the type and size below it. Stored by member
+    /// name; a value that is not a member is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<FileLinkStyle> EditorFileLinks =
+        new("editor.file-links", FileLinkStyle.Standard, Enum.IsDefined);
+
+    /// <summary>
+    /// What a picture dropped or pasted into a note becomes (J30, #196): a copy kept in the note, or a shortcut.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="PictureDrop.KeepCopy"/>, Noto's behaviour before the setting existed (ADR-019 §4). Stored by
+    /// member name; a value that is not a member is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<PictureDrop> ImportingPicture =
+        new("importing.picture", PictureDrop.KeepCopy, Enum.IsDefined);
+
+    /// <summary>
+    /// What a text file dropped or pasted into a note becomes (J30, #196): a shortcut, or its text.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="TextFileDrop.Shortcut"/>, the editor's behaviour before the setting existed (D34). Files dropped
+    /// on the list are still imported as notes (F9). Stored by member name; a value that is not a member is refused when
+    /// written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<TextFileDrop> ImportingTextFile =
+        new("importing.text-file", TextFileDrop.Shortcut, Enum.IsDefined);
+
+    /// <summary>
     /// Whether plain text that reads as code is pasted in a fenced code block (D39, J20, #187; <c>PastedCode</c>).
     /// </summary>
     /// <remarks>Default off: a paste the user did not ask to reformat stays exactly what they copied.</remarks>
@@ -467,6 +499,9 @@ public static class SettingKeys
         AppearanceNoteSize,
         AppearanceNoteColorStyle,
         EditorFormatToolbar,
+        EditorFileLinks,
+        ImportingPicture,
+        ImportingTextFile,
         EditorPasteCodeBlock,
         BackupAutomatic,
         BackupFrequency,
