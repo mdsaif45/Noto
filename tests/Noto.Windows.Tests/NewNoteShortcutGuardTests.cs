@@ -26,6 +26,35 @@ public sealed class NewNoteShortcutGuardTests
         // F21 (#159): Search's, G3's planned default.
         Assert.False(SettingKeys.SearchHotkeyEnabled.Default);
         Assert.Equal("Ctrl+Shift+Win+F", SettingKeys.SearchHotkeyBinding.Default);
+
+        // #198: change side's and keep open's (G5, G6), S for side and K for keep.
+        Assert.False(SettingKeys.ChangeSideHotkeyEnabled.Default);
+        Assert.Equal("Ctrl+Shift+Win+S", SettingKeys.ChangeSideHotkeyBinding.Default);
+        Assert.False(SettingKeys.KeepOpenHotkeyEnabled.Default);
+        Assert.Equal("Ctrl+Shift+Win+K", SettingKeys.KeepOpenHotkeyBinding.Default);
+    }
+
+    [Fact]
+    public void The_change_side_and_keep_open_shortcuts_neither_show_nor_hide_Noto_and_take_the_settings_and_pin_paths()
+    {
+        // #198: the side is Settings › Side's own write, which the store announces and the dock applies; keep open is the
+        // header's toggle, as the tray's and Ctrl+D. Neither asks the coordinator to show or hide.
+        string pressed = Regex.Match(App, @"private void OnHotkeyPressed\(GlobalAction action, int messageTime\)[\s\S]*?\n    }\n").Value;
+        string side = Regex.Match(pressed, @"if \(action == GlobalAction\.ChangeSide\)[\s\S]*?return;\s*\}").Value;
+        string keep = Regex.Match(pressed, @"if \(action == GlobalAction\.KeepOpen\)[\s\S]*?return;\s*\}").Value;
+
+        Assert.Contains("preferences.SetEdge(preferences.Edge == WorkspaceEdge.Left ? WorkspaceEdge.Right : WorkspaceEdge.Left)", side, StringComparison.Ordinal);
+        Assert.Contains("_main?.RefreshSettings();", side, StringComparison.Ordinal);
+        Assert.Contains("_main?.SetPinned(!_coordinator.Pinned);", keep, StringComparison.Ordinal);
+
+        foreach (string branch in new[] { side, keep })
+        {
+            Assert.DoesNotContain("OnActivationRequested", branch, StringComparison.Ordinal);
+            Assert.DoesNotContain("BringToForeground", branch, StringComparison.Ordinal);
+        }
+
+        // After the recorder's suspension, which covers every action.
+        Assert.True(pressed.IndexOf("_hotkeySuspended", StringComparison.Ordinal) < pressed.IndexOf("GlobalAction.ChangeSide", StringComparison.Ordinal));
     }
 
     [Fact]

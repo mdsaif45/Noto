@@ -103,12 +103,26 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The search chord, as text (F21, G3).</summary>
     public string SearchHotkeyBinding => _settings.Read(SettingKeys.SearchHotkeyBinding);
 
+    /// <summary>Whether the global change-side hotkey is registered (#198, G5).</summary>
+    public bool ChangeSideHotkeyEnabled => _settings.Read(SettingKeys.ChangeSideHotkeyEnabled);
+
+    /// <summary>The change-side chord, as text (#198, G5).</summary>
+    public string ChangeSideHotkeyBinding => _settings.Read(SettingKeys.ChangeSideHotkeyBinding);
+
+    /// <summary>Whether the global keep-open hotkey is registered (#198, G6).</summary>
+    public bool KeepOpenHotkeyEnabled => _settings.Read(SettingKeys.KeepOpenHotkeyEnabled);
+
+    /// <summary>The keep-open chord, as text (#198, G6).</summary>
+    public string KeepOpenHotkeyBinding => _settings.Read(SettingKeys.KeepOpenHotkeyBinding);
+
     /// <summary>Whether <paramref name="action"/>'s hotkey is registered.</summary>
     public bool HotkeyEnabledFor(GlobalAction action) => action switch
     {
         GlobalAction.NewNote => NewNoteHotkeyEnabled,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyEnabled,
         GlobalAction.Search => SearchHotkeyEnabled,
+        GlobalAction.ChangeSide => ChangeSideHotkeyEnabled,
+        GlobalAction.KeepOpen => KeepOpenHotkeyEnabled,
         _ => HotkeyEnabled,
     };
 
@@ -118,6 +132,8 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
         GlobalAction.NewNote => NewNoteHotkeyBinding,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyBinding,
         GlobalAction.Search => SearchHotkeyBinding,
+        GlobalAction.ChangeSide => ChangeSideHotkeyBinding,
+        GlobalAction.KeepOpen => KeepOpenHotkeyBinding,
         _ => HotkeyBinding,
     };
 
@@ -128,6 +144,8 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
         GlobalAction.NewNote => SetNewNoteHotkeyBinding(chord),
         GlobalAction.NoteFromClipboard => SetClipboardNoteHotkeyBinding(chord),
         GlobalAction.Search => SetSearchHotkeyBinding(chord),
+        GlobalAction.ChangeSide => SetChangeSideHotkeyBinding(chord),
+        GlobalAction.KeepOpen => SetKeepOpenHotkeyBinding(chord),
         _ => SetHotkeyBinding(chord),
     };
 
@@ -209,6 +227,22 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether the global search hotkey is registered (F21).</summary>
     /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
     public bool SetSearchHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.SearchHotkeyEnabled, enabled);
+
+    /// <summary>Stores the change-side chord (#198): only its rebind calls this, once the chord is registered.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetChangeSideHotkeyBinding(HotkeyChord chord) => TryWrite(SettingKeys.ChangeSideHotkeyBinding, chord.Canonical);
+
+    /// <summary>Sets whether the global change-side hotkey is registered (#198).</summary>
+    /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
+    public bool SetChangeSideHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.ChangeSideHotkeyEnabled, enabled);
+
+    /// <summary>Stores the keep-open chord (#198): only its rebind calls this, once the chord is registered.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetKeepOpenHotkeyBinding(HotkeyChord chord) => TryWrite(SettingKeys.KeepOpenHotkeyBinding, chord.Canonical);
+
+    /// <summary>Sets whether the global keep-open hotkey is registered (#198).</summary>
+    /// <returns>Whether it was kept. Registering it is the hotkey's owner's job, and may still fail.</returns>
+    public bool SetKeepOpenHotkeyEnabled(bool enabled) => TryWrite(SettingKeys.KeepOpenHotkeyEnabled, enabled);
 
     /// <summary>
     /// The width to open with on one display, before it is fitted to that

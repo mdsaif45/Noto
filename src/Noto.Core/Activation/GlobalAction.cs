@@ -1,7 +1,7 @@
 namespace Noto.Core.Activation;
 
 /// <summary>
-/// What a global hotkey does (parity G1, G2, G3, G4): each is rebindable, and every one but show/hide is off by default
+/// What a global hotkey does (parity G1 to G6): each is rebindable, and every one but show/hide is off by default
 /// (principle 7).
 /// </summary>
 public enum GlobalAction
@@ -17,4 +17,10 @@ public enum GlobalAction
 
     /// <summary>Shows Noto with Search open (E2, G3, F21).</summary>
     Search,
+
+    /// <summary>Moves Noto to the other screen edge, as Settings › Side does, without showing or hiding it (G5, #198).</summary>
+    ChangeSide,
+
+    /// <summary>Turns Keep Noto open on or off, as the header's pin and Ctrl+D do, without showing or hiding it (G6, #198).</summary>
+    KeepOpen,
 }

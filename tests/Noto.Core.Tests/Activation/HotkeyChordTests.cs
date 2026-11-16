@@ -273,4 +273,25 @@ public sealed class HotkeyChordTests
         // Parity 12a: AltGr arrives as Ctrl+Alt, so Ctrl+Alt+<letter> can be what a non-US layout types. Allowed, warned.
         Assert.Equal(altGr, HotkeyChord.Parse(text).MayBeTypedWithAltGr);
     }
+
+    [Fact]
+    public void The_global_shortcuts_default_chords_are_distinct_never_altgr_and_never_one_windows_holds()
+    {
+        // #198: six global chords (G1 to G6), each its own. None is an AltGr shape (parity 12a), and none is in the
+        // Ctrl+Shift+Win family's measured-taken set (implementation plan 10: B resets the graphics driver, the digits open
+        // a taskbar app as administrator, Space switches input, L and X are held by unknown owners).
+        HotkeyChord[] defaults = SettingKeys.All
+            .Where(k => k.Name.StartsWith("activation.", StringComparison.Ordinal) && k.Name.EndsWith(".binding", StringComparison.Ordinal))
+            .Cast<SettingKey<string>>()
+            .Select(k => HotkeyChord.Parse(k.Default))
+            .ToArray();
+        string[] taken = ["B", "L", "X", "SPACE", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+        Assert.Equal(6, defaults.Length);
+        Assert.Equal(defaults.Length, defaults.Distinct().Count());
+        Assert.All(defaults, chord => Assert.False(chord.MayBeTypedWithAltGr));
+        Assert.All(
+            defaults.Where(c => c.Modifiers == (HotkeyModifiers.Ctrl | HotkeyModifiers.Shift | HotkeyModifiers.Win)),
+            chord => Assert.DoesNotContain(chord.Key, taken));
+    }
 }

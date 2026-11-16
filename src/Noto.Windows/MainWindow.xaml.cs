@@ -1740,6 +1740,9 @@ public sealed partial class MainWindow : Window
         Trace.WriteLine("Noto.Settings closed");
     }
 
+    /// <summary>Settings, if open, shows the stored values again: the side its global shortcut changed (#198).</summary>
+    internal void RefreshSettings() => SettingsSurface?.Refresh();
+
     /// <summary>
     /// Why a global shortcut is not active, from the hotkey's owner; <see langword="null"/> when it is, or is off by
     /// choice. Shown in Settings now, if open, and whenever it is opened.
@@ -1862,7 +1865,8 @@ public sealed partial class MainWindow : Window
     internal void SetPinned(bool pinned) => PinToggle.IsChecked = pinned;
 
     /// <summary>
-    /// <c>Ctrl+D</c> toggles Keep Noto open from any surface (#146; inside Noto only, never a global hotkey). Through the
+    /// <c>Ctrl+D</c> toggles Keep Noto open from any surface (#146; inside Noto only: the global keep-open shortcut, #198,
+    /// is a separate, rebindable chord, off by default, that takes the same <see cref="SetPinned"/>). Through the
     /// toggle, as the tray is, so it takes the one pin path; the new state is announced, as nothing else on screen moves.
     /// </summary>
     private void OnKeepOpenAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

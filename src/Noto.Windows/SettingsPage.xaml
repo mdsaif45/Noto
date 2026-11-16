@@ -549,6 +549,118 @@
                                     AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
                             </Grid>
 
+                            <!--
+                                #198 (parity G5): a fifth global shortcut, Noto moved to the other screen edge as Side
+                                does, neither shown nor hidden. Off by default; recorded as the others are.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Change side" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock x:Name="ChangeSideHotkeyChordText" Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="ChangeSideHotkeySetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnChangeSideHotkeyToggled"
+                                    AutomationProperties.Name="Change side with a shortcut"
+                                    AutomationProperties.HelpText="From any app: Noto moves to the other edge of the screen, as Side does. Shown or hidden, it stays so." />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Change side shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="ChangeSideHotkeyRecorderStatus"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                    <TextBlock
+                                        x:Name="ChangeSideHotkeyMessage"
+                                        Style="{StaticResource FolderPaneNoticeStyle}"
+                                        Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="ChangeSideHotkeyRecorder"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingButtonStyle}"
+                                    Click="OnRecorderClick"
+                                    PreviewKeyDown="OnRecorderKeyDown"
+                                    LostFocus="OnRecorderLostFocus"
+                                    ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                    AutomationProperties.Name="Change the change side shortcut"
+                                    AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            </Grid>
+
+                            <!--
+                                #198 (parity G6): a sixth global shortcut, Keep Noto open turned on or off as the pin
+                                and Ctrl+D do, neither shown nor hidden. Off by default; recorded as the others are.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Keep Noto open" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock x:Name="KeepOpenHotkeyChordText" Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="KeepOpenHotkeySetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnKeepOpenHotkeyToggled"
+                                    AutomationProperties.Name="Keep Noto open with a shortcut"
+                                    AutomationProperties.HelpText="From any app: turns Keep Noto open on or off, as Ctrl+D does inside Noto. Shown or hidden, it stays so." />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Keep Noto open shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="KeepOpenHotkeyRecorderStatus"
+                                        Style="{StaticResource SettingDescriptionStyle}"
+                                        Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                    <TextBlock
+                                        x:Name="KeepOpenHotkeyMessage"
+                                        Style="{StaticResource FolderPaneNoticeStyle}"
+                                        Visibility="Collapsed"
+                                        local:Accessible.Announces="True"
+                                        AutomationProperties.LiveSetting="Assertive" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="KeepOpenHotkeyRecorder"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingButtonStyle}"
+                                    Click="OnRecorderClick"
+                                    PreviewKeyDown="OnRecorderKeyDown"
+                                    LostFocus="OnRecorderLostFocus"
+                                    ProcessKeyboardAccelerators="OnRecorderAccelerators"
+                                    AutomationProperties.Name="Change the keep Noto open shortcut"
+                                    AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

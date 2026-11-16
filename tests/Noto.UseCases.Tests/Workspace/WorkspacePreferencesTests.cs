@@ -1,4 +1,5 @@
 using Noto.Core.Notes;
+using Noto.Core.Activation;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -268,6 +269,43 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(EscapeBehavior.LeaveFolderOrHide, preferences.Escape);
     }
 
+    [Theory]
+    [InlineData(GlobalAction.ShowHide, "activation.hotkey", true, "Ctrl+Alt+Win+Space")]
+    [InlineData(GlobalAction.NewNote, "activation.new-note", false, "Ctrl+Shift+Win+N")]
+    [InlineData(GlobalAction.NoteFromClipboard, "activation.clipboard-note", false, "Ctrl+Shift+Win+V")]
+    [InlineData(GlobalAction.Search, "activation.search", false, "Ctrl+Shift+Win+F")]
+    [InlineData(GlobalAction.ChangeSide, "activation.change-side", false, "Ctrl+Shift+Win+S")]
+    [InlineData(GlobalAction.KeepOpen, "activation.keep-open", false, "Ctrl+Shift+Win+K")]
+    public void Each_global_shortcut_reads_and_writes_its_own_keys(GlobalAction action, string prefix, bool on, string chord)
+    {
+        // #198: every action has its own pair of keys, so none falls through to show/hide's.
+        var store = new FakeSettings();
+        var preferences = new WorkspacePreferences(store);
+
+        Assert.Equal(on, preferences.HotkeyEnabledFor(action));
+        Assert.Equal(chord, preferences.HotkeyBindingFor(action));
+
+        Assert.True(preferences.SetHotkeyBindingFor(action, HotkeyChord.Parse("Ctrl+Alt+Win+F12")));
+        Assert.Equal([$"{prefix}.binding"], store.Writes);
+        Assert.Equal("Ctrl+Alt+Win+F12", preferences.HotkeyBindingFor(action));
+    }
+
+    [Fact]
+    public void The_change_side_and_keep_open_shortcuts_are_turned_on_through_their_own_keys()
+    {
+        var store = new FakeSettings();
+        var preferences = new WorkspacePreferences(store);
+
+        Assert.True(preferences.SetChangeSideHotkeyEnabled(true));
+        Assert.True(preferences.SetKeepOpenHotkeyEnabled(true));
+
+        Assert.Equal(["activation.change-side.enabled", "activation.keep-open.enabled"], store.Writes);
+        Assert.True(preferences.HotkeyEnabledFor(GlobalAction.ChangeSide));
+        Assert.True(preferences.HotkeyEnabledFor(GlobalAction.KeepOpen));
+        Assert.True(preferences.HotkeyEnabled);
+        Assert.False(preferences.SearchHotkeyEnabled);
+    }
+
     public static TheoryData<string, string, object> Setters => new()
     {
         { "SetEdge", SettingKeys.WorkspaceEdge.Name, WorkspaceEdge.Left },
@@ -351,7 +389,7 @@ public sealed class WorkspacePreferencesTests
         "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
-        "SetHotkeyBinding" => preferences.SetHotkeyBinding(Noto.Core.Activation.HotkeyChord.Parse((string)value)),
+        "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 

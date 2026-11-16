@@ -116,6 +116,8 @@ public partial class App : Application
             GlobalAction.NewNote => (SettingKeys.NewNoteHotkeyEnabled, SettingKeys.NewNoteHotkeyBinding),
             GlobalAction.NoteFromClipboard => (SettingKeys.ClipboardNoteHotkeyEnabled, SettingKeys.ClipboardNoteHotkeyBinding),
             GlobalAction.Search => (SettingKeys.SearchHotkeyEnabled, SettingKeys.SearchHotkeyBinding),
+            GlobalAction.ChangeSide => (SettingKeys.ChangeSideHotkeyEnabled, SettingKeys.ChangeSideHotkeyBinding),
+            GlobalAction.KeepOpen => (SettingKeys.KeepOpenHotkeyEnabled, SettingKeys.KeepOpenHotkeyBinding),
             _ => (SettingKeys.HotkeyEnabled, SettingKeys.HotkeyBinding),
         };
 
@@ -267,6 +269,8 @@ public partial class App : Application
                     GlobalAction.NewNote => "make a new note",
                     GlobalAction.NoteFromClipboard => "make a note from the clipboard",
                     GlobalAction.Search => "search",
+                    GlobalAction.ChangeSide => "change side",
+                    GlobalAction.KeepOpen => "keep Noto open",
                     _ => "show and hide Noto",
                 };
                 return (HotkeyRebindOutcome.Refused, $"{HotkeyRebinding.Show(candidate)} is already Noto's shortcut to {what}. The shortcut is still {HotkeyRebinding.Show(current)}.");
@@ -316,6 +320,33 @@ public partial class App : Application
         if ((_hotkeySuspended || messageTime - _hotkeyResumedAt <= 0) && _windowHandle is not null && WindowActivation.PresenceOf(_windowHandle) == WorkspacePresence.Foreground)
         {
             Trace.WriteLine("Noto.Hotkey pressed ignored=recording");
+            return;
+        }
+
+        // The change-side and keep-open shortcuts (#198) change Noto where it is: never shown, never hidden. The side is
+        // Settings › Side's own write, which the store announces and the dock applies at once (OnSettingChanged), so a
+        // hidden Noto moves when it is next shown. Keep open is the header's toggle, the one pin path the tray and
+        // Ctrl+D take; turned on while hidden, it is the tray's check that shows it.
+        if (action == GlobalAction.ChangeSide)
+        {
+            if (_preferences is { } preferences)
+            {
+                bool kept = preferences.SetEdge(preferences.Edge == WorkspaceEdge.Left ? WorkspaceEdge.Right : WorkspaceEdge.Left);
+                _main?.RefreshSettings();
+                Trace.WriteLine($"Noto.Hotkey pressed action={action} edge={preferences.Edge} kept={kept}");
+            }
+
+            return;
+        }
+
+        if (action == GlobalAction.KeepOpen)
+        {
+            if (_coordinator is not null)
+            {
+                _main?.SetPinned(!_coordinator.Pinned);
+            }
+
+            Trace.WriteLine($"Noto.Hotkey pressed action={action} pinned={_coordinator?.Pinned}");
             return;
         }
 
@@ -389,11 +420,22 @@ public partial class App : Application
     /// <summary>The global search hotkey (F21, #159), or <see langword="null"/> when off or refused.</summary>
     private GlobalHotkey? _searchHotkey;
 
+    /// <summary>The global change-side hotkey (#198), or <see langword="null"/> when off or refused.</summary>
+    private GlobalHotkey? _changeSideHotkey;
+
+    /// <summary>The global keep-open hotkey (#198), or <see langword="null"/> when off or refused.</summary>
+    private GlobalHotkey? _keepOpenHotkey;
+
+    /// <summary>The stored preferences, for the change-side hotkey to write the side through (#198); set once at launch.</summary>
+    private WorkspacePreferences? _preferences;
+
     private GlobalHotkey? HotkeyOf(GlobalAction action) => action switch
     {
         GlobalAction.NewNote => _newNoteHotkey,
         GlobalAction.NoteFromClipboard => _clipboardNoteHotkey,
         GlobalAction.Search => _searchHotkey,
+        GlobalAction.ChangeSide => _changeSideHotkey,
+        GlobalAction.KeepOpen => _keepOpenHotkey,
         _ => _hotkey,
     };
 
@@ -409,6 +451,12 @@ public partial class App : Application
                 break;
             case GlobalAction.Search:
                 _searchHotkey = hotkey;
+                break;
+            case GlobalAction.ChangeSide:
+                _changeSideHotkey = hotkey;
+                break;
+            case GlobalAction.KeepOpen:
+                _keepOpenHotkey = hotkey;
                 break;
             default:
                 _hotkey = hotkey;
@@ -674,12 +722,15 @@ public partial class App : Application
         _newNoteHotkey = StartHotkey(settings, GlobalAction.NewNote, out string? newNoteRefusal);
         _clipboardNoteHotkey = StartHotkey(settings, GlobalAction.NoteFromClipboard, out string? clipboardNoteRefusal);
         _searchHotkey = StartHotkey(settings, GlobalAction.Search, out string? searchRefusal);
+        _changeSideHotkey = StartHotkey(settings, GlobalAction.ChangeSide, out string? changeSideRefusal);
+        _keepOpenHotkey = StartHotkey(settings, GlobalAction.KeepOpen, out string? keepOpenRefusal);
 
         // One clock for every handler: two SystemClock reads inside a single
         // user action could straddle a tick and stamp two rows differently.
         IClock clock = SystemClock.Instance;
 
         var preferences = new WorkspacePreferences(settings);
+        _preferences = preferences;
 
         // The welcome (ADR-021): only a workspace created by this start, or one whose welcome is still owed, and only
         // while it holds nothing. Whether it holds anything is asked only then, so every other start reads no row.
@@ -837,6 +888,8 @@ public partial class App : Application
         main.ShowHotkeyMessage(GlobalAction.NewNote, newNoteRefusal);
         main.ShowHotkeyMessage(GlobalAction.NoteFromClipboard, clipboardNoteRefusal);
         main.ShowHotkeyMessage(GlobalAction.Search, searchRefusal);
+        main.ShowHotkeyMessage(GlobalAction.ChangeSide, changeSideRefusal);
+        main.ShowHotkeyMessage(GlobalAction.KeepOpen, keepOpenRefusal);
 
         // #16 slice 6: the window's own ways of putting itself away go to the
         // coordinator, like every other request; the window never hides
@@ -1390,6 +1443,14 @@ public partial class App : Application
         {
             ApplyHotkeyEnabled(settings, GlobalAction.Search, preferences.SearchHotkeyEnabled);
         }
+        else if (key == SettingKeys.ChangeSideHotkeyEnabled)
+        {
+            ApplyHotkeyEnabled(settings, GlobalAction.ChangeSide, preferences.ChangeSideHotkeyEnabled);
+        }
+        else if (key == SettingKeys.KeepOpenHotkeyEnabled)
+        {
+            ApplyHotkeyEnabled(settings, GlobalAction.KeepOpen, preferences.KeepOpenHotkeyEnabled);
+        }
         else
         {
             return;
@@ -1501,6 +1562,8 @@ public partial class App : Application
         _newNoteHotkey?.Dispose();
         _clipboardNoteHotkey?.Dispose();
         _searchHotkey?.Dispose();
+        _changeSideHotkey?.Dispose();
+        _keepOpenHotkey?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
         // process's handle and the process never ends holding it.

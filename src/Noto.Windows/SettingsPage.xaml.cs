@@ -122,6 +122,8 @@ public sealed partial class SettingsPage : UserControl
             GlobalAction.NewNote => NewNoteHotkeyMessage,
             GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyMessage,
             GlobalAction.Search => SearchHotkeyMessage,
+            GlobalAction.ChangeSide => ChangeSideHotkeyMessage,
+            GlobalAction.KeepOpen => KeepOpenHotkeyMessage,
             _ => HotkeyMessage,
         };
         line.Text = message ?? string.Empty;
@@ -134,6 +136,8 @@ public sealed partial class SettingsPage : UserControl
         GlobalAction.NewNote => NewNoteHotkeyRecorder,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyRecorder,
         GlobalAction.Search => SearchHotkeyRecorder,
+        GlobalAction.ChangeSide => ChangeSideHotkeyRecorder,
+        GlobalAction.KeepOpen => KeepOpenHotkeyRecorder,
         _ => HotkeyRecorder,
     };
 
@@ -142,6 +146,8 @@ public sealed partial class SettingsPage : UserControl
         GlobalAction.NewNote => NewNoteHotkeyRecorderStatus,
         GlobalAction.NoteFromClipboard => ClipboardNoteHotkeyRecorderStatus,
         GlobalAction.Search => SearchHotkeyRecorderStatus,
+        GlobalAction.ChangeSide => ChangeSideHotkeyRecorderStatus,
+        GlobalAction.KeepOpen => KeepOpenHotkeyRecorderStatus,
         _ => HotkeyRecorderStatus,
     };
 
@@ -174,6 +180,8 @@ public sealed partial class SettingsPage : UserControl
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
             ClipboardNoteHotkeySetting.IsOn = preferences.ClipboardNoteHotkeyEnabled;
             SearchHotkeySetting.IsOn = preferences.SearchHotkeyEnabled;
+            ChangeSideHotkeySetting.IsOn = preferences.ChangeSideHotkeyEnabled;
+            KeepOpenHotkeySetting.IsOn = preferences.KeepOpenHotkeyEnabled;
             ShowShortcut(preferences);
             ShowLogin(_context.LoginState());
         }
@@ -327,6 +335,26 @@ public sealed partial class SettingsPage : UserControl
         }
     }
 
+    private void OnChangeSideHotkeyToggled(object sender, RoutedEventArgs e)
+    {
+        Write(p => p.SetChangeSideHotkeyEnabled(ChangeSideHotkeySetting.IsOn));
+
+        if (_context is not null)
+        {
+            ShowShortcut(_context.Preferences);
+        }
+    }
+
+    private void OnKeepOpenHotkeyToggled(object sender, RoutedEventArgs e)
+    {
+        Write(p => p.SetKeepOpenHotkeyEnabled(KeepOpenHotkeySetting.IsOn));
+
+        if (_context is not null)
+        {
+            ShowShortcut(_context.Preferences);
+        }
+    }
+
     // Each stored chord, on its description line and in its recorder's text and name; a recorder only while its
     // shortcut is on, since an off shortcut has nothing to rebind.
     private void ShowShortcut(WorkspacePreferences preferences)
@@ -358,6 +386,20 @@ public sealed partial class SettingsPage : UserControl
         SearchHotkeyRecorder.Content = $"{find}   Change";
         SearchHotkeyRecorder.IsEnabled = preferences.SearchHotkeyEnabled;
         AutomationProperties.SetName(SearchHotkeyRecorder, $"Search shortcut, {find}. Select to change it.");
+
+        string side = HotkeyChord.TryParse(preferences.ChangeSideHotkeyBinding, out HotkeyChord sideChord) ? HotkeyRebinding.Show(sideChord) : preferences.ChangeSideHotkeyBinding;
+
+        ChangeSideHotkeyChordText.Text = side;
+        ChangeSideHotkeyRecorder.Content = $"{side}   Change";
+        ChangeSideHotkeyRecorder.IsEnabled = preferences.ChangeSideHotkeyEnabled;
+        AutomationProperties.SetName(ChangeSideHotkeyRecorder, $"Change side shortcut, {side}. Select to change it.");
+
+        string keep = HotkeyChord.TryParse(preferences.KeepOpenHotkeyBinding, out HotkeyChord keepChord) ? HotkeyRebinding.Show(keepChord) : preferences.KeepOpenHotkeyBinding;
+
+        KeepOpenHotkeyChordText.Text = keep;
+        KeepOpenHotkeyRecorder.Content = $"{keep}   Change";
+        KeepOpenHotkeyRecorder.IsEnabled = preferences.KeepOpenHotkeyEnabled;
+        AutomationProperties.SetName(KeepOpenHotkeyRecorder, $"Keep Noto open shortcut, {keep}. Select to change it.");
     }
 
     /// <summary>Stops the recorder if it is listening, as if Escape were pressed: the window lost activation, or Settings closed.</summary>
@@ -374,6 +416,8 @@ public sealed partial class SettingsPage : UserControl
         GlobalAction action = ReferenceEquals(sender, NewNoteHotkeyRecorder) ? GlobalAction.NewNote
             : ReferenceEquals(sender, ClipboardNoteHotkeyRecorder) ? GlobalAction.NoteFromClipboard
             : ReferenceEquals(sender, SearchHotkeyRecorder) ? GlobalAction.Search
+            : ReferenceEquals(sender, ChangeSideHotkeyRecorder) ? GlobalAction.ChangeSide
+            : ReferenceEquals(sender, KeepOpenHotkeyRecorder) ? GlobalAction.KeepOpen
             : GlobalAction.ShowHide;
         if (_recording || _context is null || !_context.Preferences.HotkeyEnabledFor(action))
         {

@@ -48,6 +48,8 @@ public sealed class SettingsSurfaceGuardTests
             ("NewNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NewNote, preferences\.NewNoteHotkeyEnabled\)"),
             ("ClipboardNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NoteFromClipboard, preferences\.ClipboardNoteHotkeyEnabled\)"),
             ("SearchHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.Search, preferences\.SearchHotkeyEnabled\)"),
+            ("ChangeSideHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.ChangeSide, preferences\.ChangeSideHotkeyEnabled\)"),
+            ("KeepOpenHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.KeepOpen, preferences\.KeepOpenHotkeyEnabled\)"),
         ];
 
         var written = Regex.Matches(Preferences, @"public bool Set\w+\([^)]*\) => TryWrite\(SettingKeys\.(\w+),").Select(m => m.Groups[1].Value).ToHashSet();
@@ -55,11 +57,13 @@ public sealed class SettingsSurfaceGuardTests
 
         // The bindings are the exception, by design (Slice 1.2b): each is registered BEFORE it is written, by the rebind,
         // so the store's announcement must not apply it a second time.
-        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").Append("ClipboardNoteHotkeyBinding").Append("SearchHotkeyBinding").ToHashSet(), written);
+        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").Append("ClipboardNoteHotkeyBinding").Append("SearchHotkeyBinding").Append("ChangeSideHotkeyBinding").Append("KeepOpenHotkeyBinding").ToHashSet(), written);
         Assert.DoesNotContain("SettingKeys.HotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.NewNoteHotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.ClipboardNoteHotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.SearchHotkeyBinding", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingKeys.ChangeSideHotkeyBinding", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingKeys.KeepOpenHotkeyBinding", apply, StringComparison.Ordinal);
 
         foreach (var (key, owner) in owners)
         {
@@ -91,7 +95,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(15, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(17, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -146,6 +150,10 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Contains("_newNoteHotkey = StartHotkey(settings, GlobalAction.NewNote, out string? newNoteRefusal);", App, StringComparison.Ordinal);
         Assert.Contains("main.ShowHotkeyMessage(GlobalAction.ShowHide, hotkeyRefusal);", App, StringComparison.Ordinal);
         Assert.Contains("main.ShowHotkeyMessage(GlobalAction.NewNote, newNoteRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("_changeSideHotkey = StartHotkey(settings, GlobalAction.ChangeSide, out string? changeSideRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("_keepOpenHotkey = StartHotkey(settings, GlobalAction.KeepOpen, out string? keepOpenRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("main.ShowHotkeyMessage(GlobalAction.ChangeSide, changeSideRefusal);", App, StringComparison.Ordinal);
+        Assert.Contains("main.ShowHotkeyMessage(GlobalAction.KeepOpen, keepOpenRefusal);", App, StringComparison.Ordinal);
     }
 
     // ---------------------------------------------------------------- navigation and focus
@@ -391,9 +399,9 @@ public sealed class SettingsSurfaceGuardTests
 
         // The settings (the note font and text size, F13; automatic backups, F15, and how often, #199; the formatting
         // toolbar, F8; the new-note shortcut and its recorder, F17; the clipboard's, F18; Search's, F21; where a new note
-        // goes, #188), the Data group's
+        // goes, #188; change side's and keep open's, #198), the Data group's
         // Back up, Restore, Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(27, rows.Count);
+        Assert.Equal(31, rows.Count);
 
         foreach (XElement row in rows)
         {
