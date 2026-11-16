@@ -308,8 +308,8 @@ function New-Note-By([int] $Key, [string] $Label) {
     Send-NoteChord $target.Hwnd $Key
     Until { (Fg) -eq $noto.Hwnd -and (Focused-Id) -eq 'NoteEditor' } 5
 }
-function Note-Recorder-Status { $e = Element 'NewNoteHotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
-function Recorder-Status { $e = Element 'HotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
+function Note-Recorder-Status { if (Show-Id 'NewNoteHotkeyRecorderStatus') { (Element 'NewNoteHotkeyRecorderStatus').Current.Name } else { '' } }   # scrolled into view first: rows above it move it down the page
+function Recorder-Status { if (Show-Id 'HotkeyRecorderStatus') { (Element 'HotkeyRecorderStatus').Current.Name } else { '' } }   # scrolled into view first: rows above it move it down the page
 function Recorder-Start {
     if (-not (Visible-Id 'SettingsRoot')) { Open-Settings-ByButton }
     (Find-ById 'HotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
