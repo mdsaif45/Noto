@@ -194,6 +194,24 @@ public static class SettingKeys
             static value => HotkeyChord.TryParse(value, out _));
 
     /// <summary>
+    /// Whether the pointer resting at the docked screen edge shows Noto: Hot Side (#185; parity A4).
+    /// </summary>
+    /// <remarks>
+    /// Default off: no surprise reveals, and each activation surface is independently disableable (principle 7).
+    /// Applied at once; with this and <see cref="DragRevealEnabled"/> both off, Noto observes no pointer at all (ADR-007 §9).
+    /// </remarks>
+    public static readonly SettingKey<bool> HotSideEnabled =
+        new("activation.hot-side.enabled", false);
+
+    /// <summary>
+    /// Whether dragging something to the docked screen edge shows Noto, so it can be dropped there (#185; parity A15,
+    /// J27, J28).
+    /// </summary>
+    /// <remarks>Default off, as <see cref="HotSideEnabled"/>, and independent of it.</remarks>
+    public static readonly SettingKey<bool> DragRevealEnabled =
+        new("activation.drag-reveal.enabled", false);
+
+    /// <summary>
     /// The vertical screen edge the workspace docks to.
     /// </summary>
     /// <remarks>
@@ -499,6 +517,8 @@ public static class SettingKeys
         ChangeSideHotkeyBinding,
         KeepOpenHotkeyEnabled,
         KeepOpenHotkeyBinding,
+        HotSideEnabled,
+        DragRevealEnabled,
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,

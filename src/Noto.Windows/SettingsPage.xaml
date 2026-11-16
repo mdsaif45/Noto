@@ -248,6 +248,43 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- #185 (A4, A15, J27, J28): each off by default and independent (principle 7); applied at once. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Show Noto when the pointer rests at the screen edge" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="The edge Noto is on, with no button held. Not over a full-screen app." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="HotSideSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnHotSideToggled"
+                                    AutomationProperties.Name="Show Noto when the pointer rests at the screen edge"
+                                    AutomationProperties.HelpText="The edge Noto is on, with no button held. Not over a full-screen app." />
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Show Noto when you drag something to the screen edge" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="So you can drop it into Noto." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="DragRevealSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnDragRevealToggled"
+                                    AutomationProperties.Name="Show Noto when you drag something to the screen edge"
+                                    AutomationProperties.HelpText="So you can drop it into Noto." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

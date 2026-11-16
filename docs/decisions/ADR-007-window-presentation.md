@@ -717,6 +717,128 @@ Drag and drop is broken in elevated WinUI 3 processes, and no Noto feature
 requires elevation. Elevated windows also cannot be manipulated by an
 unelevated Noto — a limitation to document rather than to work around.
 
+### 9. Edge activation — Hot Side and drag to reveal
+
+> **Added 2026-11-17 by #185 part 1** (parity A4, A15, J27, J28; principle 7).
+> The Open Bar (A3), an always-present edge handle, is #185 part 2 and is not
+> decided here. Nothing in §4 changes: a reveal is one more entry point into the
+> same coordinator.
+
+**Two settings, both off by default, each independent.** Settings › Sidebar:
+*Show Noto when the pointer rests at the screen edge* (`activation.hot-side.enabled`,
+Hot Side) and *Show Noto when you drag something to the screen edge*
+(`activation.drag-reveal.enabled`). Off by default because a reveal the user did
+not ask for is the complaint principle 7 records against SideNotes' edge
+trigger. Applied at once (the composition root's one owner, `ApplyEdgeReveal`),
+like every Slice 1 setting.
+
+**Mechanism: one low-level mouse hook, not an edge window.** The implementation
+plan (R7) had proposed a thin topmost window per edge. It is not adopted for
+these two: a window on the outermost pixel columns takes that edge from every
+application under it — the scroll bar of a maximized window is the common case,
+and Fitts' law puts the user there on purpose — and it cannot observe a drag
+that another application owns. `SetWindowsHookEx(WH_MOUSE_LL)` observes without
+taking anything: every event goes on to the next hook unchanged. The Open Bar,
+which *is* a visible handle, may still be a window (part 2).
+
+```
+  both off            no hook, no thread                          (nothing to cost)
+  either on           EdgePointer: a background thread that installs the hook,
+                      waits in GetMessage, and owns one timer
+  hook callback       buttons held <- the message; EdgeReveal.Moved (numbers in,
+                      a step out); at most SetTimer/KillTimer; CallNextHookEx
+  timer elapses       read once: shown? full-screen? locked? moving a window?
+                      -> reveal: handed to the UI thread -> coordinator, Launch
+  both off again,     WM_QUIT to the thread: it stops the timer and unhooks on
+  or at exit          itself; ReleaseResources disposes it
+```
+
+- **Its own thread, never the UI thread.** A low-level hook runs in the message
+  loop of the thread that installed it, and every pointer move on the system
+  waits for it; Windows removes a hook that exceeds `LowLevelHooksTimeout`
+  without telling it. The UI thread can be held by layout, a save or a dialog, so
+  the hook is on a thread that does nothing else. The recorder's keyboard hook
+  (Slice 1.2b) stays on the UI thread: it exists for one recording only.
+- **The callback is minimal.** No allocation, no trace, no lock, no read of
+  another window per event (guarded by `EdgeRevealGuardTests`). The rules are a
+  pure state machine in Core, `EdgeReveal`, unit tested without a pointer.
+- **Idle cost.** No hook while both are off. While one is on, the cost is per
+  pointer event; nothing polls. The one timer runs only while a gesture is armed
+  at the edge (a dwell), and stops when it elapses or the pointer leaves. The
+  idle-CPU budget (quality-gates: < 0.1%) is unaffected by construction: no
+  pointer movement, no work.
+
+**The edge.** The docked edge of the display the workspace is on, read when a
+setting or the side changes and on every hide (the one state a reveal starts
+from), never per event:
+
+```
+  x        the display's bounds edge (where the pointer stops), the outermost 2 physical px
+  y        the work area's span less a 48 DIP corner at each end
+           (a maximized window's caption buttons; the taskbar is outside the work area)
+  beyond   low-level input is reported before the pointer is clipped, so a point past
+           the edge is at the edge — unless another display touches that edge
+           ("shared"), when it is on that display and never counts
+```
+
+A topology change while Noto is hidden is picked up at the next hide (no display
+broadcast reaches a thread with no window). Unvalidated: a mixed-DPI
+multi-display layout (#30).
+
+**The gestures.**
+
+| | Hot Side (A4) | Drag to reveal (A15, J27, J28) |
+|---|---|---|
+| Armed when | pointer in the band, **no button held** | left button held and moved more than the system drag threshold (`SM_CXDRAG`/`SM_CYDRAG`) from where it was pressed, from any application, pointer in the band |
+| Dwell | 300 ms, resting: moving more than 3 px restarts it | 150 ms from arrival; moving along the edge keeps it |
+| Disarmed | leaving the band, any button pressed | leaving the band, the button released (resting there afterwards is Hot Side's, if on) |
+
+**Never revealed** — read once, on the hook's thread, when the dwell elapses:
+
+```
+  Locked     the session is locked or another desktop (a secure prompt) has the input:
+             OpenInputDesktop fails
+  Shown      Noto is shown, in front or behind (WorkspacePresence); a minimized Noto is
+             restored, as a launch restores it
+  Immersive  the foreground window covers the docked display's whole bounds and has no
+             caption (the desktop's own windows excluded); a maximized window under an
+             auto-hiding taskbar keeps its caption, so it is not full-screen
+  Moving     the foreground thread is in a move or size loop (GUI_INMOVESIZE): a window
+             dragged to the edge to Snap it is not a drop
+```
+
+**Once per arrival.** An elapsed dwell, revealed or refused, is spent until the
+pointer leaves the band: a pointer left at the edge never brings Noto back after
+the user has put it away.
+
+**Through the coordinator, as a launch.** The hook's thread hands the decision
+time to the UI thread (`DispatcherQueue`), where it becomes
+`WorkspaceRequest.Launch`: show, restore or bring forward, never hide, with every
+drop of §4 (closing, resizing, mid-transition, stale, startup). No new request
+kind and no new rule.
+
+**Focus — the open measurement.** The hotkey takes the foreground because
+`WM_HOTKEY` entitles it to; a pointer resting on another application's window
+gives Noto no such right, and Noto does not inject input to acquire one (that is
+what the harness's negative controls exist to catch). So a reveal ends shown,
+docked and topmost, and `SetForegroundWindow` is asked for as for any launch;
+if Windows refuses it, the user's click or the hotkey brings it in front. For a
+drag this is what matters: a drop needs no foreground. Which of the two Windows
+does is recorded by `Invoke-Settings.ps1` case 23 (`foreground=`), not asserted,
+and is to be written here when measured.
+
+**Not decided here.** SideNotes' hide-when-the-pointer-leaves behaviour (an
+edge-revealed panel retracting on its own) is not part of A4 or A15 as scored;
+Noto's existing rules (hide on deactivation, `Ctrl+W`, Escape, the hotkey) put
+it away. A text-selection drag that reaches the edge reveals Noto like any drag
+(a drag from any application counts); only a window move is excluded.
+
+**Evidence.** `EdgeRevealTests` (Core: dwell, jitter, buttons, drag threshold,
+wrong display, shared edge, full-screen, locked, shown, once per arrival, clock
+wrap); `EdgeRevealGuardTests` (the hook only while on, its callback, its thread,
+the zone and full-screen arithmetic, the coordinator path); the settings guards;
+`Invoke-Settings.ps1` case 23 (the real pointer).
+
 ---
 
 ## Rationale

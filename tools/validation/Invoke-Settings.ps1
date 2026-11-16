@@ -74,6 +74,11 @@
        hidden and the other app in front; shown again, it is docked left and pinned; from another app with Noto shown
        behind it: S re-docks it right at once, K unpins it, neither takes the foreground or hides it; pressed with
        Settings open and in front: Side shows the new edge, Noto stays in front; turned off, both chords are released
+    23 Hot Side (#185, A4): both edge reveals off by default and no pointer hook; Hot Side turned on installs the hook
+       at once and is stored; with Noto hidden, the real pointer (absolute moves, which reach low-level hooks as
+       SetCursorPos does not) brought to the docked edge's middle and left resting shows Noto, docked (whether it
+       also took the foreground is recorded, not asserted); turned off, the hook is removed at once and the same rest
+       leaves Noto hidden. The pointer is never clicked, and only moved on the display Noto docks to
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -84,6 +89,14 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'NotoValidation.psm1') -Force
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing
 if (-not ('NotoVal.Instance' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'helpers/single-instance.cs') }
+if (-not ('NotoVal.Pointer' -as [type])) {
+    Add-Type -Namespace NotoVal -Name Pointer -MemberDefinition @'
+[DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+[StructLayout(LayoutKind.Sequential)] public struct XY { public int X; public int Y; }
+[DllImport("user32.dll")] public static extern bool GetCursorPos(out XY point);
+[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
+'@
+}
 if (-not ('NotoVal.Dpi' -as [type])) { Add-Type -Namespace NotoVal -Name Dpi -MemberDefinition '[DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);' }
 $NotoExe = (Resolve-Path $NotoExe).Path
 
@@ -96,7 +109,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled')
 
 # ---------------------------------------------------------------- helpers
 
@@ -140,7 +153,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -327,6 +340,35 @@ function Start-ChordHolder([uint32] $Key) {
     if ((Get-Content $ready -Raw) -notmatch 'held=True') { throw "the chord holder could not take the chord: $(Get-Content $ready -Raw)" }
     [pscustomobject]@{ Ready = $ready; Stop = $stop }
 }
+
+# Case 23 (#185): the real pointer, moved and never clicked, only on the display Noto docks to.
+function Docked-Display {
+    $mi = New-Object NotoVal.Win32+MONITORINFO; $mi.cbSize = [Runtime.InteropServices.Marshal]::SizeOf($mi)
+    [void][NotoVal.Win32]::GetMonitorInfo([NotoVal.Win32]::MonitorFromWindow($noto.Hwnd, 2), [ref]$mi)
+    $mi
+}
+function Pointer-To([int] $X, [int] $Y) {
+    <# An absolute move over the virtual desktop (MOVE | VIRTUALDESK | ABSOLUTE): real input, which a low-level hook sees. #>
+    $m = Docked-Display
+    if ($X -lt $m.rcMonitor.Left -or $X -ge $m.rcMonitor.Right -or $Y -lt $m.rcMonitor.Top -or $Y -ge $m.rcMonitor.Bottom) { throw "refusing to move the pointer to ($X,$Y): not on Noto's display" }
+    if (([NotoVal.Pointer]::GetAsyncKeyState(0x01) -band 0x8000) -or ([NotoVal.Pointer]::GetAsyncKeyState(0x02) -band 0x8000)) { throw 'refusing to move the pointer: a button is held' }
+    $vx = [NotoVal.Pointer]::GetSystemMetrics(76); $vy = [NotoVal.Pointer]::GetSystemMetrics(77)
+    $vw = [NotoVal.Pointer]::GetSystemMetrics(78); $vh = [NotoVal.Pointer]::GetSystemMetrics(79)
+    $nx = [uint32][math]::Ceiling(($X - $vx) * 65536.0 / $vw); $ny = [uint32][math]::Ceiling(($Y - $vy) * 65536.0 / $vh)
+    [NotoVal.Win32]::mouse_event(0xC001, $nx, $ny, 0, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 100
+    $at = New-Object NotoVal.Pointer+XY; [void][NotoVal.Pointer]::GetCursorPos([ref]$at); $at
+}
+function Rest-AtEdge {
+    <# From well inside the display to its docked (right) edge, half way down the work area, then left resting. #>
+    $m = Docked-Display
+    $y = [int](($m.rcWork.Top + $m.rcWork.Bottom) / 2)
+    $null = Pointer-To ($m.rcMonitor.Right - 300) $y
+    $at = Pointer-To ($m.rcMonitor.Right - 1) $y
+    Start-Sleep -Milliseconds 1200                                       # the dwell is 300 ms; the show and its motion follow
+    $at
+}
+function Pointer-Away { $m = Docked-Display; $null = Pointer-To ([int](($m.rcMonitor.Left + $m.rcMonitor.Right) / 2)) ([int](($m.rcWork.Top + $m.rcWork.Bottom) / 2)) }
 
 function Restart-Noto {
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly before a restart' }
@@ -648,6 +690,46 @@ try {
             Noto-Front '22 end'
         }
 
+        # ------------------------------------------------ 23 Hot Side (#185, A4): the real pointer at the docked edge
+        if (Want 23) {
+            Noto-Front '23'
+            To-FolderList; Open-Settings-ByButton
+            $display = Docked-Display
+            if ($display.rcWork.Right -ne $display.rcMonitor.Right) { Add-Invalid $run '23 the taskbar is on the docked (right) edge of this display'; return }
+            $offByDefault = -not (Is-On 'HotSideSetting') -and -not (Is-On 'DragRevealSetting') -and -not ((Trace-Since 0) -match 'Noto\.Edge hook installed=True')
+            $mark = Trace-Mark; Set-Toggle 'HotSideSetting' $true
+            $on = (Wait-Trace $mark 'Noto\.Edge hook installed=True') -and (Wait-Trace $mark 'Noto\.Edge configured hotSide=True drag=False side=Right') -and (Stored 'activation.hot-side.enabled') -eq 'True'
+            Add-Result $run '23 both edge reveals off by default with no hook; Hot Side on installs the hook at once and is stored' ($offByDefault -and $on) "off by default=$offByDefault trace: $(Trace-Since $mark)"
+            Close-Settings-ByBack
+
+            # Hidden: another app in front hides Noto (hide when I click elsewhere is on by default).
+            Pointer-Away
+            $null = Set-ForegroundByKeyboard $target
+            $hidden = Until { -not (Ev).WsVisible }
+            $mark = Trace-Mark
+            $at = Rest-AtEdge
+            $shown = Until { (Ev).WsVisible -and (Test-DockedAt (Ev) 'Right') } 3
+            $revealed = (Wait-Trace $mark 'Noto\.Edge gesture=Rest outcome=Reveal') -and (Wait-Trace $mark 'Noto\.Workspace request=Launch action=Show')
+            Add-Result $run '23 on, Noto hidden: the pointer resting at the docked edge shows Noto, docked' ($hidden -and $shown -and $revealed) "hidden=$hidden pointer=($($at.X),$($at.Y)) edge=$($display.rcMonitor.Right) shown=$((Ev).WsVisible) foreground=$((Fg) -eq $noto.Hwnd) trace: $(Trace-Since $mark)"
+
+            # Off: put away again (brought forward first, so the other app's activation hides it), then the same rest.
+            Pointer-Away
+            Noto-Front '23 off'
+            To-FolderList; Open-Settings-ByButton
+            $mark = Trace-Mark; Set-Toggle 'HotSideSetting' $false
+            $removed = (Wait-Trace $mark 'Noto\.Edge hook removed') -and (Stored 'activation.hot-side.enabled') -eq 'False'
+            Close-Settings-ByBack
+            $null = Set-ForegroundByKeyboard $target
+            $hidden = Until { -not (Ev).WsVisible }
+            $mark = Trace-Mark
+            $at = Rest-AtEdge
+            Start-Sleep -Milliseconds 800
+            $stayed = -not (Ev).WsVisible -and -not ((Trace-Since $mark) -match 'Noto\.Edge gesture')
+            Add-Result $run '23 off: the hook is removed at once, and the pointer resting at the edge leaves Noto hidden' ($removed -and $hidden -and $stayed) "removed=$removed hidden=$hidden pointer=($($at.X),$($at.Y)) shown=$((Ev).WsVisible) trace: $(Trace-Since $mark)"
+            Pointer-Away
+            Noto-Front '23 end'
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -726,7 +808,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)
