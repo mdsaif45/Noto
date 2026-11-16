@@ -168,6 +168,7 @@ public sealed partial class NoteEditorHost : UserControl
         NoteEditor.AddHandler(DragOverEvent, new DragEventHandler(OnDragOver), handledEventsToo: true);
         NoteEditor.AddHandler(DropEvent, new DragEventHandler(OnDrop), handledEventsToo: true);
         AttachToolbar();
+        AttachPictureCopy();
 
         // Caret keys stay in the editor. RichEdit moves the caret on them but, unlike the TextBox it replaced, leaves
         // some unhandled (measured: Ctrl+End), and an unhandled one reaches the stack's ListView, which moves its

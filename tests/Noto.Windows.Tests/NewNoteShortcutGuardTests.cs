@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Noto.Core.Settings;
 using Xunit;
 
@@ -99,6 +100,37 @@ public sealed class NewNoteShortcutGuardTests
         string tray = Regex.Match(App, @"case TrayCommand\.NoteFromClipboard:[\s\S]*?break;").Value;
         Assert.Contains("ActivateFromTray(", tray, StringComparison.Ordinal);
         Assert.Contains("_main?.NewNoteFromShortcut(fromClipboard: true);", tray, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_plus_buttons_menu_offers_a_new_note_and_one_from_the_clipboard_by_the_trays_path()
+    {
+        // #187 (B3, D43): a click still makes a note; its context menu (right-click, Shift+F10, Menu key, touch hold) adds
+        // New note from clipboard, through the very call the tray and the shortcut make.
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        XElement button = XDocument.Load(SourcePath("src", "Noto.Windows", "MainWindow.xaml")).Descendants()
+            .Single(e => (string?)e.Attribute(x + "Name") == "NewNoteButton");
+        Assert.Equal("OnNewNoteClick", (string?)button.Attribute("Click"));
+        Assert.Contains("New note from clipboard", (string?)button.Attribute("AutomationProperties.HelpText"), StringComparison.Ordinal);
+
+        XElement menu = button.Elements().Single(e => e.Name.LocalName == "Button.ContextFlyout").Elements().Single();
+        Assert.Equal("MenuFlyout", menu.Name.LocalName);
+        Assert.Equal("OnNewNoteMenuOpening", (string?)menu.Attribute("Opening"));
+        Assert.Equal(
+            ["New note|OnNewNoteClick", "New note from clipboard|OnNewNoteFromClipboardClick"],
+            menu.Elements().Select(i => $"{(string?)i.Attribute("Text")}|{(string?)i.Attribute("Click")}"));
+
+        string window = File.ReadAllText(SourcePath("src", "Noto.Windows", "MainWindow.NewNoteShortcut.cs"));
+        Assert.Contains("private void OnNewNoteFromClipboardClick(object sender, RoutedEventArgs e) => NewNoteFromShortcut(fromClipboard: true);", window, StringComparison.Ordinal);
+
+        // Offered only when Ctrl+V would paste something; a clipboard another app holds leaves it offered.
+        string opening = Regex.Match(window, @"private void OnNewNoteMenuOpening\([\s\S]*?\n    }\n").Value;
+        foreach (string format in new[] { "Text", "Html", "StorageItems", "Bitmap" })
+        {
+            Assert.Contains($"clipboard.Contains(StandardDataFormats.{format})", opening, StringComparison.Ordinal);
+        }
+
+        Assert.Matches(@"catch \(COMException\)\s*\{\s*NewNoteFromClipboardItem\.IsEnabled = true;", Regex.Replace(opening, @"^\s*//.*$", string.Empty, RegexOptions.Multiline));
     }
 
     /// <summary>Walks up to the repository root; a guard that silently skips is worse than none.</summary>

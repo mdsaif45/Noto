@@ -1,5 +1,6 @@
 using Noto.Core.Editing;
 using Noto.Core.Images;
+using Noto.Core.Markdown;
 using Xunit;
 
 namespace Noto.Core.Tests.Images;
@@ -57,6 +58,34 @@ public sealed class ImageReferenceTests
         string content = $"Title\n\n![one](attachments/{a})\ntext [link](attachments/{b}) ![web](https://x.com/y.png)\n`![code](attachments/{b})`\n- ![](attachments/{b})";
 
         Assert.Equal([a, b], ImageReference.In(content));
+    }
+
+    // Lines: "Title" 0-5; "![red](attachments/a.png)" 6-31, its caption 8-11; "after ![one](…b.png) ![two](…c.png)" 32-89.
+    private const string Pictures = "Title\n![red](attachments/a.png)\nafter ![one](attachments/b.png) ![two](attachments/c.png)";
+
+    [Theory]
+    [InlineData(6, "attachments/a.png")] // the picture's line, at its start
+    [InlineData(31, "attachments/a.png")] // the end of that line: a right-click on the picture drawn below it
+    [InlineData(9, "attachments/a.png")] // in its caption
+    [InlineData(32, "attachments/c.png")] // a line of two, outside both: the last, which is drawn on top
+    [InlineData(40, "attachments/b.png")] // a line of two, on the first
+    [InlineData(3, null)] // a line with no picture
+    public void The_picture_at_a_position_is_its_lines(int position, string? source)
+    {
+        Assert.Equal(source, ImageReference.At(MarkdownDocument.Parse(Pictures), position));
+    }
+
+    [Theory]
+    [InlineData(6, 31, "attachments/a.png")] // the whole line
+    [InlineData(8, 11, "attachments/a.png")] // only its caption, the part shown
+    [InlineData(5, 32, "attachments/a.png")] // with the line breaks around it
+    [InlineData(8, 10, null)] // part of the caption: text, not the picture
+    [InlineData(0, 31, null)] // with the title
+    [InlineData(32, 63, null)] // with other text ("after ")
+    [InlineData(8, 8, null)] // a caret
+    public void Only_a_selection_of_the_picture_alone_is_the_picture(int start, int end, string? source)
+    {
+        Assert.Equal(source, ImageReference.Selected(MarkdownDocument.Parse(Pictures), start, end));
     }
 
     [Theory]

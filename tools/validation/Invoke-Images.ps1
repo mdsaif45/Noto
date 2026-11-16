@@ -8,7 +8,7 @@
 .DESCRIPTION
   A fresh isolated data root with one folder of seeded notes and image files drawn by this script in pure red, so the
   pictures are found in screenshots by colour (cards.png, editor.png and pasted.png are kept in the run). The clipboard
-  is used for cases 9-11 and restored. A file drop (case 12) is a real OLE drag (helpers/drop-files.ps1): the button is
+  is used for cases 9-11 and 16 and restored. A file drop (case 12) is a real OLE drag (helpers/drop-files.ps1): the button is
   pressed on a small window of the helper's own, shown over Noto without taking the foreground, and released over the
   editor's line. Both points are checked to be Noto's window first, and Noto is checked to be still in front after.
   Keys reach Noto only while it is verifiably the foreground window.
@@ -29,6 +29,9 @@
     14  cost: a note with five 1200x800 images, Noto's own load, first-frame and images-drawn traces
     15  a note taller than the stack scrolls inside its card: scrolled to the end, its picture is drawn below its line
         and inside the card; back at the top, nothing of it is drawn over the text (it follows the scroll, clipped)
+    16  D32 (#187): Shift+F10 on a picture's line offers Copy picture, which puts the picture itself (400x200) and its
+        file on the clipboard; a line without one does not offer it; Ctrl+C with the picture's line alone selected
+        copies the picture and its source text. Read back by Windows PowerShell's Get-Clipboard -Format Image
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Images.ps1 -NotoExe <path>\Noto.exe
@@ -443,6 +446,48 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
     $all = Ms $drawn
     Add-Result $run '14 five 1200x800 images: first frame under 100 ms, all drawn under 1000 ms' ($null -ne $all -and $drawn -match 'count=5' -and $rendered -lt 100 -and $all -lt 1000) "loaded=$loaded ms rendered=$rendered ms drawn='$drawn'"
     Leave-Editor
+
+    # 16 - D32 (#187): Copy picture from the editor's menu, and Ctrl+C on the picture's line alone
+    $savedClip = Get-Clipboard -Raw
+    try {
+        function Offered([string] $Name) {
+            $cond = [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, $Name)
+            $deadline = (Get-Date).AddSeconds(3)
+            while ((Get-Date) -lt $deadline) {
+                $e = @($AE::RootElement.FindAll($Scope::Descendants, $cond) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid -and -not $_.Current.IsOffscreen }) | Select-Object -First 1
+                if ($e) { return $e }
+                Start-Sleep -Milliseconds 200
+            }
+            $null
+        }
+        $GetClip = '$i = Get-Clipboard -Format Image; $f = @(Get-Clipboard -Format FileDropList); $t = Get-Clipboard -Format Text -Raw; "image=$(if ($i) { "$($i.Width)x$($i.Height)" } else { "none" })"; "files=$(@($f | ForEach-Object FullName) -join ",")"; "text=$t"'
+
+        Edit-Note 'Red'
+        $after = Centre-Of (Range-Of 'after the picture'); Click-At $after[0] $after[1]
+        Send-ToNoto @(0x10) 0x79 900
+        $notOffered = $null -eq (Offered 'Copy picture')
+        Send-ToNoto @() 0x1B 600
+
+        Set-Clipboard -Value 'before case 16'; Start-Sleep -Milliseconds 500
+        $caption = Centre-Of (Range-Of 'red square'); Click-At $caption[0] $caption[1]
+        Send-ToNoto @(0x10) 0x79 900
+        $item = Offered 'Copy picture'
+        if ($item) { $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 1200 }
+        $menuCopy = @(Invoke-Sta 'get-clipboard-menu' $GetClip @())
+        $menuOk = $menuCopy -contains 'image=400x200' -and @($menuCopy | Where-Object { $_ -match "^files=.*\\$Red\.png$" }).Count -eq 1
+
+        Set-Clipboard -Value 'before case 16'; Start-Sleep -Milliseconds 500
+        Click-At $caption[0] $caption[1]
+        Send-ToNoto @() 0x24 300           # Home
+        Send-ToNoto @(0x10) 0x23 300       # Shift+End: the picture's line alone
+        Send-ToNoto @(0x11) 0x43 1200      # Ctrl+C
+        $keyCopy = @(Invoke-Sta 'get-clipboard-key' $GetClip @())
+        $keyOk = $keyCopy -contains 'image=400x200' -and $keyCopy -contains "text=![red square](attachments/$Red.png)"
+        $unchanged = (Editor-Value) -eq $Notes['01J00000000000000000000N61']
+        Add-Result $run '16 Copy picture on a picture''s line (not elsewhere) copies the picture and its file; Ctrl+C on its line alone copies the picture and its source' ($notOffered -and $null -ne $item -and $menuOk -and $keyOk -and $unchanged) "elsewhere-not-offered=$notOffered offered=$($null -ne $item) menu='$($menuCopy -join ' | ')' key='$($keyCopy -join ' | ')' text unchanged=$unchanged"
+        Leave-Editor
+    }
+    finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
 
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
 

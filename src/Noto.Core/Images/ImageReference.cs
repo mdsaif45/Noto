@@ -57,14 +57,76 @@ public static partial class ImageReference
         {
             foreach (MarkdownSpan image in block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image))
             {
-                MarkdownSpan? source = block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start > image.Start && s.End < image.End).Cast<MarkdownSpan?>().LastOrDefault();
-                if (source is { } s && TryFileName(content.Substring(s.Start, s.Length), out string name))
+                if (SourceOf(block, image) is { } s && TryFileName(content.Substring(s.Start, s.Length), out string name))
                 {
                     yield return name;
                 }
             }
         }
     }
+
+    /// <summary>
+    /// The source, as written, of the picture on the block holding <paramref name="position"/>: the one there, else the
+    /// block's last, which is the one drawn on top. A picture is drawn below its line, so a right-click on it lands on
+    /// that line (D32, #187). <see langword="null"/> when the block has none.
+    /// </summary>
+    public static string? At(MarkdownDocument document, int position)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        if (document.Blocks.FirstOrDefault(b => b.Start <= position && position <= b.End) is not { } block)
+        {
+            return null;
+        }
+
+        List<MarkdownSpan> images = [.. block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image)];
+        MarkdownSpan? image = images.Where(s => s.Start <= position && position <= s.End).Cast<MarkdownSpan?>().FirstOrDefault()
+            ?? images.Cast<MarkdownSpan?>().LastOrDefault();
+
+        return image is { } i && SourceOf(block, i) is { } s ? document.Source.Substring(s.Start, s.Length) : null;
+    }
+
+    /// <summary>
+    /// The source, as written, of the picture <c>[start, end)</c> selects and nothing visible besides: blanks aside, the
+    /// selection lies inside one <c>![caption](source)</c> and holds its whole caption, the only part of it shown (D32,
+    /// #187: Ctrl+C on a selected picture copies the picture). <see langword="null"/> otherwise.
+    /// </summary>
+    public static string? Selected(MarkdownDocument document, int start, int end)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        string text = document.Source;
+        start = Math.Clamp(start, 0, text.Length);
+        end = Math.Clamp(end, start, text.Length);
+
+        while (start < end && char.IsWhiteSpace(text[start]))
+        {
+            start++;
+        }
+
+        while (end > start && char.IsWhiteSpace(text[end - 1]))
+        {
+            end--;
+        }
+
+        if (start == end || document.Blocks.FirstOrDefault(b => b.Start <= start && end <= b.End) is not { } block)
+        {
+            return null;
+        }
+
+        foreach (MarkdownSpan image in block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image && s.Start <= start && end <= s.End))
+        {
+            // The caption is between "![" and "](".
+            if (SourceOf(block, image) is { } s && start <= image.Start + 2 && end >= s.Start - 2)
+            {
+                return text.Substring(s.Start, s.Length);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The span of an image's source, inside its <c>(…)</c>.</summary>
+    private static MarkdownSpan? SourceOf(MarkdownBlock block, MarkdownSpan image) =>
+        block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start > image.Start && s.End < image.End).Cast<MarkdownSpan?>().LastOrDefault();
 
     [GeneratedRegex(@"^attachments/(?<name>[0-9A-HJKMNP-TV-Z]{26}\.(?:png|jpg|jpeg|gif|webp|bmp))$", RegexOptions.CultureInvariant)]
     private static partial Regex Pattern();
