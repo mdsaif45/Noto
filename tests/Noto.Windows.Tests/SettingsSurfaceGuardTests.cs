@@ -351,7 +351,7 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Contains("CreateNoteInOpenFolder(content);", Body(Code(Path.Join(Windows, "MainWindow.NewNoteShortcut.cs")), "NewNoteFromShortcut"), StringComparison.Ordinal);
 
         // The session hands the placement to the command, and the command's handler decides through the one rule.
-        Assert.Contains("new CreateNote(folder, string.Empty, placement, selected)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
+        Assert.Contains("new CreateNote(folder, content, placement, selected)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
         Assert.Contains("NewNotePlacementRule.Resolve(command.Placement, command.Selected,", Code(SourcePath("src", "Noto.UseCases", "Notes", "CreateNote.cs")), StringComparison.Ordinal);
     }
 
