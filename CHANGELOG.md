@@ -16,6 +16,8 @@ format or behavior. Breaking changes are always called out explicitly.
   the + button and the new-note shortcuts all follow it, at once (#188).
 - Settings › Data › *How often*: Noto backs itself up every day (still the default), or every 45, 30 or 15 minutes.
   The last seven automatic backups are kept, as before (#199).
+- Ctrl+Shift+P inserts a picture chosen from your files; Ctrl+] and Ctrl+[ indent and outdent list items; the Format
+  menu inserts a separator line, and a picture (#194).
 
 ## [0.2.0] - 2026-11-14
 

@@ -426,10 +426,10 @@ other.
 | `[x]` | D13 | Inline code | `` `code` `` | Same | MUST | — | **v0.2 score (2026-11-13):** `` `code` ``, Ctrl+E. |
 | `[x]` | D14 | Code block | ` ``` ` fenced | Fenced, with language | MUST | — | **v0.2 score (2026-11-13):** Fenced code with an info string (markdown-model.md); Code block in the Format menu. |
 | `[x]` | D15 | Color swatch preview | `#rrggbb` renders a swatch | Same | SHOULD | — | **v0.2 score (2026-11-13):** F14 (#155): a swatch after each `#rrggbb` code on the card (`Invoke-Visual` case 16). |
-| `[~]` | D16 | Horizontal separator | `---` or Aa menu | `---` + formatting menu | MUST | #194 | **v0.2 score (2026-11-13):** `---` renders as a separator; the Format menu has no separator command. |
+| `[x]` | D16 | Horizontal separator | `---` or Aa menu | `---` + formatting menu | MUST | #194 | **v0.2 score (2026-11-13):** `---` renders as a separator; the Format menu has no separator command. **v0.3 score (2026-11-16):** Format › Insert separator writes a `---` line, a blank line above it so it never underlines text as a heading; one undo step (#194; `Invoke-Editor` case 23). |
 | `[x]` | D17 | Inline links | `[text](url)` | Same; scheme validated before open | MUST | — | ADR-004 security: http/https/mailto/file only **v0.2 score (2026-11-13):** Links are clickable on the card and with Ctrl+Click in the editor, scheme-checked before opening (ADR-019; `Invoke-Links`). |
 | `[ ]` | D18 | Tables | Absent from all documentation | **Not a parity requirement** | DROP | — | ⚠ provisional — UNKNOWN. ADR-004 defers tables |
-| `[~]` | D19 | Indent / outdent | `⌘]` / `⌘[` | `Ctrl+]` / `Ctrl+[` | MUST | #194 | **v0.2 score (2026-11-13):** Tab and Shift+Tab indent list items (ADR-017 §10). Ctrl+] and Ctrl+[ are not bound. |
+| `[x]` | D19 | Indent / outdent | `⌘]` / `⌘[` | `Ctrl+]` / `Ctrl+[` | MUST | #194 | **v0.2 score (2026-11-13):** Tab and Shift+Tab indent list items (ADR-017 §10). Ctrl+] and Ctrl+[ are not bound. **v0.3 score (2026-11-16):** Ctrl+] and Ctrl+[ indent and outdent list items as Tab and Shift+Tab do; on other lines they do nothing, since indented text is code in Markdown (#194; case 23). |
 | `[x]` | D20 | Move line up / down | `⌘⌥[` / `⌘⌥]` | `Alt+Up` / `Alt+Down` | MUST | — | Windows editor convention; see G **v0.2 score (2026-11-13):** Alt+Up/Down move the lines (`Invoke-Editor` case 15). |
 | `[ ]` | D21 | Clear formatting | Exists; chord undocumented | Strip formatting from selection | SHOULD | — | ⚠ provisional — UNKNOWN chord |
 | `[x]` | D22 | Clear completed tasks | Deletes checked tasks; `⇧⌥⌘T` | Same; deleted text is undoable | MUST | — | **v0.2 score (2026-11-13):** F19 (#158): Ctrl+Shift+T (implementation plan §10.2) and the Format menu; one undo step (`Invoke-Editor` case 22). |
@@ -484,7 +484,7 @@ architecturally.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[~]` | D29 | Images | Embed inline; `⇧⌘P`, drag, paste | Same; `Ctrl+Shift+P`, drag, paste | MUST | #194 | Attachment store, M1 **v0.2 score (2026-11-13):** Pictures are added by drop and paste and drawn in the note (ADR-019; `Invoke-Images`). No Ctrl+Shift+P. |
+| `[x]` | D29 | Images | Embed inline; `⇧⌘P`, drag, paste | Same; `Ctrl+Shift+P`, drag, paste | MUST | #194 | Attachment store, M1 **v0.2 score (2026-11-13):** Pictures are added by drop and paste and drawn in the note (ADR-019; `Invoke-Images`). No Ctrl+Shift+P. **v0.3 score (2026-11-16):** Ctrl+Shift+P, and Format › Insert picture, open Windows' picker and insert the picture at the caret as a drop does (#194; `ImageGuardTests`). |
 | `[x]` | D30 | Screenshots | Screenshots as note content via drop | Same via drop and paste | MUST | — | Capture API is M5, not parity **v0.2 score (2026-11-13):** A screenshot on the clipboard is pasted as a picture; a dropped picture file is kept (`Invoke-Images` cases 9–12). |
 | `[ ]` | D31 | Image from iPhone/iPad | Continuity Camera | **No equivalent** | DROP | — | Apple Continuity. No Windows analogue |
 | `[ ]` | D32 | Copy image quickly | Copy an embedded image to clipboard | Same | SHOULD | — | |
@@ -677,9 +677,9 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G32 | Create / remove task | `⌘T` | `Ctrl+T` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+T. |
 | `[x]` | G33 | Toggle task state | `⌘.` | `Ctrl+.` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+. |
 | `[x]` | G34 | Clear completed tasks | `⇧⌥⌘T` | `Ctrl+Alt+Shift+T` | MUST | — | **v0.2 score (2026-11-13):** F19 (#158): Ctrl+Shift+T, the §10.2 final chord. |
-| `[ ]` | G35 | Insert picture | `⇧⌘P` | `Ctrl+Shift+P` | MUST | #194 | ⚠ collides with G26 and with command-palette convention **v0.2 score (2026-11-13):** Not built. |
-| `[ ]` | G36 | Indent right | `⌘]` | `Ctrl+]` | MUST | #194 | Tab also indents in lists **v0.2 score (2026-11-13):** Not bound; Tab indents list items. |
-| `[ ]` | G37 | Indent left | `⌘[` | `Ctrl+[` | MUST | #194 | Shift+Tab also outdents **v0.2 score (2026-11-13):** Not bound; Shift+Tab outdents list items. |
+| `[x]` | G35 | Insert picture | `⇧⌘P` | `Ctrl+Shift+P` | MUST | #194 | ⚠ collides with G26 and with command-palette convention **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Ctrl+Shift+P inserts a picture; G26 pin note stays unbound, as this document decides (#194). |
+| `[x]` | G36 | Indent right | `⌘]` | `Ctrl+]` | MUST | #194 | Tab also indents in lists **v0.2 score (2026-11-13):** Not bound; Tab indents list items. **v0.3 score (2026-11-16):** Ctrl+] (VK_OEM_6) indents (#194). |
+| `[x]` | G37 | Indent left | `⌘[` | `Ctrl+[` | MUST | #194 | Shift+Tab also outdents **v0.2 score (2026-11-13):** Not bound; Shift+Tab outdents list items. **v0.3 score (2026-11-16):** Ctrl+[ (VK_OEM_4) outdents (#194). |
 | `[x]` | G38 | Move line up | `⌘⌥[` | `Alt+Up` ↯ | MUST | — | VS/VS Code convention **v0.2 score (2026-11-13):** Alt+Up. |
 | `[x]` | G39 | Move line down | `⌘⌥]` | `Alt+Down` ↯ | MUST | — | VS/VS Code convention **v0.2 score (2026-11-13):** Alt+Down. |
 | `[x]` | G40 | Show / hide markup | `⇧⌘R` | `Ctrl+Shift+R` | MUST | — | ⚠ browser hard-reload muscle memory; in-app only **v0.2 score (2026-11-13):** Ctrl+Shift+R. |
