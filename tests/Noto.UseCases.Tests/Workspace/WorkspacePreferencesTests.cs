@@ -1,4 +1,5 @@
 using Noto.Core.Activation;
+using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
@@ -263,6 +264,8 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(WorkspaceTheme.System, preferences.Theme);
         Assert.Equal(NoteColorStyle.Background, preferences.NoteColorStyle);
         Assert.False(preferences.SingleClickOpen);
+        Assert.False(preferences.OpenLastFolder);
+        Assert.Empty(preferences.RecentOpenedFolders);
         Assert.True(preferences.HideOnDeactivation);
         Assert.True(preferences.HotkeyEnabled);
         Assert.Equal("Ctrl+Alt+Win+Space", preferences.HotkeyBinding);
@@ -314,6 +317,7 @@ public sealed class WorkspacePreferencesTests
         { "SetHideOnDeactivation", SettingKeys.WorkspaceHideOnDeactivation.Name, false },
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
         { "SetNewNotePlacement", SettingKeys.NotesNewPlacement.Name, NewNotePlacement.AboveSelected },
+        { "SetOpenLastFolder", SettingKeys.WorkspaceOpenLastFolder.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
         { "SetNoteColorStyle", SettingKeys.AppearanceNoteColorStyle.Name, NoteColorStyle.Bar },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
@@ -384,6 +388,60 @@ public sealed class WorkspacePreferencesTests
         Assert.False(preferences.SingleClickOpen);
     }
 
+    // ------------------------------------- folder history (#193)
+
+    [Fact]
+    public void An_opened_folder_is_remembered_first_once_and_survives_a_new_reader()
+    {
+        var store = new FakeSettings();
+        var preferences = new WorkspacePreferences(store);
+        FolderId a = FolderId.New(), b = FolderId.New();
+
+        Assert.True(preferences.RememberOpenedFolder(a, [a, b]));
+        Assert.True(preferences.RememberOpenedFolder(b, [a, b]));
+        Assert.True(preferences.RememberOpenedFolder(a, [a, b]));
+
+        Assert.Equal([a, b], preferences.RecentOpenedFolders);
+        Assert.Equal([a, b], new WorkspacePreferences(store).RecentOpenedFolders);
+        Assert.Equal([SettingKeys.WorkspaceRecentFolders.Name], store.Writes.Distinct());
+    }
+
+    [Fact]
+    public void A_folder_that_no_longer_exists_falls_out_when_the_list_is_next_written()
+    {
+        var preferences = new WorkspacePreferences(new FakeSettings());
+        FolderId gone = FolderId.New(), kept = FolderId.New(), opened = FolderId.New();
+        preferences.RememberOpenedFolder(gone, [gone, kept]);
+        preferences.RememberOpenedFolder(kept, [gone, kept]);
+
+        Assert.True(preferences.RememberOpenedFolder(opened, [kept, opened]));
+
+        Assert.Equal([opened, kept], preferences.RecentOpenedFolders);
+    }
+
+    [Fact]
+    public void Opening_folders_never_touches_the_move_list_and_moving_never_touches_the_opened_list()
+    {
+        var preferences = new WorkspacePreferences(new FakeSettings());
+        FolderId opened = FolderId.New(), moved = FolderId.New();
+
+        preferences.RememberOpenedFolder(opened, [opened, moved]);
+        Assert.Empty(preferences.RecentMoveFolders);
+
+        preferences.RememberMoveTarget(moved, []);
+        Assert.Equal([opened], preferences.RecentOpenedFolders);
+    }
+
+    [Fact]
+    public void A_storage_failure_recording_an_opened_folder_is_reported_and_never_thrown()
+    {
+        var preferences = new WorkspacePreferences(new FakeSettings { FailWritesTo = SettingKeys.WorkspaceRecentFolders.Name });
+        FolderId folder = FolderId.New();
+
+        Assert.False(preferences.RememberOpenedFolder(folder, [folder]));
+        Assert.Empty(preferences.RecentOpenedFolders);
+    }
+
     private static bool Set(WorkspacePreferences preferences, string setter, object value) => setter switch
     {
         "SetEdge" => preferences.SetEdge((WorkspaceEdge)value),
@@ -391,6 +449,7 @@ public sealed class WorkspacePreferencesTests
         "SetHideOnDeactivation" => preferences.SetHideOnDeactivation((bool)value),
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
         "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
+        "SetOpenLastFolder" => preferences.SetOpenLastFolder((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetNoteColorStyle" => preferences.SetNoteColorStyle((NoteColorStyle)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
@@ -405,6 +464,7 @@ public sealed class WorkspacePreferencesTests
         "SetHideOnDeactivation" => preferences.HideOnDeactivation,
         "SetSingleClickOpen" => preferences.SingleClickOpen,
         "SetNewNotePlacement" => preferences.NewNotePlacement,
+        "SetOpenLastFolder" => preferences.OpenLastFolder,
         "SetTheme" => preferences.Theme,
         "SetNoteColorStyle" => preferences.NoteColorStyle,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,

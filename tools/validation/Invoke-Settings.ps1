@@ -67,6 +67,9 @@
        folder, Ctrl+N makes a note that is first in the folder (stored order and the note list's first card, edited);
        then At the bottom again
     21 the change-side and keep-open shortcuts (#198): both off by default; turned on, Ctrl+Shift+Win+S and K are
+    22 open the last folder at start (#193): off by default, a restart starts on the folder list though a folder was
+       open; on, a restart opens straight into the folder last opened (stored as the history's first); with that
+       folder gone from the history (an id no folder has), a restart starts on the folder list; set back off
        registered; from another app with Noto hidden: K pins and S moves it to the left edge (stored), and Noto stays
        hidden and the other app in front; shown again, it is docked left and pinned; from another app with Noto shown
        behind it: S re-docks it right at once, K unpins it, neither takes the foreground or hides it; pressed with
@@ -93,7 +96,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement')
 
 # ---------------------------------------------------------------- helpers
 
@@ -137,7 +140,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -610,6 +613,39 @@ try {
         }
 
 
+        # ------------------------------------------------ 22 open the last folder at start (#193)
+        if (Want 22) {
+            Noto-Front '22'
+            To-FolderList
+            $row = (Items 'FolderList')[0]; $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $row.SetFocus(); Start-Sleep -Milliseconds 300
+            Send-ToNoto @(0x11) 0x28   # Ctrl+Down: the folder is opened, and recorded
+            $entered = Until { Visible-Id 'BackButton' }
+            Open-Settings-ByButton
+            $default = -not (Is-On 'OpenLastFolderSetting')
+            Close-Settings-ByBack
+            Restart-Noto
+            $listed = (Until { Visible-Id 'FolderList' } 10) -and -not (Visible-Id 'BackButton')
+            Add-Result $run '22 off by default: a restart starts on the folder list though a folder was open' ($entered -and $default -and $listed -and (Stored 'workspace.recent-folders') -eq $FolderId) "entered=$entered default=$default listed=$listed recent=$(Stored 'workspace.recent-folders')"
+
+            Open-Settings-ByButton
+            Set-Toggle 'OpenLastFolderSetting' $true
+            Close-Settings-ByBack
+            Restart-Noto
+            $opened = Until { Visible-Id 'BackButton' } 10
+            $title = if ($opened) { (Find-ById 'NoteFolderTitle').Current.Name } else { '' }
+            Add-Result $run '22 on: a restart opens straight into the folder last opened' ($opened -and $title -eq 'Validation' -and (Stored 'workspace.open-last-folder') -eq 'True') "opened=$opened title=$title stored=$(Stored 'workspace.open-last-folder')"
+
+            if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+            Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'workspace.recent-folders' -Value '01J0000000000000000000F0Z9'
+            $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
+            $listed = (Until { Visible-Id 'FolderList' } 10) -and -not (Until { Visible-Id 'BackButton' } 2)
+            Add-Result $run '22 on, with the last folder no longer there: a restart starts on the folder list' $listed "recent=$(Stored 'workspace.recent-folders')"
+
+            Open-Settings-ByButton
+            Set-Toggle 'OpenLastFolderSetting' $false
+            Close-Settings-ByBack
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -688,7 +724,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

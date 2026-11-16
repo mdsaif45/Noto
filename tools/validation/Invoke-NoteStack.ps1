@@ -78,6 +78,9 @@
     51  #187 (B3, D43): Shift+F10 on the + button: New note and New note from clipboard, the second disabled with
         nothing on the clipboard; with text on it, choosing it makes one new note holding that text, editing, stored on
         Escape. The clipboard is set with Set-Clipboard and the user's text restored afterwards
+    52  #193: entering Elsewhere, then Ctrl+Shift+O three times: Stack, Elsewhere, Stack (the history stored, most
+        recent first); Shift+F10 on Back lists only Elsewhere and choosing it enters it; the chevron, named "Recent
+        folders", lists only Stack; Ctrl+Shift+O from the editor with unsaved text saves it first, then switches
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -148,6 +151,7 @@ function Stored-Becomes([string] $Id, [string] $Text) {
 function Cards { @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) }
 function Card([string] $Name) { Cards | Where-Object { $_.Current.Name -eq $Name } | Select-Object -First 1 }
 function Focused { $f = $AE::FocusedElement; "$($f.Current.ControlType.ProgrammaticName)|id=$($f.Current.AutomationId)|name=$($f.Current.Name)" }
+function Title { (Find-ById 'NoteFolderTitle').Current.Name }
 function Notice { $e = By-Id 'NoteNoticeText'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
 function Send-ToNoto([int[]] $Mods, [int] $Key) {
     if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to send keys: Noto is not the foreground window' }
@@ -859,6 +863,34 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
         Add-Result $run '51 the + button''s menu: New note, and New note from clipboard (off when empty); it makes one note holding the text, editing, stored' (($plusMenu -join ',') -eq 'New note,New note from clipboard' -and -not $offeredEmpty -and $offered -and $count -eq $before + 1 -and $editors -eq 1 -and $value -eq $clipText -and $focus -match 'id=NoteEditor' -and $stored -ne '') "menu=$($plusMenu -join ',') empty-offered=$offeredEmpty offered=$offered notes=$before->$count editors=$editors value='$value' focus=$focus stored=$stored"
     }
     finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
+
+    # 52 - #193: Ctrl+Shift+O toggles between the last two folders; Back's menu and its chevron list the other one
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $other = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { $_.Current.Name -eq 'Elsewhere' }
+    $other.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $other.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0x28   # Ctrl+Down: Elsewhere, so the history is Elsewhere, Stack
+    $opened = Title
+    $titles = @(foreach ($i in 1..3) { Send-ToNoto @(0x11, 0x10) 0x4F; Title })   # Ctrl+Shift+O, three times
+    $recent = [string](Sql $script:data "SELECT Value FROM Settings WHERE Key = 'workspace.recent-folders'" @{} -Scalar)
+    Add-Result $run '52 Ctrl+Shift+O switches to the folder open before, and back, like Alt+Tab; the history is stored' ($opened -eq 'Elsewhere' -and ($titles -join ',') -eq 'Stack,Elsewhere,Stack' -and $recent -eq "$FolderId,$Elsewhere") "opened=$opened titles=$($titles -join ',') stored=$recent"
+    (Find-ById 'BackButton').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79   # Shift+F10 on Back
+    $menu = @(Menu-Items)
+    Choose 'Elsewhere'
+    $chosen = Title
+    (Find-ById 'RecentFoldersButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    $chevron = @(Menu-Items)
+    $chevronName = (Find-ById 'RecentFoldersButton').Current.Name
+    Choose 'Stack'
+    Add-Result $run '52 Back''s menu (Shift+F10) and its named chevron list the other folder, never the open one; choosing one enters it' (($menu -join ',') -eq 'Elsewhere' -and $chosen -eq 'Elsewhere' -and ($chevron -join ',') -eq 'Stack' -and $chevronName -eq 'Recent folders' -and (Title) -eq 'Stack') "menu=$($menu -join ',') chosen=$chosen chevron=$($chevron -join ',') name=$chevronName now=$(Title)"
+    Edit-Card 'Saved by Back'
+    Set-EditorText 'Saved by switching'
+    Send-ToNoto @(0x11, 0x10) 0x4F   # Ctrl+Shift+O in the editor, within autosave's second
+    Add-Result $run '52 Ctrl+Shift+O from the editor saves the card first, then switches' ((Stored $A) -eq 'Saved by switching' -and (Title) -eq 'Elsewhere' -and (Editors).Count -eq 0) "db=$(Stored $A) now=$(Title) editors=$((Editors).Count)"
+    Send-ToNoto @(0x11, 0x10) 0x4F
+    Edit-Card 'Saved by switching'
+    Set-EditorText 'Saved by Back'
+    Send-ToNoto @() 0x1B
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

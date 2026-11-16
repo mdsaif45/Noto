@@ -59,7 +59,8 @@ public sealed class WelcomeGuardTests
     [Fact]
     public void It_opens_after_the_first_folder_load_and_from_Settings_Help()
     {
-        Assert.Matches(@"Refresh\(\);\s*OpenWelcomeAtStart\(\);", Body(Main, "OnPaneFirstLoaded"));
+        // Opening the last folder (#193) comes between: a new workspace, the only one with a welcome, has no last folder.
+        Assert.Matches(@"Refresh\(\);\s*OpenLastFolderAtStart\(\);\s*OpenWelcomeAtStart\(\);", Body(Main, "OnPaneFirstLoaded"));
         Assert.Matches(@"if \(WelcomeAtStart\)\s*\{\s*WelcomeAtStart = false;\s*OpenWelcome\(\);", Body(Welcome, "OpenWelcomeAtStart"));
         Assert.Contains("page.WelcomeRequested += OnSettingsWelcomeRequested;", Body(Main, "OpenSettings"), StringComparison.Ordinal);
         Assert.Contains("page.WelcomeRequested -= OnSettingsWelcomeRequested;", Body(Main, "CloseSettings"), StringComparison.Ordinal);

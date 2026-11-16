@@ -203,6 +203,50 @@ public sealed class NoteStackGuardTests
     }
 
     [Fact]
+    public void Folder_history_records_every_entry_and_switches_back_through_one_path_that_saves_first()
+    {
+        // #193. Every route into a folder (click, Enter, Ctrl+Down, Search, the new-note shortcut) is EnterSelectedFolder,
+        // which records it in its own list, never the move list.
+        string history = Code(Path.Join(Windows, "MainWindow.FolderHistory.cs"));
+        string app = Code(Path.Join(Windows, "App.xaml.cs"));
+        Assert.Contains("FolderOpened?.Invoke(_openFolderId.Value, [.. Folders.Select(f => FolderId.From(f.Id))]);", Body(Main, "EnterSelectedFolder"), StringComparison.Ordinal);
+        Assert.Contains("RecentOpenedFolders = () => preferences.RecentOpenedFolders,", app, StringComparison.Ordinal);
+        Assert.Contains("FolderOpened = (folder, existing) => preferences.RememberOpenedFolder(folder, existing),", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecentMoveFolders", history, StringComparison.Ordinal);
+
+        // Ctrl+Shift+O (G10, §10.2) on the folder list's root and the stack's, so it works from a row, a card and its
+        // editor, and from no other surface (a collapsed surface's accelerators do not run).
+        var keys = MainXaml.Root!.Descendants().Where(e => e.Name.LocalName == "KeyboardAccelerator" && (string?)e.Attribute("Invoked") == "OnLastFolderAccelerator").ToList();
+        Assert.Equal(["PaneRoot", "NoteRoot"], keys.Select(k => (string?)k.Ancestors().First(e => e.Attribute(X + "Name") is not null).Attribute(X + "Name")));
+        Assert.All(keys, k => Assert.Equal("O", (string?)k.Attribute("Key")));
+        Assert.All(keys, k => Assert.Equal("Control,Shift", (string?)k.Attribute("Modifiers")));
+
+        // The key, Back's menu and the start all take the first recent folder other than the open one, and enter it by
+        // one path, which leaves the open folder through LeaveFolder (saving first) and stops if that fails.
+        Assert.Contains("RecentFolders.Shown(RecentOpenedFolders?.Invoke() ?? [], _listFolders.Execute(), _openFolderId)", Body(history, "OtherRecentFolders"), StringComparison.Ordinal);
+        Assert.Contains("OtherRecentFolders() is [var previous, ..]", Body(history, "OnLastFolderAccelerator"), StringComparison.Ordinal);
+        Assert.Contains("() => OpenFolder(id)", Body(history, "RecentFoldersMenu"), StringComparison.Ordinal);
+        Assert.Matches(@"LeaveFolder\(\);\s*if \(_openFolderId is not null\)\s*\{\s*return;\s*\}", Body(history, "OpenFolder"));
+        Assert.True(Body(history, "OpenFolder").IndexOf("LeaveFolder()", StringComparison.Ordinal) < Body(history, "OpenFolder").IndexOf("EnterSelectedFolder()", StringComparison.Ordinal));
+
+        // Back's context menu (right-click, Shift+F10, the Menu key) and its chevron open the same menu; both are named.
+        XElement back = Named(MainXaml.Root!, "BackButton");
+        XElement chevron = Named(MainXaml.Root!, "RecentFoldersButton");
+        Assert.Equal("OnBackContextRequested", (string?)back.Attribute("ContextRequested"));
+        Assert.Equal("OnRecentFoldersClick", (string?)chevron.Attribute("Click"));
+        Assert.Equal("Recent folders", (string?)chevron.Attribute("AutomationProperties.Name"));
+        Assert.Contains("ShowMenu(RecentFoldersMenu(), BackButton, args);", Body(history, "OnBackContextRequested"), StringComparison.Ordinal);
+        Assert.Contains("RecentFoldersMenu().ShowAt(RecentFoldersButton)", history, StringComparison.Ordinal);
+
+        // The start opens the last folder only when the setting says so and the folder list has nothing to say first;
+        // after the first load, before the welcome.
+        string first = Body(Main, "OnPaneFirstLoaded");
+        Assert.Matches(@"Refresh\(\);\s*OpenLastFolderAtStart\(\);\s*OpenWelcomeAtStart\(\);", first);
+        Assert.Contains("!OpenLastFolderOnStart", Body(history, "OpenLastFolderAtStart"), StringComparison.Ordinal);
+        Assert.Contains("NoticeText.Visibility == Visibility.Visible", Body(history, "OpenLastFolderAtStart"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Fold_keys_are_left_to_fold_right_to_unfold_and_shift_for_every_card_from_a_card_or_its_editor()
     {
         // G19-G22, once, on the list's PreviewKeyDown, ahead of the Enter/F2 handling and of the TextBox.

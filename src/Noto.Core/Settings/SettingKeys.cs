@@ -290,6 +290,29 @@ public static class SettingKeys
         new("workspace.single-click-open", false);
 
     /// <summary>
+    /// Whether Noto starts in the folder last opened (parity C14, J10, #193), when it still exists; otherwise on the
+    /// folder list.
+    /// </summary>
+    /// <remarks>
+    /// Default <see langword="false"/>: the folder list, where Noto has always started. Read once, at start; a change
+    /// takes effect at the next start, so nothing applies it live.
+    /// </remarks>
+    public static readonly SettingKey<bool> WorkspaceOpenLastFolder =
+        new("workspace.open-last-folder", false);
+
+    /// <summary>
+    /// The folders most recently opened (parity C5, C6, G10, #193): Back's menu, Ctrl+Shift+O and the start in the
+    /// last folder.
+    /// </summary>
+    /// <remarks>
+    /// Their ids, most recent first, comma-separated, at most <see cref="RecentFolders.Capacity"/>. Written each time a
+    /// folder is entered, by any route, never by a settings UI. Not <see cref="NotesRecentMoveFolders"/>: moving a note
+    /// to a folder is not opening it. A value that is not such a list is refused when written and reads as empty.
+    /// </remarks>
+    public static readonly SettingKey<string> WorkspaceRecentFolders =
+        new("workspace.recent-folders", string.Empty, RecentFolders.IsValid);
+
+    /// <summary>
     /// The workspace's theme (parity J21, F1): System, Light or Dark.
     /// </summary>
     /// <remarks>
@@ -430,6 +453,8 @@ public static class SettingKeys
         WorkspaceEscape,
         WorkspaceHideOnDeactivation,
         WorkspaceSingleClickOpen,
+        WorkspaceOpenLastFolder,
+        WorkspaceRecentFolders,
         AppearanceTheme,
         AppearanceNoteFont,
         AppearanceNoteSize,

@@ -57,8 +57,11 @@ public sealed class SettingsSurfaceGuardTests
         string apply = Body(App, "OnSettingChanged");
 
         // The bindings are the exception, by design (Slice 1.2b): each is registered BEFORE it is written, by the rebind,
-        // so the store's announcement must not apply it a second time.
-        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").Append("ClipboardNoteHotkeyBinding").Append("SearchHotkeyBinding").Append("ChangeSideHotkeyBinding").Append("KeepOpenHotkeyBinding").ToHashSet(), written);
+        // so the store's announcement must not apply it a second time. Opening the last folder at start (#193) is the
+        // other: it is read once, at start, and has nothing to apply while Noto runs.
+        Assert.Equal(owners.Select(o => o.Key).Append("HotkeyBinding").Append("NewNoteHotkeyBinding").Append("ClipboardNoteHotkeyBinding").Append("SearchHotkeyBinding").Append("ChangeSideHotkeyBinding").Append("KeepOpenHotkeyBinding").Append("WorkspaceOpenLastFolder").ToHashSet(), written);
+        Assert.DoesNotContain("SettingKeys.WorkspaceOpenLastFolder", apply, StringComparison.Ordinal);
+        Assert.Contains("OpenLastFolderOnStart = preferences.OpenLastFolder,", App, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.HotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.NewNoteHotkeyBinding", apply, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingKeys.ClipboardNoteHotkeyBinding", apply, StringComparison.Ordinal);
@@ -96,7 +99,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(18, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(19, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -355,7 +358,7 @@ public sealed class SettingsSurfaceGuardTests
     {
         string[] ids =
         [
-            "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "NewNotePlacementSetting", "SideSetting",
+            "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "OpenLastFolderSetting", "NewNotePlacementSetting", "SideSetting",
             "EscapeSetting", "ThemeSetting", "NoteColorStyleSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
@@ -402,8 +405,9 @@ public sealed class SettingsSurfaceGuardTests
         // The settings (the note colour style, #191; the note font and text size, F13; automatic backups, F15, and how
         // often, #199; the formatting toolbar, F8; the new-note shortcut and its recorder, F17; the clipboard's, F18;
         // Search's, F21; where a new note goes, #188; change side's and keep open's, #198), the Data group's
-        // Back up, Restore, Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(32, rows.Count);
+        // Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour (ADR-021), and opening
+        // the last folder at start (#193).
+        Assert.Equal(33, rows.Count);
 
         foreach (XElement row in rows)
         {

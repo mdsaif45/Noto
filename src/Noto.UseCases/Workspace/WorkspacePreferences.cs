@@ -58,6 +58,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether one click opens a folder or a note (parity J7, C4).</summary>
     public bool SingleClickOpen => _settings.Read(SettingKeys.WorkspaceSingleClickOpen);
 
+    /// <summary>Whether Noto starts in the folder last opened (parity C14, J10, #193).</summary>
+    public bool OpenLastFolder => _settings.Read(SettingKeys.WorkspaceOpenLastFolder);
+
     /// <summary>The workspace's theme (parity J21).</summary>
     public WorkspaceTheme Theme => _settings.Read(SettingKeys.AppearanceTheme);
 
@@ -167,6 +170,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether one click opens a folder or a note.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetSingleClickOpen(bool singleClick) => TryWrite(SettingKeys.WorkspaceSingleClickOpen, singleClick);
+
+    /// <summary>Sets whether Noto starts in the folder last opened (#193); it takes effect at the next start.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetOpenLastFolder(bool open) => TryWrite(SettingKeys.WorkspaceOpenLastFolder, open);
 
     /// <summary>Sets where a new note goes in its folder (parity B5, J8; #188).</summary>
     /// <returns>Whether it was kept: a value that is not a member is refused.</returns>
@@ -326,6 +333,22 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
 
         IReadOnlyList<FolderId> live = [.. RecentMoveFolders.Where(id => active.Any(f => f.Id == id))];
         return TryWrite(SettingKeys.NotesRecentMoveFolders, RecentFolders.Format(RecentFolders.Push(live, folder)));
+    }
+
+    /// <summary>The folders most recently opened, most recent first (#193). Not the move list: moving is not opening.</summary>
+    public IReadOnlyList<FolderId> RecentOpenedFolders => RecentFolders.Parse(_settings.Read(SettingKeys.WorkspaceRecentFolders));
+
+    /// <summary>
+    /// Records <paramref name="folder"/> as the folder last opened. Folders not in <paramref name="existing"/> fall out
+    /// of the list here, the next time it is written, as the move list's do.
+    /// </summary>
+    /// <returns>Whether it was stored; a storage failure never stops a folder opening.</returns>
+    public bool RememberOpenedFolder(FolderId folder, IReadOnlyList<FolderId> existing)
+    {
+        ArgumentNullException.ThrowIfNull(existing);
+
+        IReadOnlyList<FolderId> live = [.. RecentOpenedFolders.Where(existing.Contains)];
+        return TryWrite(SettingKeys.WorkspaceRecentFolders, RecentFolders.Format(RecentFolders.Push(live, folder)));
     }
 
     private bool TryWrite<T>(SettingKey<T> key, T value)
