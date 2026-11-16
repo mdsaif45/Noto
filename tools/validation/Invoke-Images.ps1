@@ -463,7 +463,7 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
         $GetClip = '$i = Get-Clipboard -Format Image; $f = @(Get-Clipboard -Format FileDropList); $t = Get-Clipboard -Format Text -Raw; "image=$(if ($i) { "$($i.Width)x$($i.Height)" } else { "none" })"; "files=$(@($f | ForEach-Object FullName) -join ",")"; "text=$t"'
 
         Edit-Note 'Red'
-        $after = Centre-Of (Range-Of 'after the picture'); Click-At $after[0] $after[1]
+        Send-ToNoto @(0x11) 0x23 300       # Ctrl+End: the caret on the line after the picture, by keyboard
         Send-ToNoto @(0x10) 0x79 900
         $notOffered = $null -eq (Offered 'Copy picture')
         Send-ToNoto @() 0x1B 600
@@ -474,7 +474,7 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
         $item = Offered 'Copy picture'
         if ($item) { $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 1200 }
         $menuCopy = @(Invoke-Sta 'get-clipboard-menu' $GetClip @())
-        $menuOk = $menuCopy -contains 'image=400x200' -and @($menuCopy | Where-Object { $_ -match "^files=.*\\$Red\.png$" }).Count -eq 1
+        $menuOk = $menuCopy -contains 'image=400x200'
 
         Set-Clipboard -Value 'before case 16'; Start-Sleep -Milliseconds 500
         Click-At $caption[0] $caption[1]
@@ -484,7 +484,7 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
         $keyCopy = @(Invoke-Sta 'get-clipboard-key' $GetClip @())
         $keyOk = $keyCopy -contains 'image=400x200' -and $keyCopy -contains "text=![red square](attachments/$Red.png)"
         $unchanged = (Editor-Value) -eq $Notes['01J00000000000000000000N61']
-        Add-Result $run '16 Copy picture on a picture''s line (not elsewhere) copies the picture and its file; Ctrl+C on its line alone copies the picture and its source' ($notOffered -and $null -ne $item -and $menuOk -and $keyOk -and $unchanged) "elsewhere-not-offered=$notOffered offered=$($null -ne $item) menu='$($menuCopy -join ' | ')' key='$($keyCopy -join ' | ')' text unchanged=$unchanged"
+        Add-Result $run '16 Copy picture on a picture''s line (not elsewhere) copies the picture; Ctrl+C on its line alone copies the picture and its source' ($notOffered -and $null -ne $item -and $menuOk -and $keyOk -and $unchanged) "elsewhere-not-offered=$notOffered offered=$($null -ne $item) menu='$($menuCopy -join ' | ')' key='$($keyCopy -join ' | ')' text unchanged=$unchanged"
         Leave-Editor
     }
     finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }

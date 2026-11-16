@@ -389,7 +389,7 @@ public sealed partial class NoteEditorHost
 
     /// <summary>
     /// Puts a kept picture on the clipboard as itself (D32, #187): the file's own bytes as the bitmap, never re-encoded;
-    /// from the menu also the file, for Explorer and chat apps; from a selection its source text instead.
+    /// and from a selection its source text too. Not the file: WinRT storage items do not reach desktop apps as a file drop.
     /// </summary>
     private async void CopyPicture(string path, string? source)
     {
@@ -403,10 +403,6 @@ public sealed partial class NoteEditorHost
         {
             StorageFile file = await StorageFile.GetFileFromPathAsync(path);
             package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));
-            if (source is null)
-            {
-                package.SetStorageItems([file]);
-            }
         }
         catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException)
         {
