@@ -346,8 +346,8 @@ would be inventing a SideNotes feature, which this document forbids.
 | `[~]` | C2 | Create folder | `⌘N` in folder list; also via automation | `Ctrl+N` in folder list; also via URI / CLI | MUST | #192 | **Partial** — M2-1 (#57): `Ctrl+N` in the folder list focuses the name box, and Create adds the folder. No URI or CLI (H-rows) **v0.2 score (2026-11-13):** Unchanged: Ctrl+N, the **+** button (#148) and the folder menu; no URI or CLI. |
 | `[ ]` | C3 | Nesting depth | Flat, one level (no sub-folders documented) | **Flat, one level** | MUST | — | ⚠ provisional — INFERRED from absence. Met by construction (no `ParentId`; the UI is flat); scored when Q6 is resolved. Do not add nesting |
 | `[x]` | C4 | Enter folder | `⌘↓`; double-click, or single-click if enabled | `Ctrl+Down`; same single-click setting | MUST | — | **Partial** — M2-2 (#60): `Ctrl+Down` and double-click. The single-click **setting** is deferred with #9 settings **v0.2 score (2026-11-13):** Ctrl+Down, and Settings › Open with a single click (`Invoke-Settings` case 7). |
-| `[~]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | #193 | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12's four behaviours landed with #16 slice 6 **v0.2 score (2026-11-13):** Unchanged: Back does not list recent folders. |
-| `[ ]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | #193 | **v0.2 score (2026-11-13):** Not built. |
+| `[x]` | C5 | Leave folder / back | `⎋`; long-press back → recent folders | `Esc`; back control exposes recent folders | MUST | #193 | **Partial** — M2-2 (#60): `Esc` (A12 mode 1) and a visible Back control. Recent folders deferred — long-press is macOS-specific and no Windows equivalent is decided. A12's four behaviours landed with #16 slice 6 **v0.2 score (2026-11-13):** Unchanged: Back does not list recent folders. **v0.3 score (2026-11-16):** Back's menu (right-click, Shift+F10) and a Recent folders chevron list the folders last opened, never the open one (#193; `Invoke-NoteStack` case 48). |
+| `[x]` | C6 | Switch to last folder | `⌘⌥O` | Same action, Windows chord | MUST | #193 | **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Ctrl+Shift+O switches to the folder open before this one, and back again; the card being edited is saved first (#193; case 48). |
 | `[~]` | C7 | Show all folders | Command to return to the folder list | Same, incl. from URI / CLI | MUST | #192 | **Partial** — the folder list is reachable via `Esc`/Back (M2-2). No explicit command, and no URI/CLI surface yet **v0.2 score (2026-11-13):** Unchanged: no URI or CLI. |
 | `[x]` | C8 | Pin folders | Pinned folders stay at list top | Same | MUST | — | **v0.2 score (2026-11-13):** Pin and Unpin in the folder menu; pinned folders first (`Invoke-NoteStack` case 30). |
 | `[x]` | C9 | Folder reordering | Drag & drop up / down | Same | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Up/Down, Move to top/bottom and dragging (`Invoke-NoteStack` cases 36, 42). |
@@ -355,7 +355,7 @@ would be inventing a SideNotes feature, which this document forbids.
 | `[x]` | C11 | Delete folder | Confirmation popover | Soft delete to recycle bin, notes included | MUST | — | Consistent with B23 **v0.2 score (2026-11-13):** Delete moves the folder and its notes to the Recycle Bin; restore brings them back (`Invoke-RecycleBin`). |
 | `[ ]` | C12 | Duplicate folder | Copy a folder with contents | Same | SHOULD | — | |
 | `[x]` | C13 | Rename folder | Inline rename; Esc cancels | Inline rename; Esc cancels | MUST | — | **Done** — M2-1 (#57): `F2` starts an inline rename, `Enter` commits, `Esc` and focus loss cancel. See *C2 / C13* below |
-| `[ ]` | C14 | Open last folder on restart | Setting | Same setting | SHOULD | — | |
+| `[x]` | C14 | Open last folder on restart | Setting | Same setting | SHOULD | — | **v0.3 score (2026-11-16):** Settings › General › Open the last folder when Noto starts, off by default; the folder list if that folder is gone (#193; `Invoke-Settings` case 20). |
 | `[x]` | C15 | Empty folder guidance | Helper text in an empty folder | Same | SHOULD | — | **Partial** — an empty folder reads "This folder has no notes yet." It does not say how to add one. Principle 2: shown only in the empty state **v0.2 score (2026-11-13):** An empty folder reads "This folder has no notes yet. Press Ctrl+N or select New note to write one." |
 | `[ ]` | C16 | Folder URL | `Copy URL` from context menu | `noto://` folder URI, copyable | ADAPT | — | See H5 |
 | `[ ]` | C17 | Folder colors | Not documented | **Not a parity requirement** | DROP | — | Theme has folder *styling*, not per-folder color |
@@ -642,7 +642,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G7 | Close panel | `⌘W` | `Ctrl+W` | MUST | — | **Done** — = A10 |
 | `[x]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | **Done** — = A12 |
 | `[x]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | **Done** — M2-2 (#60). Same code as C4, whose `[~]` is the single-click setting |
-| `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | #193 | **v0.2 score (2026-11-13):** Not built (§10.2 final chord Ctrl+Shift+O). |
+| `[x]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | #193 | **v0.2 score (2026-11-13):** Not built (§10.2 final chord Ctrl+Shift+O). **v0.3 score (2026-11-16):** Ctrl+Shift+O, on the folder list and the stack, editor included (#193). |
 | `[x]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Down. **v0.3 score (2026-11-16):** Also Alt+Shift+Down in the editor, which Narrator leaves alone (#202; `Invoke-NoteStack` case 49, `Invoke-Narrator` N4). |
 | `[x]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up. **v0.3 score (2026-11-16):** Also Alt+Shift+Up in the editor, which Narrator leaves alone (#202). |
 | `[ ]` | G13 | Hide (optional binding) | `⌘↩` | `Ctrl+Enter` | SHOULD | — | Off by default; see A11 |
@@ -851,7 +851,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[x]` | J7 | Folders → Single-click opening | on / off | Same | MUST | — | = C4 **v0.2 score (2026-11-13):** Settings › Open with a single click. |
 | `[x]` | J8 | Creating Notes → Placement | top / bottom / over / under current | Same four | MUST | #188 | = B5 **v0.2 score (2026-11-13):** No Settings row; the value is stored only. **v0.3 score (2026-11-16):** = B5: the Settings row, stored in `notes.new-placement` (#188). |
 | `[ ]` | J9 | Creating Notes → Ask for folder | on / off | Same | SHOULD | — | = B6 |
-| `[ ]` | J10 | Creating Notes → Open last folder on restart | on / off | Same | SHOULD | — | = C14 |
+| `[x]` | J10 | Creating Notes → Open last folder on restart | on / off | Same | SHOULD | — | = C14 **v0.3 score (2026-11-16):** = C14 (#193). |
 | `[ ]` | J11 | Text → Default text formatting | Markdown / Code (/ plain) | Same | SHOULD | — | = D28 |
 | `[x]` | J12 | Text → Font family | any installed font | Same | MUST | — | = D47 **v0.2 score (2026-11-13):** Settings › Font (F13, #154). |
 | `[x]` | J13 | Text → Font size | adjustable | Same | MUST | — | = D48 **v0.2 score (2026-11-13):** Settings › Text size (F13, #154). |
