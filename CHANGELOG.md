@@ -39,6 +39,9 @@ format or behavior. Breaking changes are always called out explicitly.
   chevron list your recent folders, and Settings can open the last folder when Noto starts (#193).
 - Settings › *Paste code as a code block*: lines of code pasted with Ctrl+V go in a fenced code block. Off by default;
   Ctrl+Shift+V always pastes plain text (#187).
+- A file or folder dropped or pasted into a note shows as a shortcut with its icon, in a Standard or Compact style
+  chosen in Settings, and a double-click opens it. Settings › Importing also chooses whether a dropped picture is kept
+  in the note or linked, and whether a dropped text file is linked or its text inserted (#196).
 
 ## [0.2.0] - 2026-11-14
 
