@@ -832,7 +832,13 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $savedClip = Get-Clipboard -Raw
     try {
         $clipText = 'From the clipboard · 48'
-        Set-Clipboard -Value $null; Start-Sleep -Milliseconds 500
+        # Emptied with Win32's EmptyClipboard: PowerShell 7's Set-Clipboard -Value $null leaves an empty text on it,
+        # which is something Ctrl+V would paste (measured, case 51).
+        if (-not ('NotoVal.ClipboardEmpty' -as [type])) {
+            Add-Type -Namespace NotoVal -Name ClipboardEmpty -MemberDefinition '[DllImport("user32.dll")] public static extern bool OpenClipboard(IntPtr owner); [DllImport("user32.dll")] public static extern bool EmptyClipboard(); [DllImport("user32.dll")] public static extern bool CloseClipboard();'
+        }
+        if ([NotoVal.ClipboardEmpty]::OpenClipboard([IntPtr]::Zero)) { [void][NotoVal.ClipboardEmpty]::EmptyClipboard(); [void][NotoVal.ClipboardEmpty]::CloseClipboard() }
+        Start-Sleep -Milliseconds 500
         $plus = Find-ById 'NewNoteButton'
         $plus.SetFocus(); Start-Sleep -Milliseconds 300
         Send-ToNoto @(0x10) 0x79
