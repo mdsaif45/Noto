@@ -42,6 +42,9 @@ format or behavior. Breaking changes are always called out explicitly.
 - A file or folder dropped or pasted into a note shows as a shortcut with its icon, in a Standard or Compact style
   chosen in Settings, and a double-click opens it. Settings › Importing also chooses whether a dropped picture is kept
   in the note or linked, and whether a dropped text file is linked or its text inserted (#196).
+- Noto can be driven by `noto://` links and from the command line: make a note with text (in a folder if named),
+  open a folder, show the folder list, make a folder, or open Search with a query. A folder's menu has *Copy link*, and
+  the installed Noto registers the link for the current user (#192).
 
 ## [0.2.0] - 2026-11-14
 
