@@ -148,7 +148,9 @@ public sealed class ImageGuardTests
         Assert.Contains("_menuPoint is { } point ? NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition : _selection.Active", opening, StringComparison.Ordinal);
         Assert.Contains("_menuPicture = Images?.PathOf(ImageReference.At(_document, at));", opening, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetName(_copyPicture, \"Copy picture\");", opening, StringComparison.Ordinal);
-        Assert.Matches(@"_ = menu\.SecondaryCommands\.Remove\(_copyPicture\);\s*if \(_menuPicture is not null\)\s*\{\s*menu\.SecondaryCommands\.Insert\(0, _copyPicture\);", opening);
+        // The menu is shared by every text control: each editor takes its own item out, and only the target decides.
+        Assert.Matches(@"_ = menu\.SecondaryCommands\.Remove\(_copyPicture\);\s*\}\s*if \(!ReferenceEquals\(menu\.Target, NoteEditor\)\)\s*\{\s*return;", opening);
+        Assert.Matches(@"if \(_menuPicture is not null\)\s*\{\s*menu\.SecondaryCommands\.Insert\(0, _copyPicture\);", opening);
 
         // Ctrl+C or Copy with only the picture selected (Core's ImageReference.Selected): its source text and the picture.
         string copying = Body(Images, "OnCopyingToClipboard");

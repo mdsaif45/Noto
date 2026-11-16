@@ -341,9 +341,24 @@ public sealed partial class NoteEditorHost
     private string? _menuPicture;
 
     /// <summary>The editor's menu opens: Copy picture is in it when it opens on a picture's line (D32).</summary>
+    /// <remarks>
+    /// Text controls share one built-in menu, so every editor's handler runs whenever it opens (measured: Copy picture
+    /// was offered for another note's picture, Invoke-Images case 16). Each editor takes its own item out, and only the
+    /// one the menu opens for (its <c>Target</c>) decides.
+    /// </remarks>
     private void OnEditorMenuOpening(object? sender, object e)
     {
         if (sender is not CommandBarFlyout menu)
+        {
+            return;
+        }
+
+        if (_copyPicture is not null)
+        {
+            _ = menu.SecondaryCommands.Remove(_copyPicture);
+        }
+
+        if (!ReferenceEquals(menu.Target, NoteEditor))
         {
             return;
         }
@@ -366,7 +381,6 @@ public sealed partial class NoteEditorHost
             };
         }
 
-        _ = menu.SecondaryCommands.Remove(_copyPicture);
         if (_menuPicture is not null)
         {
             menu.SecondaryCommands.Insert(0, _copyPicture);
