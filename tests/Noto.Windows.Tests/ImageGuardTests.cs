@@ -157,7 +157,8 @@ public sealed class ImageGuardTests
         // The kept file's own bytes, never re-encoded; the file too from the menu; a failure said, never silent.
         string copy = Body(Images, "CopyPicture");
         Assert.Contains("package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));", copy, StringComparison.Ordinal);
-        Assert.Matches(@"if \(source is null\)\s*\{\s*package\.SetStorageItems\(\[file\]\);", copy);
+        // The image only: storage items do not reach desktop apps as a file drop (measured, Invoke-Images case 16).
+        Assert.DoesNotContain("SetStorageItems", copy, StringComparison.Ordinal);
         Assert.DoesNotContain("BitmapEncoder", copy, StringComparison.Ordinal);
         Assert.Contains("Clipboard.SetContent(package);", copy, StringComparison.Ordinal);
         Assert.Equal(2, Regex.Count(copy, @"ImageNotice\?\.Invoke\(this, "));
