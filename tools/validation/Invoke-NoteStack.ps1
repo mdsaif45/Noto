@@ -68,6 +68,9 @@
     48  #189: Ctrl+Shift+M ends with New folder…; choosing it focuses a named name box; Enter on an empty name is
         refused in the pane's words and creates nothing; Escape creates nothing; a name and Enter create the folder,
         move the card into it (the card leaves the stack, focus stays on a card), and the folder's row says "1 note"
+    49  #202, the chords Narrator leaves to Noto: Alt+Shift+Left folds the focused card and Alt+Shift+Right unfolds it,
+        focus kept, nothing else folded; Alt+Shift+Left in the editor saves, folds and leaves editing; in the editor
+        Alt+Shift+Down edits the next card and Alt+Shift+Up returns, its text kept
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -752,6 +755,28 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $rowHelp = if ($row) { $row.Current.HelpText } else { '(no row)' }
     Add-Result $run '48 Move to › New folder…: a named box; empty refused, Escape creates nothing; a name and Enter make the folder with the card, which left the stack' ($top[-1] -eq 'New folder…' -and $boxName -eq 'New folder name' -and $boxFocused -and $refused -eq 'A folder name cannot be empty.' -and $emptyCreatedNone -and $cancelled -and $made -ne '' -and (Folders-Named 'Made by Move to') -eq 1 -and (FolderOf $moverId) -eq $made -and $inside -eq 1 -and $left -and $focusAfter -match 'ListItem' -and $rowHelp -eq '1 note') "top=$($top -join ',') box='$boxName' focused=$boxFocused refused='$refused' empty created none=$emptyCreatedNone cancelled=$cancelled made=$made inside=$inside left=$left focus=$focusAfter row='$rowHelp'"
     Enter-Folder
+
+    # 49 - #202: Alt+Shift+arrows, which Narrator leaves alone, fold, unfold and edit the previous or next card
+    $card = Stored $B   # one line, as case 47 left it
+    (Card $card).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x12, 0x10) 0x25   # Alt+Shift+Left
+    $folded = (Flag $B 'IsFolded') -eq 1; $help = Focused-Help; $name = Focused-Name
+    $others = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND IsFolded = 1 AND Id <> $n' @{ '$f' = $FolderId; '$n' = $B } -Scalar)
+    Send-ToNoto @(0x12, 0x10) 0x27   # Alt+Shift+Right
+    Add-Result $run '49 Alt+Shift+Left folds the focused card (only it), Alt+Shift+Right unfolds it, focus kept' ($folded -and $help -match 'Folded' -and $name -eq $card -and $others -eq 0 -and (Flag $B 'IsFolded') -eq 0 -and (Focused-Name) -eq $card) "folded=$folded help=$help others=$others unfolded=$((Flag $B 'IsFolded') -eq 0) focus=$(Focused)"
+    Edit-Card $card
+    $typed = "$card folded by Alt+Shift"
+    Set-EditorText $typed
+    Send-ToNoto @(0x12, 0x10) 0x25   # Alt+Shift+Left, in the editor
+    Add-Result $run '49 Alt+Shift+Left in the editor saves, folds, leaves editing, the card focused' ((Stored $B) -eq $typed -and (Flag $B 'IsFolded') -eq 1 -and (Editors).Count -eq 0 -and (Focused-Name) -eq $typed) "db=$(Stored $B) folded=$(Flag $B 'IsFolded') editors=$((Editors).Count) focus=$(Focused)"
+    Send-ToNoto @(0x12, 0x10) 0x27   # Alt+Shift+Right
+    $o = @(Order); $i = $o.IndexOf($typed); $next = if ($i -ge 0 -and $i + 1 -lt $o.Count) { $o[$i + 1] } else { $null }
+    Edit-Card $typed
+    Send-ToNoto @(0x12, 0x10) 0x28   # Alt+Shift+Down
+    $wentNext = (Editors).Count -eq 1 -and ((Editor-Value) -replace "`r`n?", "`n") -eq ("$next" -replace "`r`n?", "`n"); $nextSaid = Editor-Value
+    Send-ToNoto @(0x12, 0x10) 0x26   # Alt+Shift+Up
+    Add-Result $run '49 in the editor Alt+Shift+Down edits the next card, Alt+Shift+Up returns to it with its text' ($null -ne $next -and $wentNext -and (Editors).Count -eq 1 -and (Editor-Value) -eq $typed -and (Focused) -match 'id=NoteEditor') "next='$next' got='$nextSaid' back=$(Editor-Value) focus=$(Focused)"
+    Send-ToNoto @() 0x1B
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

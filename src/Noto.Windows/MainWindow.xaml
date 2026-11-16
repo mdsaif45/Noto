@@ -538,8 +538,9 @@
 
                                 <!--
                                     F6 (#149): a folded card's "+ N lines", which unfolds it. Not a tab stop: a card is
-                                    one stop, and Ctrl+Alt+Right unfolds it from the keyboard. A folded card is never the
-                                    one being edited (editing unfolds), so it never meets the card's bar in this row.
+                                    one stop, and Ctrl+Alt+Right (Alt+Shift+Right with Narrator, #202) unfolds it from the
+                                    keyboard. A folded card is never the one being edited (editing unfolds), so it never
+                                    meets the card's bar in this row.
                                 -->
                                 <Button
                                     x:Name="UnfoldPill"
@@ -551,9 +552,9 @@
                                     Visibility="{x:Bind UnfoldPillVisibility, Mode=OneWay}"
                                     Content="{x:Bind HiddenLinesText, Mode=OneWay}"
                                     Click="OnUnfoldPillClick"
-                                    ToolTipService.ToolTip="Unfold (Ctrl+Alt+Right)"
+                                    ToolTipService.ToolTip="Unfold (Ctrl+Alt+Right or Alt+Shift+Right)"
                                     AutomationProperties.Name="{x:Bind UnfoldName, Mode=OneWay}"
-                                    AutomationProperties.AcceleratorKey="Control+Alt+Right" />
+                                    AutomationProperties.AcceleratorKey="Control+Alt+Right or Alt+Shift+Right" />
 
                                 <!-- The card's bar (B17), on the card being edited. Phase B adds pin, fold and move. -->
                                 <StackPanel
@@ -614,9 +615,9 @@
                                         x:Name="CardFoldButton"
                                         Style="{StaticResource HeaderButtonStyle}"
                                         Click="OnFoldCardClick"
-                                        ToolTipService.ToolTip="Fold (Ctrl+Alt+Left)"
+                                        ToolTipService.ToolTip="Fold (Ctrl+Alt+Left or Alt+Shift+Left)"
                                         AutomationProperties.Name="Fold"
-                                        AutomationProperties.AcceleratorKey="Control+Alt+Left">
+                                        AutomationProperties.AcceleratorKey="Control+Alt+Left or Alt+Shift+Left">
                                         <FontIcon Glyph="&#xE70E;" FontSize="{StaticResource IconSize}" />
                                     </Button>
                                     <Button

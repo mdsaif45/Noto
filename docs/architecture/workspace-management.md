@@ -70,6 +70,11 @@ key / menu item / button / drop
 
 ### Fold (B12, B13, G19–G22)
 - **Keys:** Ctrl+Alt+Left folds the current card and Ctrl+Alt+Right unfolds it. The menu toggles it.
+- **With Narrator on (#202):** Narrator takes every Ctrl+Alt+arrow (and Ctrl+Alt+Shift+arrow) for its table
+  navigation, so Alt+Shift+Left/Right fold and unfold too, and Alt+Shift+Up/Down edit the previous or next card from
+  the editor. Microsoft's Narrator command list has no Alt+Shift command; Alt+Shift has no Ctrl, so AltGr never
+  produces it (parity §12a). Fold all keeps only Ctrl+Alt+Shift+Left/Right; with Narrator on it is the list menu's
+  (#190).
 - **Fold all and unfold all:** Ctrl+Alt+Shift+Left/Right, through one command for the open folder.
 - **Folded state is stored:** `IsFolded` is the domain's.
 - **Editing a folded card unfolds it, and the unfold is stored** (ADR-016 §2). A folded card shows its title only; its content is untouched.
@@ -260,10 +265,10 @@ B6 adds no feature. It audits A–B5 and fixes what the audit found.
 | folder list | Ctrl+Alt+Shift+Up/Down | move the folder | PreviewKeyDown, first |
 | stack | Ctrl+N / Ctrl+Shift+M | new note / move to folder | the stack's accelerators, the editor included |
 | stack | Ctrl+Alt+Shift+Up/Down | move the card | PreviewKeyDown, first |
-| stack | Ctrl+Alt+Left/Right (+Shift) | fold / unfold (all) | PreviewKeyDown, second |
+| stack | Ctrl+Alt+Left/Right (+Shift); Alt+Shift+Left/Right (#202) | fold / unfold (all; Alt+Shift is one card) | PreviewKeyDown, second |
 | stack | Enter, F2 | edit the card | PreviewKeyDown, only from a card, never from the editor |
 | stack | Ctrl+Alt+Backspace | delete the card | the stack's KeyDown |
-| editor | Ctrl+Alt+Up/Down | edit the previous or next card | the host's PreviewKeyDown (after the stack's) |
+| editor | Ctrl+Alt+Up/Down; Alt+Shift+Up/Down (#202) | edit the previous or next card | the host's PreviewKeyDown (after the stack's) |
 | bin | Enter / Delete | restore / delete permanently (confirmed) | PreviewKeyDown, only from an entry |
 | everywhere | Escape | one level back, by the Escape setting | per surface (`WorkspaceEscape`) |
 | everywhere | Shift+F10, Menu | the row's menu | `ContextRequested` |

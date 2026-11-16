@@ -25,10 +25,10 @@ internal enum EditorLeave
     /// <summary>Escape: the stored Escape behaviour decides.</summary>
     Escape,
 
-    /// <summary>Ctrl+Alt+Down: edit the next card (G12).</summary>
+    /// <summary>Ctrl+Alt+Down, or Alt+Shift+Down (#202): edit the next card (G12).</summary>
     Next,
 
-    /// <summary>Ctrl+Alt+Up: edit the previous card (G11).</summary>
+    /// <summary>Ctrl+Alt+Up, or Alt+Shift+Up (#202): edit the previous card (G11).</summary>
     Previous,
 }
 
@@ -752,11 +752,13 @@ public sealed partial class NoteEditorHost : UserControl
         bool shift = IsDown(VirtualKey.Shift);
         bool alt = IsDown(VirtualKey.Menu);
 
+        // Alt+Shift+Up/Down leave too (#202): Narrator takes every Ctrl+Alt+arrow for its tables, and has no Alt+Shift
+        // command. Ctrl+Alt+Shift+Up/Down never get here: the stack takes them first, to move the card (G17, G18).
         EditorLeave? leave = e.Key switch
         {
             VirtualKey.Escape => EditorLeave.Escape,
-            VirtualKey.Up when ctrl && alt => EditorLeave.Previous,
-            VirtualKey.Down when ctrl && alt => EditorLeave.Next,
+            VirtualKey.Up when alt && (ctrl || shift) => EditorLeave.Previous,
+            VirtualKey.Down when alt && (ctrl || shift) => EditorLeave.Next,
             _ => null,
         };
 
@@ -767,7 +769,7 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
-        // Alt+Up/Down move the selected lines (G38, G39); with Ctrl they leave for another card (above).
+        // Alt+Up/Down move the selected lines (G38, G39); with Ctrl or Shift they leave for another card (above).
         if (alt && !ctrl && e.Key is VirtualKey.Up or VirtualKey.Down)
         {
             e.Handled = true;
