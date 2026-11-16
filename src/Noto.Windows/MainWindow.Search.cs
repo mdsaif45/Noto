@@ -13,7 +13,7 @@ using DispatcherQueuePriority = Microsoft.UI.Dispatching.DispatcherQueuePriority
 
 namespace Noto;
 
-/// <summary>Search (ADR-018): the surface, and opening or copying what it found.</summary>
+/// <summary>Search (ADR-018): the surface, and opening, copying or launching what it found.</summary>
 public sealed partial class MainWindow
 {
     private UIElement? _searchReturn;
@@ -59,6 +59,8 @@ public sealed partial class MainWindow
         page.BackRequested += OnSearchBackRequested;
         page.OpenRequested += OnSearchOpenRequested;
         page.CopyRequested += OnSearchCopyRequested;
+        page.LaunchRequested += OnSearchLaunchRequested;
+        page.FolderRequested += OnSearchFolderRequested;
         ((Panel)PaneRoot.Parent).Children.Add(page);
         SearchSurface = page;
 
@@ -116,6 +118,8 @@ public sealed partial class MainWindow
         page.BackRequested -= OnSearchBackRequested;
         page.OpenRequested -= OnSearchOpenRequested;
         page.CopyRequested -= OnSearchCopyRequested;
+        page.LaunchRequested -= OnSearchLaunchRequested;
+        page.FolderRequested -= OnSearchFolderRequested;
         SearchSurface = null;
 
         Control restore = _searchReturnFocus is { IsLoaded: true, Visibility: Visibility.Visible } previous
@@ -156,6 +160,9 @@ public sealed partial class MainWindow
             OpenFromSearch(folder.Id, null, 0);
         }
     }
+
+    /// <summary>Ctrl+Click on a note (#197; parity E5, G49): its folder is entered, Search closed, no note opened.</summary>
+    private void OnSearchFolderRequested(object? sender, FolderId folder) => OpenFromSearch(folder, null, 0);
 
     /// <summary>
     /// Opens a result (ADR-018 §3): enters its folder (leaving the open one, saving first), then edits the note with
@@ -239,5 +246,29 @@ public sealed partial class MainWindow
         // front. Run after the hide, focusing the hidden window activates it again, and Noto came back (measured: about
         // one Ctrl+C in two).
         _ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, () => DismissRequested?.Invoke(this, EventArgs.Empty));
+    }
+
+    /// <summary>
+    /// Ctrl+R (#197; parity D37, E4, G48): the note's first link is opened as the editor opens one (ADR-019 §2), then
+    /// Search closes and Noto hides, as quick copy does (E3): what was launched is in front, not the drawer. All three
+    /// are queued at one priority, in order: focus comes back, then the launch runs while Noto is still in front (so
+    /// Windows lets the app it opens come forward), then the hide. A file or folder that is gone says so in Search;
+    /// one that asks first keeps Noto shown, so the question is seen.
+    /// </summary>
+    private void OnSearchLaunchRequested(object? sender, string destination)
+    {
+        LinkCheck check = ShellLaunch.Inspect(destination);
+        if (!check.Exists)
+        {
+            SearchSurface?.ShowNotice("That file or folder is no longer there.");
+            return;
+        }
+
+        CloseSearch();
+        _ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, () => OpenLink(destination));
+        if (!check.AsksFirst)
+        {
+            _ = DispatcherQueue.TryEnqueueGuarded(DispatcherQueuePriority.Low, () => DismissRequested?.Invoke(this, EventArgs.Empty));
+        }
     }
 }

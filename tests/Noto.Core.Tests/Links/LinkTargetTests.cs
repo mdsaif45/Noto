@@ -85,6 +85,22 @@ public sealed class LinkTargetTests
         Assert.Equal(destination, LinkTarget.At(MarkdownDocument.Parse(source), position));
     }
 
+    [Theory]
+    [InlineData("Docs\nhttps://example.com/docs", "https://example.com/docs")]
+    [InlineData("See [the RFC](https://example.com/rfc) and www.example.org", "https://example.com/rfc")]
+    [InlineData("[bad](javascript:alert(1)) then [mail](mailto:me@example.com)", "mailto:me@example.com")]
+    [InlineData("![shot](https://example.com/a.png)\n[file](file:///C:/a/b.pdf)", "file:///C:/a/b.pdf")]
+    [InlineData("line one\nline two", null)]
+    [InlineData("[bad](javascript:alert(1))", null)]
+    [InlineData("![only an image](https://example.com/a.png)", null)]
+    [InlineData("```\nhttps://example.com/in-code\n```", null)]
+    [InlineData("", null)]
+    public void Search_launches_the_first_link_the_allow_list_opens(string content, string? destination)
+    {
+        // #197: Ctrl+R in Search. A refused link is passed over, never launched.
+        Assert.Equal(destination, LinkTarget.FirstOpenable(content));
+    }
+
     [Fact]
     public void A_web_address_pasted_over_a_selection_links_it()
     {

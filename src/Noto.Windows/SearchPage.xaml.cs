@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Folders;
+using Noto.Core.Links;
 using Noto.Core.Search;
 using Noto.Core.Storage;
 using Noto.UseCases.Workspace;
@@ -89,6 +90,12 @@ public sealed partial class SearchPage : UserControl
     /// <summary>The user asked to copy a note's text (E3): the text to copy.</summary>
     internal event EventHandler<string>? CopyRequested;
 
+    /// <summary>The user asked to launch a note's first link (#197; parity E4, G48): its destination, allowed.</summary>
+    internal event EventHandler<string>? LaunchRequested;
+
+    /// <summary>The user asked to open the folder a note lives in, not the note (#197; parity E5, G49).</summary>
+    internal event EventHandler<FolderId>? FolderRequested;
+
     /// <summary>
     /// Shows Search over <paramref name="search"/>. Opened inside a folder, it can be narrowed to that folder (E9);
     /// it starts across all of them, as SideNotes does.
@@ -130,11 +137,26 @@ public sealed partial class SearchPage : UserControl
     {
         if (e.ClickedItem is SearchResultItem item)
         {
-            OpenRequested?.Invoke(this, item);
+            Open(item);
         }
     }
 
-    /// <summary>The box keeps the keyboard (ADR-018 §3): Up and Down choose, Enter opens, Ctrl+C copies.</summary>
+    /// <summary>
+    /// Opens a result. With Ctrl held, a note's folder is entered instead (#197; parity E5, G49): Ctrl+Click, and
+    /// Ctrl+Enter for the keyboard. A folder result is itself the folder.
+    /// </summary>
+    private void Open(SearchResultItem item)
+    {
+        if (IsDown(VirtualKey.Control) && item.Note is { } note)
+        {
+            FolderRequested?.Invoke(this, note.FolderId);
+            return;
+        }
+
+        OpenRequested?.Invoke(this, item);
+    }
+
+    /// <summary>The box keeps the keyboard (ADR-018 §3): Up and Down choose, Enter opens, Ctrl+C copies, Ctrl+R launches.</summary>
     private void OnBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         switch (e.Key)
@@ -147,12 +169,13 @@ public sealed partial class SearchPage : UserControl
                 return;
             case VirtualKey.Enter when Selected is { } item:
                 e.Handled = true;
-                OpenRequested?.Invoke(this, item);
+                Open(item);
                 return;
         }
 
         // Ctrl+C copies the text selected in the box when there is some, as in any text box; otherwise the result.
-        e.Handled = e.Key == VirtualKey.C && (IsDown(VirtualKey.Shift) || SearchBox.SelectionLength == 0) && TryCopy();
+        e.Handled = (e.Key == VirtualKey.C && (IsDown(VirtualKey.Shift) || SearchBox.SelectionLength == 0) && TryCopy())
+            || (e.Key == VirtualKey.R && TryLaunch());
     }
 
     private void OnListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -160,11 +183,11 @@ public sealed partial class SearchPage : UserControl
         if (e.Key == VirtualKey.Enter && Selected is { } item)
         {
             e.Handled = true;
-            OpenRequested?.Invoke(this, item);
+            Open(item);
             return;
         }
 
-        e.Handled = e.Key == VirtualKey.C && TryCopy();
+        e.Handled = (e.Key == VirtualKey.C && TryCopy()) || (e.Key == VirtualKey.R && TryLaunch());
     }
 
     /// <summary>Ctrl+C copies the selected note's text, Ctrl+Shift+C without its title line (E3).</summary>
@@ -176,6 +199,29 @@ public sealed partial class SearchPage : UserControl
         }
 
         CopyRequested?.Invoke(this, IsDown(VirtualKey.Shift) ? SearchText.WithoutTitle(note.Content) : note.Content);
+        return true;
+    }
+
+    /// <summary>
+    /// Ctrl+R launches the selected note's first link the allow-list opens (#197; parity D37, E4, G48), as the editor
+    /// finds links. A note without one launches nothing and says so.
+    /// </summary>
+    private bool TryLaunch()
+    {
+        if (!IsDown(VirtualKey.Control) || IsDown(VirtualKey.Menu) || IsDown(VirtualKey.Shift) || Selected?.Note is not { } note)
+        {
+            return false;
+        }
+
+        if (LinkTarget.FirstOpenable(note.Content) is { } destination)
+        {
+            LaunchRequested?.Invoke(this, destination);
+        }
+        else
+        {
+            ShowNotice("This note has no link to open.");
+        }
+
         return true;
     }
 

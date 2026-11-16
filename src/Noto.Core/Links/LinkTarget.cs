@@ -66,6 +66,21 @@ public static class LinkTarget
         return plain.ToString();
     }
 
+    /// <summary>
+    /// The first link in <paramref name="content"/> Noto may open, in reading order, as the editor finds links: the one
+    /// Search's Ctrl+R launches (#197; parity E4, G48). A link the allow-list refuses is passed over, never opened; an
+    /// image's address is not a link. <see langword="null"/> when the note has none.
+    /// </summary>
+    public static string? FirstOpenable(string content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        MarkdownDocument document = MarkdownDocument.Parse(content);
+        return document.Spans
+            .Where(s => s.Kind == MarkdownSpanKind.Link)
+            .Select(s => At(document, s.Start))
+            .FirstOrDefault(d => Classify(d) != LinkKind.Refused);
+    }
+
     /// <summary>The kind of <paramref name="destination"/>, as written in the note.</summary>
     public static LinkKind Classify(string? destination) => Resolve(destination).Kind;
 
