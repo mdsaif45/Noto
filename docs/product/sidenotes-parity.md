@@ -643,8 +643,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | **Done** — = A12 |
 | `[x]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | **Done** — M2-2 (#60). Same code as C4, whose `[~]` is the single-click setting |
 | `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | #193 | **v0.2 score (2026-11-13):** Not built (§10.2 final chord Ctrl+Shift+O). |
-| `[x]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Down. **v0.3 score (2026-11-16):** Also Alt+Shift+Up in the editor, which Narrator leaves alone (#202; `Invoke-NoteStack` case 48, `Invoke-Narrator` N4). |
-| `[x]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up. **v0.3 score (2026-11-16):** Also Alt+Shift+Down in the editor, which Narrator leaves alone (#202). |
+| `[x]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Down. **v0.3 score (2026-11-16):** Also Alt+Shift+Down in the editor, which Narrator leaves alone (#202; `Invoke-NoteStack` case 49, `Invoke-Narrator` N4). |
+| `[x]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up. **v0.3 score (2026-11-16):** Also Alt+Shift+Up in the editor, which Narrator leaves alone (#202). |
 | `[ ]` | G13 | Hide (optional binding) | `⌘↩` | `Ctrl+Enter` | SHOULD | — | Off by default; see A11 |
 
 ### 7.3 Note management
