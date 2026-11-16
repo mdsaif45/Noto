@@ -2,7 +2,8 @@
 <#
 .SYNOPSIS
   Search (ADR-018): Ctrl+F from every surface, results as you type, the keyboard in the box, opening a note with the
-  caret at its match, opening a folder, scope, empty and no-results states, quick copy, and the cost per keystroke.
+  caret at its match, opening a folder, scope, empty and no-results states, quick copy, the cost per keystroke, and
+  (#197) Ctrl+R on a note without a link and Ctrl+Click entering a note's folder. No link is ever launched here.
 
 .DESCRIPTION
   A fresh isolated data root seeded with three small folders of realistic notes and an Archive of 3,000 more. Keys
@@ -20,6 +21,8 @@
      9  Ctrl+C copies the chosen note and hides Noto; Ctrl+Shift+C copies it without its title line
     10  cost: Noto's own trace for each keystroke of a query over 3,000 notes
     11  Dark: the same results, highlighted (screenshots of both themes in the run)
+    12  Ctrl+R on a note without a link launches nothing: Search stays open and says so (#197)
+    13  Ctrl+Click on a note enters its folder: Search closed, the folder's notes listed, no note opened (#197)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Search.ps1 -NotoExe <path>\Noto.exe
@@ -156,6 +159,18 @@ function Shot([string] $Name) {
     $bmp.Save((Join-Path $run.Root "$Name.png"), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
     "$Name.png"
 }
+function Click-At([int] $X, [int] $Y, [switch] $Ctrl) {
+    <# A real left click, only while Noto is in front and only where the window under the point is Noto. #>
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to click: Noto is not the foreground window' }
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
+    if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing to click at ($X,$Y): it is not Noto" }
+    [void][NotoVal.Win32]::SetCursorPos($X, $Y); Start-Sleep -Milliseconds 150
+    if ($Ctrl) { [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x11, $false))) }
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 60
+    [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 100
+    if ($Ctrl) { [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x11, $true))) }
+    Start-Sleep -Milliseconds 700
+}
 function Traces([string] $Pattern) { @($script:log.Lines($script:noto.Pid) | Where-Object { $_ -match $Pattern }) }
 function Ms([string] $Line) { if ($Line -match 'ms=([0-9.]+)') { [double]$Matches[1] } else { $null } }
 function Start-Fresh([string] $Theme) {
@@ -289,6 +304,27 @@ exit (Invoke-IsolatedRun $run -Title 'Search (ADR-018)' -Body {
     Type-Text 'meet'
     $darkShot = Shot 'dark-results'
     Add-Result $run '11 Dark: the same results, highlighted (see the screenshots)' ((Result-Names).Count -eq 2) "screenshots: $lightShot $darkShot"
+
+    # 12 - Ctrl+R on a note with no link: nothing launched, Search open, the notice in its status line
+    Clear-Box
+    Type-Text 'shopping'
+    $mark = @(Traces 'Noto\.Link open').Count
+    Send-ToNoto @(0x11) 0x52 900
+    $launched = @(Traces 'Noto\.Link open' | Select-Object -Skip $mark).Count
+    $notice = Status
+    $front = [NotoVal.Win32]::GetForegroundWindow() -eq $script:noto.Hwnd
+    Add-Result $run '12 Ctrl+R on a note without a link launches nothing; Search stays open and says so' ($launched -eq 0 -and $notice -eq 'This note has no link to open.' -and (Is-Open 'SearchRoot') -and $front -and (Focused-Id) -eq 'SearchBox') "launched=$launched status='$notice' front=$front focus=$(Focused-Id)"
+
+    # 13 - Ctrl+Click on a note: its folder is entered, the note is not opened
+    Clear-Box
+    Type-Text 'weekly'
+    $result = @(Results)[0]
+    $box = $result.Current.BoundingRectangle
+    Click-At ([int]($box.X + $box.Width / 2)) ([int]($box.Y + $box.Height / 2)) -Ctrl
+    Start-Sleep -Milliseconds 800
+    $cards = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { $_.Current.Name })
+    $editing = Is-Open 'NoteEditor'
+    Add-Result $run '13 Ctrl+Click on a note enters its folder: Search closed, its notes listed, no note opened' ((-not (Is-Open 'SearchRoot')) -and $cards.Count -eq 3 -and @($cards | Where-Object { $_ -like 'Weekly sync*' }).Count -eq 1 -and -not $editing) "clicked='$($result.Current.Name)' cards=$($cards -join ' | ') editing=$editing"
 }) }
 finally {
     $script:log.Dispose()

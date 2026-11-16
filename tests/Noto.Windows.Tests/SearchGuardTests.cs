@@ -25,7 +25,7 @@ public sealed class SearchGuardTests
         Assert.Equal(1, Regex.Count(Search + Main, @"new SearchPage\(\)"));
         Assert.DoesNotContain(MainXaml.Descendants(), e => e.Name.LocalName == "SearchPage");
         Assert.Matches(
-            @"\(\(Panel\)page\.Parent\)\.Children\.Remove\(page\);\s*page\.KeyDown -= OnSearchKeyDown;\s*page\.BackRequested -= OnSearchBackRequested;\s*page\.OpenRequested -= OnSearchOpenRequested;\s*page\.CopyRequested -= OnSearchCopyRequested;\s*SearchSurface = null;",
+            @"\(\(Panel\)page\.Parent\)\.Children\.Remove\(page\);\s*page\.KeyDown -= OnSearchKeyDown;\s*page\.BackRequested -= OnSearchBackRequested;\s*page\.OpenRequested -= OnSearchOpenRequested;\s*page\.CopyRequested -= OnSearchCopyRequested;\s*page\.LaunchRequested -= OnSearchLaunchRequested;\s*page\.FolderRequested -= OnSearchFolderRequested;\s*SearchSurface = null;",
             Body(Search, "CloseSearch"));
         Assert.Equal(2, Regex.Count(Search, @"SearchSurface = "));
     }
@@ -88,6 +88,38 @@ public sealed class SearchGuardTests
         Assert.Contains("case VirtualKey.Enter when Selected is { } item:", keys, StringComparison.Ordinal);
         Assert.Contains("e.Key == VirtualKey.C && (IsDown(VirtualKey.Shift) || SearchBox.SelectionLength == 0) && TryCopy()", keys, StringComparison.Ordinal);
         Assert.Contains("IsDown(VirtualKey.Shift) ? SearchText.WithoutTitle(note.Content) : note.Content", Body(Page, "TryCopy"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ctrl_R_launches_the_first_allowed_link_through_the_editors_path_then_hides()
+    {
+        // #197 (D37, E4, G48): the box and the list both take Ctrl+R; Core picks the link by ADR-019's allow-list.
+        Assert.Contains("|| (e.Key == VirtualKey.R && TryLaunch());", Body(Page, "OnBoxPreviewKeyDown"), StringComparison.Ordinal);
+        Assert.Contains("|| (e.Key == VirtualKey.R && TryLaunch());", Body(Page, "OnListPreviewKeyDown"), StringComparison.Ordinal);
+        string launch = Body(Page, "TryLaunch");
+        Assert.Contains("if (!IsDown(VirtualKey.Control) || IsDown(VirtualKey.Menu) || IsDown(VirtualKey.Shift) || Selected?.Note is not { } note)", launch, StringComparison.Ordinal);
+        Assert.Matches(@"if \(LinkTarget\.FirstOpenable\(note\.Content\) is \{ \} destination\)\s*\{\s*LaunchRequested\?\.Invoke\(this, destination\);\s*\}\s*else\s*\{\s*ShowNotice\(""[^""]+""\);\s*\}", launch);
+        Assert.Contains("page.LaunchRequested += OnSearchLaunchRequested;", Body(Search, "OpenSearch"), StringComparison.Ordinal);
+
+        // Opened only through OpenLink, which checks again and asks first where it must; a gone target stays in Search.
+        // The launch runs after the focus restore and before the hide, all at one priority; one that asks never hides.
+        string opened = Body(Search, "OnSearchLaunchRequested");
+        Assert.DoesNotContain("Process", opened, StringComparison.Ordinal);
+        Assert.Matches(@"LinkCheck check = ShellLaunch\.Inspect\(destination\);\s*if \(!check\.Exists\)\s*\{\s*SearchSurface\?\.ShowNotice\([^;]+\);\s*return;\s*\}\s*CloseSearch\(\);\s*_ = DispatcherQueue\.TryEnqueueGuarded\(DispatcherQueuePriority\.Low, \(\) => OpenLink\(destination\)\);\s*if \(!check\.AsksFirst\)\s*\{\s*_ = DispatcherQueue\.TryEnqueueGuarded\(DispatcherQueuePriority\.Low, \(\) => DismissRequested\?\.Invoke\(this, EventArgs\.Empty\)\);\s*\}", opened);
+    }
+
+    [Fact]
+    public void Ctrl_Click_or_Ctrl_Enter_on_a_note_enters_its_folder_and_a_plain_click_still_opens_it()
+    {
+        // #197 (E5, G49): every way of opening a result goes through Open, which reads Ctrl.
+        Assert.Contains("Open(item);", Body(Page, "OnResultClick"), StringComparison.Ordinal);
+        Assert.Contains("Open(item);", Body(Page, "OnBoxPreviewKeyDown"), StringComparison.Ordinal);
+        Assert.Contains("Open(item);", Body(Page, "OnListPreviewKeyDown"), StringComparison.Ordinal);
+        Assert.Equal(1, Regex.Count(Page, @"OpenRequested\?\.Invoke"));
+        Assert.Matches(@"if \(IsDown\(VirtualKey\.Control\) && item\.Note is \{ \} note\)\s*\{\s*FolderRequested\?\.Invoke\(this, note\.FolderId\);\s*return;\s*\}\s*OpenRequested\?\.Invoke\(this, item\);", Body(Page, "Open"));
+
+        Assert.Contains("page.FolderRequested += OnSearchFolderRequested;", Body(Search, "OpenSearch"), StringComparison.Ordinal);
+        Assert.Contains("private void OnSearchFolderRequested(object? sender, FolderId folder) => OpenFromSearch(folder, null, 0);", Search, StringComparison.Ordinal);
     }
 
     [Fact]

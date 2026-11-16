@@ -43,7 +43,7 @@
                 TextChanged="OnQueryChanged"
                 PreviewKeyDown="OnBoxPreviewKeyDown"
                 AutomationProperties.Name="Search notes and folders"
-                AutomationProperties.HelpText="Up and Down choose a result, Enter opens it, Control+C copies it" />
+                AutomationProperties.HelpText="Up and Down choose a result, Enter opens it, Control+Enter opens its folder, Control+C copies it, Control+R opens its link" />
         </Grid>
 
         <StackPanel Grid.Row="1" Spacing="{StaticResource SpaceXS}">
