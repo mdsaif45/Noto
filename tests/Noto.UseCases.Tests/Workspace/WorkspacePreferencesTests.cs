@@ -1,5 +1,5 @@
-using Noto.Core.Notes;
 using Noto.Core.Activation;
+using Noto.Core.Notes;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
