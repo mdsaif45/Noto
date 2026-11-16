@@ -268,7 +268,7 @@ public sealed class NoteStackGuardTests
 
         // Only a click that began editing a card can start a double-click; a click in the editor began nothing.
         string tapped = Body(Main, "OnNoteListTapped");
-        Assert.Matches(@"bool wasFolded = card\.IsFolded;\s*EditCard\(card\.Id, CaretPlacement\.End\);\s*_cardClick = _stack\.Editing\?\.Value == card\.Id", tapped);
+        Assert.Matches(@"bool wasFolded = card\.IsFolded;\s*EditCard\(card\.Id, CaretPlacement\.End\);\s*_cardClick = _stack\.Editing is \{ \} editing && editing\.Value == card\.Id", tapped);
         Assert.Matches(@"if \(Environment\.TickCount64 - _foldedByClickAt <= _system\.DoubleClickTime\)\s*\{\s*e\.Handled = true;\s*return;\s*\}", tapped);
         Assert.True(tapped.IndexOf("_foldedByClickAt", StringComparison.Ordinal) < tapped.IndexOf("EditCard(", StringComparison.Ordinal), "The second click's tap would edit the folded card again.");
 
@@ -277,7 +277,7 @@ public sealed class NoteStackGuardTests
         string pressed = Body(Main, "OnNoteListPointerPressed");
         Assert.Contains("!point.Properties.IsLeftButtonPressed", pressed, StringComparison.Ordinal);
         Assert.Contains("_cardClick = null;", pressed, StringComparison.Ordinal);
-        Assert.Contains("_stack.Editing?.Value != first.Id", pressed, StringComparison.Ordinal);
+        Assert.Contains("_stack.Editing is not { } editing || editing.Value != first.Id", pressed, StringComparison.Ordinal);
         Assert.Contains("DoubleClick.IsSecond(first.At, first.Position.X, first.Position.Y, now, point.Position.X, point.Position.Y, _system.DoubleClickTime)", pressed, StringComparison.Ordinal);
         Assert.Matches(@"_foldedByClickAt = now;\s*if \(TryEndEdit\(\)\)\s*\{\s*FoldCard\(first\.Id, folded: !first\.WasFolded\);", pressed);
     }

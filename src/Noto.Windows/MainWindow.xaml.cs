@@ -1076,7 +1076,7 @@ public sealed partial class MainWindow : Window
             EditCard(card.Id, CaretPlacement.End);
 
             // Perhaps the first click of a double-click: OnNoteListPointerPressed decides on the second press.
-            _cardClick = _stack.Editing?.Value == card.Id
+            _cardClick = _stack.Editing is { } editing && editing.Value == card.Id
                 ? new CardClick(card.Id, wasFolded, Environment.TickCount64, e.GetPosition(NoteList))
                 : null;
         }
@@ -1105,7 +1105,7 @@ public sealed partial class MainWindow : Window
         _cardClick = null;
         long now = Environment.TickCount64;
 
-        if (_stack.Editing?.Value != first.Id
+        if (_stack.Editing is not { } editing || editing.Value != first.Id
             || !DoubleClick.IsSecond(first.At, first.Position.X, first.Position.Y, now, point.Position.X, point.Position.Y, _system.DoubleClickTime))
         {
             return;
