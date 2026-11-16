@@ -125,7 +125,7 @@ function Editor { Find-ById 'NoteEditor' }
 function Editor-Value { (Editor).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value }
 function Set-EditorText([string] $Text) { (Editor).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text); Start-Sleep -Milliseconds 300 }
 function Cards { @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) }
-function Card([string] $Name) { Cards | Where-Object { $_.Current.Name -eq $Name } | Select-Object -First 1 }
+function Card([string] $Name) { Cards | Where-Object { (Get-RowTitle $_.Current.Name) -eq $Name } | Select-Object -First 1 }
 function Send-ToNoto([int[]] $Mods, [int] $Key, [int] $Wait = 500) {
     if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to send keys: Noto is not the foreground window' }
     $rev = [int[]]$Mods.Clone(); [array]::Reverse($rev)

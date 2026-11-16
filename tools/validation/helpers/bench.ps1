@@ -89,17 +89,17 @@ function To-Folders {
 function Open-Folder([string] $Name) {
     To-Folders
     $script:row = $null
-    $null = Until { $script:row = @(Items 'FolderList' | Where-Object { $_.Current.Name -eq $Name })[0]; if (-not $script:row) { $l = Element 'FolderList'; if ($l) { try { $l.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).Scroll('NoAmount', 'LargeIncrement') } catch { } } }; $script:row } 20000 50
+    $null = Until { $script:row = @(Items 'FolderList' | Where-Object { (Get-RowTitle $_.Current.Name) -eq $Name })[0]; if (-not $script:row) { $l = Element 'FolderList'; if ($l) { try { $l.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).Scroll('NoAmount', 'LargeIncrement') } catch { } } }; $script:row } 20000 50
     if (-not $script:row) { throw "no folder '$Name' in the list" }
     # Selected and focused, and focus confirmed on that row, before Ctrl+Down: a virtualised row realised a moment ago
     # can lose a focus given too early.
     $held = Until {
         try {
-            $script:row = @(Items 'FolderList' | Where-Object { $_.Current.Name -eq $Name })[0]
+            $script:row = @(Items 'FolderList' | Where-Object { (Get-RowTitle $_.Current.Name) -eq $Name })[0]
             $script:row.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
             $script:row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $script:row.SetFocus()
             Start-Sleep -Milliseconds 150
-            $f = $AE::FocusedElement; $f -and $f.Current.Name -eq $Name -and (Fg) -eq $script:noto.Hwnd
+            $f = $AE::FocusedElement; $f -and (Get-RowTitle $f.Current.Name) -eq $Name -and (Fg) -eq $script:noto.Hwnd
         } catch { $false }
     } 10000 100
     if (-not $held) { throw "the folder '$Name' did not keep keyboard focus" }

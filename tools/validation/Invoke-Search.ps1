@@ -239,7 +239,7 @@ exit (Invoke-IsolatedRun $run -Title 'Search (ADR-018)' -Body {
     Type-Text 'groc'
     $names = @(Result-Names)
     Send-ToNoto @() 0x0D 1500
-    $cards = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { $_.Current.Name })
+    $cards = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { Get-RowTitle $_.Current.Name })
     Add-Result $run '5  a folder whose name matches comes first; Enter enters it' ($names[0] -eq 'Groceries, Folder' -and $cards.Count -eq 1 -and $cards[0] -like 'Shopping list*' -and -not (Is-Open 'SearchRoot')) "results=$($names -join ' | ') cards=$($cards -join ' | ')"
 
     # 6 - narrowed to the open folder
@@ -322,7 +322,7 @@ exit (Invoke-IsolatedRun $run -Title 'Search (ADR-018)' -Body {
     $box = $result.Current.BoundingRectangle
     Click-At ([int]($box.X + $box.Width / 2)) ([int]($box.Y + $box.Height / 2)) -Ctrl
     Start-Sleep -Milliseconds 800
-    $cards = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { $_.Current.Name })
+    $cards = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { Get-RowTitle $_.Current.Name })
     $editing = Is-Open 'NoteEditor'
     Add-Result $run '13 Ctrl+Click on a note enters its folder: Search closed, its notes listed, no note opened' ((-not (Is-Open 'SearchRoot')) -and $cards.Count -eq 3 -and @($cards | Where-Object { $_ -like 'Weekly sync*' }).Count -eq 1 -and -not $editing) "clicked='$($result.Current.Name)' cards=$($cards -join ' | ') editing=$editing"
 }) }

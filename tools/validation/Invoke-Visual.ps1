@@ -314,7 +314,7 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $shots += Shot "$t-stack"
 
         # 16 - F14 (#155): a #rrggbb code shows a swatch of its colour; the text read out is the code alone
-        $plan = Items (Find-ById 'NoteList') | Where-Object { $_.Current.Name -eq 'Project plan' } | Select-Object -First 1
+        $plan = Items (Find-ById 'NoteList') | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Project plan' } | Select-Object -First 1
         $red = if ($plan) { Colour-Count $plan.Current.BoundingRectangle ([System.Drawing.Color]::FromArgb(255, 0xE8, 0x11, 0x23)) } else { 0 }
         $textNode = if ($plan) { $plan.FindFirst($Scope::Subtree, [System.Windows.Automation.PropertyCondition]::new($AE::IsTextPatternAvailableProperty, $true)) }
         $read = if ($textNode) { $textNode.GetCurrentPattern($TP::Pattern).DocumentRange.GetText(-1) } else { '' }
@@ -322,17 +322,17 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
 
         # 15 - F7 (#150): a coloured card is tinted, off an uncoloured card's fill, and names its colour
         $cards = Items (Find-ById 'NoteList')
-        $blue = $cards | Where-Object { $_.Current.Name -eq 'Project plan' } | Select-Object -First 1
-        $plain = $cards | Where-Object { $_.Current.Name -ne 'Project plan' } | Select-Object -First 1
+        $blue = $cards | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Project plan' } | Select-Object -First 1
+        $plain = $cards | Where-Object { (Get-RowTitle $_.Current.Name) -ne 'Project plan' } | Select-Object -First 1
         $fb = if ($blue) { (Region-Stats $blue.Current.BoundingRectangle).Fill }; $fp = if ($plain) { (Region-Stats $plain.Current.BoundingRectangle).Fill }
         Add-Result $run "15 ${theme}: a coloured card (Blue) is tinted off an uncoloured card, and its help text names the colour" ($fb -and $fp -and (Distance $fb $fp) -ge 6 -and $blue.Current.HelpText -match 'Blue') "blue fill=$(if ($fb) { $fb.Name }) plain fill=$(if ($fp) { $fp.Name }) help='$(if ($blue) { $blue.Current.HelpText })'"
 
         # 17 - #191: the Bar style, chosen in Settings and applied live, drops the tint and keeps the marker
         function Style-Cards {
             $all = Items (Find-ById 'NoteList')
-            $b = $all | Where-Object { $_.Current.Name -eq 'Project plan' } | Select-Object -First 1
+            $b = $all | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Project plan' } | Select-Object -First 1
             # An unselected uncoloured card: a selected card has its own fill and the accent on its edge.
-            $p = $all | Where-Object { $_.Current.Name -ne 'Project plan' -and -not $_.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } | Select-Object -First 1
+            $p = $all | Where-Object { (Get-RowTitle $_.Current.Name) -ne 'Project plan' -and -not $_.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } | Select-Object -First 1
             [pscustomobject]@{ Blue = $b; Plain = $p }
         }
         function Set-ColourStyle([string] $Name) {
@@ -376,7 +376,7 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         Send-ToNoto @() 0x1B 900
 
         # the image-rich note, scrolled into view
-        $photos = @((Find-ById 'NoteList').FindAll($Scope::Children, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | Where-Object { $_.Current.Name -eq 'Trip photos' })[0]
+        $photos = @((Find-ById 'NoteList').FindAll($Scope::Children, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Trip photos' })[0]
         try { $photos.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView() } catch { }
         Start-Sleep -Milliseconds 1200
         $shots += Shot "$t-images"

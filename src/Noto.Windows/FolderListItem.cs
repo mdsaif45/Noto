@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Noto.Core.Workspace;
 
 namespace Noto;
 
@@ -111,16 +112,6 @@ public sealed class FolderListItem
     public Visibility PinnedMarkerVisibility =>
         IsPinned ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>
-    /// The folder's name.
-    /// </summary>
-    /// <remarks>
-    /// <b>Accessibility, not debugging.</b> A generated <c>ListViewItem</c>
-    /// container has no automation name of its own and falls back to
-    /// <see cref="object.ToString"/> on its data item, so the default would
-    /// announce "Noto.FolderListItem" to a screen reader for every row.
-    /// Observed with UI Automation against the running application.
-    /// </remarks>
     /// <summary>How many active notes the folder holds (#147); the recycle bin's are not counted.</summary>
     public int NoteCount { get; set; }
 
@@ -131,7 +122,14 @@ public sealed class FolderListItem
     /// The folder's state for assistive technology: the pin marker and the count are not read from the screen, so
     /// both are said here.
     /// </summary>
-    public string HelpText => (IsPinned ? "Pinned, " : string.Empty) + (NoteCount == 1 ? "1 note" : $"{CountText} notes");
+    public string HelpText => RowState.Of(IsPinned, folded: false, hiddenLines: 0, NoteCount == 1 ? "1 note" : $"{CountText} notes");
 
-    public override string ToString() => Name;
+    /// <summary>
+    /// The row's name: the folder's name, then "Pinned" when it is (#201). <b>Accessibility, not debugging.</b> A
+    /// generated <c>ListViewItem</c> container has no automation name of its own and falls back to this, so the
+    /// default would announce "Noto.FolderListItem" for every row (observed with UI Automation against the running
+    /// application). Narrator reads a list item's name and position, not its help text, so the state is in the name;
+    /// the count is on the row and stays in the help text.
+    /// </summary>
+    public override string ToString() => RowState.Name(Name, RowState.Of(IsPinned, folded: false, hiddenLines: 0));
 }

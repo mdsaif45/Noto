@@ -130,7 +130,7 @@ exit (Invoke-IsolatedRun $run -Title 'F9: drop files to import them' -Body {
 
     $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
     Bring-Forward
-    $workRow = @(Rows 'FolderList' | Where-Object { $_.Current.Name -eq 'Work' })[0]
+    $workRow = @(Rows 'FolderList' | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Work' })[0]
     $workRow.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x11) 0x28 1500
 
@@ -139,7 +139,7 @@ exit (Invoke-IsolatedRun $run -Title 'F9: drop files to import them' -Body {
     $effect = Drop-On (Find-ById 'NoteList') @($list, $plain, $photo, $doc)
     $notes = Contents $Work
     $status = Shown-Text 'NoteStatusText'; $notice = Shown-Text 'NoteNoticeText'
-    $cards = @(Rows 'NoteList' | ForEach-Object { $_.Current.Name })
+    $cards = @(Rows 'NoteList' | ForEach-Object { Get-RowTitle $_.Current.Name })
     Add-Result $run '1  four files on the stack: three notes first, in order; one result; the .docx named; Undo; files unchanged' (
         $notes.Count -eq 4 -and $notes[0] -match '^# List\n- milk\n!\[dot\]\(attachments/' -and $notes[1] -eq 'Plain text' -and $notes[2] -match '^Harbour\n!\[Harbour\.png\]\(attachments/' -and $notes[3] -eq 'Already here' -and
         $cards[2] -eq 'Harbour' -and $status -eq 'Imported 3 notes.' -and $notice -match 'report\.docx' -and (Visible-Id 'NoteUndoImportButton') -and @(Attachments).Count -eq $pictures + 2 -and (Stamp $all) -eq $stamped
@@ -157,7 +157,7 @@ exit (Invoke-IsolatedRun $run -Title 'F9: drop files to import them' -Body {
 
     # 3 - on the folder list, a file dropped on Home's row
     Invoke-Button 'BackButton'
-    $homeRow = @(Rows 'FolderList' | Where-Object { $_.Current.Name -eq 'Home' })[0]
+    $homeRow = @(Rows 'FolderList' | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Home' })[0]
     $effect = Drop-On $homeRow @($homeFile)
     $status = Shown-Text 'StatusText'
     Add-Result $run '3  a file dropped on Home''s row: a note in Home, one result, Undo offered; Work unchanged' (((Contents $HomeFolder) -join ',') -eq 'Home note' -and (Contents $Work).Count -eq 1 -and $status -eq 'Imported 1 note into Home.' -and (Visible-Id 'UndoImportButton') -and (Stamp $all) -eq $stamped) "$effect home=$((Contents $HomeFolder) -join ',') status='$status' undo=$(Visible-Id 'UndoImportButton') unchanged=$((Stamp $all) -eq $stamped)"

@@ -35,7 +35,8 @@
     20  the card menu's Move to: the recent folder first; choosing it moves the card
     21  Ctrl+Shift+M from the editor with unsaved text: saved first, then moved
     22  the card menu's Pin: the card goes first, stored, help text "Pinned", focus on it; Unpin returns it
-    23  Ctrl+Alt+Left folds the focused card, Ctrl+Alt+Right unfolds it: stored, help text, title kept, focus kept
+    23  Ctrl+Alt+Left folds the focused card, Ctrl+Alt+Right unfolds it: stored, help text, title kept, focus kept; its
+        name says "Folded" after its title, then not (#201)
     24  the card menu's Fold and Unfold
     25  Ctrl+Alt+Left in the editor with unsaved text: saved, folded, editing left, the card focused
     26  Enter on a folded card: it unfolds (stored) and edits
@@ -149,7 +150,7 @@ function Stored-Becomes([string] $Id, [string] $Text) {
     $false
 }
 function Cards { @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) }
-function Card([string] $Name) { Cards | Where-Object { $_.Current.Name -eq $Name } | Select-Object -First 1 }
+function Card([string] $Name) { Cards | Where-Object { (Get-RowTitle $_.Current.Name) -eq $Name } | Select-Object -First 1 }
 function Focused { $f = $AE::FocusedElement; "$($f.Current.ControlType.ProgrammaticName)|id=$($f.Current.AutomationId)|name=$($f.Current.Name)" }
 function Title { (Find-ById 'NoteFolderTitle').Current.Name }
 function Notice { $e = By-Id 'NoteNoticeText'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
@@ -190,7 +191,7 @@ function Pick([string] $Name) {
 function ColourOf([string] $Id) { [string](Sql $script:data 'SELECT ColorKey FROM Notes WHERE Id = $n' @{ '$n' = $Id } -Scalar) }
 function Flag([string] $Id, [string] $Column) { [int](Sql $script:data "SELECT $Column FROM Notes WHERE Id = `$n" @{ '$n' = $Id } -Scalar) }
 function IdOf([string] $Content) { [string](Sql $script:data 'SELECT Id FROM Notes WHERE Content = $c AND DeletedAt IS NULL' @{ '$c' = $Content } -Scalar) }
-function Focused-Name { $AE::FocusedElement.Current.Name }
+function Focused-Name { Get-RowTitle $AE::FocusedElement.Current.Name }
 function Focused-Help { $AE::FocusedElement.Current.HelpText }
 function Card-Help([string] $Name) { $c = Card $Name; if ($c) { $c.Current.HelpText } else { '(no card)' } }
 function Order { @(Sql-Rows 'SELECT Content FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder, Id' @{ '$f' = $FolderId }) }
@@ -209,7 +210,7 @@ function Sql-Rows([string] $Text, [hashtable] $Parameters) {
 }
 function Above([string] $First, [string] $Second) { $o = Order; $o.IndexOf($First) -ge 0 -and $o.IndexOf($First) + 1 -eq $o.IndexOf($Second) }
 function Menu-Enabled([string] $Name) { (Menu-Item $Name).Current.IsEnabled }
-function Folder-Rows { @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { $_.Current.Name }) }
+function Folder-Rows { @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | ForEach-Object { Get-RowTitle $_.Current.Name }) }
 function Fence([int] $X, [int] $Y) {
     $pt = New-Object NotoVal.Win32+POINT; $pt.X = $X; $pt.Y = $Y
     if ([NotoVal.Win32]::GetAncestor([NotoVal.Win32]::WindowFromPoint($pt), 2) -ne $script:noto.Hwnd) { throw "refusing pointer input at ($X,$Y): it is not Noto" }
@@ -305,9 +306,9 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
 
     $countAtStart = ActiveCount
     # 1 - enter the folder
-    $folderName = (Find-ById 'FolderList').FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)).Current.Name
+    $folderName = Get-RowTitle (Find-ById 'FolderList').FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)).Current.Name
     Enter-Folder
-    $names = @(Cards | Select-Object -First 3 | ForEach-Object { $_.Current.Name }) -join ','
+    $names = @(Cards | Select-Object -First 3 | ForEach-Object { Get-RowTitle $_.Current.Name }) -join ','
     Add-Result $run '1  cards, no editor, focus on a card; folder and card names as shown' ($folderName -eq 'Stack' -and $names -eq 'Alpha,Beta,Gamma' -and (Editors).Count -eq 0 -and (Focused) -match 'ListItem') "folder=$folderName first=$names realised=$((Cards).Count) editors=$((Editors).Count) focus=$(Focused)"
 
     # 2 - Enter edits the focused card
@@ -338,7 +339,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Set-EditorText 'Beta before new · exact'
     $before = ActiveCount
     Send-ToNoto @(0x11) 0x4E
-    $selected = (Find-ById 'NoteList').GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() | ForEach-Object { $_.Current.Name }
+    $selected = (Find-ById 'NoteList').GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() | ForEach-Object { Get-RowTitle $_.Current.Name }
     Add-Result $run '7  Ctrl+N saves the card exactly, then edits one new note' ((Stored $B) -eq 'Beta before new · exact' -and (ActiveCount) -eq $before + 1 -and (Editors).Count -eq 1 -and (Editor-Value) -eq '' -and (Focused) -match 'id=NoteEditor' -and $selected -eq 'Untitled note') "db=$(Stored $B) notes=$before->$(ActiveCount) value='$(Editor-Value)' selected=$selected focus=$(Focused)"
     Send-ToNoto @() 0x1B
 
@@ -404,7 +405,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Add-Result $run '13 Ctrl+, from the editor; Escape returns to it with its text' ($settings -and (Editor-Value) -eq 'Unsaved across settings' -and (Focused) -match 'id=NoteEditor') "settings=$settings value=$(Editor-Value) focus=$(Focused)"
 
     # 14 - Ctrl+W saves and hides; shown again, still editing
-    $editing = (Cards)[0].Current.Name
+    $editing = (Get-RowTitle (Cards)[0].Current.Name)
     Send-ToNoto @(0x11) 0x57
     Start-Sleep -Milliseconds 800
     $hidden = -not [NotoVal.Win32]::IsWindowVisible($script:noto.Hwnd)
@@ -464,19 +465,21 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     (Card 'Filler 7').SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79
     Choose 'Pin'
-    $first = (Cards)[0].Current.Name
+    $first = (Get-RowTitle (Cards)[0].Current.Name)
     Add-Result $run '22 Pin from the menu: first, stored, help text Pinned, focus on it' ($first -eq 'Filler 7' -and (Flag $id7 'IsPinned') -eq 1 -and (Card-Help 'Filler 7') -match 'Pinned' -and (Focused-Name) -eq 'Filler 7') "first=$first pinned=$(Flag $id7 'IsPinned') help=$(Card-Help 'Filler 7') focus=$(Focused)"
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Choose 'Unpin'
-    $first = (Cards)[0].Current.Name
+    $first = (Get-RowTitle (Cards)[0].Current.Name)
     Add-Result $run '22 ... the menu then offers Unpin, which returns it to its place' (($menu -contains 'Unpin') -and -not ($menu -contains 'Pin') -and $first -ne 'Filler 7' -and (Flag $id7 'IsPinned') -eq 0 -and (Focused-Name) -eq 'Filler 7') "menu=$($menu -join ',') first=$first focus=$(Focused)"
 
     # 23 - Ctrl+Alt+Left / Right on the focused card
     Send-ToNoto @(0x11, 0x12) 0x25
     $folded = (Flag $id7 'IsFolded') -eq 1; $help = Focused-Help; $name = Focused-Name
+    $said = $AE::FocusedElement.Current.Name   # #201: the state in the name itself, which is all Narrator reads
     Send-ToNoto @(0x11, 0x12) 0x27
-    Add-Result $run '23 Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds: stored, help text, title and focus kept' ($folded -and $help -match 'Folded' -and $name -eq 'Filler 7' -and (Flag $id7 'IsFolded') -eq 0 -and (Focused-Name) -eq 'Filler 7' -and (Focused-Help) -notmatch 'Folded') "folded=$folded help=$help unfolded=$((Flag $id7 'IsFolded') -eq 0) focus=$(Focused)"
+    $saidAfter = $AE::FocusedElement.Current.Name
+    Add-Result $run '23 Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds: stored, help text, title and focus kept; the name says Folded, then not' ($folded -and $help -match 'Folded' -and $name -eq 'Filler 7' -and $said -ceq 'Filler 7, Folded' -and $saidAfter -ceq 'Filler 7' -and (Flag $id7 'IsFolded') -eq 0 -and (Focused-Name) -eq 'Filler 7' -and (Focused-Help) -notmatch 'Folded') "folded=$folded help=$help name='$said' then '$saidAfter' unfolded=$((Flag $id7 'IsFolded') -eq 0) focus=$(Focused)"
 
     # 24 - Fold and Unfold from the menu
     Send-ToNoto @(0x10) 0x79
@@ -512,7 +515,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x11, 0x12) 0x25
     Send-ToNoto @(0x10) 0x79
     Choose 'Pin'
-    $first = (Cards)[0].Current.Name
+    $first = (Get-RowTitle (Cards)[0].Current.Name)
     $both = (Flag $id7 'IsPinned') -eq 1 -and (Flag $id7 'IsFolded') -eq 1
     Send-ToNoto @(0x10) 0x79
     Choose 'Unpin'
@@ -523,7 +526,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $list = Find-ById 'NoteList'
     $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100); Start-Sleep -Milliseconds 800
     $last = Cards | Where-Object { $_.Current.Name -like 'Filler *' } | Select-Object -Last 1
-    $lastName = $last.Current.Name
+    $lastName = Get-RowTitle $last.Current.Name
     $last.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x11, 0x12) 0x25
     $idLast = IdOf $lastName
@@ -536,17 +539,17 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     # The folder rows' note counts (#147) are read again on the way back: cases 19-21 moved notes out of Stack, so its
     # count has changed since the folder list was first shown.
     $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
-    $count = ActiveCount; $help = ($rows | Where-Object { $_.Current.Name -eq 'Stack' }).Current.HelpText
+    $count = ActiveCount; $help = ($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Stack' }).Current.HelpText
     Add-Result $run '30 back on the folder list, Stack says its current note count, changed since the start' ($count -ne $countAtStart -and $help -eq $(if ($count -eq 1) { '1 note' } else { "$count notes" })) "help='$help' active now=$count at start=$countAtStart"
     $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
-    ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' }).SetFocus(); Start-Sleep -Milliseconds 300
+    ($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Elsewhere' }).SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79
     Choose 'Pin'
-    $firstFolder = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name
+    $firstFolder = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name | ForEach-Object { Get-RowTitle $_ }
     $pinnedHelp = Focused-Help; $pinnedFocus = Focused-Name
     Send-ToNoto @(0x10) 0x79
     Choose 'Unpin'
-    $firstAfter = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name
+    $firstAfter = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))[0].Current.Name | ForEach-Object { Get-RowTitle $_ }
     Add-Result $run '30 folder Pin: first, help text Pinned, focus follows; Unpin returns it' ($firstFolder -eq 'Elsewhere' -and $pinnedHelp -match 'Pinned' -and $pinnedFocus -eq 'Elsewhere' -and $firstAfter -eq 'Stack' -and (Focused-Name) -eq 'Elsewhere') "first=$firstFolder help=$pinnedHelp focus=$pinnedFocus after=$firstAfter now=$(Focused)"
     Enter-Folder
 
@@ -576,11 +579,11 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Add-Result $run '33 Move to top, then Move to bottom, from the card menu; focus follows' ($top -eq 'Filler 12' -and $focusTop -eq 'Filler 12' -and $bottom -eq 'Filler 12' -and (Focused-Name) -eq 'Filler 12') "top=$top bottom=$bottom focus=$(Focused)"
 
     # 34 - the pin boundary
-    $firstName = (Cards)[0].Current.Name
+    $firstName = (Get-RowTitle (Cards)[0].Current.Name)
     (Card $firstName).SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79
     Choose 'Pin'
-    $nextName = (Cards)[1].Current.Name
+    $nextName = (Get-RowTitle (Cards)[1].Current.Name)
     (Card $nextName).SetFocus(); Start-Sleep -Milliseconds 300
     $before = (Order) -join '|'
     Send-ToNoto @(0x11, 0x12, 0x10) 0x26
@@ -630,7 +633,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $before = Orders; $beforeOrder = (Order) -join '|'
     $from = Grip (Card $o[3]); $to = UpperEdge (Card $o[0])
     Drag-To $from[0] $from[1] $to[0] $to[1]
-    $snapped = (Cards | Select-Object -First 4 | ForEach-Object { $_.Current.Name }) -join '|'
+    $snapped = (Cards | Select-Object -First 4 | ForEach-Object { Get-RowTitle $_.Current.Name }) -join '|'
     Add-Result $run '39 an unpinned card dragged above a pinned one is refused: nothing written, the stack snaps back' ((Orders) -eq $before -and ((Order) -join '|') -eq $beforeOrder -and $snapped -eq (((Order) | Select-Object -First 4) -join '|')) "unchanged=$((Orders) -eq $before) shown=$snapped focus=$(Focused)"
     (Card $o[0]).SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79
@@ -642,7 +645,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $editId = IdOf $editingName
     Edit-Card $editingName
     Set-EditorText "$editingName, unsaved while dragged"
-    $card = Cards | Where-Object { $_.Current.Name -eq $editingName } | Select-Object -First 1
+    $card = Cards | Where-Object { (Get-RowTitle $_.Current.Name) -eq $editingName } | Select-Object -First 1
     $from = Grip $card; $to = UpperEdge (Card $o[2])
     Drag-To $from[0] $from[1] $to[0] $to[1]
     $written = Stored-Becomes $editId "$editingName, unsaved while dragged"
@@ -662,7 +665,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 0); Start-Sleep -Milliseconds 500
 
     # 43 - one click on a card still edits it
-    $c = (Cards)[2]; $name = $c.Current.Name; $xy = Centre $c
+    $c = (Cards)[2]; $name = Get-RowTitle $c.Current.Name; $xy = Centre $c
     Fence $xy[0] $xy[1]
     [void][NotoVal.Win32]::SetCursorPos($xy[0], $xy[1]); Start-Sleep -Milliseconds 150
     [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 900
@@ -673,11 +676,11 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
     $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
     $start = (Folder-Rows) -join ','
-    $from = Grip ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' }); $to = UpperEdge ($rows | Where-Object { $_.Current.Name -eq 'Stack' })
+    $from = Grip ($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Elsewhere' }); $to = UpperEdge ($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Stack' })
     Drag-To $from[0] $from[1] $to[0] $to[1]
     $moved = (Folder-Rows) -join ','; $movedFocus = Focused-Name
     $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
-    $from = Grip ($rows | Where-Object { $_.Current.Name -eq 'Stack' }); $to = UpperEdge ($rows | Where-Object { $_.Current.Name -eq 'Elsewhere' })
+    $from = Grip ($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Stack' }); $to = UpperEdge ($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Elsewhere' })
     Drag-To $from[0] $from[1] $to[0] $to[1]
     Add-Result $run '42 a folder dragged above another lands there, focused; and back' ($start -eq 'Stack,Elsewhere' -and $moved -eq 'Elsewhere,Stack' -and $movedFocus -eq 'Elsewhere' -and ((Folder-Rows) -join ',') -eq 'Stack,Elsewhere') "start=$start moved=$moved focus=$movedFocus back=$((Folder-Rows) -join ',')"
     Enter-Folder
@@ -700,7 +703,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
 
     # 46 - F7 (#150): a note's colour from the keys, the card's menu and its bar; named in the card's help text
     $firstId = [string](Sql $script:data 'SELECT Id FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder, Id LIMIT 1' @{ '$f' = $FolderId } -Scalar)
-    $first = (Cards)[0]; $firstName = $first.Current.Name
+    $first = (Cards)[0]; $firstName = Get-RowTitle $first.Current.Name
     $first.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x11) 0x33   # Ctrl+3
     $byKey = ColourOf $firstId; $helpKey = Card-Help $firstName
@@ -744,7 +747,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Add-Result $run '47 a folded one-line note hides nothing: no pill, help text "Folded"' ($oneFolded -and (-not $onePill -or $onePill.Current.IsOffscreen) -and $oneHelp -eq 'Folded' -and (Flag $B 'IsFolded') -eq 0) "card='$one' folded=$oneFolded pill=$([bool]$onePill) help='$oneHelp' unfolded=$((Flag $B 'IsFolded') -eq 0)"
 
     # 48 - #189: Move to › New folder…, a name, Enter
-    $mover = (Cards | Where-Object { $_.Current.Name -like 'Filler *' } | Select-Object -First 1).Current.Name
+    $mover = (Cards | Where-Object { $_.Current.Name -like 'Filler *' } | Select-Object -First 1).Current.Name | ForEach-Object { Get-RowTitle $_ }
     $moverId = IdOf $mover
     $folderCount = [int](Sql $script:data 'SELECT COUNT(*) FROM Folders WHERE DeletedAt IS NULL' -Scalar)
     (Card $mover).SetFocus(); Start-Sleep -Milliseconds 300
@@ -772,7 +775,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $inside = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL' @{ '$f' = $made } -Scalar)
     $left = -not (Card $mover) -and (ActiveCount) -eq $before - 1; $focusAfter = Focused
     (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
-    $row = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { $_.Current.Name -eq 'Made by Move to' }
+    $row = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Made by Move to' }
     $rowHelp = if ($row) { $row.Current.HelpText } else { '(no row)' }
     Add-Result $run '48 Move to › New folder…: a named box; empty refused, Escape creates nothing; a name and Enter make the folder with the card, which left the stack' ($top[-1] -eq 'New folder…' -and $boxName -eq 'New folder name' -and $boxFocused -and $refused -eq 'A folder name cannot be empty.' -and $emptyCreatedNone -and $cancelled -and $made -ne '' -and (Folders-Named 'Made by Move to') -eq 1 -and (FolderOf $moverId) -eq $made -and $inside -eq 1 -and $left -and $focusAfter -match 'ListItem' -and $rowHelp -eq '1 note') "top=$($top -join ',') box='$boxName' focused=$boxFocused refused='$refused' empty created none=$emptyCreatedNone cancelled=$cancelled made=$made inside=$inside left=$left focus=$focusAfter row='$rowHelp'"
     Enter-Folder
@@ -817,7 +820,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
 
     # A one-line card, so its centre is its title.
     $c = Cards | Where-Object { $_.Current.Name -like 'Filler *' -and -not $_.Current.IsOffscreen } | Select-Object -First 1
-    $name = $c.Current.Name; $id = IdOf $name; $xy = Centre $c
+    $name = Get-RowTitle $c.Current.Name; $id = IdOf $name; $xy = Centre $c
     Double-Click $xy[0] $xy[1]
     $folded = (Flag $id 'IsFolded') -eq 1; $notEditing = (Editors).Count -eq 0; $focus = Focused-Name; $help = Card-Help $name
     $xy = Centre (Card $name)
@@ -866,7 +869,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
 
     # 52 - #193: Ctrl+Shift+O toggles between the last two folders; Back's menu and its chevron list the other one
     (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
-    $other = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { $_.Current.Name -eq 'Elsewhere' }
+    $other = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Elsewhere' }
     $other.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $other.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x11) 0x28   # Ctrl+Down: Elsewhere, so the history is Elsewhere, Stack
     $opened = Title

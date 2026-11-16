@@ -277,7 +277,7 @@ exit (Invoke-IsolatedRun $run -Title '#31: drag and drop from Explorer, the desk
     else { Add-Invalid $run '4  the page''s picture was not found through UI Automation' }
 
     # 5 - text from Edge into the note being edited
-    $card = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | Where-Object { $_.Current.Name -eq 'Already here' })[0]
+    $card = @((Find-ById 'NoteList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Already here' })[0]
     $card.SetFocus(); Start-Sleep -Milliseconds 300
     Bring-Forward
     $card.SetFocus(); Start-Sleep -Milliseconds 300
