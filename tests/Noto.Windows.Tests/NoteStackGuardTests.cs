@@ -208,9 +208,22 @@ public sealed class NoteStackGuardTests
         // G19-G22, once, on the list's PreviewKeyDown, ahead of the Enter/F2 handling and of the TextBox.
         string keys = Body(Main, "OnNoteListPreviewKeyDown");
         Assert.Matches(
-            @"if \(e\.Key is VirtualKey\.Left or VirtualKey\.Right && IsControlDown\(\) && IsAltDown\(\)\)\s*\{\s*e\.Handled = true;\s*bool fold = e\.Key == VirtualKey\.Left;\s*if \(IsShiftDown\(\)\)\s*\{\s*FoldAll\(fold\);\s*\}\s*else if \(CurrentCard\(\) is \{ \} id\)\s*\{\s*FoldCard\(id, fold\);",
+            @"if \(e\.Key is VirtualKey\.Left or VirtualKey\.Right && IsAltDown\(\) && \(IsControlDown\(\) \|\| IsShiftDown\(\)\)\)\s*\{\s*e\.Handled = true;\s*bool fold = e\.Key == VirtualKey\.Left;\s*if \(IsControlDown\(\) && IsShiftDown\(\)\)\s*\{\s*FoldAll\(fold\);\s*\}\s*else if \(CurrentCard\(\) is \{ \} id\)\s*\{\s*FoldCard\(id, fold\);",
             keys);
         Assert.True(keys.IndexOf("VirtualKey.Left or VirtualKey.Right", StringComparison.Ordinal) < keys.IndexOf("VirtualKey.Enter", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Alt_Shift_Left_and_Right_fold_and_unfold_one_card_because_Narrator_takes_Ctrl_Alt_arrows()
+    {
+        // #202: Narrator answers every Ctrl+Alt+arrow (and Ctrl+Alt+Shift+arrow) itself. Alt+Shift+Left/Right fold and
+        // unfold one card; only Ctrl+Alt+Shift is every card, so Alt+Shift never folds the whole folder.
+        string keys = Body(Main, "OnNoteListPreviewKeyDown");
+        Assert.Contains("IsAltDown() && (IsControlDown() || IsShiftDown())", keys, StringComparison.Ordinal);
+        Assert.Contains("if (IsControlDown() && IsShiftDown())", keys, StringComparison.Ordinal);
+
+        // Ctrl+Alt+Shift+Up/Down (reorder) still come first, so Alt+Shift+Up/Down reach the editor's leave chords.
+        Assert.True(keys.IndexOf("IsControlDown() && IsAltDown() && IsShiftDown())", StringComparison.Ordinal) < keys.IndexOf("IsAltDown() && (IsControlDown() || IsShiftDown())", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -233,8 +246,8 @@ public sealed class NoteStackGuardTests
             ? MenuItem(""Unpin"", string.Empty, () => PinCard(card.Id, pinned: false))
             : MenuItem(""Pin"", string.Empty, () => PinCard(card.Id, pinned: true))", card, StringComparison.Ordinal);
         Assert.Contains(@"card.IsFolded
-            ? MenuItem(""Unfold"", ""Ctrl+Alt+Right"", () => FoldCard(card.Id, folded: false))
-            : MenuItem(""Fold"", ""Ctrl+Alt+Left"", () => FoldCard(card.Id, folded: true))", card, StringComparison.Ordinal);
+            ? MenuItem(""Unfold"", ""Ctrl+Alt+Right or Alt+Shift+Right"", () => FoldCard(card.Id, folded: false))
+            : MenuItem(""Fold"", ""Ctrl+Alt+Left or Alt+Shift+Left"", () => FoldCard(card.Id, folded: true))", card, StringComparison.Ordinal);
 
         string folder = Body(Main, "OnFolderListContextRequested");
         Assert.Contains(@"folder.IsPinned

@@ -23,6 +23,8 @@ public sealed class FoldPillGuardTests
         Assert.Equal("{x:Bind HiddenLinesText, Mode=OneWay}", (string?)pill.Attribute("Content"));
         Assert.Equal("{x:Bind UnfoldName, Mode=OneWay}", (string?)pill.Attribute("AutomationProperties.Name"));
         Assert.Equal("OnUnfoldPillClick", (string?)pill.Attribute("Click"));
+        Assert.Equal("Unfold (Ctrl+Alt+Right or Alt+Shift+Right)", (string?)pill.Attribute("ToolTipService.ToolTip"));
+        Assert.Equal("Control+Alt+Right or Alt+Shift+Right", (string?)pill.Attribute("AutomationProperties.AcceleratorKey"));
         Assert.Contains("FoldCard(card.Id, folded: false);", Handler("OnUnfoldPillClick"), StringComparison.Ordinal);
 
         // Counted by the domain's title rule, and only while folded: typing in an unfolded note never counts lines.
@@ -37,6 +39,10 @@ public sealed class FoldPillGuardTests
 
         Assert.Equal("Fold", (string?)fold.Attribute("AutomationProperties.Name"));
         Assert.Equal("OnFoldCardClick", (string?)fold.Attribute("Click"));
+
+        // Both keys are named (#202): Narrator takes Ctrl+Alt+Left, and Alt+Shift+Left is the one that works with it on.
+        Assert.Equal("Fold (Ctrl+Alt+Left or Alt+Shift+Left)", (string?)fold.Attribute("ToolTipService.ToolTip"));
+        Assert.Equal("Control+Alt+Left or Alt+Shift+Left", (string?)fold.Attribute("AutomationProperties.AcceleratorKey"));
         Assert.Contains("FoldCard(card.Id, folded: true);", Handler("OnFoldCardClick"), StringComparison.Ordinal);
     }
 

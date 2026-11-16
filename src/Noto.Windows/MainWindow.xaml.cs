@@ -1009,14 +1009,16 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds (G19, G20); with Shift, every card (G21, G22). Here, on the way
-        // down, so a card and its editor behave the same and the TextBox never takes the arrows.
-        if (e.Key is VirtualKey.Left or VirtualKey.Right && IsControlDown() && IsAltDown())
+        // Ctrl+Alt+Left folds, Ctrl+Alt+Right unfolds (G19, G20); with Shift, every card (G21, G22). Alt+Shift+Left and
+        // Alt+Shift+Right fold and unfold one card too (#202): Narrator takes every Ctrl+Alt+arrow for its tables, and
+        // has no Alt+Shift command. Here, on the way down, so a card and its editor behave the same and the TextBox never
+        // takes the arrows.
+        if (e.Key is VirtualKey.Left or VirtualKey.Right && IsAltDown() && (IsControlDown() || IsShiftDown()))
         {
             e.Handled = true;
             bool fold = e.Key == VirtualKey.Left;
 
-            if (IsShiftDown())
+            if (IsControlDown() && IsShiftDown())
             {
                 FoldAll(fold);
             }
@@ -1434,7 +1436,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Escape follows the stored behaviour; Ctrl+Alt+Up/Down edit the previous or next card (G11, G12).</summary>
+    /// <summary>
+    /// Escape follows the stored behaviour; Ctrl+Alt+Up/Down, or Alt+Shift+Up/Down with Narrator on (#202), edit the
+    /// previous or next card (G11, G12).
+    /// </summary>
     private void OnEditorLeaveRequested(object? sender, EditorLeave leave)
     {
         if (_stack.Editing is not { } editing)
@@ -2005,8 +2010,8 @@ public sealed partial class MainWindow : Window
             ? MenuItem("Unpin", string.Empty, () => PinCard(card.Id, pinned: false))
             : MenuItem("Pin", string.Empty, () => PinCard(card.Id, pinned: true)));
         menu.Items.Add(card.IsFolded
-            ? MenuItem("Unfold", "Ctrl+Alt+Right", () => FoldCard(card.Id, folded: false))
-            : MenuItem("Fold", "Ctrl+Alt+Left", () => FoldCard(card.Id, folded: true)));
+            ? MenuItem("Unfold", "Ctrl+Alt+Right or Alt+Shift+Right", () => FoldCard(card.Id, folded: false))
+            : MenuItem("Fold", "Ctrl+Alt+Left or Alt+Shift+Left", () => FoldCard(card.Id, folded: true)));
 
         var colour = new MenuFlyoutSubItem { Text = "Colour" };
         foreach (MenuFlyoutItemBase item in ColorItems(card))

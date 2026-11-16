@@ -14,7 +14,8 @@
 
     N1  the folder list: a row says its name, and "Pinned" for the pinned one
     N3  the card stack: a card says its title, and "Folded" with the lines it hides
-    N4  card commands: "Unfolded" and "Folded" are announced
+    N4  card commands: "Unfolded" and "Folded" are announced, by Alt+Shift+Right and Alt+Shift+Left: Narrator takes
+        Ctrl+Alt+arrows for its tables and answers "Not on table" (#202)
     N5  the editor: "Note content"
     N9  Search: the count, "1 result"
     N10 Settings: a control says its name and its state
@@ -132,11 +133,13 @@ try {
         Start-Sleep -Seconds 5; $foldedLater = Spoken
         Add-Result $run 'N3 card stack: a card says its title; a folded one says Folded and what it hides' ($firstCard -match 'Weekly sync' -and $folded -match 'Folded note' -and "$folded $foldedLater" -match 'Folded, 1 line hidden') "first: '$firstCard' | folded: '$folded' then '$foldedLater'"
 
-        # N4 - commands announced
-        Send-ToNoto @(0x11, 0x12) 0x27 2000; $unfolded = Spoken   # Ctrl+Alt+Right
+        # N4 - commands announced, by the chords Narrator leaves to Noto (#202)
+        Send-ToNoto @(0x12, 0x10) 0x27 2000; $unfolded = Spoken   # Alt+Shift+Right
         Focus-On (Rows 'NoteList')[1]
-        Send-ToNoto @(0x11, 0x12) 0x25 2000; $foldedAgain = Spoken   # Ctrl+Alt+Left
-        Add-Result $run 'N4 card commands announced: Unfolded, Folded' ($unfolded -match 'Unfolded' -and $foldedAgain -match 'Folded') "unfold: '$unfolded' | fold: '$foldedAgain'"
+        Send-ToNoto @(0x12, 0x10) 0x25 2000; $foldedAgain = Spoken   # Alt+Shift+Left
+        # Case-sensitive ("Unfolded" holds "folded"), and not the card's title "Folded note": the card's own phrase
+        # must not pass for the announcement.
+        Add-Result $run 'N4 Alt+Shift+Right and Alt+Shift+Left with Narrator on, announced: Unfolded, Folded' ($unfolded -cmatch '\bUnfolded\b' -and $foldedAgain -cmatch '\bFolded\b(?! note)') "unfold: '$unfolded' | fold: '$foldedAgain'"
 
         # N5 - the editor
         Focus-On (Rows 'NoteList')[0]

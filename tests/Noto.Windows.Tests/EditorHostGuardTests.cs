@@ -80,10 +80,12 @@ public sealed class EditorHostGuardTests
     }
 
     [Fact]
-    public void Alt_Up_and_Down_move_lines_and_Ctrl_Alt_still_leaves_for_another_card()
+    public void Alt_Up_and_Down_move_lines_and_Ctrl_Alt_or_Alt_Shift_still_leaves_for_another_card()
     {
-        // The leave chords are checked first: with Ctrl held, Alt+Up/Down never move a line.
-        Assert.True(Host.IndexOf("VirtualKey.Down when ctrl && alt => EditorLeave.Next", StringComparison.Ordinal) < Host.IndexOf("if (alt && !ctrl && e.Key is VirtualKey.Up or VirtualKey.Down)", StringComparison.Ordinal));
+        // The leave chords are checked first: with Ctrl or Shift held, Alt+Up/Down never move a line. Alt+Shift is the
+        // chord Narrator leaves alone (#202); it takes Ctrl+Alt+arrows for its tables.
+        Assert.Contains("VirtualKey.Up when alt && (ctrl || shift) => EditorLeave.Previous,", Host, StringComparison.Ordinal);
+        Assert.True(Host.IndexOf("VirtualKey.Down when alt && (ctrl || shift) => EditorLeave.Next", StringComparison.Ordinal) < Host.IndexOf("if (alt && !ctrl && e.Key is VirtualKey.Up or VirtualKey.Down)", StringComparison.Ordinal));
         Assert.Contains("e.Key == VirtualKey.Up ? MarkdownCommands.MoveLinesUp : MarkdownCommands.MoveLinesDown", Host, StringComparison.Ordinal);
     }
 
