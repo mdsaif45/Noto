@@ -59,7 +59,7 @@ public sealed class AutomationGuardTests
     public void A_first_start_does_its_request_once_the_folder_list_has_loaded_after_the_welcome_is_decided()
     {
         Assert.Matches(@"if \(automation is not null\)\s*\{\s*main\.RunAutomation\(automation\);\s*\}", App);
-        Assert.Matches(@"Refresh\(\);\s*OpenWelcomeAtStart\(\);\s*RunAutomationAtStart\(\);", Method(Main, "OnPaneFirstLoaded"));
+        Assert.Matches(@"Refresh\(\);\s*OpenLastFolderAtStart\(\);\s*OpenWelcomeAtStart\(\);\s*RunAutomationAtStart\(\);", Method(Main, "OnPaneFirstLoaded"));
 
         string run = Method(Automation, "RunAutomation");
         Assert.True(run.IndexOf("if (!_automationReady)", StringComparison.Ordinal) < run.IndexOf("switch (request)", StringComparison.Ordinal));
