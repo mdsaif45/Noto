@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batch 1 in review (PRs #208–#212), batch 2 in progress. **Planned:** 2026-11-16.
+**Status:** batches 1 and 2 in review (PRs #208–#217), batch 3 in progress. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -47,14 +47,17 @@ tests, `dotnet format`, and the runtime harness for the area).
 harness finds rows by, so it gets a PR of its own after batches 1 and 2 land, with the harnesses moved to automation
 ids in the same change.
 
-## Batch 3: larger features
+## Batch 3: five slices, built in parallel
 
-| Item | Issue | Rows |
-|---|---|---|
-| Clipboard behaviours: the **+** menu, copy picture, code detection, link titles, paste spacing | #187 | B3, D32, D39, D41–D43 |
-| `noto://` and a command line | #192 | C2, C7, C16, E6 |
-| File shortcuts with previews, the import setting | #196 | D34, I3, J16, J30 |
-| Code mode for a note | #195 | D27, D28, D45 |
+#187 holds five clipboard behaviours, so it is two slices.
+
+| # | Item | Issue | Rows | Size | Decision taken |
+|---|---|---|---|---|---|
+| 11 | The **+** menu, and copy a picture | #187 (1 of 2) | B3, D43, D32 | S–M | The + button's click is unchanged. Its context menu offers New note and New note from clipboard, through #157's path. A picture in a note gets Copy picture |
+| 12 | Paste behaviours | #187 (2 of 2) | D39, D41, D42 | M | Code detection wraps pasted code in a fence, **off by default**. Link titles are **not fetched**, since Noto never uses the network (principle 4). Pasting a URL over selected text makes a Markdown link instead, off by default. Auto-spaces: none are added, and a test pins that |
+| 13 | `noto://` and a command line | #192 | H3, H5, C2, C7, C16, E6 | M–L | ADR-022. `new`, `open`, `folders`, `new-folder` and `search`, with the same verbs on the command line. One parser in Core. A URI may only create or show, never delete, move or read files. The scheme is registered per user by the installer's hooks; a portable build never registers it. Folders get Copy link |
+| 14 | File shortcuts with previews | #196 | D34, I3, J16, J30 | M–L | A file link shows its shell icon and name, in Standard or Compact style. A double-click opens it through `ShellLaunch`'s checks. Two drop settings, whose defaults keep today's behaviour |
+| 15 | Code mode | #195 | D27, D28, D45 | M–L | Markdown (the default), Code (monospace, raw, spell check off) or Plain text, per note. A schema migration defaults existing notes to Markdown. Mode › in the card menu, and a default for new notes in Settings |
 
 ## Later in v0.3, or v0.4: the edge and the platform
 
