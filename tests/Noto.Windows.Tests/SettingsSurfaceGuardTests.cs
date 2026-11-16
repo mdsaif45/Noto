@@ -344,7 +344,7 @@ public sealed class SettingsSurfaceGuardTests
         string window = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
         Assert.Equal(1, Regex.Count(window, @"_stack\.Create\("));
         Assert.DoesNotContain("new CreateNote(", window, StringComparison.Ordinal);
-        Assert.Contains("_stack.Create(NewNotePlacement, selected);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Contains("CreateNoteInOpenFolder();", Body(Main, "OnCreateNoteAccelerator"), StringComparison.Ordinal);
         Assert.Contains("private void OnNewNoteClick(object sender, RoutedEventArgs e) => CreateNoteInOpenFolder();", Main, StringComparison.Ordinal);
         Assert.Contains("MenuItem(\"New note\", \"Ctrl+N\", CreateNoteInOpenFolder)", Main, StringComparison.Ordinal);
