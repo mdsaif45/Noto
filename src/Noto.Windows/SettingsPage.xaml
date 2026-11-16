@@ -132,6 +132,30 @@
                                     AutomationProperties.HelpText="Folders. Otherwise, double-click. A note is edited with one click either way." />
                             </Grid>
 
+                            <!-- #188: where a new note goes in its folder (B5, J8). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Where new notes go" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Pinned notes stay first." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="NewNotePlacementSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnNewNotePlacementChanged"
+                                    AutomationProperties.Name="Where new notes go"
+                                    AutomationProperties.HelpText="Pinned notes stay first.">
+                                    <ComboBoxItem Content="At the bottom" Tag="Bottom" />
+                                    <ComboBoxItem Content="At the top" Tag="Top" />
+                                    <ComboBoxItem Content="Above the selected note" Tag="AboveSelected" />
+                                    <ComboBoxItem Content="Below the selected note" Tag="BelowSelected" />
+                                </ComboBox>
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

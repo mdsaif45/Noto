@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
+using Noto.Core.Notes;
 using Noto.Core.Workspace;
 using Noto.Platform.Windows;
 using Noto.UseCases.Workspace;
@@ -158,6 +159,7 @@ public sealed partial class SettingsPage : UserControl
 
             Select(SideSetting, preferences.Edge.ToString());
             Select(EscapeSetting, preferences.Escape.ToString());
+            Select(NewNotePlacementSetting, preferences.NewNotePlacement.ToString());
             Select(ThemeSetting, preferences.Theme.ToString());
             NoteFontSetting.SelectedItem = NoteFontSetting.Items.OfType<ComboBoxItem>().FirstOrDefault(i => FontOf(i) == preferences.NoteFont);
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
@@ -267,6 +269,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnSingleClickToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetSingleClickOpen(SingleClickSetting.IsOn));
+
+    private void OnNewNotePlacementChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => NewNotePlacementSetting.SelectedItem is not null && p.SetNewNotePlacement(Selected<NewNotePlacement>(NewNotePlacementSetting)));
 
     private void OnHotkeyEnabledToggled(object sender, RoutedEventArgs e)
     {

@@ -1,3 +1,4 @@
+using Noto.Core.Notes;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -273,6 +274,7 @@ public sealed class WorkspacePreferencesTests
         { "SetEscape", SettingKeys.WorkspaceEscape.Name, EscapeBehavior.None },
         { "SetHideOnDeactivation", SettingKeys.WorkspaceHideOnDeactivation.Name, false },
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
+        { "SetNewNotePlacement", SettingKeys.NotesNewPlacement.Name, NewNotePlacement.AboveSelected },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
@@ -300,6 +302,7 @@ public sealed class WorkspacePreferencesTests
     [InlineData("SetEdge", 7)]
     [InlineData("SetEscape", 9)]
     [InlineData("SetTheme", 5)]
+    [InlineData("SetNewNotePlacement", 4)]
     public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
     {
         var store = new FakeSettings();
@@ -308,6 +311,7 @@ public sealed class WorkspacePreferencesTests
         {
             "SetEdge" => (WorkspaceEdge)undefined,
             "SetEscape" => (EscapeBehavior)undefined,
+            "SetNewNotePlacement" => (NewNotePlacement)undefined,
             _ => (WorkspaceTheme)undefined,
         };
 
@@ -344,6 +348,7 @@ public sealed class WorkspacePreferencesTests
         "SetEscape" => preferences.SetEscape((EscapeBehavior)value),
         "SetHideOnDeactivation" => preferences.SetHideOnDeactivation((bool)value),
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
+        "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(Noto.Core.Activation.HotkeyChord.Parse((string)value)),
@@ -356,6 +361,7 @@ public sealed class WorkspacePreferencesTests
         "SetEscape" => preferences.Escape,
         "SetHideOnDeactivation" => preferences.HideOnDeactivation,
         "SetSingleClickOpen" => preferences.SingleClickOpen,
+        "SetNewNotePlacement" => preferences.NewNotePlacement,
         "SetTheme" => preferences.Theme,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,

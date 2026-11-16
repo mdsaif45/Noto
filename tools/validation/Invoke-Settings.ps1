@@ -63,6 +63,9 @@
     19 the search shortcut (F21, #159): off by default; turned on, Ctrl+Shift+Win+F is registered; pressed from
        another app with Noto on the folder list: Noto in front with Search open and its box focused; pressed with
        Settings open: Settings is left and Search is open; turned off, the chord is released
+    20 where a new note goes (#188, B5, J8): At the bottom by default; At the top is stored and applied at once; in the
+       folder, Ctrl+N makes a note that is first in the folder (stored order and the note list's first card, edited);
+       then At the bottom again
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -85,7 +88,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'notes.new-placement')
 
 # ---------------------------------------------------------------- helpers
 
@@ -126,7 +129,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -519,6 +522,36 @@ try {
             Close-Settings-ByBack
         }
 
+        # ------------------------------------------------ 20 where a new note goes (#188)
+        if (Want 20) {
+            Noto-Front '20'
+            To-FolderList; Open-Settings-ByButton
+            $shownAtFirst = Combo-Value 'NewNotePlacementSetting'
+            $m = Trace-Mark; Choose 'NewNotePlacementSetting' 'At the top'
+            $applied = (Wait-Trace $m 'Noto\.Settings applied key=notes\.new-placement') -and (Stored 'notes.new-placement') -eq 'Top'
+            Add-Result $run '20 At the bottom by default; At the top is stored and applied at once' ($shownAtFirst -eq 'At the bottom' -and $applied) "shown at first='$shownAtFirst' stored=$(Stored 'notes.new-placement') trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+
+            $row = (Items 'FolderList')[0]; $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $row.SetFocus(); Start-Sleep -Milliseconds 300
+            Send-ToNoto @(0x11) 0x28   # Ctrl+Down: into the folder, which holds at least the seeded note
+            $null = Find-ById 'NoteList'
+            $before = Note-Count
+            Send-ToNoto @(0x11) 0x4E   # Ctrl+N
+            $editing = Until { (Focused-Id) -eq 'NoteEditor' }
+            # The newest note (ULIDs sort by time) is the folder's first in stored order (pinned first, O2) and the list's first card.
+            $newest = Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT Id FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY Id DESC LIMIT 1' -Parameters @{ '$f' = $FolderId }
+            $first = Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT Id FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder LIMIT 1' -Parameters @{ '$f' = $FolderId }
+            $cards = Items 'NoteList'
+            $firstCardEditing = $cards.Count -gt 1 -and (Count-In $cards[0] 'NoteEditor') -eq 1
+            Add-Result $run '20 with At the top, Ctrl+N in the folder makes a note that is first, edited' ($editing -and (Note-Count) -eq $before + 1 -and $before -ge 1 -and $newest -eq $first -and $firstCardEditing) "editing=$editing notes=$before->$(Note-Count) newest=$newest first=$first cards=$($cards.Count) first card editing=$firstCardEditing"
+            Send-ToNoto @() 0x1B
+
+            To-FolderList; Open-Settings-ByButton
+            Choose 'NewNotePlacementSetting' 'At the bottom'
+            Add-Result $run '20 At the bottom chosen again is stored' ((Stored 'notes.new-placement') -eq 'Bottom') ''
+            Close-Settings-ByBack
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -597,7 +630,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

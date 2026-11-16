@@ -42,6 +42,7 @@ public sealed class SettingsSurfaceGuardTests
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
             ("WorkspaceSingleClickOpen", @"_main\.SingleClickOpen = preferences\.SingleClickOpen"),
+            ("NotesNewPlacement", @"_main\.NewNotePlacement = preferences\.NewNotePlacement"),
             ("HotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.ShowHide, preferences\.HotkeyEnabled\)"),
             ("NewNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NewNote, preferences\.NewNoteHotkeyEnabled\)"),
             ("ClipboardNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NoteFromClipboard, preferences\.ClipboardNoteHotkeyEnabled\)"),
@@ -89,7 +90,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(13, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(14, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -306,6 +307,36 @@ public sealed class SettingsSurfaceGuardTests
         Assert.True(Index(tapped, "_system.DoubleClickTime") < Index(tapped, "EditCard("), "A card is edited before the double click is refused.");
     }
 
+    [Fact]
+    public void Where_a_new_note_goes_is_chosen_in_general_and_every_way_of_making_a_note_follows_it()
+    {
+        // #188 (B5, J8): one row in General, listing each placement once by its member name, shown and written through
+        // the typed preferences like its neighbours.
+        XElement box = Named(PageXaml, "NewNotePlacementSetting");
+        Assert.Equal(["Bottom", "Top", "AboveSelected", "BelowSelected"], box.Elements().Select(i => (string?)i.Attribute("Tag")));
+        Assert.Equal(["At the bottom", "At the top", "Above the selected note", "Below the selected note"], box.Elements().Select(i => (string?)i.Attribute("Content")));
+        Assert.Equal("Where new notes go", (string?)box.Attribute("AutomationProperties.Name"));
+        Assert.Equal("OnNewNotePlacementChanged", (string?)box.Attribute("SelectionChanged"));
+        Assert.Contains(box.Ancestors(), a => a.Elements().Any(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2" && (string?)h.Attribute("Text") == "General"));
+        Assert.Contains("Select(NewNotePlacementSetting, preferences.NewNotePlacement.ToString());", Body(Page, "ShowStored"), StringComparison.Ordinal);
+        Assert.Contains("p.SetNewNotePlacement(Selected<NewNotePlacement>(NewNotePlacementSetting))", Page, StringComparison.Ordinal);
+
+        // One place makes a note, and it passes the setting on: Ctrl+N, the + button, the card menu, and the new-note and
+        // clipboard shortcuts (the tray's included, NewNoteFromShortcut) all reach it, and nothing else creates a note.
+        string window = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
+        Assert.Equal(1, Regex.Count(window, @"_stack\.Create\("));
+        Assert.DoesNotContain("new CreateNote(", window, StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("CreateNoteInOpenFolder();", Body(Main, "OnCreateNoteAccelerator"), StringComparison.Ordinal);
+        Assert.Contains("private void OnNewNoteClick(object sender, RoutedEventArgs e) => CreateNoteInOpenFolder();", Main, StringComparison.Ordinal);
+        Assert.Contains("MenuItem(\"New note\", \"Ctrl+N\", CreateNoteInOpenFolder)", Main, StringComparison.Ordinal);
+        Assert.Contains("CreateNoteInOpenFolder();", Body(Code(Path.Join(Windows, "MainWindow.NewNoteShortcut.cs")), "NewNoteFromShortcut"), StringComparison.Ordinal);
+
+        // The session hands the placement to the command, and the command's handler decides through the one rule.
+        Assert.Contains("new CreateNote(folder, string.Empty, placement, selected)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
+        Assert.Contains("NewNotePlacementRule.Resolve(command.Placement, command.Selected,", Code(SourcePath("src", "Noto.UseCases", "Notes", "CreateNote.cs")), StringComparison.Ordinal);
+    }
+
     // ---------------------------------------------------------------- structure and accessibility
 
     [Fact]
@@ -313,7 +344,7 @@ public sealed class SettingsSurfaceGuardTests
     {
         string[] ids =
         [
-            "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "SideSetting",
+            "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "NewNotePlacementSetting", "SideSetting",
             "EscapeSetting", "ThemeSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
@@ -358,9 +389,9 @@ public sealed class SettingsSurfaceGuardTests
         }
 
         // The settings (the note font and text size, F13; automatic backups, F15; the formatting toolbar, F8; the new-note
-        // shortcut and its recorder, F17; the clipboard's, F18; Search's, F21), the Data group's Back up, Restore, Export, Import and their progress line
-        // (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(25, rows.Count);
+        // shortcut and its recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188), the Data group's
+        // Back up, Restore, Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
+        Assert.Equal(26, rows.Count);
 
         foreach (XElement row in rows)
         {
