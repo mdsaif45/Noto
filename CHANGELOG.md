@@ -10,6 +10,11 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ## [Unreleased]
 
+### Fixed
+
+- Narrator says a folder's or a note's state with its title, such as "Work, Pinned" or "Weekly sync, Folded, 3 lines
+  hidden". It read only the title before (#201).
+
 ### Added
 
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
