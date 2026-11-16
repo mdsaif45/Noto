@@ -94,7 +94,7 @@ public sealed class SearchGuardTests
     public void Ctrl_R_launches_the_first_allowed_link_through_the_editors_path_then_hides()
     {
         // #197 (D37, E4, G48): the box and the list both take Ctrl+R; Core picks the link by ADR-019's allow-list.
-        Assert.Contains("|| (e.Key == VirtualKey.R && TryLaunch());", Body(Page, "OnBoxPreviewKeyDown"), StringComparison.Ordinal);
+        Assert.Contains("e.Handled = copied || (e.Key == VirtualKey.R && TryLaunch());", Body(Page, "OnBoxPreviewKeyDown"), StringComparison.Ordinal);
         Assert.Contains("|| (e.Key == VirtualKey.R && TryLaunch());", Body(Page, "OnListPreviewKeyDown"), StringComparison.Ordinal);
         string launch = Body(Page, "TryLaunch");
         Assert.Contains("if (!IsDown(VirtualKey.Control) || IsDown(VirtualKey.Menu) || IsDown(VirtualKey.Shift) || Selected?.Note is not { } note)", launch, StringComparison.Ordinal);

@@ -174,8 +174,8 @@ public sealed partial class SearchPage : UserControl
         }
 
         // Ctrl+C copies the text selected in the box when there is some, as in any text box; otherwise the result.
-        e.Handled = (e.Key == VirtualKey.C && (IsDown(VirtualKey.Shift) || SearchBox.SelectionLength == 0) && TryCopy())
-            || (e.Key == VirtualKey.R && TryLaunch());
+        bool copied = e.Key == VirtualKey.C && (IsDown(VirtualKey.Shift) || SearchBox.SelectionLength == 0) && TryCopy();
+        e.Handled = copied || (e.Key == VirtualKey.R && TryLaunch());
     }
 
     private void OnListPreviewKeyDown(object sender, KeyRoutedEventArgs e)
