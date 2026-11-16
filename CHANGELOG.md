@@ -29,6 +29,8 @@ format or behavior. Breaking changes are always called out explicitly.
 - Two more global shortcuts, off by default and rebindable in Settings › Shortcuts: *change side*
   (Ctrl+Shift+Win+S) moves Noto to the other edge, and *keep open* (Ctrl+Shift+Win+K) turns Keep Noto open on or off.
   Neither shows or hides Noto; Ctrl+D inside Noto is unchanged (#198).
+- The note list's bar has a *More* menu with Fold all and Unfold all, and a double-click on a note that isn't being
+  edited folds or unfolds it; inside a note being edited, a double-click still selects a word (#190).
 
 ## [0.2.0] - 2026-11-14
 
