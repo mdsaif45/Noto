@@ -59,6 +59,12 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether one click opens a folder or a note (parity J7, C4).</summary>
     public bool SingleClickOpen => _settings.Read(SettingKeys.WorkspaceSingleClickOpen);
 
+    /// <summary>Whether the pointer resting at the docked edge shows Noto: Hot Side (#185; parity A4).</summary>
+    public bool HotSide => _settings.Read(SettingKeys.HotSideEnabled);
+
+    /// <summary>Whether dragging something to the docked edge shows Noto (#185; parity A15, J27, J28).</summary>
+    public bool DragReveal => _settings.Read(SettingKeys.DragRevealEnabled);
+
     /// <summary>Whether Noto starts in the folder last opened (parity C14, J10, #193).</summary>
     public bool OpenLastFolder => _settings.Read(SettingKeys.WorkspaceOpenLastFolder);
 
@@ -186,6 +192,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether one click opens a folder or a note.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetSingleClickOpen(bool singleClick) => TryWrite(SettingKeys.WorkspaceSingleClickOpen, singleClick);
+
+    /// <summary>Sets whether the pointer resting at the docked edge shows Noto (#185).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetHotSide(bool on) => TryWrite(SettingKeys.HotSideEnabled, on);
+
+    /// <summary>Sets whether dragging something to the docked edge shows Noto (#185).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetDragReveal(bool on) => TryWrite(SettingKeys.DragRevealEnabled, on);
 
     /// <summary>Sets the mode a new note starts in (#195, D28). Notes already written keep their own.</summary>
     /// <returns>Whether it was kept: a value that is not a mode is refused.</returns>

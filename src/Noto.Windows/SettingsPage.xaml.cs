@@ -175,6 +175,8 @@ public sealed partial class SettingsPage : UserControl
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
+            HotSideSetting.IsOn = preferences.HotSide;
+            DragRevealSetting.IsOn = preferences.DragReveal;
             OpenLastFolderSetting.IsOn = preferences.OpenLastFolder;
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
@@ -317,6 +319,12 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnSingleClickToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetSingleClickOpen(SingleClickSetting.IsOn));
+
+    private void OnHotSideToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetHotSide(HotSideSetting.IsOn));
+
+    private void OnDragRevealToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetDragReveal(DragRevealSetting.IsOn));
 
     private void OnOpenLastFolderToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetOpenLastFolder(OpenLastFolderSetting.IsOn));

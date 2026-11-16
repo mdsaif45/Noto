@@ -667,4 +667,102 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     internal static partial int ReleaseDC(nint hWnd, nint hDC);
+
+    // Hot Side and drag to reveal (#185, ADR-007 §9): a low-level mouse hook on its own thread, one timer, and the
+    // reads made once when a dwell elapses.
+    internal const int WH_MOUSE_LL = 14;
+    internal const uint WM_QUIT = 0x0012;
+    internal const uint WM_LBUTTONDOWN = 0x0201;
+    internal const uint WM_LBUTTONUP = 0x0202;
+    internal const uint WM_RBUTTONDOWN = 0x0204;
+    internal const uint WM_RBUTTONUP = 0x0205;
+    internal const uint WM_MBUTTONDOWN = 0x0207;
+    internal const uint WM_MBUTTONUP = 0x0208;
+    internal const uint WM_XBUTTONDOWN = 0x020B;
+    internal const uint WM_XBUTTONUP = 0x020C;
+    internal const uint PM_NOREMOVE = 0x0000;
+    internal const int SM_CXDRAG = 68;
+    internal const int SM_CYDRAG = 69;
+    internal const uint GUI_INMOVESIZE = 0x00000002;
+    internal const uint DESKTOP_READOBJECTS = 0x0001;
+
+    /// <summary><c>MSLLHOOKSTRUCT</c>: the pointer event a low-level mouse hook is told about.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MSLLHOOKSTRUCT
+    {
+        public int x;
+        public int y;
+        public uint mouseData;
+        public uint flags;
+        public uint time;
+        public nuint dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MSG
+    {
+        public nint hwnd;
+        public uint message;
+        public nint wParam;
+        public nint lParam;
+        public uint time;
+        public int ptX;
+        public int ptY;
+        public uint lPrivate;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct GUITHREADINFO
+    {
+        public uint cbSize;
+        public uint flags;
+        public nint hwndActive;
+        public nint hwndFocus;
+        public nint hwndCapture;
+        public nint hwndMenuOwner;
+        public nint hwndMoveSize;
+        public nint hwndCaret;
+        public RECT rcCaret;
+    }
+
+    [LibraryImport("user32.dll", EntryPoint = "GetMessageW", SetLastError = true)]
+    internal static partial int GetMessage(MSG* lpMsg, nint hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+    [LibraryImport("user32.dll", EntryPoint = "PeekMessageW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool PeekMessage(MSG* lpMsg, nint hWnd, uint wMsgFilterMin, uint wMsgFilterMax, uint wRemoveMsg);
+
+    [LibraryImport("user32.dll", EntryPoint = "DispatchMessageW")]
+    internal static partial nint DispatchMessage(MSG* lpMsg);
+
+    [LibraryImport("user32.dll", EntryPoint = "PostThreadMessageW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool PostThreadMessage(uint idThread, uint Msg, nint wParam, nint lParam);
+
+    [LibraryImport("kernel32.dll")]
+    internal static partial uint GetCurrentThreadId();
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nuint SetTimer(nint hWnd, nuint nIDEvent, uint uElapse, delegate* unmanaged<nint, uint, nuint, uint, void> lpTimerFunc);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool KillTimer(nint hWnd, nuint uIDEvent);
+
+    [LibraryImport("user32.dll")]
+    internal static partial nint GetShellWindow();
+
+    [LibraryImport("user32.dll")]
+    internal static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetGUIThreadInfo(uint idThread, GUITHREADINFO* pgui);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nint OpenInputDesktop(uint dwFlags, [MarshalAs(UnmanagedType.Bool)] bool fInherit, uint dwDesiredAccess);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool CloseDesktop(nint hDesktop);
 }

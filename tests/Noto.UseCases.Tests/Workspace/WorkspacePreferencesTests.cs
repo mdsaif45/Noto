@@ -90,6 +90,16 @@ public sealed class WorkspacePreferencesTests
         Assert.True(new WorkspacePreferences(new FakeSettings()).HideOnDeactivation);
     }
 
+    [Fact]
+    public void With_nothing_stored_neither_edge_reveal_is_on()
+    {
+        // #185: no surprise reveals; each is turned on by the user, independently (principle 7).
+        var preferences = new WorkspacePreferences(new FakeSettings());
+
+        Assert.False(preferences.HotSide);
+        Assert.False(preferences.DragReveal);
+    }
+
     // ------------------------------------------------ width resolution
 
     public static TheoryData<Stored, Stored, double> Chain()
@@ -317,6 +327,8 @@ public sealed class WorkspacePreferencesTests
         { "SetEscape", SettingKeys.WorkspaceEscape.Name, EscapeBehavior.None },
         { "SetHideOnDeactivation", SettingKeys.WorkspaceHideOnDeactivation.Name, false },
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
+        { "SetHotSide", SettingKeys.HotSideEnabled.Name, true },
+        { "SetDragReveal", SettingKeys.DragRevealEnabled.Name, true },
         { "SetNewNotePlacement", SettingKeys.NotesNewPlacement.Name, NewNotePlacement.AboveSelected },
         { "SetOpenLastFolder", SettingKeys.WorkspaceOpenLastFolder.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
@@ -452,6 +464,8 @@ public sealed class WorkspacePreferencesTests
         "SetEscape" => preferences.SetEscape((EscapeBehavior)value),
         "SetHideOnDeactivation" => preferences.SetHideOnDeactivation((bool)value),
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
+        "SetHotSide" => preferences.SetHotSide((bool)value),
+        "SetDragReveal" => preferences.SetDragReveal((bool)value),
         "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
         "SetOpenLastFolder" => preferences.SetOpenLastFolder((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
@@ -468,6 +482,8 @@ public sealed class WorkspacePreferencesTests
         "SetEscape" => preferences.Escape,
         "SetHideOnDeactivation" => preferences.HideOnDeactivation,
         "SetSingleClickOpen" => preferences.SingleClickOpen,
+        "SetHotSide" => preferences.HotSide,
+        "SetDragReveal" => preferences.DragReveal,
         "SetNewNotePlacement" => preferences.NewNotePlacement,
         "SetOpenLastFolder" => preferences.OpenLastFolder,
         "SetTheme" => preferences.Theme,

@@ -472,6 +472,12 @@ public partial class App : Application
     /// <summary>The show/hide lifecycle; <see langword="null"/> when docking failed.</summary>
     private WindowCoordinator? _coordinator;
 
+    /// <summary>
+    /// Hot Side and drag to reveal's pointer hook (#185, ADR-007 §9): <see langword="null"/> while both are off, so
+    /// there is no hook at all, or when Windows refused it.
+    /// </summary>
+    private EdgePointer? _edgePointer;
+
     /// <summary>Which data root this process owns (A17).</summary>
     private InstanceKey? _instanceKey;
 
@@ -1027,6 +1033,10 @@ public partial class App : Application
             };
             _docked.AppActivationChanged += (_, e) => OnAppActivationChanged(e);
             _coordinator.Hidden += (_, _) => TrimWhenHidden();
+
+            // #185: the edge is read again whenever Noto is hidden, the one state a reveal starts from.
+            _coordinator.Hidden += (_, _) => ApplyEdgeReveal(preferences);
+            ApplyEdgeReveal(preferences);
         }
 
         // F22 (#160): a start at sign-in stays hidden; once its start-up work is done, it gives back what it is not using.
@@ -1519,6 +1529,11 @@ public partial class App : Application
         else if (key == SettingKeys.WorkspaceEdge)
         {
             _coordinator?.ChangeEdge(DockEdges.From(preferences.Edge));
+            ApplyEdgeReveal(preferences);
+        }
+        else if (key == SettingKeys.HotSideEnabled || key == SettingKeys.DragRevealEnabled)
+        {
+            ApplyEdgeReveal(preferences);
         }
         else if (key == SettingKeys.WorkspaceEscape && _main is not null)
         {
@@ -1571,6 +1586,48 @@ public partial class App : Application
 
         // The key, never a value a user typed: evidence for the settings harness.
         Trace.WriteLine($"Noto.Settings applied key={key.Name}");
+    }
+
+    /// <summary>
+    /// Hot Side and drag to reveal (#185, ADR-007 §9), applied at once: the hook is installed while either is on and
+    /// removed when both are off, and told what is on and where the docked edge is now. Called at launch, when either
+    /// setting or the side changes, and whenever Noto is hidden.
+    /// </summary>
+    private void ApplyEdgeReveal(WorkspacePreferences preferences)
+    {
+        bool hotSide = preferences.HotSide;
+        bool drag = preferences.DragReveal;
+
+        if ((!hotSide && !drag) || _window is null || _windowHandle is null || _docked is null || _coordinator is null)
+        {
+            _edgePointer?.Dispose();
+            _edgePointer = null;
+            return;
+        }
+
+        if (_edgePointer is null)
+        {
+            // The hook decides on its own thread; the reveal is carried out here, on the UI thread.
+            DispatcherQueue ui = _window.DispatcherQueue;
+            _edgePointer = EdgePointer.Start(_windowHandle, requestTime => _ = ui.TryEnqueueGuarded(() => RevealAtEdge(requestTime)));
+        }
+
+        _edgePointer?.Configure(hotSide, drag, _docked.Edge);
+    }
+
+    /// <summary>
+    /// A gesture at the docked edge revealed Noto (#185): through the one activation path, as a launch, which shows,
+    /// restores or brings Noto forward and never hides it, with every drop the coordinator applies.
+    /// </summary>
+    private void RevealAtEdge(int requestTime)
+    {
+        if (_closing || _coordinator is null)
+        {
+            return;
+        }
+
+        WorkspaceAction action = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, requestTime);
+        Trace.WriteLine($"Noto.Edge reveal action={action}");
     }
 
     /// <summary>
@@ -1677,6 +1734,7 @@ public partial class App : Application
         _searchHotkey?.Dispose();
         _changeSideHotkey?.Dispose();
         _keepOpenHotkey?.Dispose();
+        _edgePointer?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
         // process's handle and the process never ends holding it.
