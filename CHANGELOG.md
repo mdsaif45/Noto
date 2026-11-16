@@ -37,6 +37,8 @@ format or behavior. Breaking changes are always called out explicitly.
   note can be copied as a picture from the editor's menu, or with Ctrl+C when it alone is selected (#187).
 - Noto remembers the folders you open: Ctrl+Shift+O switches back to the folder you were in, Back's menu and its
   chevron list your recent folders, and Settings can open the last folder when Noto starts (#193).
+- Settings › *Paste code as a code block*: lines of code pasted with Ctrl+V go in a fenced code block. Off by default;
+  Ctrl+Shift+V always pastes plain text (#187).
 
 ## [0.2.0] - 2026-11-14
 
