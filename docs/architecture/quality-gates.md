@@ -1,7 +1,7 @@
 # Quality Gates — Performance, Testing, Privacy
 
 **Status:** Draft — budgets provisional; first baseline measured (#11)
-**Last updated:** 2026-10-13
+**Last updated:** 2026-11-17
 
 ---
 
@@ -35,6 +35,66 @@ Both have the same amount of work in them. Only one can be used.
 Noto is a background utility competing with a scratch file that is **already
 open**. The moment a user weighs whether opening Noto is worth it, Noto has
 lost.
+
+### How to measure a change (for a PR)
+
+The procedure #11 asks for, in one place. It needs PowerShell 7.4, the .NET SDK and an interactive, unlocked Windows
+session: no profiler, no admin rights, no extra tool. The harness's own prerequisites are in
+[tools/validation/README.md](../../tools/validation/README.md).
+
+1. **Build both sides in Release:** `main` and your branch. `dotnet build Noto.sln -c Release`, then copy each
+   `src\Noto.Windows\bin\Release\net9.0-windows10.0.19041.0\win-x64` folder somewhere else, so the two builds sit side
+   by side.
+2. **Prepare the machine:** on AC power, no Noto running, nothing heavy in the background, hands off mouse and keyboard
+   during a run (it switches to a temporary virtual desktop and back).
+3. **Run the baseline against each build**, on the same machine, one after the other (about 5 minutes each):
+
+   ```
+   pwsh -NoProfile -File tools/validation/Invoke-Performance.ps1 -NotoExe <build>\Noto.exe -Runs 5 -IdleSeconds 60 -NoteCount 1000
+   ```
+
+   It measures cold start (the first start after an install, files uncached), warm and `--login` starts to "usable"
+   (the hotkey responds), the hotkey show, idle CPU and working set over 60 s hidden and shown, and opening and saving
+   a short and a ~100 KB note. Each result line prints its medians; everything (median, min, max) is in
+   `%TEMP%\noto-validation\<run id>\performance.json`.
+4. **If the change touches the folder list, the card stack, the editor, pictures or search**, also run
+   `tools/validation/Invoke-Baseline.ps1 -NotoExe <build>\Noto.exe -Only <stage>` against each build (stages 1–8 are
+   listed in the script's header; stage 6 is search at 10,000 notes, stage 5 the editor at 5–250 KB).
+5. **Paste into the PR** the machine (logical processors, RAM, Windows build), the two commits, the run ids, and the
+   medians side by side:
+
+   ```
+   | Measure (median)                  | main | branch |
+   | --------------------------------- | ---- | ------ |
+   | Start: folder list                |      |        |
+   | Start: hotkey registered          |      |        |
+   | Login start: first chord served   |      |        |
+   | Hotkey: chord to window in front  |      |        |
+   | Idle 60 s hidden: CPU %, WS MB    |      |        |
+   | Idle 60 s shown: CPU %, WS MB     |      |        |
+   | Open a short / 100 KB note        |      |        |
+   | Save on hide, short / large (ms=) |      |        |
+   ```
+
+Numbers compare between builds on one machine, never across machines. Medians of separate runs of the same build
+differ (the warm window by up to ~90 ms, below): a difference smaller than that is noise until a second pair of runs
+agrees. A budget missed is reported against the table below, not hidden.
+
+**The current baseline is v0.2.0** (`0.2.0+f43a030`, the release package, 2026-11-14, `-Runs 5 -IdleSeconds 60
+-NoteCount 1000`, medians; [release-v0.2-checklist.md](../roadmap/release-v0.2-checklist.md#the-campaign-run-2026-11-14)):
+
+| Measure | v0.2.0 |
+| ------- | ------ |
+| Start: window / folder list | 652 / 715 ms |
+| Start: hotkey registered / tray icon added | 321 / 589 ms |
+| Login start: first chord served | 668.5 ms |
+| Hotkey: chord to window in front | 15 ms |
+| Idle 60 s, hidden | CPU 0.052% of a core, working set 7.2 MB |
+| Idle 60 s, shown | CPU 0%, working set 72 MB |
+| Open a short / 100,636-character note | 60 / 350 ms |
+| Save on hide, short / large note | 0.92 / 4.18 ms |
+
+The budgets each number is held to, and how they were set, follow.
 
 ### v0.1 budgets (2026-11-06, the performance and stability slice)
 
