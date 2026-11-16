@@ -1,6 +1,7 @@
 using Noto.Core.Activation;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.Core.Portability;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -69,8 +70,11 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether the formatting toolbar shows above selected text (F8).</summary>
     public bool FormatToolbar => _settings.Read(SettingKeys.EditorFormatToolbar);
 
-    /// <summary>Whether Noto backs itself up once a day (F15).</summary>
+    /// <summary>Whether Noto backs itself up (F15).</summary>
     public bool AutomaticBackups => _settings.Read(SettingKeys.BackupAutomatic);
+
+    /// <summary>How often the automatic backup is taken (#199).</summary>
+    public BackupFrequency BackupFrequency => _settings.Read(SettingKeys.BackupFrequency);
 
     /// <summary>Where a new note goes in its folder (parity B5, J8).</summary>
     public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
@@ -155,9 +159,13 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <returns>Whether it was kept.</returns>
     public bool SetFormatToolbar(bool shown) => TryWrite(SettingKeys.EditorFormatToolbar, shown);
 
-    /// <summary>Sets whether Noto backs itself up once a day.</summary>
+    /// <summary>Sets whether Noto backs itself up.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetAutomaticBackups(bool automatic) => TryWrite(SettingKeys.BackupAutomatic, automatic);
+
+    /// <summary>Sets how often the automatic backup is taken (#199).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetBackupFrequency(BackupFrequency frequency) => TryWrite(SettingKeys.BackupFrequency, frequency);
 
     /// <summary>Sets the family notes are shown in.</summary>
     /// <returns>Whether it was kept: a family outside <see cref="NoteText.Fonts"/> is refused.</returns>

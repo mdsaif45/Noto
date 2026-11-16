@@ -31,13 +31,33 @@ public sealed class MemoryTrimGuardTests
 
         // After a hide, a hidden start, and an automatic backup check.
         Assert.Contains("_coordinator.Hidden += (_, _) => TrimWhenHidden();", App, StringComparison.Ordinal);
-        Assert.Matches(@"await check\(\);\s*\}\s*// A backup reads the whole database[^\n]*\n\s*TrimWhenHidden\(\);", App);
+        Assert.Matches(@"timer\.Start\(\);\s*// A backup reads the whole database[^\n]*\n\s*TrimWhenHidden\(\);", App);
     }
 
     [Fact]
-    public void The_hourly_backup_check_counts_its_hour_from_the_first()
+    public void The_backup_check_restarts_its_timer_so_the_wait_counts_from_the_check()
     {
-        Assert.Matches(@"timer\.Stop\(\);\s*timer\.Interval = BackupCheckInterval;\s*timer\.Start\(\);", App);
+        Assert.Matches(@"timer\.Stop\(\);\s*timer\.Interval = await check\(\);\s*timer\.Start\(\);", App);
+    }
+
+    [Fact]
+    public void The_backup_timer_waits_until_the_next_is_due_and_a_change_of_frequency_applies_at_once()
+    {
+        // #199: the timer and a changed setting check through one path; the check passes the chosen frequency, and the
+        // wait it returns is Core's (AutomaticBackups.UntilNextCheck, unit tested): until the next is due, an hour at most.
+        Assert.Contains("_backupTimer.Tick += async (_, _) => await CheckAutomaticBackup();", App, StringComparison.Ordinal);
+        Assert.Matches(@"key == SettingKeys\.BackupAutomatic \|\| key == SettingKeys\.BackupFrequency\)\s*\{\s*_ = CheckAutomaticBackup\(\);", App);
+
+        string check = Regex.Match(App, @"private static async Task<TimeSpan> BackupIfDue\([\s\S]*?\n    }\n").Value;
+        Assert.Contains("return AutomaticBackups.LongestWait;", check, StringComparison.Ordinal);
+        Assert.Contains("await portability.BackupIfDue(frequency)", check, StringComparison.Ordinal);
+        Assert.Contains("return AutomaticBackups.UntilNextCheck(newest, TimeProvider.System.GetLocalNow(), frequency);", check, StringComparison.Ordinal);
+
+        // Nothing due is a comparison with the clock, before any work is started.
+        string portability = File.ReadAllText(SourcePath("src", "Noto.Windows", "DataPortability.cs"));
+        string due = Regex.Match(portability, @"public async Task<bool> BackupIfDue\(BackupFrequency frequency\)[\s\S]*?\n    }\n").Value;
+        int fast = due.IndexOf("NewestAutomaticBackup is { } known && !AutomaticBackups.IsDue(", StringComparison.Ordinal);
+        Assert.True(fast > 0 && fast < due.IndexOf("await Run(", StringComparison.Ordinal), "A check with nothing due starts work.");
     }
 
     /// <summary>Walks up to the repository root; a guard that silently skips is worse than none.</summary>

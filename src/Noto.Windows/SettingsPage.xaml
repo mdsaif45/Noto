@@ -599,7 +599,7 @@
                                     AutomationProperties.Name="Back up everything to a file" />
                             </Grid>
 
-                            <!-- F15 (#15): a backup a day, the last seven kept, into the data folder's backups. -->
+                            <!-- F15 (#15): automatic backups, the last seven kept, into the data folder's backups. -->
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -607,7 +607,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
                                     <TextBlock Text="Back up automatically" Style="{StaticResource SettingLabelStyle}" />
-                                    <TextBlock Text="Once a day, into the data folder's backups. The last 7 are kept." Style="{StaticResource SettingDescriptionStyle}" />
+                                    <TextBlock Text="Into the data folder's backups. The last 7 are kept." Style="{StaticResource SettingDescriptionStyle}" />
                                 </StackPanel>
                                 <ToggleSwitch
                                     x:Name="AutomaticBackupSetting"
@@ -615,7 +615,29 @@
                                     Style="{StaticResource SettingToggleSwitchStyle}"
                                     Toggled="OnAutomaticBackupToggled"
                                     AutomationProperties.Name="Back up automatically"
-                                    AutomationProperties.HelpText="Once a day, into the data folder's backups. The last 7 are kept." />
+                                    AutomationProperties.HelpText="Into the data folder's backups. The last 7 are kept." />
+                            </Grid>
+
+                            <!-- #199 (I8, J38): how often; off, like a shortcut's recorder, while automatic backup is off. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="How often" Style="{StaticResource SettingLabelStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="BackupFrequencySetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnBackupFrequencyChanged"
+                                    AutomationProperties.Name="How often to back up automatically">
+                                    <ComboBoxItem Content="Every day" Tag="Daily" />
+                                    <ComboBoxItem Content="Every 45 minutes" Tag="Every45Minutes" />
+                                    <ComboBoxItem Content="Every 30 minutes" Tag="Every30Minutes" />
+                                    <ComboBoxItem Content="Every 15 minutes" Tag="Every15Minutes" />
+                                </ComboBox>
                             </Grid>
 
                             <Grid Style="{StaticResource SettingRowStyle}">

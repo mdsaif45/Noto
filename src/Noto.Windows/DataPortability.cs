@@ -50,14 +50,26 @@ internal sealed class DataPortability(
     }
 
     /// <summary>
-    /// Takes an automatic backup into the data root's backups when one is due, then removes the automatic backups past
-    /// the seven newest (F15, #15). Nothing is done while another backup, restore, export or import runs: the next check
-    /// takes it.
+    /// When the newest automatic backup was taken, once a check has read the backups (#199); <see langword="null"/>
+    /// before, or when there is none.
+    /// </summary>
+    public DateTimeOffset? NewestAutomaticBackup { get; private set; }
+
+    /// <summary>
+    /// Takes an automatic backup into the data root's backups when one is due at <paramref name="frequency"/>, then
+    /// removes the automatic backups past the seven newest (F15, #15). Nothing is done while another backup, restore,
+    /// export or import runs: the next check takes it. Once the backups have been read, a check with nothing due is a
+    /// comparison with the clock and reads nothing (#199).
     /// </summary>
     /// <returns>Whether a backup was written.</returns>
     /// <exception cref="PortabilityException">The backup could not be taken or written: nothing was written.</exception>
-    public async Task<bool> BackupIfDue()
+    public async Task<bool> BackupIfDue(BackupFrequency frequency)
     {
+        if (NewestAutomaticBackup is { } known && !AutomaticBackups.IsDue(known, TimeProvider.System.GetLocalNow(), frequency))
+        {
+            return false;
+        }
+
         if (Busy)
         {
             return false;
@@ -65,16 +77,17 @@ internal sealed class DataPortability(
 
         try
         {
-            return await Run(() =>
+            (bool written, NewestAutomaticBackup) = await Run(() =>
             {
                 string directory = paths.BackupsDirectory;
                 Directory.CreateDirectory(directory);
                 var names = Directory.EnumerateFiles(directory).Select(f => Path.GetFileName(f)).ToList();
                 DateTimeOffset now = TimeProvider.System.GetLocalNow();
+                DateTimeOffset? newest = names.Select(AutomaticBackups.TakenAt).Max();
 
-                if (!AutomaticBackups.IsDue(names.Select(AutomaticBackups.TakenAt).Max(), now))
+                if (!AutomaticBackups.IsDue(newest, now, frequency))
                 {
-                    return false;
+                    return (false, newest);
                 }
 
                 string name = AutomaticBackups.FileName(now);
@@ -92,8 +105,10 @@ internal sealed class DataPortability(
                     }
                 }
 
-                return true;
+                return (true, AutomaticBackups.TakenAt(name));
             });
+
+            return written;
         }
         catch (InvalidOperationException)
         {

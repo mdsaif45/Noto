@@ -36,7 +36,8 @@ public sealed class SettingsSurfaceGuardTests
             ("AppearanceTheme", @"ApplyTheme\(_main, preferences\.Theme\)"),
             ("AppearanceNoteFont", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("AppearanceNoteSize", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
-            ("BackupAutomatic", @"_ = _automaticBackup\?\.Invoke\(\)"),
+            ("BackupAutomatic", @"_ = CheckAutomaticBackup\(\)"),
+            ("BackupFrequency", @"_ = CheckAutomaticBackup\(\)"),
             ("EditorFormatToolbar", @"NoteEditorHost\.ShowsFormatToolbar = preferences\.FormatToolbar"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
@@ -90,7 +91,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(14, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(15, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -388,10 +389,11 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // The settings (the note font and text size, F13; automatic backups, F15; the formatting toolbar, F8; the new-note
-        // shortcut and its recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188), the Data group's
+        // The settings (the note font and text size, F13; automatic backups, F15, and how often, #199; the formatting
+        // toolbar, F8; the new-note shortcut and its recorder, F17; the clipboard's, F18; Search's, F21; where a new note
+        // goes, #188), the Data group's
         // Back up, Restore, Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(26, rows.Count);
+        Assert.Equal(27, rows.Count);
 
         foreach (XElement row in rows)
         {
@@ -443,6 +445,31 @@ public sealed class SettingsSurfaceGuardTests
                 ? style.Elements().Where(s => (string?)s.Attribute("Property") == property).Select(s => (string?)s.Attribute("Value")).FirstOrDefault()
                 : null;
         }
+    }
+
+    [Fact]
+    public void How_often_to_back_up_offers_a_day_and_sidenotes_three_intervals_and_is_off_while_automatic_backup_is()
+    {
+        // #199 (I8, J38): the row follows Back up automatically, a choice per BackupFrequency member, named for what it
+        // sets; shown as stored, written through its one setter, and off while automatic backup is off, as a shortcut's
+        // recorder is while its shortcut is. A change is applied at once by the owner (the test above).
+        XElement toggle = Named(PageXaml, "AutomaticBackupSetting");
+        XElement choice = Named(PageXaml, "BackupFrequencySetting");
+        var rows = toggle.Parent!.Parent!.Elements().ToList();
+
+        Assert.Equal(rows.IndexOf(toggle.Parent!) + 1, rows.IndexOf(choice.Parent!));
+        Assert.Equal("ComboBox", choice.Name.LocalName);
+        Assert.Equal("How often to back up automatically", (string?)choice.Attribute("AutomationProperties.Name"));
+        Assert.Equal(
+            [("Every day", "Daily"), ("Every 45 minutes", "Every45Minutes"), ("Every 30 minutes", "Every30Minutes"), ("Every 15 minutes", "Every15Minutes")],
+            choice.Elements().Select(i => ((string)i.Attribute("Content")!, (string)i.Attribute("Tag")!)));
+        Assert.Equal(Enum.GetNames<Noto.Core.Portability.BackupFrequency>(), choice.Elements().Select(i => (string)i.Attribute("Tag")!));
+
+        string shown = Body(Page, "ShowStored");
+        Assert.Contains("Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());", shown, StringComparison.Ordinal);
+        Assert.Contains("BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;", shown, StringComparison.Ordinal);
+        Assert.Contains("BackupFrequencySetting.IsEnabled = _context.Preferences.AutomaticBackups;", Body(Page, "OnAutomaticBackupToggled"), StringComparison.Ordinal);
+        Assert.Contains("p.SetBackupFrequency(Selected<BackupFrequency>(BackupFrequencySetting))", Page, StringComparison.Ordinal);
     }
 
     [Fact]
