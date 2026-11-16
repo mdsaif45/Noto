@@ -171,10 +171,10 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     public void DiscardEdit() => StopEditing();
 
     /// <summary>
-    /// Creates an empty note at <paramref name="placement"/> beside <paramref name="selected"/> (B5) and edits it,
-    /// saving the card being edited first.
+    /// Creates a note at <paramref name="placement"/> beside <paramref name="selected"/> (B5) and edits it, saving the
+    /// card being edited first. Empty, unless a <c>noto://</c> link gave it <paramref name="content"/> (#192).
     /// </summary>
-    public CommandResult<NoteId> Create(NewNotePlacement placement, NoteId? selected)
+    public CommandResult<NoteId> Create(NewNotePlacement placement, NoteId? selected, string content = "")
     {
         if (Folder is not { } folder)
         {
@@ -188,7 +188,7 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
             return CommandResult.Failed<NoteId>(left.Failure!);
         }
 
-        CommandResult<NoteId> created = _commands.Dispatch(new CreateNote(folder, string.Empty, placement, selected));
+        CommandResult<NoteId> created = _commands.Dispatch(new CreateNote(folder, content, placement, selected));
 
         if (created.IsSuccess)
         {

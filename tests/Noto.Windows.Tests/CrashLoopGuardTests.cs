@@ -15,7 +15,7 @@ public sealed class CrashLoopGuardTests
     [Fact]
     public void A_start_checks_for_a_loop_once_it_owns_the_data_root_and_before_anything_opens()
     {
-        int claim = Index(App, "if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths)))");
+        int claim = Index(App, "if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths, automation)))");
         int check = Index(App, "if (CrashLoop.IsLoop(FailureHistory.Read(paths.FailuresFile), TimeProvider.System.GetUtcNow()))");
         int pipe = Index(App, "StartActivationPipe();");
         int open = Index(App, "created = database.Initialize();");

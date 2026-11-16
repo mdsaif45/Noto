@@ -37,13 +37,14 @@ public sealed partial class MainWindow
 
     /// <summary>
     /// A new note in the open folder, edited; on the folder list, in the selected folder, else the first. Settings,
-    /// Search and the Recycle Bin are left first; the welcome tour is left alone, being the user's first steps.
+    /// Search and the Recycle Bin are left first; the welcome tour is left alone, being the user's first steps. A
+    /// <c>noto://</c> link's note (#192) comes this way too, holding <paramref name="content"/>.
     /// </summary>
     /// <remarks>
     /// The note is made once the surfaces it leaves have given their focus back, and once a folder entered here has
     /// loaded its notes: queued behind both, at low priority, so the new note's editor has the keyboard last.
     /// </remarks>
-    internal void NewNoteFromShortcut(bool fromClipboard = false)
+    internal void NewNoteFromShortcut(bool fromClipboard = false, string content = "")
     {
         if (WelcomeSurface is not null)
         {
@@ -90,7 +91,7 @@ public sealed partial class MainWindow
         _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             string? before = _stack.Editing is { } editing ? editing.Value : null;
-            CreateNoteInOpenFolder();
+            CreateNoteInOpenFolder(content);
 
             if (fromClipboard && _stack.Editing is { } created && created.Value != before)
             {

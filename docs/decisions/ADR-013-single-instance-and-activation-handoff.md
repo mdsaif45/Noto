@@ -97,19 +97,25 @@ Before sending, the client passes the foreground right to the owner with
 ### Protocol, version 1
 
 ```
-  request: "NOTO" | version (1 B) = 1 | kind (1 B) | payload length (uint16 LE) | UTF-8 payload    max 8 KiB
-  kinds:   1 Activate (payload must be empty)   2 Uri (reserved)   3 Cli (reserved)
+  request: "NOTO" | version (1 B) = 1 | kind (1 B) | payload length (uint16 LE) | UTF-8 payload    max 64 KiB
+  kinds:   1 Activate (payload must be empty)   2 Uri (a noto:// link, ADR-022)   3 Cli (reserved)
   reply:   0 Accepted   1 ShuttingDown   2 Rejected
 ```
+
+> **Amended by [ADR-022](ADR-022-uri-and-command-line.md) (#192).** `Uri` is defined: its payload is a link the
+> one `noto://` parser accepts, and anything else is `BadPayload`. Command-line verbs travel as their link, so
+> `Cli` stays reserved. The maximum grew from 8 KiB to 64 KiB so the longest link fits. The version is still 1:
+> a Noto from before rejects kind 2 as it always did.
 
 The decoder rejects every one of these:
 
 - a bad magic number;
 - a version other than 1;
-- any kind other than Activate, including the two reserved kinds;
+- any kind other than Activate and Uri, including the reserved Cli;
+- a Uri whose payload is not a link Noto accepts (ADR-022);
 - a length field that does not match the bytes that follow;
 - an Activate request with a payload;
-- a request larger than 8 KiB.
+- a request larger than 64 KiB (8 KiB before ADR-022).
 
 There is no negotiation: a newer client is rejected and says so.
 

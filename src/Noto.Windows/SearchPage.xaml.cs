@@ -117,6 +117,9 @@ public sealed partial class SearchPage : UserControl
         SearchBox.SelectAll();
     }
 
+    /// <summary>A <c>noto://search</c> link's query (#192, E6), in the box as if typed: the results follow.</summary>
+    internal void ShowQuery(string query) => SearchBox.Text = query;
+
     /// <summary>Says why something did not happen, in the status line, announced.</summary>
     internal void ShowNotice(string message) => SearchStatus.Text = message;
 

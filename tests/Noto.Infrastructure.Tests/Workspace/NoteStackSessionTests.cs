@@ -277,6 +277,19 @@ public sealed class NoteStackSessionTests : IDisposable
     }
 
     [Fact]
+    public void A_links_note_is_created_holding_its_text_at_the_placement()
+    {
+        // #192: noto://new?text=… through the same path as Ctrl+N.
+        CommandResult<NoteId> created = _stack.Create(NewNotePlacement.Top, null, "milk\neggs");
+
+        Assert.True(created.IsSuccess);
+        Assert.Equal("milk\neggs", Stored(created.Value));
+        Assert.Equal(created.Value, _stack.Notes[0].Id);
+        Assert.Equal(created.Value, _stack.Editing);
+        Assert.False(_stack.IsDirty);
+    }
+
+    [Fact]
     public void Creating_with_no_folder_open_is_refused()
     {
         _stack.Close();

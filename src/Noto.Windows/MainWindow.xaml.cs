@@ -242,6 +242,7 @@ public sealed partial class MainWindow : Window
         Refresh();
         OpenLastFolderAtStart();
         OpenWelcomeAtStart();
+        RunAutomationAtStart();
     }
 
     /// <summary>
@@ -1978,9 +1979,9 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// Creates a note at the configured placement beside the selected card and edits it (parity B1, B5). The card
-    /// being edited is saved first; a failed save creates nothing.
+    /// being edited is saved first; a failed save creates nothing. A link's note holds its text (#192).
     /// </summary>
-    private void CreateNoteInOpenFolder()
+    private void CreateNoteInOpenFolder(string content = "")
     {
         if (_noteState != NoteState.Loaded || _openFolderId is null || !TryEndEdit())
         {
@@ -1991,7 +1992,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected);
+            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content);
 
             if (!result.IsSuccess)
             {
@@ -2093,7 +2094,7 @@ public sealed partial class MainWindow : Window
 
         var menu = new MenuFlyout();
         menu.Items.Add(MenuItem("Edit", "Enter", () => EditCard(card.Id, CaretPlacement.End)));
-        menu.Items.Add(MenuItem("New note", "Ctrl+N", CreateNoteInOpenFolder));
+        menu.Items.Add(MenuItem("New note", "Ctrl+N", () => CreateNoteInOpenFolder()));
 
         var move = new MenuFlyoutSubItem { Text = "Move to" };
         foreach (MenuFlyoutItemBase item in MoveDestinations(card.Id))
@@ -2362,6 +2363,7 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         menu.Items.Add(MenuItem("Open", "Ctrl+Down", EnterSelectedFolder));
         menu.Items.Add(MenuItem("Rename", "F2", BeginRename));
+        menu.Items.Add(MenuItem("Copy link", string.Empty, () => CopyFolderLink(folder.Id)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("New folder", "Ctrl+N", FocusInput));
         menu.Items.Add(new MenuFlyoutSeparator());

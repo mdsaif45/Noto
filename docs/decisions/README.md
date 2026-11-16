@@ -36,6 +36,7 @@ These records are the defense against that.
 | [ADR-019](ADR-019-rich-content.md) | Rich content: links that open safely, and images kept beside the text | Accepted |
 | [ADR-020](ADR-020-data-portability.md) | Data portability: backup, restore, export and import | Accepted |
 | [ADR-021](ADR-021-welcome.md) | The welcome: a four-step tour for a new workspace | Accepted |
+| [ADR-022](ADR-022-uri-and-command-line.md) | The `noto://` link and the command line | Accepted |
 
 ### Why two are Proposed
 

@@ -1,11 +1,13 @@
+using Noto.Core.Automation;
 using Noto.Platform.Windows;
 using Xunit;
 
 namespace Noto.Windows.Tests;
 
 /// <summary>
-/// The activation protocol, version 1 (A17, ADR-013): exactly one valid
-/// request, and every way of getting it wrong rejected.
+/// The activation protocol, version 1 (A17, ADR-013): an activation or a
+/// <c>noto://</c> link's request (#192, ADR-022), and every way of getting
+/// either wrong rejected.
 /// </summary>
 public sealed class ActivationEnvelopeTests
 {
@@ -61,11 +63,10 @@ public sealed class ActivationEnvelopeTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(2)] // Uri: reserved, not implemented in version 1
-    [InlineData(3)] // Cli: reserved, not implemented in version 1
+    [InlineData(3)] // Cli: reserved, never sent; verbs travel as their link
     [InlineData(4)]
     [InlineData(255)]
-    public void Any_kind_but_activate_is_rejected(byte kind)
+    public void Any_kind_but_activate_and_uri_is_rejected(byte kind)
     {
         Assert.Equal(
             EnvelopeError.UnknownKind,
@@ -73,11 +74,73 @@ public sealed class ActivationEnvelopeTests
     }
 
     [Fact]
-    public void Reserved_kinds_carrying_a_payload_are_rejected_as_unknown()
+    public void The_reserved_cli_kind_carrying_a_payload_is_rejected_as_unknown()
     {
-        byte[] uri = ActivationEnvelope.Frame(ActivationEnvelope.Version, (byte)ActivationKind.Uri, "noto://note/1"u8);
+        byte[] cli = ActivationEnvelope.Frame(ActivationEnvelope.Version, (byte)ActivationKind.Cli, "--folders"u8);
 
-        Assert.Equal(EnvelopeError.UnknownKind, ActivationEnvelope.Decode(uri, out _));
+        Assert.Equal(EnvelopeError.UnknownKind, ActivationEnvelope.Decode(cli, out _));
+    }
+
+    [Fact]
+    public void A_links_request_round_trips()
+    {
+        var request = ActivationRequest.For(new AutomationRequest.NewNote("milk & eggs\nbread", "Shopping"));
+        byte[] message = ActivationEnvelope.Encode(request);
+
+        Assert.Equal((byte)ActivationKind.Uri, message[5]);
+        Assert.Equal(EnvelopeError.None, ActivationEnvelope.Decode(message, out ActivationRequest decoded));
+        Assert.Equal(request, decoded);
+        Assert.Equal(new AutomationRequest.NewNote("milk & eggs\nbread", "Shopping"), NotoUri.Parse(decoded.Payload).Request);
+    }
+
+    [Fact]
+    public void A_launch_with_no_link_is_a_plain_activation()
+    {
+        Assert.Equal(ActivationRequest.Activate, ActivationRequest.For(null));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("noto://note/1")]
+    [InlineData("noto://delete?folder=Work")]
+    [InlineData("noto://new")]
+    [InlineData("https://example.com/")]
+    [InlineData("--folders")]
+    public void A_uri_kind_that_is_not_a_request_noto_has_is_malformed(string payload)
+    {
+        byte[] message = ActivationEnvelope.Frame(ActivationEnvelope.Version, (byte)ActivationKind.Uri, System.Text.Encoding.UTF8.GetBytes(payload));
+
+        Assert.Equal(EnvelopeError.BadPayload, ActivationEnvelope.Decode(message, out ActivationRequest request));
+        Assert.Equal(default, request);
+    }
+
+    [Fact]
+    public void A_uri_kind_that_is_not_utf8_is_malformed()
+    {
+        byte[] message = ActivationEnvelope.Frame(ActivationEnvelope.Version, (byte)ActivationKind.Uri, [.. "noto://new?text="u8, 0xFF]);
+
+        Assert.Equal(EnvelopeError.BadPayload, ActivationEnvelope.Decode(message, out _));
+    }
+
+    [Fact]
+    public void The_longest_request_a_link_can_make_fits_the_envelope()
+    {
+        // Three UTF-8 bytes a character is the worst case: an escaped control (%0A) or a character outside ASCII.
+        string name = new('\u20AC', NotoUri.MaxNameLength);
+        AutomationRequest[] longest =
+        [
+            new AutomationRequest.NewNote(new string('\n', NotoUri.MaxTextLength), name),
+            new AutomationRequest.NewNote(new string('\u20AC', NotoUri.MaxTextLength), name),
+            new AutomationRequest.NewNote(string.Concat(Enumerable.Repeat("\uD83D\uDE00", NotoUri.MaxTextLength / 2)), name),
+        ];
+
+        foreach (AutomationRequest request in longest)
+        {
+            byte[] message = ActivationEnvelope.Encode(ActivationRequest.For(request));
+
+            Assert.True(message.Length <= ActivationEnvelope.MaxSize, $"{message.Length} bytes");
+            Assert.Equal(EnvelopeError.None, ActivationEnvelope.Decode(message, out _));
+        }
     }
 
     [Fact]
@@ -108,7 +171,7 @@ public sealed class ActivationEnvelopeTests
     }
 
     [Fact]
-    public void A_message_over_8_KiB_is_rejected_before_anything_else_is_read()
+    public void A_message_over_64_KiB_is_rejected_before_anything_else_is_read()
     {
         byte[] message = new byte[ActivationEnvelope.MaxSize + 1];
         ValidActivate.CopyTo(message, 0);
@@ -117,7 +180,7 @@ public sealed class ActivationEnvelopeTests
     }
 
     [Fact]
-    public void A_message_of_exactly_8_KiB_is_not_too_large_but_still_malformed_for_activate()
+    public void A_message_of_exactly_64_KiB_is_not_too_large_but_still_malformed_for_activate()
     {
         byte[] payload = new byte[ActivationEnvelope.MaxSize - ActivationEnvelope.HeaderSize];
         byte[] message = ActivationEnvelope.Frame(ActivationEnvelope.Version, 1, payload);

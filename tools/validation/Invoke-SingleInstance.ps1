@@ -31,7 +31,8 @@
     19 pipe squatting -> detected and recorded by the owner; no second workspace
     20 unauthorized clients (user SID disabled, low integrity, anonymous) -> refused by the pipe's ACL;
        a pipe served by another user (a real Windows system pipe) -> refused by Noto's client before sending
-    21 unsupported version -> Rejected;  22 unknown and reserved kinds -> Rejected
+    21 unsupported version -> Rejected;  22 unknown and reserved kinds, and a Uri kind that is no request -> Rejected
+       (the Uri kind's requests themselves: Invoke-Automation.ps1, #192)
 
   The elevated launch (23) needs a UAC approval and is a separate script: Invoke-SingleInstanceElevated.ps1.
 
@@ -252,10 +253,10 @@ try {
             '21 unsupported version 2'     = [NotoVal.Instance]::Frame(2, 1, [byte[]]@(), 0)
             '21 unsupported version 0'     = [NotoVal.Instance]::Frame(0, 1, [byte[]]@(), 0)
             '22 unknown kind 9'            = [NotoVal.Instance]::Frame(1, 9, [byte[]]@(), 0)
-            '22 reserved kind 2 (Uri)'     = [NotoVal.Instance]::Frame(1, 2, [Text.Encoding]::UTF8.GetBytes('noto://x'), 8)
+            '22 kind 2 (Uri), no such verb'= [NotoVal.Instance]::Frame(1, 2, [Text.Encoding]::UTF8.GetBytes('noto://x'), 8)
             '22 reserved kind 3 (Cli)'     = [NotoVal.Instance]::Frame(1, 3, [Text.Encoding]::UTF8.GetBytes('--x'), 3)
-            '15 oversized: 8193 bytes'     = [NotoVal.Instance]::Frame(1, 1, [byte[]]::new(8185), 8185)
-            '15 oversized: 64 KiB'         = [NotoVal.Instance]::Frame(1, 1, [byte[]]::new(65528), 65528)
+            '15 oversized: 64 KiB + 1'     = [NotoVal.Instance]::Frame(1, 1, [byte[]]::new(65529), 65529)
+            '15 oversized: 128 KiB'        = [NotoVal.Instance]::Frame(1, 1, [byte[]]::new(131064), 131064)
         }
         foreach ($k in $bad.Keys) {
             $reply = [NotoVal.Instance]::SendRaw($pipe, $bad[$k])
