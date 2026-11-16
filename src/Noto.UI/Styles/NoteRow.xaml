@@ -81,7 +81,8 @@
 
             <!--
                 The note's colour (F7, #150): a tint over the card's fill, translucent so its hover and selected fills
-                still show, and a marker along its leading edge, so a colour is more than a tint. Set by ColorStates.
+                still show, and a marker along its leading edge, so a colour is more than a tint. Set by ColorStates; the
+                tint is hidden in the Bar style (ColorStyleStates, #191).
             -->
             <Border x:Name="ColorTint" CornerRadius="{StaticResource RadiusMedium}" />
             <Border x:Name="ColorMarker"
@@ -210,6 +211,20 @@
                         <VisualState.Setters>
                             <Setter Target="ColorTint.Background" Value="{ThemeResource Note6TintBrush}" />
                             <Setter Target="ColorMarker.Background" Value="{ThemeResource Note6MarkerBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+
+                <!--
+                    How a colour shows (#191): Background is the tint and the marker, as above; Bar drops the tint, so
+                    the card keeps an uncoloured card's fill and only its marker is coloured. High contrast never tints
+                    (Colors.xaml), so it looks the same in both. The colour's name is the card's help text either way.
+                -->
+                <VisualStateGroup x:Name="ColorStyleStates">
+                    <VisualState x:Name="BackgroundStyle" />
+                    <VisualState x:Name="BarStyle">
+                        <VisualState.Setters>
+                            <Setter Target="ColorTint.Visibility" Value="Collapsed" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>

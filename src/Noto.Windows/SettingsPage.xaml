@@ -238,6 +238,28 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- #191: how a coloured note shows its colour (F10, J23). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Note colour style" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A coloured note is tinted with a bar at its edge, or shows the bar only." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="NoteColorStyleSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnNoteColorStyleChanged"
+                                    AutomationProperties.Name="Note colour style"
+                                    AutomationProperties.HelpText="A coloured note is tinted with a bar at its edge, or shows the bar only.">
+                                    <ComboBoxItem Content="Background" Tag="Background" />
+                                    <ComboBoxItem Content="Bar" Tag="Bar" />
+                                </ComboBox>
+                            </Grid>
+
                             <!-- F13 (#154): the note text's family and size (D47, D48, J12, J13). -->
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>

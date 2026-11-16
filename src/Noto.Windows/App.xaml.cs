@@ -880,6 +880,9 @@ public partial class App : Application
             return preferences.SetNoteSize(next) ? next : null;
         };
 
+        // How a coloured card shows its colour (#191), from the first frame.
+        main.ApplyNoteColorStyle(preferences.NoteColorStyle);
+
         // "System" follows Windows when its app mode changes (F2). Raised off the UI thread.
         SystemColors.ColorValuesChanged += (_, _) => _ = main.DispatcherQueue.TryEnqueueGuarded(() => ApplyTheme(main, preferences.Theme));
 
@@ -1406,6 +1409,10 @@ public partial class App : Application
         else if ((key == SettingKeys.AppearanceNoteFont || key == SettingKeys.AppearanceNoteSize) && _main is not null)
         {
             _main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
+        }
+        else if (key == SettingKeys.AppearanceNoteColorStyle && _main is not null)
+        {
+            _main.ApplyNoteColorStyle(preferences.NoteColorStyle);
         }
         else if (key == SettingKeys.WorkspaceEdge)
         {

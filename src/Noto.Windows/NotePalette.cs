@@ -24,4 +24,7 @@ internal static class NotePalette
 
     /// <summary>The card's colour state: <c>Note1</c> to <c>Note6</c>, or <c>NoColor</c>.</summary>
     public static string StateOf(string? key) => NameOf(key) is null ? "NoColor" : "Note" + key![^1];
+
+    /// <summary>The card's colour style state (#191): <c>BarStyle</c> hides the tint, <c>BackgroundStyle</c> shows it.</summary>
+    public static string StateOf(NoteColorStyle style) => style == NoteColorStyle.Bar ? "BarStyle" : "BackgroundStyle";
 }

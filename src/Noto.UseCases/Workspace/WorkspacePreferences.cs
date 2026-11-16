@@ -67,6 +67,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The size notes are shown in, in DIPs (F13, D48).</summary>
     public double NoteSize => _settings.Read(SettingKeys.AppearanceNoteSize);
 
+    /// <summary>How a coloured card shows its colour: tinted with a bar, or the bar only (#191, F10).</summary>
+    public NoteColorStyle NoteColorStyle => _settings.Read(SettingKeys.AppearanceNoteColorStyle);
+
     /// <summary>Whether the formatting toolbar shows above selected text (F8).</summary>
     public bool FormatToolbar => _settings.Read(SettingKeys.EditorFormatToolbar);
 
@@ -192,6 +195,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the size notes are shown in.</summary>
     /// <returns>Whether it was kept: a size outside <see cref="NoteText.Sizes"/> is refused.</returns>
     public bool SetNoteSize(double size) => TryWrite(SettingKeys.AppearanceNoteSize, size);
+
+    /// <summary>Sets how a coloured card shows its colour (#191).</summary>
+    /// <returns>Whether it was kept: a value that is not a style is refused.</returns>
+    public bool SetNoteColorStyle(NoteColorStyle style) => TryWrite(SettingKeys.AppearanceNoteColorStyle, style);
 
     /// <summary>
     /// Stores the show/hide chord (parity G50). Only the rebind calls this, and only once the chord is registered: the
