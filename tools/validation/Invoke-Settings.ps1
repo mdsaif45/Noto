@@ -66,6 +66,11 @@
     20 where a new note goes (#188, B5, J8): At the bottom by default; At the top is stored and applied at once; in the
        folder, Ctrl+N makes a note that is first in the folder (stored order and the note list's first card, edited);
        then At the bottom again
+    21 the change-side and keep-open shortcuts (#198): both off by default; turned on, Ctrl+Shift+Win+S and K are
+       registered; from another app with Noto hidden: K pins and S moves it to the left edge (stored), and Noto stays
+       hidden and the other app in front; shown again, it is docked left and pinned; from another app with Noto shown
+       behind it: S re-docks it right at once, K unpins it, neither takes the foreground or hides it; pressed with
+       Settings open and in front: Side shows the new edge, Noto stays in front; turned off, both chords are released
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -88,7 +93,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'notes.new-placement')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement')
 
 # ---------------------------------------------------------------- helpers
 
@@ -132,7 +137,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -280,7 +285,7 @@ function Shown-By([int] $Key, [string] $Label) {
     $ok
 }
 # The new-note shortcut (case 17): Ctrl+Shift+Win held (MOD_CONTROL|MOD_SHIFT|MOD_WIN).
-$VkN = 0x4E; $VkJ = 0x4A; $VkV = 0x56; $VkF = 0x46
+$VkN = 0x4E; $VkJ = 0x4A; $VkV = 0x56; $VkF = 0x46; $VkS = 0x53; $VkK = 0x4B
 function Note-Chord-Free([uint32] $Key) {
     <# Can this process register Ctrl+Shift+Win+<Key> right now: true means nothing holds it, Noto included. #>
     $ok = [NotoVal.Win32]::RegisterHotKey([IntPtr]::Zero, 0x5652, 0x400E, $Key)
@@ -554,6 +559,56 @@ try {
             Add-Result $run '20 At the bottom chosen again is stored' ((Stored 'notes.new-placement') -eq 'Bottom') ''
             Close-Settings-ByBack
         }
+        # ------------------------------------------------ 21 the change-side and keep-open shortcuts (#198)
+        if (Want 21) {
+            if (-not (Note-Chord-Free $VkS) -or -not (Note-Chord-Free $VkK)) { Add-Invalid $run '21 Ctrl+Shift+Win+S or K is already held on this machine'; return }
+            Noto-Front '21'
+            To-FolderList; Open-Settings-ByButton
+            $offByDefault = -not (Is-On 'ChangeSideHotkeySetting') -and -not (Is-Enabled 'ChangeSideHotkeyRecorder') -and -not (Is-On 'KeepOpenHotkeySetting') -and -not (Is-Enabled 'KeepOpenHotkeyRecorder')
+            $m = Trace-Mark; Set-Toggle 'ChangeSideHotkeySetting' $true; Set-Toggle 'KeepOpenHotkeySetting' $true
+            $on = (Wait-Trace $m 'Noto\.Hotkey enabled=True registered=True action=ChangeSide') -and (Wait-Trace $m 'Noto\.Hotkey enabled=True registered=True action=KeepOpen') -and -not (Note-Chord-Free $VkS) -and -not (Note-Chord-Free $VkK)
+            Add-Result $run '21 off by default; turned on, Ctrl+Shift+Win+S and K are registered' ($offByDefault -and $on) "off by default=$offByDefault trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+
+            # Hidden: another app in front hides Noto (hide when I click elsewhere is on by default).
+            $null = Set-ForegroundByKeyboard $target
+            $hidden = Until { -not (Ev).WsVisible }
+            Ctrl '21 hidden before' $noto.Hwnd
+            $m = Trace-Mark
+            Send-NoteChord $target.Hwnd $VkK
+            Send-NoteChord $target.Hwnd $VkS
+            $applied = (Wait-Trace $m 'Noto\.Workspace pinned=True') -and (Wait-Trace $m 'Noto\.Workspace edge=Left redocked=False') -and (Stored 'workspace.edge') -eq 'Left'
+            $stayed = -not (Ev).WsVisible -and (Fg) -eq $target.Hwnd
+            Add-Result $run '21 from another app, Noto hidden: K pins, S moves it left and stores it, Noto stays hidden' ($hidden -and $applied -and $stayed) "hidden=$hidden stayed hidden=$(-not (Ev).WsVisible) target front=$((Fg) -eq $target.Hwnd) stored=$(Stored 'workspace.edge') trace: $(Trace-Since $m)"
+            Noto-Front '21 show'
+            $shown = (Until { Test-DockedAt (Ev) 'Left' }) -and (Is-On 'PinToggle')
+            Add-Result $run '21 shown again: docked at the left edge, Keep Noto open on' $shown "frame=$((Ev).Frame) work=$((Ev).Work) pinned=$(Is-On 'PinToggle')"
+
+            # Shown behind another app: pinned, so it stays shown when the other app comes in front.
+            $null = Set-ForegroundByKeyboard $target
+            Ctrl '21 behind before' $noto.Hwnd
+            $m = Trace-Mark
+            Send-NoteChord $target.Hwnd $VkS
+            $right = (Until { Test-DockedAt (Ev) 'Right' }) -and (Wait-Trace $m 'Noto\.Workspace edge=Right redocked=True') -and (Stored 'workspace.edge') -eq 'Right'
+            Send-NoteChord $target.Hwnd $VkK
+            $unpinned = Wait-Trace $m 'Noto\.Workspace pinned=False'
+            $stayed = (Ev).WsVisible -and (Fg) -eq $target.Hwnd
+            Add-Result $run '21 from another app, Noto shown behind it: S re-docks it right at once, K unpins it, the other app stays in front' ($right -and $unpinned -and $stayed) "right=$right unpinned=$unpinned shown=$((Ev).WsVisible) target front=$((Fg) -eq $target.Hwnd) trace: $(Trace-Since $m)"
+
+            # In front, with Settings open: Side follows the shortcut.
+            Noto-Front '21 settings'
+            To-FolderList; Open-Settings-ByButton
+            Send-NoteChord $noto.Hwnd $VkS
+            $shows = (Until { (Combo-Value 'SideSetting') -eq 'Left' -and (Test-DockedAt (Ev) 'Left') }) -and (Fg) -eq $noto.Hwnd -and (Visible-Id 'SettingsRoot')
+            Send-NoteChord $noto.Hwnd $VkS
+            $back = (Until { (Combo-Value 'SideSetting') -eq 'Right' -and (Test-DockedAt (Ev) 'Right') }) -and (Stored 'workspace.edge') -eq 'Right'
+            Add-Result $run '21 pressed with Settings open: Side shows each new edge, Noto stays in front' ($shows -and $back) "left shown=$shows right shown=$back side=$(Combo-Value 'SideSetting') front=$((Fg) -eq $noto.Hwnd)"
+
+            $m = Trace-Mark; Set-Toggle 'ChangeSideHotkeySetting' $false; Set-Toggle 'KeepOpenHotkeySetting' $false
+            Add-Result $run '21 turned off, both chords are released' ((Wait-Trace $m 'Noto\.Hotkey enabled=False registered=False action=ChangeSide') -and (Wait-Trace $m 'Noto\.Hotkey enabled=False registered=False action=KeepOpen') -and (Note-Chord-Free $VkS) -and (Note-Chord-Free $VkK)) "trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+        }
+
 
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
@@ -633,7 +688,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'NewNotePlacementSetting', 'SideSetting', 'EscapeSetting', 'ThemeSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

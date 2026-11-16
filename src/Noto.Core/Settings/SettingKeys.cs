@@ -151,6 +151,48 @@ public static class SettingKeys
             static value => HotkeyChord.TryParse(value, out _));
 
     /// <summary>
+    /// Whether the global change-side hotkey is registered (#198; parity G5).
+    /// </summary>
+    /// <remarks>Default off, as every global chord but show/hide (principle 7).</remarks>
+    public static readonly SettingKey<bool> ChangeSideHotkeyEnabled =
+        new("activation.change-side.enabled", false);
+
+    /// <summary>
+    /// The chord that moves Noto to the other screen edge (#198).
+    /// </summary>
+    /// <remarks>
+    /// Default <c>Ctrl+Shift+Win+S</c>, S for side: the <c>Ctrl+Shift+Win</c> family of the other three (no AltGr
+    /// chord, parity §12a), and measured free (implementation plan §10: only B, L, X, the digits and Space are taken
+    /// there; B and the digits are Windows' own). Used only once the user turns the shortcut on. Valid means it parses
+    /// as a <see cref="HotkeyChord"/>, as for <see cref="HotkeyBinding"/>.
+    /// </remarks>
+    public static readonly SettingKey<string> ChangeSideHotkeyBinding =
+        new(
+            "activation.change-side.binding",
+            "Ctrl+Shift+Win+S",
+            static value => HotkeyChord.TryParse(value, out _));
+
+    /// <summary>
+    /// Whether the global keep-open hotkey is registered (#198; parity G6). Ctrl+D inside Noto (#146) is unaffected.
+    /// </summary>
+    /// <remarks>Default off, as every global chord but show/hide (principle 7).</remarks>
+    public static readonly SettingKey<bool> KeepOpenHotkeyEnabled =
+        new("activation.keep-open.enabled", false);
+
+    /// <summary>
+    /// The chord that turns Keep Noto open on or off (#198).
+    /// </summary>
+    /// <remarks>
+    /// Default <c>Ctrl+Shift+Win+K</c>, K for keep, chosen as <see cref="ChangeSideHotkeyBinding"/>'s was. Valid means
+    /// it parses as a <see cref="HotkeyChord"/>, as for <see cref="HotkeyBinding"/>.
+    /// </remarks>
+    public static readonly SettingKey<string> KeepOpenHotkeyBinding =
+        new(
+            "activation.keep-open.binding",
+            "Ctrl+Shift+Win+K",
+            static value => HotkeyChord.TryParse(value, out _));
+
+    /// <summary>
     /// The vertical screen edge the workspace docks to.
     /// </summary>
     /// <remarks>
@@ -369,6 +411,10 @@ public static class SettingKeys
         ClipboardNoteHotkeyBinding,
         SearchHotkeyEnabled,
         SearchHotkeyBinding,
+        ChangeSideHotkeyEnabled,
+        ChangeSideHotkeyBinding,
+        KeepOpenHotkeyEnabled,
+        KeepOpenHotkeyBinding,
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,
