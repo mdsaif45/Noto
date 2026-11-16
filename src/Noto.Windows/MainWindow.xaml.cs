@@ -1868,7 +1868,11 @@ public sealed partial class MainWindow : Window
         Announce(pinned ? "Keep Noto open on" : "Keep Noto open off", PinToggle);
     }
 
-    /// <summary>The new-note placement setting (B5, J8), set by the composition root from the stored value.</summary>
+    /// <summary>
+    /// The new-note placement setting (B5, J8), set by the composition root from the stored value and again whenever
+    /// Settings changes it (#188). Every way of making a note (Ctrl+N, the + button, the card menu, the new-note and
+    /// clipboard shortcuts, the tray) reaches <see cref="CreateNoteInOpenFolder"/>, so all of them follow it.
+    /// </summary>
     public NewNotePlacement NewNotePlacement { get; set; }
 
     /// <summary>

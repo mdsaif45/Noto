@@ -1369,6 +1369,10 @@ public partial class App : Application
         {
             _main.SingleClickOpen = preferences.SingleClickOpen;
         }
+        else if (key == SettingKeys.NotesNewPlacement && _main is not null)
+        {
+            _main.NewNotePlacement = preferences.NewNotePlacement;
+        }
         else if (key == SettingKeys.HotkeyEnabled)
         {
             ApplyHotkeyEnabled(settings, GlobalAction.ShowHide, preferences.HotkeyEnabled);

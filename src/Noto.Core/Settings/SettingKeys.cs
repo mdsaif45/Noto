@@ -297,7 +297,8 @@ public static class SettingKeys
     /// </summary>
     /// <remarks>
     /// Default <see cref="NewNotePlacement.Bottom"/>, Noto's behaviour before the setting existed. Stored by member
-    /// name; a value that is not a member is refused when written and reads as the default. No settings UI yet.
+    /// name; a value that is not a member is refused when written and reads as the default. Chosen in Settings, General
+    /// (#188).
     /// </remarks>
     public static readonly SettingKey<NewNotePlacement> NotesNewPlacement =
         new("notes.new-placement", NewNotePlacement.Bottom, Enum.IsDefined);

@@ -72,7 +72,7 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether Noto backs itself up once a day (F15).</summary>
     public bool AutomaticBackups => _settings.Read(SettingKeys.BackupAutomatic);
 
-    /// <summary>Where a new note goes in its folder (parity B5, J8). Read only until its settings row exists.</summary>
+    /// <summary>Where a new note goes in its folder (parity B5, J8).</summary>
     public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
 
     /// <summary>Whether the global show/hide hotkey is registered (parity A7).</summary>
@@ -142,6 +142,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether one click opens a folder or a note.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetSingleClickOpen(bool singleClick) => TryWrite(SettingKeys.WorkspaceSingleClickOpen, singleClick);
+
+    /// <summary>Sets where a new note goes in its folder (parity B5, J8; #188).</summary>
+    /// <returns>Whether it was kept: a value that is not a member is refused.</returns>
+    public bool SetNewNotePlacement(NewNotePlacement placement) => TryWrite(SettingKeys.NotesNewPlacement, placement);
 
     /// <summary>Sets the workspace's theme.</summary>
     /// <returns>Whether it was kept.</returns>
