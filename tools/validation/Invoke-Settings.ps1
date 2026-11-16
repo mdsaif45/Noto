@@ -644,6 +644,8 @@ try {
             Open-Settings-ByButton
             Set-Toggle 'OpenLastFolderSetting' $false
             Close-Settings-ByBack
+            # The restarts above leave the new Noto behind the target app: the cases after this one type into it.
+            Noto-Front '22 end'
         }
 
         # ------------------------------------------------ 1 entry, back, focus restored
