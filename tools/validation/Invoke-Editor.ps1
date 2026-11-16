@@ -104,6 +104,15 @@ function By-Id([string] $Id) { $AE::FromHandle($script:noto.Hwnd).FindFirst($Sco
 function Find-ById([string] $Id, [int] $Seconds = 10) {
     $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline) { $e = By-Id $Id; if ($e -and -not $e.Current.IsOffscreen) { return $e }; Start-Sleep -Milliseconds 200 }
+    # A Settings control that is there but scrolled out of view is brought into it by the page's own scroll pattern, in
+    # steps from the top, as a person would scroll (never by focus): each new row pushes the lower sections down.
+    $scroll = By-Id 'SettingsScroll'
+    if ((By-Id $Id) -and $scroll) {
+        foreach ($percent in 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100) {
+            $scroll.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, $percent); Start-Sleep -Milliseconds 300
+            $e = By-Id $Id; if ($e -and -not $e.Current.IsOffscreen) { return $e }
+        }
+    }
     throw "no visible element '$Id' within ${Seconds}s"
 }
 function Editor { Find-ById 'NoteEditor' }
