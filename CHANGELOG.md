@@ -10,6 +10,11 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+- Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
+  the + button and the new-note shortcuts all follow it, at once (#188).
+
 ## [0.2.0] - 2026-11-14
 
 ### Added
