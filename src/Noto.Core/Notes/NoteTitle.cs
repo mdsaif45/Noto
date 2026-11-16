@@ -60,6 +60,28 @@ public static class NoteTitle
     }
 
     /// <summary>
+    /// The title as <paramref name="mode"/> reads the content (#195): <see cref="From(string?)"/> for Markdown; for
+    /// Code and plain text the first non-empty line as written, trimmed, a <c>#</c> being text there.
+    /// </summary>
+    public static string From(string? content, NoteMode mode)
+    {
+        if (mode == NoteMode.Markdown || string.IsNullOrEmpty(content))
+        {
+            return From(content);
+        }
+
+        foreach (var line in EnumerateLines(content))
+        {
+            if (!line.IsWhiteSpace())
+            {
+                return line.Trim();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
     /// The lines below the title that hold anything (F6, #149): what a folded card hides, its "+ N lines". Blank lines
     /// hide nothing, so they are not counted.
     /// </summary>

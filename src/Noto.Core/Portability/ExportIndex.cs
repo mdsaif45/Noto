@@ -4,7 +4,7 @@ namespace Noto.Core.Portability;
 
 /// <summary>
 /// The small index an export writes beside its Markdown (ADR-020 §4): each folder's directory and name, each note's
-/// file, in the workspace's order, with what Markdown cannot carry (pinned, folded, colour). Import reads it when it is
+/// file, in the workspace's order, with what Markdown cannot carry (pinned, folded, colour, mode). Import reads it when it is
 /// there and valid; without it an export is still a folder of plain Markdown.
 /// </summary>
 public sealed record ExportIndex
@@ -56,7 +56,12 @@ public sealed record ExportIndex
 public sealed record ExportFolder(string Directory, string Name, bool Pinned, string? ColorKey, IReadOnlyList<ExportNote> Notes);
 
 /// <summary>A note of an export: its file in the folder's directory and its state.</summary>
-public sealed record ExportNote(string File, bool Pinned, bool Folded, string? ColorKey);
+/// <param name="Mode">
+/// The note's <see cref="Notes.NoteMode"/> by member name (#195). Added without a new version: an index written before
+/// it has none, and one written with it is still read whole by a Noto that does not know it (an unknown member is
+/// ignored); <see cref="Notes.NoteModes.Parse"/> reads a missing or unknown value as Markdown.
+/// </param>
+public sealed record ExportNote(string File, bool Pinned, bool Folded, string? ColorKey, string? Mode = null);
 
 /// <summary>How far a long piece of work is: <paramref name="Done"/> of <paramref name="Total"/> items.</summary>
 public readonly record struct PortabilityProgress(int Done, int Total);

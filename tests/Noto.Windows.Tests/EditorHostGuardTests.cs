@@ -185,7 +185,7 @@ public sealed class EditorHostGuardTests
     public void Composition_is_recorded_once_when_it_ends_and_nothing_is_restyled_during_it()
     {
         string changed = Body(Host, "OnUserChanged");
-        Assert.Matches(@"if \(_composingFrom is not null\)\s*\{\s*_text = now;\s*_document = MarkdownDocument\.Parse\(now\);\s*ContentChanged\?\.Invoke\(this, EventArgs\.Empty\);\s*return;", changed);
+        Assert.Matches(@"if \(_composingFrom is not null\)\s*\{\s*_text = now;\s*_document = MarkdownDocument\.Parse\(now, _mode\);\s*ContentChanged\?\.Invoke\(this, EventArgs\.Empty\);\s*return;", changed);
         Assert.Contains("_history.Record(from, edit, EditKind.Other, _composingSelection);", Body(Host, "OnCompositionEnded"), StringComparison.Ordinal);
     }
 

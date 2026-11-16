@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using Noto.Core.Notes;
 using Noto.Core.Portability;
 using Noto.Infrastructure.Portability;
 using Noto.Infrastructure.Storage;
@@ -235,13 +236,13 @@ public sealed class BackupRestoreTests : IDisposable
 
     [Theory]
     [InlineData("\"formatVersion\": 1", "\"formatVersion\": 2", BackupProblem.NewerFormat)]
-    [InlineData("\"schemaVersion\": 4", "\"schemaVersion\": 99", BackupProblem.NewerSchema)]
-    [InlineData("\"schemaVersion\": 4", "\"schemaVersion\": 3", BackupProblem.Corrupted)]
+    [InlineData("\"schemaVersion\": 5", "\"schemaVersion\": 99", BackupProblem.NewerSchema)]
+    [InlineData("\"schemaVersion\": 5", "\"schemaVersion\": 4", BackupProblem.Corrupted)]
     [InlineData("\"format\": \"noto-backup\"", "\"format\": \"someone-else\"", BackupProblem.NotABackup)]
     [InlineData("\"path\": \"noto.db\"", "\"path\": \"../noto.db\"", BackupProblem.Corrupted)]
     public void A_manifest_that_does_not_fit_is_refused(string find, string replace, BackupProblem problem)
     {
-        Assert.Equal(4, MigrationRunner.LatestVersion);
+        Assert.Equal(5, MigrationRunner.LatestVersion);
         string archive = Rewrite(Backup(_source), (name, bytes) =>
             name == BackupManifest.ManifestEntry ? Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(bytes).Replace(find, replace, StringComparison.Ordinal)) : bytes);
 
@@ -401,10 +402,10 @@ public sealed class BackupRestoreTests : IDisposable
         workspace.Note(work, "# Weekly sync\r\n\r\n- [ ] Tom\r\n- [x] room\r\n", order: 2, pinned: true);
         workspace.Note(work, $"Trip\n![harbour]({image})\nÜberraschung 🎉", order: 1, folded: true);
         workspace.Note(work, "binned", order: 3, deleted: true);
-        workspace.Note(home, "日本語のノート\nwith a second line");
+        workspace.Note(home, "日本語のノート\nwith a second line", mode: NoteMode.PlainText);
         workspace.Note(home, new string('x', 2_000_000) + "\nlarge", order: 2);
         workspace.Note(home, string.Empty, order: 3);
-        workspace.Note(home, "\n\n  starts after blank lines\nends with spaces and lines   \n\n", order: 4);
+        workspace.Note(home, "\n\n  starts after blank lines\nends with spaces and lines   \n\n", order: 4, mode: NoteMode.Code);
         workspace.Setting("appearance.theme", "Dark");
         workspace.Setting("workspace.edge", "Left");
         return image;

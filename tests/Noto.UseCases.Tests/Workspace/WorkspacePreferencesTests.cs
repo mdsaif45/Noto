@@ -271,6 +271,7 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal("Ctrl+Alt+Win+Space", preferences.HotkeyBinding);
         Assert.Equal(WorkspaceEdge.Right, preferences.Edge);
         Assert.Equal(EscapeBehavior.LeaveFolderOrHide, preferences.Escape);
+        Assert.Equal(NoteMode.Markdown, preferences.NewNoteMode);
     }
 
     [Theory]
@@ -320,6 +321,7 @@ public sealed class WorkspacePreferencesTests
         { "SetOpenLastFolder", SettingKeys.WorkspaceOpenLastFolder.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
         { "SetNoteColorStyle", SettingKeys.AppearanceNoteColorStyle.Name, NoteColorStyle.Bar },
+        { "SetNewNoteMode", SettingKeys.NotesNewMode.Name, NoteMode.Code },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
     };
@@ -348,6 +350,7 @@ public sealed class WorkspacePreferencesTests
     [InlineData("SetTheme", 5)]
     [InlineData("SetNewNotePlacement", 4)]
     [InlineData("SetNoteColorStyle", 2)]
+    [InlineData("SetNewNoteMode", 3)]
     public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
     {
         var store = new FakeSettings();
@@ -358,6 +361,7 @@ public sealed class WorkspacePreferencesTests
             "SetEscape" => (EscapeBehavior)undefined,
             "SetNewNotePlacement" => (NewNotePlacement)undefined,
             "SetNoteColorStyle" => (NoteColorStyle)undefined,
+            "SetNewNoteMode" => (NoteMode)undefined,
             _ => (WorkspaceTheme)undefined,
         };
 
@@ -452,6 +456,7 @@ public sealed class WorkspacePreferencesTests
         "SetOpenLastFolder" => preferences.SetOpenLastFolder((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetNoteColorStyle" => preferences.SetNoteColorStyle((NoteColorStyle)value),
+        "SetNewNoteMode" => preferences.SetNewNoteMode((NoteMode)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
@@ -467,6 +472,7 @@ public sealed class WorkspacePreferencesTests
         "SetOpenLastFolder" => preferences.OpenLastFolder,
         "SetTheme" => preferences.Theme,
         "SetNoteColorStyle" => preferences.NoteColorStyle,
+        "SetNewNoteMode" => preferences.NewNoteMode,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),

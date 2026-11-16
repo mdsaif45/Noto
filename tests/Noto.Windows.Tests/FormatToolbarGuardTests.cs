@@ -32,7 +32,7 @@ public sealed class FormatToolbarGuardTests
         string toolbar = File.ReadAllText(Path.Join(Windows, "NoteEditorHost.Toolbar.cs"));
         Assert.Contains("Enum.TryParse(name, out EditorCommand command)", toolbar, StringComparison.Ordinal);
         Assert.Contains("_ = Run(command);", toolbar, StringComparison.Ordinal);
-        Assert.Contains("if (!ShowsFormatToolbar || _selection.IsCaret || NoteEditor.FocusState == FocusState.Unfocused)", toolbar, StringComparison.Ordinal);
+        Assert.Contains("if (!ShowsFormatToolbar || _mode != NoteMode.Markdown || _selection.IsCaret || NoteEditor.FocusState == FocusState.Unfocused)", toolbar, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -801,6 +801,7 @@ public partial class App : Application
                 new UnfoldNoteHandler(notes, clock).Handle,
                 static (command, _) => new NoteFoldChanged(command.NoteId, false))
             .Register<SetNoteColor, CommandResult>(new SetNoteColorHandler(notes, clock).Handle)
+            .Register<SetNoteMode, CommandResult>(new SetNoteModeHandler(notes, clock).Handle)
             .Register<FoldNotesInFolder, CommandResult<int>, NotesFoldedInFolder>(
                 new FoldNotesInFolderHandler(notes, clock).Handle,
                 static (command, result) => new NotesFoldedInFolder(command.FolderId, command.Folded, result.Value))
@@ -862,6 +863,7 @@ public partial class App : Application
             Escape = preferences.Escape,
             SingleClickOpen = preferences.SingleClickOpen,
             NewNotePlacement = preferences.NewNotePlacement,
+            NewNoteMode = preferences.NewNoteMode,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
 
             // Folder history (#193): its own list, not the move list's; a failed write never stops a folder opening.
@@ -1529,6 +1531,10 @@ public partial class App : Application
         else if (key == SettingKeys.WorkspaceSingleClickOpen && _main is not null)
         {
             _main.SingleClickOpen = preferences.SingleClickOpen;
+        }
+        else if (key == SettingKeys.NotesNewMode && _main is not null)
+        {
+            _main.NewNoteMode = preferences.NewNoteMode;
         }
         else if (key == SettingKeys.NotesNewPlacement && _main is not null)
         {

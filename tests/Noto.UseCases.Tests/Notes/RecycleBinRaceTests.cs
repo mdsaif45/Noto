@@ -106,6 +106,8 @@ public sealed class RecycleBinRaceTests
 
         public void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt) => throw new NotSupportedException();
 
+        public void SetMode(NoteId id, NoteMode mode, DateTimeOffset updatedAt) => throw new NotSupportedException();
+
         public void SoftDelete(NoteId id, DateTimeOffset deletedAt) => throw new NotSupportedException();
 
         public bool Restore(NoteId id, DateTimeOffset updatedAt) => throw new NotSupportedException();

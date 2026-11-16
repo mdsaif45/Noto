@@ -98,6 +98,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Where a new note goes in its folder (parity B5, J8).</summary>
     public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
 
+    /// <summary>The mode a new note starts in: "New notes are" (#195, D28).</summary>
+    public NoteMode NewNoteMode => _settings.Read(SettingKeys.NotesNewMode);
+
     /// <summary>Whether the global show/hide hotkey is registered (parity A7).</summary>
     public bool HotkeyEnabled => _settings.Read(SettingKeys.HotkeyEnabled);
 
@@ -183,6 +186,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether one click opens a folder or a note.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetSingleClickOpen(bool singleClick) => TryWrite(SettingKeys.WorkspaceSingleClickOpen, singleClick);
+
+    /// <summary>Sets the mode a new note starts in (#195, D28). Notes already written keep their own.</summary>
+    /// <returns>Whether it was kept: a value that is not a mode is refused.</returns>
+    public bool SetNewNoteMode(NoteMode mode) => TryWrite(SettingKeys.NotesNewMode, mode);
 
     /// <summary>Sets whether Noto starts in the folder last opened (#193); it takes effect at the next start.</summary>
     /// <returns>Whether it was kept.</returns>

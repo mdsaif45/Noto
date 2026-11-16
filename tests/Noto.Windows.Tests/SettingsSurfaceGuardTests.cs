@@ -49,6 +49,7 @@ public sealed class SettingsSurfaceGuardTests
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
             ("WorkspaceSingleClickOpen", @"_main\.SingleClickOpen = preferences\.SingleClickOpen"),
             ("NotesNewPlacement", @"_main\.NewNotePlacement = preferences\.NewNotePlacement"),
+            ("NotesNewMode", @"_main\.NewNoteMode = preferences\.NewNoteMode"),
             ("HotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.ShowHide, preferences\.HotkeyEnabled\)"),
             ("NewNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NewNote, preferences\.NewNoteHotkeyEnabled\)"),
             ("ClipboardNoteHotkeyEnabled", @"ApplyHotkeyEnabled\(settings, GlobalAction\.NoteFromClipboard, preferences\.ClipboardNoteHotkeyEnabled\)"),
@@ -103,7 +104,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(23, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(24, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -362,7 +363,7 @@ public sealed class SettingsSurfaceGuardTests
     {
         string[] ids =
         [
-            "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "OpenLastFolderSetting", "NewNotePlacementSetting", "SideSetting",
+            "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "OpenLastFolderSetting", "NewNotePlacementSetting", "NewNoteModeSetting", "SideSetting",
             "EscapeSetting", "ThemeSetting", "NoteColorStyleSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
@@ -408,10 +409,11 @@ public sealed class SettingsSurfaceGuardTests
 
         // The settings (the note colour style, #191; the note font and text size, F13; automatic backups, F15, and how
         // often, #199; the formatting toolbar, F8; pasting code as a code block, D39 (#187); the new-note shortcut and its
-        // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188; change side's and keep open's,
-        // #198), the Data group's Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour
-        // (ADR-021), opening the last folder at start (#193), and file links and the two Importing choices (#196).
-        Assert.Equal(37, rows.Count);
+        // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188, and what it is, #195; change
+        // side's and keep open's, #198), the Data group's Back up, Restore, Export, Import and their progress line
+        // (ADR-020), Help's Welcome tour (ADR-021), opening the last folder at start (#193), and file links and the two
+        // Importing choices (#196).
+        Assert.Equal(38, rows.Count);
 
         foreach (XElement row in rows)
         {

@@ -188,6 +188,15 @@ public interface INoteRepository
     void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt);
 
     /// <summary>
+    /// Sets a note's mode and stamps <c>UpdatedAt</c> (#195).
+    /// </summary>
+    /// <remarks>
+    /// <b>Touches <c>Mode</c> and nothing else</b>: a mode is a reading of the text, so the content is never rewritten
+    /// and the search index, which follows <c>Content</c> only, is not touched.
+    /// </remarks>
+    void SetMode(NoteId id, NoteMode mode, DateTimeOffset updatedAt);
+
+    /// <summary>
     /// Moves a note into the recycle bin: sets <c>DeletedAt</c>, and stamps
     /// <c>UpdatedAt</c> with the same instant.
     /// </summary>

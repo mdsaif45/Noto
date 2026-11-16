@@ -46,6 +46,7 @@ public sealed class NoteStackSessionTests : IDisposable
                 .Register<UpdateNoteContent, CommandResult>(new UpdateNoteContentHandler(_notes, _clock).Handle)
                 .Register<CreateNote, CommandResult<NoteId>>(new CreateNoteHandler(_notes, _clock).Handle)
                 .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(_notes, _clock).Handle)
+                .Register<SetNoteMode, CommandResult>(new SetNoteModeHandler(_notes, _clock).Handle)
                 .Register<MoveNoteToFolder, CommandResult, NoteMoved>(
                     new MoveNoteToFolderHandler(_notes, _clock).Handle,
                     static (command, _) => new NoteMoved(command.NoteId, command.TargetFolderId)),
@@ -274,6 +275,22 @@ public sealed class NoteStackSessionTests : IDisposable
         Assert.Equal(created.Value, _stack.Editing);
         Assert.Equal(string.Empty, _stack.Draft);
         Assert.False(_stack.IsDirty);
+    }
+
+    [Fact]
+    public void A_new_note_takes_the_mode_it_is_created_in_and_a_mode_change_keeps_the_card_editing_with_its_text()
+    {
+        // D28: the "New notes are" setting reaches the note through creation (#195).
+        CommandResult<NoteId> created = _stack.Create(NewNotePlacement.Bottom, null, NoteMode.Code);
+        Assert.Equal(NoteMode.Code, _stack.Notes.Single(n => n.Id == created.Value).Mode);
+
+        _stack.UpdateDraft(created.Value, "**not bold**");
+        Assert.True(_stack.SetMode(created.Value, NoteMode.PlainText).IsSuccess);
+
+        Assert.Equal(NoteMode.PlainText, _stack.Notes.Single(n => n.Id == created.Value).Mode);
+        Assert.Equal(created.Value, _stack.Editing);
+        Assert.Equal("**not bold**", _stack.Draft);
+        Assert.True(_stack.IsDirty);
     }
 
     [Fact]

@@ -15,7 +15,8 @@ namespace Noto.Core.Notes;
 /// z-order — because a note may be presented several ways at once (ADR-009).
 /// <see cref="IsFolded"/> is the deliberate exception argued in design §5: it
 /// is user-authored note state that must persist identically in every surface,
-/// not a rendering coordinate.
+/// not a rendering coordinate. <see cref="Mode"/> is the same kind of state (#195): how the note's text is read, the
+/// same in every surface that shows it.
 /// </para>
 /// </remarks>
 public sealed record Note
@@ -27,9 +28,10 @@ public sealed record Note
 
     /// <summary>
     /// The first non-empty line of <see cref="Content"/>, heading markers
-    /// removed (parity B16). Computed on every read: one source of truth.
+    /// removed in a Markdown note and kept in a Code or plain text one (parity
+    /// B16, #195). Computed on every read: one source of truth.
     /// </summary>
-    public string Title => NoteTitle.From(Content);
+    public string Title => NoteTitle.From(Content, Mode);
 
     /// <summary><see langword="null"/> means the root scope, not "no folder".</summary>
     public FolderId? FolderId { get; init; }
@@ -40,6 +42,9 @@ public sealed record Note
     public bool IsPinned { get; init; }
 
     public bool IsFolded { get; init; }
+
+    /// <summary>How the text is read: Markdown, the default, Code or plain text (#195). Never changes the text.</summary>
+    public NoteMode Mode { get; init; }
 
     /// <summary>
     /// Explicit order within the note's scope (design §7). Assigned by the

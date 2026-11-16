@@ -332,6 +332,20 @@ So §4's "it grows with its text inside the card; the stack scrolls" changes to:
 | **Off in Settings** › Appearance › *Formatting toolbar* (`editor.format-toolbar`, default on) | SideNotes has it on; a user who formats with keys may not want it |
 | No key for highlight yet | No chord was planned for it (implementation plan §G); the Format menu and the toolbar offer it |
 
+## Amendment: a note's mode (2026-11-16, #195; parity D27, D28, D45)
+
+A note is read as **Markdown** (the default, everything above), **Code** or **Plain text**. The mode is a reading of the same text, never a conversion: §1 holds in every mode, and switching back to Markdown renders as before.
+
+| Decision | Why |
+|---|---|
+| Stored per note, `Notes.Mode`, by member name; migration 5 adds it with `Markdown` for every note, behind the pre-migration safety copy. No `CHECK`: an unknown value reads as Markdown (`NoteModes.Parse`) | `ADD COLUMN` rewrites no row, so content, `rowid` and the search index are untouched; a later fourth mode needs no table rebuild |
+| Code and plain text are described by `MarkdownDocument.Parse(text, mode)`: one block per line, **no spans**. The host parses only through it | Styling, hidden markup, checkboxes, pictures and links all read the one parse, so none of them can appear: the text shows exactly as typed, and the host still decides no rule |
+| Code: the code font (Cascadia Mono where Windows ships it, else Consolas, since RTF names one font), spell check off; Tab types four spaces (`NoteModes.CodeIndent`), Shift+Tab and Escape still leave. Plain text: the note font, spell check on, Tab moves focus | Four spaces look the same wherever code is pasted; Shift+Tab keeps a keyboard way out of a control that now takes Tab |
+| Outside Markdown: formatting commands do nothing, Enter does not continue lists, paste is the clipboard's text only, and the toolbar and the card's Format button are hidden | Each would type Markdown into a note that does not read it |
+| The card's read view shows the text as typed (Code in the code family), titled by its raw first line; the help text names the mode | A card that shows `**` is never mistaken for one that lost its formatting |
+| Chosen from the card's menu (Mode › Markdown, Code, Plain text, the current one checked); Settings › General › *New notes are* (`notes.new-mode`) sets the mode Ctrl+N and the new-note shortcuts create in | D28's global default; a note's own mode never changes with it |
+| Export writes each note's mode in `noto-export.json` as an optional field, without a new index version; backups carry it in the database | An older index reads as Markdown, and an older Noto still reads a newer index whole |
+
 ## Future reconsideration criteria
 
 Revisit if:

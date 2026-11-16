@@ -42,6 +42,10 @@
         an editor's HTML copy (no <pre>) each make a fenced code block on lines of their own; Ctrl+Shift+V pastes the
         same clipboard plain; a web address pasted over a selection still links it (D53). Turned off (stored), Ctrl+V
         of the same code inserts exactly the clipboard's text: no fence, no spaces added. The clipboard is restored.
+    25  #195 (D27, D45), in Dark: the card's menu shows Mode with Markdown checked; Code from it is stored and named in
+        the help text; in the editor '**bold**' and '# heading' stay raw (not hidden, not bold, no larger) in the code
+        font, and Tab types four spaces; the card reads the text raw, titled by its raw first line; after a restart the
+        note is still Code; Markdown from the menu renders it again
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -227,6 +231,33 @@ function Mark-Pixels($Element, [System.Drawing.Color] $Want, [int] $Tolerance = 
     }
     $bmp.Dispose(); $n
 }
+function Menu-Item([string] $Name) {
+    <# A menu item of Noto's open menu, by name. #>
+    $cond = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::MenuItem),
+        [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, $Name))
+    $deadline = (Get-Date).AddSeconds(5)
+    while ((Get-Date) -lt $deadline) {
+        $e = @($AE::RootElement.FindAll($Scope::Descendants, $cond) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid }) | Select-Object -First 1
+        if ($e) { return $e }
+        Start-Sleep -Milliseconds 200
+    }
+    throw "no menu item '$Name'"
+}
+function Card-Mode([string] $Card, [string] $Mode) {
+    <# The card's menu (Shift+F10), Mode, then $Mode: a radio item, so Invoke when offered, else Toggle. Returns which of
+       the three was checked before the choice. #>
+    (Card $Card).SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79 900
+    (Menu-Item 'Mode').GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 600
+    $checked = @('Markdown', 'Code', 'Plain text' | Where-Object { (Menu-Item $_).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On' })
+    $e = Menu-Item $Mode
+    if (@($e.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName }) -contains 'InvokePatternIdentifiers.Pattern') { $e.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
+    else { $e.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle() }
+    Start-Sleep -Milliseconds 900
+    $checked -join ','
+}
+function Stored-Mode([string] $Id) { [string](Sql $script:data 'SELECT Mode FROM Notes WHERE Id = $n' @{ '$n' = $Id } -Scalar) }
 function Traces([string] $Pattern) { @($script:log.Lines($script:noto.Pid) | Where-Object { $_ -match $Pattern }) }
 function Ms([string] $Line) { if ($Line -match 'ms=([0-9.]+)') { [double]$Matches[1] } else { $null } }
 function Start-Fresh([string] $Theme) {
@@ -528,6 +559,43 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
         Add-Result $run '24 off (stored): Ctrl+V of code pastes exactly the clipboard''s text, no fence and no spaces added' ($off -eq 'false' -and $asIs -eq "Code:$codeLf") "stored=$off value='$($asIs -replace "`n", '\n')'"
     }
     finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
+
+    # 25 - #195 (D27, D45): Code mode, chosen from the card's menu. The text shows exactly as typed: '**' not hidden,
+    # 'bold' not bold, '# heading' no larger than the rest, all in the code font; Tab types four spaces; the card reads
+    # it raw and is titled by its raw first line; and the mode survives a restart. Then Markdown again renders it.
+    $before23 = Card-Mode 'A plain note with no markup at all.' 'Code'
+    $storedCode = Stored-Mode $Plain
+    $helpCode = (Card 'A plain note with no markup at all.').Current.HelpText
+    Edit-Card 'A plain note with no markup at all.'
+    $raw = "# heading`n**bold** and _it_ text"
+    Set-EditorText $raw
+    $stars = Range-Of '**'
+    $hidden23 = if ($stars) { $stars.GetAttributeValue($TP::IsHiddenAttribute) } else { 'no range' }
+    $weight23 = (Range-Of 'bold').GetAttributeValue($TP::FontWeightAttribute)
+    $headSize = (Range-Of 'heading').GetAttributeValue($TP::FontSizeAttribute)
+    $textSize = (Range-Of 'text').GetAttributeValue($TP::FontSizeAttribute)
+    $font23 = [string](Range-Of 'heading').GetAttributeValue($TP::FontNameAttribute)
+    Send-ToNoto @(0x11) 0x23 600   # Ctrl+End
+    Send-ToNoto @() 0x09 600       # Tab
+    $tabbed = (Editor-Value) -eq "$raw    " -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor'
+    Set-EditorText $raw
+    Start-Sleep -Milliseconds 1700
+    Send-ToNoto @() 0x1B 900
+    $read23 = Read-Text (Card '# heading')
+    $shot23 = Shot 'code-mode'
+    if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+    Start-Fresh 'Dark'
+    $card23 = Card '# heading'
+    $kept23 = (Stored-Mode $Plain) -eq 'Code' -and $card23 -and $card23.Current.HelpText -match 'Code' -and (Read-Text $card23) -match '\*\*bold\*\*'
+    Edit-Card '# heading'
+    $reopened = (Editor-Value) -eq $raw -and (Range-Of '**').GetAttributeValue($TP::IsHiddenAttribute) -eq $false
+    Send-ToNoto @() 0x1B 900
+    $beforeBack = Card-Mode '# heading' 'Markdown'
+    $rendered23 = Read-Text (Card 'heading')
+    Add-Result $run '25 Code from the menu: markup raw, not hidden, bold or larger, in the code font; Tab types 4 spaces; kept across a restart; Markdown renders it again' ($before23 -eq 'Markdown' -and $storedCode -eq 'Code' -and $helpCode -match 'Code' -and $hidden23 -eq $false -and [int]$weight23 -lt 600 -and [double]$headSize -eq [double]$textSize -and $font23 -match 'Cascadia Mono|Consolas' -and $tabbed -and $read23 -match '# heading' -and $read23 -match '\*\*bold\*\*' -and $kept23 -and $reopened -and $beforeBack -eq 'Code' -and (Stored-Mode $Plain) -eq 'Markdown' -and $rendered23 -notmatch '\*\*|#') "checked=$before23 stored=$storedCode help='$helpCode' hidden=$hidden23 weight=$weight23 size=$headSize/$textSize font='$font23' tab=$tabbed read='$($read23 -replace "`r|`n", ' | ')' restart=$kept23 reopened=$reopened back-checked=$beforeBack rendered='$($rendered23 -replace "`r|`n", ' | ')' $shot23"
+    Edit-Card 'heading'
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
 

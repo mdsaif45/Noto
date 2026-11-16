@@ -16,11 +16,13 @@ namespace Noto.UseCases.Notes;
 /// <param name="Content">Markdown source. Empty is valid — B26 has a placeholder for it.</param>
 /// <param name="Placement">Where it goes in the folder (B5, J8). <see cref="NewNotePlacement.Bottom"/> by default.</param>
 /// <param name="Selected">The selected note, for the placements relative to it.</param>
+/// <param name="Mode">How the note's text is read (#195): the "New notes are" setting (D28). Markdown by default.</param>
 public sealed record CreateNote(
     FolderId FolderId,
     string Content,
     NewNotePlacement Placement = NewNotePlacement.Bottom,
-    NoteId? Selected = null) : ICommand<CommandResult<NoteId>>;
+    NoteId? Selected = null,
+    NoteMode Mode = NoteMode.Markdown) : ICommand<CommandResult<NoteId>>;
 
 /// <summary>
 /// A note was created (ADR-010, #21): the reference event, published by the dispatcher after <see cref="CreateNote"/>
@@ -106,6 +108,7 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
             Id = NoteId.New(),
             Content = command.Content,
             FolderId = command.FolderId,
+            Mode = Enum.IsDefined(command.Mode) ? command.Mode : NoteMode.Markdown,
             CreatedAt = now,
             UpdatedAt = now,
 
