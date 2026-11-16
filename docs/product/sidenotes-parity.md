@@ -470,8 +470,8 @@ and is what the target audience already has in their fingers.
 
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
-| `[ ]` | D27 | Code mode | Per-note monospace mode; spell check off | Per-note code mode; monospace; spell check off | MUST | #195 | **v0.2 score (2026-11-13):** Not built. |
-| `[ ]` | D28 | Three note modes | code / plain text / markdown; global default | Same three modes + a global default | SHOULD | — | ⚠ provisional — INFERRED naming (Setapp listing) |
+| `[x]` | D27 | Code mode | Per-note monospace mode; spell check off | Per-note code mode; monospace; spell check off | MUST | #195 | **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** A per-note Code mode: monospace, spell check off, no Markdown styling, kept in the database (schema v5) and across restarts (#195; `Invoke-Editor` case 23). |
+| `[x]` | D28 | Three note modes | code / plain text / markdown; global default | Same three modes + a global default | SHOULD | — | ⚠ provisional — INFERRED naming (Setapp listing) **v0.3 score (2026-11-16):** Markdown, Code or Plain text from the card's menu, and a global default in Settings › New notes are (#195). |
 
 **D27 is CONFIRMED and D28 is not.** Code mode is documented directly by
 Apptorium; the *three-way* mode set appears only in a Setapp listing. Noto
@@ -500,7 +500,7 @@ architecturally.
 | `[ ]` | D42 | Smarter pasted links | Resolves link titles when accessible | Same, **off by default** | SHOULD | — | Title resolution is a network call — principle 4 and 10 **v0.3 score (2026-11-16):** Deliberate difference: link titles are never fetched (principles 4 and 10, Noto never uses the network). A web address pasted over a selection makes a link (D53, always on since v0.1) (#187). |
 | `[x]` | D43 | Paste clipboard as note | Note from clipboard contents | Same (= B3) | MUST | #187 | Duplicate of B3 **v0.2 score (2026-11-13):** As B3: a global shortcut and the tray menu, no **+** menu. **v0.3 score (2026-11-16):** = B3: the **+** menu now offers it (#187). |
 | `[ ]` | D44 | Text replacement | macOS system Text Replacement works in notes | **No equivalent; do not build one** | DROP | — | Windows has no system-wide equivalent service |
-| `[~]` | D45 | Spell check | Active in notes; off in code mode | Windows spell check; off in code mode | ADAPT | — | Windows spell-check API, not NSSpellChecker **v0.2 score (2026-11-13):** Windows spell check is on in the editor. There is no code mode to turn it off in (D27). |
+| `[x]` | D45 | Spell check | Active in notes; off in code mode | Windows spell check; off in code mode | ADAPT | — | Windows spell-check API, not NSSpellChecker **v0.2 score (2026-11-13):** Windows spell check is on in the editor. There is no code mode to turn it off in (D27). **v0.3 score (2026-11-16):** Windows spell check on in Markdown and Plain text, off in Code (#195). |
 | `[ ]` | D46 | Word count | Not documented | **Not a parity requirement** | DROP | — | Note count (C19) exists; word count does not |
 
 **D34 is a security surface as well as a feature.** File and folder shortcuts
