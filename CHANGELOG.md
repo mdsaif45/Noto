@@ -45,6 +45,8 @@ format or behavior. Breaking changes are always called out explicitly.
 - Noto can be driven by `noto://` links and from the command line: make a note with text (in a folder if named),
   open a folder, show the folder list, make a folder, or open Search with a query. A folder's menu has *Copy link*, and
   the installed Noto registers the link for the current user (#192).
+- A note can be Markdown, Code or Plain text, from the card's menu under *Mode*. Code shows the text exactly as typed,
+  in a monospace font with spell check off. Settings › *New notes are* sets the mode for new notes (#195).
 
 ## [0.2.0] - 2026-11-14
 
