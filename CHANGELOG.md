@@ -20,6 +20,8 @@ format or behavior. Breaking changes are always called out explicitly.
   menu inserts a separator line, and a picture (#194).
 - In Search, Ctrl+R opens the chosen note's first link (only the kinds of link Noto already opens), and Ctrl+Click or
   Ctrl+Enter on a note opens the folder it is in (#197).
+- Move to (Ctrl+Shift+M, or the card menu) can create a folder: choose *New folder…*, type a name and press Enter, and
+  the note moves into it (#189).
 
 ## [0.2.0] - 2026-11-14
 
