@@ -4,6 +4,7 @@ using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
+using Frequency = Noto.Core.Portability.BackupFrequency;
 using NoteText = Noto.Core.Workspace.NoteText;
 using WelcomeState = Noto.Core.Workspace.WelcomeState;
 using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
@@ -286,11 +287,22 @@ public static class SettingKeys
         new("editor.format-toolbar", true);
 
     /// <summary>
-    /// Whether Noto backs itself up once a day into the data root's backups, keeping the last seven (F15, #15).
+    /// Whether Noto backs itself up into the data root's backups, keeping the last seven (F15, #15), as often as
+    /// <see cref="BackupFrequency"/> says.
     /// </summary>
     /// <remarks>Default on: a backup nobody remembered to take is the one that is missing when it is needed.</remarks>
     public static readonly SettingKey<bool> BackupAutomatic =
         new("backup.automatic", true);
+
+    /// <summary>
+    /// How often the automatic backup is taken (#199; parity I8, J38): once a day, or every 45, 30 or 15 minutes.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="Frequency.Daily"/>, what Noto has always done. Stored by member name; a value that is not a
+    /// member is refused when written and reads as the default. A change applies at once, without a restart.
+    /// </remarks>
+    public static readonly SettingKey<Frequency> BackupFrequency =
+        new("backup.frequency", Frequency.Daily, Enum.IsDefined);
 
     /// <summary>
     /// Where a new note goes in its folder (parity B5, J8): Bottom, Top, AboveSelected or BelowSelected.
@@ -367,6 +379,7 @@ public static class SettingKeys
         AppearanceNoteSize,
         EditorFormatToolbar,
         BackupAutomatic,
+        BackupFrequency,
         NotesNewPlacement,
         NotesRecentMoveFolders,
         OnboardingWelcome,

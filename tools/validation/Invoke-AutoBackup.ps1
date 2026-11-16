@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
   F15 (#15): Noto backs itself up once a day into the data root's backups, keeping the last seven automatic backups,
-  and never touches any other backup there.
+  and never touches any other backup there; #199: or every 45, 30 or 15 minutes, as chosen.
 
 .DESCRIPTION
   One isolated data root on a temporary virtual desktop; Noto started by the shell; the real data folders checked
@@ -14,6 +14,8 @@
        remain (the two oldest removed); the other two files are untouched
     2  a second start the same day writes none: one is taken a day
     3  with "Back up automatically" off: a start writes none
+    4  with it on again at every 15 minutes and the newest automatic backup 20 minutes old: a start writes one, and the
+       older one is kept (#199)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-AutoBackup.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -37,7 +39,7 @@ function Until([scriptblock] $Condition, [int] $Seconds) {
 }
 function Backups { @(Get-ChildItem -LiteralPath $script:backups -File -ErrorAction SilentlyContinue | ForEach-Object Name | Sort-Object) }
 function Autos { @(Backups | Where-Object { $_ -like 'auto-*.notobackup' }) }
-function Old-Auto([int] $DaysAgo) { "auto-$((Get-Date).AddDays(-$DaysAgo).ToString('yyyy-MM-dd HHmmss', [Globalization.CultureInfo]::InvariantCulture)).notobackup" }
+function Old-Auto([int] $DaysAgo, [int] $MinutesAgo = 0) { "auto-$((Get-Date).AddDays(-$DaysAgo).AddMinutes(-$MinutesAgo).ToString('yyyy-MM-dd HHmmss', [Globalization.CultureInfo]::InvariantCulture)).notobackup" }
 function Entries([string] $Path) {
     $zip = [System.IO.Compression.ZipFile]::OpenRead($Path)
     try { @($zip.Entries | ForEach-Object FullName) } finally { $zip.Dispose() }
@@ -86,6 +88,18 @@ try {
         $m = Trace-Mark
         Start-Sleep -Seconds 45
         Add-Result $run '3  with Back up automatically off, a start writes none' ((Autos).Count -eq 0 -and (Trace-Since $m) -match 'Noto\.Backup automatic off' -and (Trace-Since $m) -notmatch 'Noto\.Backup automatic (written|failed)') "autos=$((Autos).Count); trace: $(Trace-Since $m)"
+        if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+
+        # 4 - every 15 minutes (#199): a newest automatic backup 20 minutes old is due; a day's would not be
+        Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'backup.automatic' -Value 'True'
+        Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'backup.frequency' -Value 'Every15Minutes'
+        $recent = Old-Auto 0 20
+        Set-Content -LiteralPath (Join-Path $script:backups $recent) -Value 'seeded'
+        $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
+        $m = Trace-Mark
+        $written = Until { (Trace-Since $m) -match 'Noto\.Backup automatic (written|failed)' } 60
+        $new = @(Autos | Where-Object { $_ -ne $recent })
+        Add-Result $run '4  at every 15 minutes, a start with the newest automatic backup 20 minutes old writes one' ($written -and (Trace-Since $m) -match 'automatic written' -and $new.Count -eq 1 -and (Autos) -contains $recent) "autos=$((Autos) -join ' | '); trace: $(Trace-Since $m)"
         Add-Result $run 'teardown: Noto exited cleanly' (Stop-Noto $script:noto) ''
     }
 }

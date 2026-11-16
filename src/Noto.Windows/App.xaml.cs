@@ -11,6 +11,7 @@ using Noto.Core.Commands;
 using Noto.Core.Diagnostics;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
+using Noto.Core.Portability;
 using Noto.Core.Settings;
 using Noto.Core.Storage;
 using Noto.Core.Workspace;
@@ -930,7 +931,7 @@ public partial class App : Application
         // F22 (#160): a start at sign-in stays hidden; once its start-up work is done, it gives back what it is not using.
         TrimWhenHidden();
 
-        // F15 (#15): automatic backups, checked a little after the start (never on its path) and then every hour.
+        // F15 (#15): automatic backups, checked a little after the start (never on its path), then when the next is due.
         _automaticBackup = () => BackupIfDue(portability, preferences);
         ScheduleAutomaticBackups(_window.DispatcherQueue);
 
@@ -1345,9 +1346,9 @@ public partial class App : Application
         {
             NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
         }
-        else if (key == SettingKeys.BackupAutomatic)
+        else if (key == SettingKeys.BackupAutomatic || key == SettingKeys.BackupFrequency)
         {
-            _ = _automaticBackup?.Invoke();
+            _ = CheckAutomaticBackup();
         }
         else if ((key == SettingKeys.AppearanceNoteFont || key == SettingKeys.AppearanceNoteSize) && _main is not null)
         {
@@ -1938,8 +1939,10 @@ public partial class App : Application
         deadline.Start();
     }
 
-    /// <summary>Checks for an automatic backup (F15): set once the data's owners exist.</summary>
-    private Func<Task>? _automaticBackup;
+    /// <summary>
+    /// Checks for an automatic backup (F15): set once the data's owners exist. Returns how long to wait before the next.
+    /// </summary>
+    private Func<Task<TimeSpan>>? _automaticBackup;
 
     /// <summary>Checks for an automatic backup on a timer; kept so it is not collected.</summary>
     private DispatcherQueueTimer? _backupTimer;
@@ -1947,30 +1950,34 @@ public partial class App : Application
     /// <summary>How long after a start the first automatic-backup check runs: off the start's path.</summary>
     private static readonly TimeSpan FirstBackupCheck = TimeSpan.FromSeconds(30);
 
-    /// <summary>How often the automatic backup is checked for afterwards; it is taken once a day.</summary>
-    private static readonly TimeSpan BackupCheckInterval = TimeSpan.FromHours(1);
-
     private void ScheduleAutomaticBackups(DispatcherQueue queue)
     {
         _backupTimer = queue.CreateTimer();
         _backupTimer.Interval = FirstBackupCheck;
         _backupTimer.IsRepeating = true;
-        _backupTimer.Tick += async (timer, _) =>
-        {
-            // Restarted, so the hour counts from now: a new interval set on a running timer took effect only after one
-            // more tick at the old one (measured, F22: a second check 30 s after the first).
-            timer.Stop();
-            timer.Interval = BackupCheckInterval;
-            timer.Start();
-            if (_automaticBackup is { } check)
-            {
-                await check();
-            }
-
-            // A backup reads the whole database: what it touched is given back if Noto is hidden (F22).
-            TrimWhenHidden();
-        };
+        _backupTimer.Tick += async (_, _) => await CheckAutomaticBackup();
         _backupTimer.Start();
+    }
+
+    /// <summary>
+    /// Checks for an automatic backup now, on the timer or because Back up automatically or its frequency changed
+    /// (#199), then sets the timer for when the next is due: a change applies at once, without a restart.
+    /// </summary>
+    private async Task CheckAutomaticBackup()
+    {
+        if (_automaticBackup is not { } check || _backupTimer is not { } timer)
+        {
+            return;
+        }
+
+        // Stopped while it checks, then restarted, so the wait counts from now: a new interval set on a running timer
+        // took effect only after one more tick at the old one (measured, F22: a second check 30 s after the first).
+        timer.Stop();
+        timer.Interval = await check();
+        timer.Start();
+
+        // A backup reads the whole database: what it touched is given back if Noto is hidden (F22).
+        TrimWhenHidden();
     }
 
     /// <summary>How long Noto stays hidden before it gives back the memory it is not using (F22, #160).</summary>
@@ -2009,26 +2016,34 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// An automatic backup, if it is on and one is due (F15, #15). A failure is traced and tried again at the next check;
-    /// it never interrupts the user.
+    /// An automatic backup, if it is on and one is due at the chosen frequency (F15, #15; #199). A failure is traced and
+    /// tried again an interval later, an hour at most, as if one had been taken; it never interrupts the user.
     /// </summary>
-    private static async Task BackupIfDue(DataPortability portability, WorkspacePreferences preferences)
+    /// <returns>How long to wait before the next check: an hour while automatic backup is off.</returns>
+    private static async Task<TimeSpan> BackupIfDue(DataPortability portability, WorkspacePreferences preferences)
     {
         // Each check says how it ended (F22: the idle measurement starts once the first one has).
         if (!preferences.AutomaticBackups)
         {
             Trace.WriteLine("Noto.Backup automatic off");
-            return;
+            return AutomaticBackups.LongestWait;
         }
+
+        BackupFrequency frequency = preferences.BackupFrequency;
+        DateTimeOffset? newest;
 
         try
         {
-            Trace.WriteLine(await portability.BackupIfDue() ? "Noto.Backup automatic written" : "Noto.Backup automatic not-due");
+            Trace.WriteLine(await portability.BackupIfDue(frequency) ? "Noto.Backup automatic written" : "Noto.Backup automatic not-due");
+            newest = portability.NewestAutomaticBackup;
         }
         catch (Exception ex) when (ex is PortabilityException or IOException or UnauthorizedAccessException or OperationCanceledException)
         {
             Trace.WriteLine($"Noto.Backup automatic failed error={ex.GetType().Name}");
+            newest = TimeProvider.System.GetLocalNow();
         }
+
+        return AutomaticBackups.UntilNextCheck(newest, TimeProvider.System.GetLocalNow(), frequency);
     }
 
     /// <summary>How long a start may stay off the screen while it is drawn, at most (<see cref="PresentWhenDrawn"/>).</summary>

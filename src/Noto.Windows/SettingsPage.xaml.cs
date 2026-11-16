@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
 using Noto.Core.Notes;
+using Noto.Core.Portability;
 using Noto.Core.Workspace;
 using Noto.Platform.Windows;
 using Noto.UseCases.Workspace;
@@ -166,6 +167,8 @@ public sealed partial class SettingsPage : UserControl
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
+            Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
+            BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
@@ -261,8 +264,19 @@ public sealed partial class SettingsPage : UserControl
     private void OnFormatToolbarToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetFormatToolbar(FormatToolbarSetting.IsOn));
 
-    private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e) =>
+    // How often (#199) is off while automatic backup is, as a shortcut's recorder is while its shortcut is.
+    private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e)
+    {
         Write(p => p.SetAutomaticBackups(AutomaticBackupSetting.IsOn));
+
+        if (_context is not null)
+        {
+            BackupFrequencySetting.IsEnabled = _context.Preferences.AutomaticBackups;
+        }
+    }
+
+    private void OnBackupFrequencyChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => BackupFrequencySetting.SelectedItem is not null && p.SetBackupFrequency(Selected<BackupFrequency>(BackupFrequencySetting)));
 
     private void OnHideOnDeactivationToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetHideOnDeactivation(HideOnDeactivationSetting.IsOn));
