@@ -76,6 +76,16 @@ public sealed class ImageReferenceTests
     }
 
     [Theory]
+    [InlineData(5, "attachments/a.png")] // the picture's line
+    [InlineData(37, null)] // the line under it, in the same paragraph: no picture there (measured, Invoke-Images 16)
+    [InlineData(54, null)] // the end of the note, on that line
+    public void A_picture_is_never_found_from_another_line_of_its_paragraph(int position, string? source)
+    {
+        const string content = "Red\n![red square](attachments/a.png)\nafter the picture";
+        Assert.Equal(source, ImageReference.At(MarkdownDocument.Parse(content), position));
+    }
+
+    [Theory]
     [InlineData(6, 31, "attachments/a.png")] // the whole line
     [InlineData(8, 11, "attachments/a.png")] // only its caption, the part shown
     [InlineData(5, 32, "attachments/a.png")] // with the line breaks around it

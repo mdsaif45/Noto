@@ -66,9 +66,10 @@ public static partial class ImageReference
     }
 
     /// <summary>
-    /// The source, as written, of the picture on the block holding <paramref name="position"/>: the one there, else the
-    /// block's last, which is the one drawn on top. A picture is drawn below its line, so a right-click on it lands on
-    /// that line (D32, #187). <see langword="null"/> when the block has none.
+    /// The source, as written, of the picture on the line holding <paramref name="position"/>: the one there, else the
+    /// line's last, which is the one drawn on top. A picture is drawn below its line, so a right-click on it lands on
+    /// that line (D32, #187). <see langword="null"/> when the line has none, even when the paragraph it is part of has
+    /// one on another line (a picture line and the text under it are one paragraph).
     /// </summary>
     public static string? At(MarkdownDocument document, int position)
     {
@@ -78,7 +79,11 @@ public static partial class ImageReference
             return null;
         }
 
-        List<MarkdownSpan> images = [.. block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image)];
+        string text = document.Source;
+        int at = Math.Clamp(position, 0, text.Length);
+        int lineStart = at == 0 ? 0 : text.LastIndexOf('\n', at - 1) + 1;
+        int lineEnd = text.IndexOf('\n', at) is var end and >= 0 ? end : text.Length;
+        List<MarkdownSpan> images = [.. block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image && s.Start >= lineStart && s.Start < lineEnd)];
         MarkdownSpan? image = images.Where(s => s.Start <= position && position <= s.End).Cast<MarkdownSpan?>().FirstOrDefault()
             ?? images.Cast<MarkdownSpan?>().LastOrDefault();
 
