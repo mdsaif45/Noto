@@ -430,6 +430,18 @@ public static class SettingKeys
         new("notes.new-placement", NewNotePlacement.Bottom, Enum.IsDefined);
 
     /// <summary>
+    /// The mode a new note starts in (#195; parity D28, J11): Markdown, Code or PlainText.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="NoteMode.Markdown"/>, every note before the setting existed. Applied by note creation (Ctrl+N,
+    /// the new-note shortcuts, a note from the clipboard); a note's own mode is changed from its card's menu, and never
+    /// changes with this. Stored by member name; a value that is not a member is refused when written and reads as the
+    /// default.
+    /// </remarks>
+    public static readonly SettingKey<NoteMode> NotesNewMode =
+        new("notes.new-mode", NoteMode.Markdown, Enum.IsDefined);
+
+    /// <summary>
     /// The folders notes were most recently moved to (B11): the move menu's first choices.
     /// </summary>
     /// <remarks>
@@ -506,6 +518,7 @@ public static class SettingKeys
         BackupAutomatic,
         BackupFrequency,
         NotesNewPlacement,
+        NotesNewMode,
         NotesRecentMoveFolders,
         OnboardingWelcome,
         DiagnosticsLogLevel,

@@ -43,7 +43,7 @@ public sealed class NoteTextGuardTests
         Assert.DoesNotContain("Resources[span.Level switch", Reader, StringComparison.Ordinal);
 
         // The editor: its family and size, and headings scaled the same way, restyled when they change.
-        Assert.Contains("BodyFont: FontFamily.Source.Split(',')[0].Trim(),", Host, StringComparison.Ordinal);
+        Assert.Contains("BodyFont: _mode == NoteMode.Code ? CodeFont : FontFamily.Source.Split(',')[0].Trim(),", Host, StringComparison.Ordinal);
         Assert.Contains("BodySize: FontSize,", Host, StringComparison.Ordinal);
         Assert.Contains("Heading1Size: Scaled(\"FontSizeHeading\"),", Host, StringComparison.Ordinal);
         Assert.Contains("RegisterPropertyChangedCallback(FontSizeProperty, (_, _) => RestyleAll());", Host, StringComparison.Ordinal);

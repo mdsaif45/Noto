@@ -1,3 +1,5 @@
+using Noto.Core.Notes;
+
 namespace Noto.Core.Markdown;
 
 /// <summary>
@@ -47,6 +49,39 @@ public sealed class MarkdownDocument
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Describes <paramref name="source"/> as <paramref name="mode"/> reads it (#195): Markdown is <see cref="Parse(string)"/>;
+    /// Code and plain text are lines of text and nothing else, so nothing is styled, hidden, linked or drawn, and the
+    /// editor and the read view show the text exactly as typed.
+    /// </summary>
+    public static MarkdownDocument Parse(string source, NoteMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (mode == NoteMode.Markdown)
+        {
+            return Parse(source);
+        }
+
+        var blocks = new List<MarkdownBlock>();
+        int lineStart = 0;
+
+        while (true)
+        {
+            int lineEnd = LineEnd(source, lineStart);
+            bool blank = source.AsSpan(lineStart, lineEnd - lineStart).IndexOfAnyExcept(' ', '\t') < 0;
+            blocks.Add(Block(blank ? MarkdownBlockKind.Blank : MarkdownBlockKind.Paragraph, lineStart, lineEnd, []));
+
+            if (lineEnd == source.Length)
+            {
+                return new MarkdownDocument(source, blocks);
+            }
+
+            // CRLF is one break, not two, as Parse reads it.
+            lineStart = source[lineEnd] == '\r' && lineEnd + 1 < source.Length && source[lineEnd + 1] == '\n' ? lineEnd + 2 : lineEnd + 1;
+        }
     }
 
     /// <summary>Describes <paramref name="source"/>. Never throws for any string.</summary>

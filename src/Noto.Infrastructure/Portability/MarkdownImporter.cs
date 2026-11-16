@@ -389,9 +389,10 @@ public static class MarkdownImporter
             foreach ((string text, ExportNote? state) in content)
             {
                 Execute(connection, transaction,
-                    "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsPinned, IsFolded, CreatedAt, UpdatedAt) VALUES ($id, $folder, $content, $order, $pinned, $folded, $now, $now);",
+                    "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsPinned, IsFolded, Mode, CreatedAt, UpdatedAt) VALUES ($id, $folder, $content, $order, $pinned, $folded, $mode, $now, $now);",
                     ("$id", NoteId.New().Value), ("$folder", folderId), ("$content", text), ("$order", (double)++position),
-                    ("$pinned", state?.Pinned == true ? 1 : 0), ("$folded", state?.Folded == true ? 1 : 0), ("$now", stamp));
+                    ("$pinned", state?.Pinned == true ? 1 : 0), ("$folded", state?.Folded == true ? 1 : 0),
+                    ("$mode", NoteModes.Parse(state?.Mode).ToString()), ("$now", stamp));
                 notes++;
             }
         }

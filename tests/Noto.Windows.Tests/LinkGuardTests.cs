@@ -28,7 +28,7 @@ public sealed class LinkGuardTests
     public void Paste_prefers_copied_files_then_a_web_address_over_a_selection()
     {
         string paste = Body(Host, "PasteAsync");
-        Assert.Matches(@"if \(paths\.Count > 0\)\s*\{\s*AddFiles\(paths\);\s*return;\s*\}\s*TextEdit\? edit = plain is not null \? MarkdownCommands\.LinkSelection\(_text, at, plain\) : null;", paste);
+        Assert.Matches(@"if \(paths\.Count > 0\)\s*\{\s*AddFiles\(paths\);\s*return;\s*\}\s*TextEdit\? edit = plain is not null && asMarkdown \? MarkdownCommands\.LinkSelection\(_text, at, plain\) : null;", paste);
         Assert.Contains(".Where(Path.IsPathFullyQualified)", paste, StringComparison.Ordinal);
 
         // Files that are not images are linked, as before images (D34).

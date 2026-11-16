@@ -1400,7 +1400,7 @@ public sealed partial class MainWindow : Window
         host.MaxHeight = EditingHeight();
         _editor = host;
         host.Images = Images;
-        host.Load(NoteId.From(card.Id), _stack.Draft);
+        host.Load(NoteId.From(card.Id), _stack.Draft, card.Mode);
         host.ContentChanged -= OnEditorContentChanged;
         host.LeaveRequested -= OnEditorLeaveRequested;
         host.LinkOpenRequested -= OnEditorLinkOpenRequested;
@@ -1977,6 +1977,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public NewNotePlacement NewNotePlacement { get; set; }
 
+    /// <summary>The mode a new note starts in (#195, D28): set by the composition root, and again when Settings changes it.</summary>
+    internal NoteMode NewNoteMode { get; set; }
+
     /// <summary>
     /// Creates a note at the configured placement beside the selected card and edits it (parity B1, B5). The card
     /// being edited is saved first; a failed save creates nothing. A link's note holds its text (#192).
@@ -1992,7 +1995,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content);
+            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content, NewNoteMode);
 
             if (!result.IsSuccess)
             {
@@ -2117,6 +2120,14 @@ public sealed partial class MainWindow : Window
         }
 
         menu.Items.Add(colour);
+
+        var mode = new MenuFlyoutSubItem { Text = "Mode" };
+        foreach (MenuFlyoutItemBase item in ModeItems(card))
+        {
+            mode.Items.Add(item);
+        }
+
+        menu.Items.Add(mode);
         menu.Items.Add(MenuItem("Move to top", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Top), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Top)));
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Bottom), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Bottom)));
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -2525,6 +2536,70 @@ public sealed partial class MainWindow : Window
         }
 
         return items;
+    }
+
+    /// <summary>The three modes as menu items (#195; D27, D28), the card's own checked.</summary>
+    private List<MenuFlyoutItemBase> ModeItems(NoteCard card)
+    {
+        var items = new List<MenuFlyoutItemBase>();
+
+        foreach (NoteMode mode in Enum.GetValues<NoteMode>())
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = NoteCard.NameOf(mode),
+                GroupName = "NoteMode",
+                IsChecked = card.Mode == mode,
+            };
+            item.Click += (_, _) => ModeCard(card.Id, mode);
+            items.Add(item);
+        }
+
+        return items;
+    }
+
+    /// <summary>
+    /// Sets how a card's text is read (#195), in place: it keeps its container, its focus and, if it is being edited,
+    /// its text and caret, which the editor reads in the new mode at once. The text is never changed. Said aloud.
+    /// </summary>
+    private void ModeCard(string id, NoteMode mode)
+    {
+        if (_noteState != NoteState.Loaded)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult result = _stack.SetMode(NoteId.From(id), mode);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            if (Notes.FirstOrDefault(n => n.Id == id) is { } card)
+            {
+                card.Mode = mode;
+
+                if (NoteList.ContainerFromItem(card) is ListViewItem container)
+                {
+                    Accessible.SetRowState(container, card.HelpText);
+                }
+            }
+
+            if (_editor is { Note: { } shown } editor && shown.Value == id)
+            {
+                editor.SetMode(mode);
+            }
+
+            Announce($"Mode: {NoteCard.NameOf(mode)}");
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not change the note's mode: {ex.Message}");
+        }
     }
 
     /// <summary>

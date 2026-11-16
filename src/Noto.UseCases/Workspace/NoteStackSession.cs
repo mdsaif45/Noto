@@ -171,10 +171,11 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     public void DiscardEdit() => StopEditing();
 
     /// <summary>
-    /// Creates a note at <paramref name="placement"/> beside <paramref name="selected"/> (B5) and edits it, saving the
-    /// card being edited first. Empty, unless a <c>noto://</c> link gave it <paramref name="content"/> (#192).
+    /// Creates a note at <paramref name="placement"/> beside <paramref name="selected"/> (B5), in <paramref name="mode"/>
+    /// (#195, D28), and edits it, saving the card being edited first. Empty, unless a <c>noto://</c> link gave it
+    /// <paramref name="content"/> (#192).
     /// </summary>
-    public CommandResult<NoteId> Create(NewNotePlacement placement, NoteId? selected, string content = "")
+    public CommandResult<NoteId> Create(NewNotePlacement placement, NoteId? selected, string content = "", NoteMode mode = NoteMode.Markdown)
     {
         if (Folder is not { } folder)
         {
@@ -188,7 +189,7 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
             return CommandResult.Failed<NoteId>(left.Failure!);
         }
 
-        CommandResult<NoteId> created = _commands.Dispatch(new CreateNote(folder, content, placement, selected));
+        CommandResult<NoteId> created = _commands.Dispatch(new CreateNote(folder, content, placement, selected, mode));
 
         if (created.IsSuccess)
         {
@@ -306,6 +307,23 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         if (result.IsSuccess && index >= 0)
         {
             _notes[index] = _notes[index] with { ColorKey = colorKey };
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Sets how a card's text is read (#195): Markdown, Code or plain text. The card being edited keeps editing, with
+    /// its text: a mode never changes the text.
+    /// </summary>
+    public CommandResult SetMode(NoteId note, NoteMode mode)
+    {
+        CommandResult result = _commands.Dispatch(new SetNoteMode(note, mode));
+        int index = IndexOf(note);
+
+        if (result.IsSuccess && index >= 0)
+        {
+            _notes[index] = _notes[index] with { Mode = mode };
         }
 
         return result;

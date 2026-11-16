@@ -393,7 +393,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
-    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Colour,Move to top,Move to bottom,Export as Markdown…,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
+    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Colour,Mode,Move to top,Move to bottom,Export as Markdown…,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
 
     # 13 - Settings and back while editing
     Send-ToNoto @() 0x0D

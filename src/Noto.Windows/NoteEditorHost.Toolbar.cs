@@ -1,6 +1,7 @@
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Noto.Core.Notes;
 using Windows.Foundation;
 
 namespace Noto;
@@ -45,7 +46,8 @@ public sealed partial class NoteEditorHost
 
     private void ShowToolbar()
     {
-        if (!ShowsFormatToolbar || _selection.IsCaret || NoteEditor.FocusState == FocusState.Unfocused)
+        // Code and plain text have nothing to format (#195).
+        if (!ShowsFormatToolbar || _mode != NoteMode.Markdown || _selection.IsCaret || NoteEditor.FocusState == FocusState.Unfocused)
         {
             HideToolbar();
             return;

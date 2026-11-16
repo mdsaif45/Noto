@@ -54,12 +54,12 @@ internal sealed class Workspace : IDisposable
         return id;
     }
 
-    public NoteId Note(FolderId folder, string content, double order = 1, bool pinned = false, bool folded = false, bool deleted = false)
+    public NoteId Note(FolderId folder, string content, double order = 1, bool pinned = false, bool folded = false, bool deleted = false, NoteMode mode = NoteMode.Markdown)
     {
         var id = NoteId.New();
         Execute(
-            "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsPinned, IsFolded, CreatedAt, UpdatedAt, DeletedAt) VALUES ($id, $folder, $content, $order, $pinned, $folded, $now, $now, $deleted);",
-            ("$id", id.Value), ("$folder", folder.Value), ("$content", content), ("$order", order), ("$pinned", pinned ? 1 : 0), ("$folded", folded ? 1 : 0),
+            "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsPinned, IsFolded, Mode, CreatedAt, UpdatedAt, DeletedAt) VALUES ($id, $folder, $content, $order, $pinned, $folded, $mode, $now, $now, $deleted);",
+            ("$id", id.Value), ("$folder", folder.Value), ("$content", content), ("$order", order), ("$pinned", pinned ? 1 : 0), ("$folded", folded ? 1 : 0), ("$mode", mode.ToString()),
             ("$now", "2026-10-01T08:00:00.0000000+00:00"), ("$deleted", deleted ? "2026-10-02T08:00:00.0000000+00:00" : DBNull.Value));
         return id;
     }
@@ -85,7 +85,7 @@ internal sealed class Workspace : IDisposable
         using (SqliteConnection connection = Database.OpenConnection())
         {
             Rows(connection, dump, "SELECT Id, Name, SortOrder, IsPinned, IsCollapsed, ColorKey, CreatedAt, UpdatedAt, DeletedAt FROM Folders ORDER BY Id;");
-            Rows(connection, dump, "SELECT Id, FolderId, Content, SortOrder, IsPinned, IsFolded, ColorKey, CreatedAt, UpdatedAt, DeletedAt FROM Notes ORDER BY Id;");
+            Rows(connection, dump, "SELECT Id, FolderId, Content, SortOrder, IsPinned, IsFolded, ColorKey, Mode, CreatedAt, UpdatedAt, DeletedAt FROM Notes ORDER BY Id;");
             Rows(connection, dump, "SELECT Key, Value FROM Settings ORDER BY Key;");
         }
 

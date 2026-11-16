@@ -102,6 +102,8 @@ public sealed class MigrationRunner
         new(3, "Every active note has a folder (I7): repair to the recycle bin, then refuse",
             SchemaV3.Sql, TransformsUserData: true),
         new(4, "Full-text search: the NotesFts index and the triggers that keep it exact (ADR-018)", SchemaV4.Sql),
+        new(5, "A note's mode (#195): Notes.Mode, Markdown for every note already there",
+            SchemaV5.Sql, TransformsUserData: true),
     ];
 
     /// <summary>The version a fully migrated database reports.</summary>

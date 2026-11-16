@@ -39,6 +39,10 @@ public sealed class ExportImportTests : IDisposable
         ExportIndex index = ExportIndex.Read(File.ReadAllText(Path.Join(root, ExportIndex.FileName)))!;
         Assert.Equal(["Work", "Hôme ✓", "Empty"], index.Folders.Select(f => f.Name));
         Assert.Equal([("Weekly sync.md", true, false), ("Trip.md", false, true)], index.Folders[0].Notes.Select(n => (n.File, n.Pinned, n.Folded)));
+
+        // Each note's mode by name (#195), so an import reads it as it was written.
+        Assert.Equal(["Markdown", "Markdown"], index.Folders[0].Notes.Select(n => n.Mode));
+        Assert.Equal(["PlainText", "Markdown", "Markdown", "Code"], index.Folders[1].Notes.Select(n => n.Mode));
     }
 
     [Fact]
@@ -338,7 +342,7 @@ public sealed class ExportImportTests : IDisposable
             .Where(f => Path.GetFileName(f) != ExportIndex.FileName)
             .ToDictionary(f => Path.GetRelativePath(root, f).Replace('\\', '/'), f => Convert.ToHexString(File.ReadAllBytes(f))), StringComparer.Ordinal);
 
-    /// <summary>Each active folder's name with its active notes' content, pin and fold, in display order.</summary>
+    /// <summary>Each active folder's name with its active notes' content, pin, fold and mode, in display order.</summary>
     private static List<string> Notes(Workspace workspace)
     {
         var rows = new List<string>();
@@ -373,13 +377,13 @@ public sealed class ExportImportTests : IDisposable
         using var connection = workspace.Database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT n.Content, n.IsPinned, n.IsFolded FROM Notes n JOIN Folders f ON f.Id = n.FolderId WHERE f.Name = $f AND f.DeletedAt IS NULL AND n.DeletedAt IS NULL ORDER BY n.IsPinned DESC, n.SortOrder, n.Id;";
+            "SELECT n.Content, n.IsPinned, n.IsFolded, n.Mode FROM Notes n JOIN Folders f ON f.Id = n.FolderId WHERE f.Name = $f AND f.DeletedAt IS NULL AND n.DeletedAt IS NULL ORDER BY n.IsPinned DESC, n.SortOrder, n.Id;";
         command.Parameters.AddWithValue("$f", folder);
         using var reader = command.ExecuteReader();
         var notes = new List<string>();
         while (reader.Read())
         {
-            notes.Add(withState ? $"{reader.GetInt64(1)}{reader.GetInt64(2)} {reader.GetString(0)}" : reader.GetString(0));
+            notes.Add(withState ? $"{reader.GetInt64(1)}{reader.GetInt64(2)}{reader.GetString(3)} {reader.GetString(0)}" : reader.GetString(0));
         }
 
         return notes;

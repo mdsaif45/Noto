@@ -518,6 +518,7 @@
                                     LinkBrush="{ThemeResource TextLinkBrush}"
                                     MarkBrush="{ThemeResource MarkBrush}"
                                     MarkTextBrush="{ThemeResource MarkTextBrush}"
+                                    Mode="{x:Bind Mode, Mode=OneWay}"
                                     Source="{x:Bind ReadText, Mode=OneWay}" />
 
                                 <!-- The editor, only on the card being edited. -->
@@ -596,6 +597,7 @@
                                     <Button
                                         x:Name="CardFormatButton"
                                         Style="{StaticResource HeaderButtonStyle}"
+                                        Visibility="{x:Bind FormatVisibility, Mode=OneWay}"
                                         ToolTipService.ToolTip="Format"
                                         AutomationProperties.Name="Format">
                                         <FontIcon Glyph="&#xE8D2;" FontSize="{StaticResource IconSize}" />

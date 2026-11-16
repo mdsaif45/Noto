@@ -24,7 +24,7 @@ public sealed class ImageGuardTests
     public void A_picture_is_pasted_only_when_the_clipboard_has_no_files_or_text()
     {
         string paste = Body(Host, "PasteAsync");
-        Assert.Matches(@"if \(paths\.Count == 0 && plain is null && html is null && clipboard\.Contains\(StandardDataFormats\.Bitmap\)\)\s*\{\s*picture = await clipboard\.GetBitmapAsync\(\);", paste);
+        Assert.Matches(@"if \(asMarkdown && paths\.Count == 0 && plain is null && html is null && clipboard\.Contains\(StandardDataFormats\.Bitmap\)\)\s*\{\s*picture = await clipboard\.GetBitmapAsync\(\);", paste);
         Assert.Matches(@"if \(picture is not null\)\s*\{\s*await AddPicture\(picture\);\s*return;", paste);
 
         // Kept as PNG, whatever format it came in; a refusal is said, never silent.

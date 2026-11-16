@@ -61,7 +61,7 @@ public sealed class NoteStackGuardTests
         string loaded = Body(Main, "AttachEditor");
         Assert.Contains("_stack.Editing is not { } editing || editing.Value != card.Id", loaded, StringComparison.Ordinal);
         Assert.Contains("(host.Note is { } shown && shown.Value == card.Id)", loaded, StringComparison.Ordinal);
-        Assert.Contains("host.Load(NoteId.From(card.Id), _stack.Draft);", loaded, StringComparison.Ordinal);
+        Assert.Contains("host.Load(NoteId.From(card.Id), _stack.Draft, card.Mode);", loaded, StringComparison.Ordinal);
 
         // Both ways a card reaches its editor attach it: realised, or a recycled container given the card afterwards.
         Assert.Contains("private void OnEditorHostLoaded(object sender, RoutedEventArgs e) => AttachEditor(sender as NoteEditorHost);", Main, StringComparison.Ordinal);

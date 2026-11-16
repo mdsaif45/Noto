@@ -10,7 +10,7 @@ namespace Noto.Infrastructure.Portability;
 
 /// <summary>
 /// Exports notes as Markdown (ADR-020 §4): each note's source byte for byte, in a directory per folder, with the images
-/// it refers to beside it so its references resolve unchanged, and an index of order, pins and folds. Written into a
+/// it refers to beside it so its references resolve unchanged, and an index of order, pins, folds and modes. Written into a
 /// temporary directory and renamed when complete: cancelled or failed, nothing remains.
 /// </summary>
 public static class MarkdownExporter
@@ -81,9 +81,9 @@ public static class MarkdownExporter
                 foreach (NoteRow note in folder.Notes)
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    string file = files.Take(PortableNames.Safe(NoteTitle.From(note.Content)), ".md");
+                    string file = files.Take(PortableNames.Safe(NoteTitle.From(note.Content, note.Mode)), ".md");
                     File.WriteAllText(Path.Join(folderPath, file), note.Content, Utf8);
-                    notes.Add(new ExportNote(file, note.Pinned, note.Folded, note.ColorKey));
+                    notes.Add(new ExportNote(file, note.Pinned, note.Folded, note.ColorKey, note.Mode.ToString()));
 
                     foreach (string image in ImageReference.In(note.Content).Distinct(StringComparer.Ordinal))
                     {
@@ -151,14 +151,14 @@ public static class MarkdownExporter
         {
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = scope is ExportScope.Note
-                ? "SELECT Content, IsPinned, IsFolded, ColorKey FROM Notes WHERE Id = $note AND DeletedAt IS NULL;"
-                : "SELECT Content, IsPinned, IsFolded, ColorKey FROM Notes WHERE FolderId = $folder AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;";
+                ? "SELECT Content, IsPinned, IsFolded, ColorKey, Mode FROM Notes WHERE Id = $note AND DeletedAt IS NULL;"
+                : "SELECT Content, IsPinned, IsFolded, ColorKey, Mode FROM Notes WHERE FolderId = $folder AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;";
             command.Parameters.AddWithValue("$folder", folder.Id);
             command.Parameters.AddWithValue("$note", scope.Id ?? string.Empty);
             using SqliteDataReader reader = command.ExecuteReader();
             while (reader.Read())
             {
-                folder.Notes.Add(new NoteRow(reader.GetString(0), reader.GetInt64(1) != 0, reader.GetInt64(2) != 0, reader.IsDBNull(3) ? null : reader.GetString(3)));
+                folder.Notes.Add(new NoteRow(reader.GetString(0), reader.GetInt64(1) != 0, reader.GetInt64(2) != 0, reader.IsDBNull(3) ? null : reader.GetString(3), NoteModes.Parse(reader.GetString(4))));
             }
         }
 
@@ -167,7 +167,7 @@ public static class MarkdownExporter
 
     private sealed record FolderRow(string Id, string Name, bool Pinned, string? ColorKey, List<NoteRow> Notes);
 
-    private sealed record NoteRow(string Content, bool Pinned, bool Folded, string? ColorKey);
+    private sealed record NoteRow(string Content, bool Pinned, bool Folded, string? ColorKey, NoteMode Mode);
 }
 
 /// <summary>What to export: everything, one folder, or one note.</summary>

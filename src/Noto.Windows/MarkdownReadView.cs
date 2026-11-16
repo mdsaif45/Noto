@@ -9,6 +9,7 @@ using Noto.Core.Editing;
 using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Markdown;
+using Noto.Core.Notes;
 using Windows.UI.Text;
 
 namespace Noto;
@@ -36,6 +37,9 @@ internal sealed partial class MarkdownReadView : UserControl
     public static readonly DependencyProperty LinkBrushProperty = Property(nameof(LinkBrush), typeof(Brush));
     public static readonly DependencyProperty MarkBrushProperty = Property(nameof(MarkBrush), typeof(Brush));
     public static readonly DependencyProperty MarkTextBrushProperty = Property(nameof(MarkTextBrush), typeof(Brush));
+
+    public static readonly DependencyProperty ModeProperty = DependencyProperty.Register(
+        nameof(Mode), typeof(NoteMode), typeof(MarkdownReadView), new PropertyMetadata(NoteMode.Markdown, (d, _) => ((MarkdownReadView)d).Render()));
 
     private readonly RichTextBlock _view = new() { TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = false };
 
@@ -104,6 +108,16 @@ internal sealed partial class MarkdownReadView : UserControl
         set => SetValue(MarkTextBrushProperty, value);
     }
 
+    /// <summary>
+    /// How the note is read (#195): Markdown is rendered; Code and plain text show the text exactly as typed, Code in
+    /// the design system's monospace.
+    /// </summary>
+    public NoteMode Mode
+    {
+        get => (NoteMode)GetValue(ModeProperty);
+        set => SetValue(ModeProperty, value);
+    }
+
     private static DependencyProperty Property(string name, Type type) =>
         DependencyProperty.Register(name, type, typeof(MarkdownReadView), new PropertyMetadata(null, (d, _) => ((MarkdownReadView)d).Render()));
 
@@ -115,10 +129,17 @@ internal sealed partial class MarkdownReadView : UserControl
         _marked.Clear();
         string source = Source ?? string.Empty;
 
-        if (source.Length > RenderedLimit)
+        // A Code or plain text note is its text as typed (#195), as a very long note is.
+        if (source.Length > RenderedLimit || Mode != NoteMode.Markdown)
         {
             var plain = new Paragraph();
-            plain.Inlines.Add(new Run { Text = source });
+            var text = new Run { Text = source };
+            if (Mode == NoteMode.Code)
+            {
+                text.FontFamily = (FontFamily)Application.Current.Resources["FontFamilyCode"];
+            }
+
+            plain.Inlines.Add(text);
             view.Blocks.Add(plain);
             return;
         }

@@ -175,6 +175,29 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- #195 (D28, J11): the mode a new note starts in. A note's own is on its card's menu. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="New notes are" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A note's own mode is in its menu, under Mode." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="NewNoteModeSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnNewNoteModeChanged"
+                                    AutomationProperties.Name="New notes are"
+                                    AutomationProperties.HelpText="A note's own mode is in its menu, under Mode.">
+                                    <ComboBoxItem Content="Markdown" Tag="Markdown" />
+                                    <ComboBoxItem Content="Code" Tag="Code" />
+                                    <ComboBoxItem Content="Plain text" Tag="PlainText" />
+                                </ComboBox>
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

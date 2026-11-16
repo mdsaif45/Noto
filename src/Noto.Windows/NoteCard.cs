@@ -27,6 +27,7 @@ public sealed class NoteCard : INotifyPropertyChanged
     private bool _isEditing;
     private bool _isFolded;
     private string? _colorKey;
+    private NoteMode _mode;
 
     /// <summary>Required by the XAML type activator (see <see cref="FolderListItem"/>).</summary>
     public NoteCard()
@@ -41,6 +42,7 @@ public sealed class NoteCard : INotifyPropertyChanged
         IsPinned = note.IsPinned;
         _isFolded = note.IsFolded;
         _colorKey = note.ColorKey;
+        _mode = note.Mode;
         _content = note.Content;
         _isEditing = isEditing;
     }
@@ -80,6 +82,27 @@ public sealed class NoteCard : INotifyPropertyChanged
             Changed(nameof(HelpText));
         }
     }
+
+    /// <summary>
+    /// How the note's text is read (#195): Markdown, Code or plain text. Changed in place, as a colour is, so the card
+    /// keeps its container and focus; its title, read view and help text follow.
+    /// </summary>
+    public NoteMode Mode
+    {
+        get => _mode;
+        set
+        {
+            _mode = value;
+            Changed(nameof(Mode));
+            Changed(nameof(DisplayTitle));
+            Changed(nameof(ReadText));
+            Changed(nameof(HelpText));
+            Changed(nameof(FormatVisibility));
+        }
+    }
+
+    /// <summary>The Format button is for Markdown: a Code or plain text note has nothing to format (#195).</summary>
+    public Visibility FormatVisibility => Mode == NoteMode.Markdown ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>A folded card's chevron: folded is visible at a glance, not only in its help text.</summary>
     public Visibility FoldedMarkerVisibility => IsFolded ? Visibility.Visible : Visibility.Collapsed;
@@ -131,8 +154,8 @@ public sealed class NoteCard : INotifyPropertyChanged
     /// <summary>The read view shows while the card is not being edited.</summary>
     public bool IsReading => !IsEditing;
 
-    /// <summary>The title (B16), computed by the domain, or <see cref="UntitledLabel"/>.</summary>
-    public string DisplayTitle => NoteTitle.From(Content) is { Length: > 0 } title ? title : UntitledLabel;
+    /// <summary>The title (B16), computed by the domain as the note's mode reads it (#195), or <see cref="UntitledLabel"/>.</summary>
+    public string DisplayTitle => NoteTitle.From(Content, Mode) is { Length: > 0 } title ? title : UntitledLabel;
 
     /// <summary>
     /// The read view (ADR-016 §3): the whole source, or only the title when folded. P2 replaces this with the
@@ -142,7 +165,8 @@ public sealed class NoteCard : INotifyPropertyChanged
 
     /// <summary>
     /// The card's states, for assistive technology: its name is the title (ADR-016 §8). A colour is named here too,
-    /// so it is never only a colour (F7, #150).
+    /// so it is never only a colour (F7, #150), and so is a mode that is not Markdown (#195), so a note that shows its
+    /// markup is never mistaken for one that lost its formatting.
     /// </summary>
     public string HelpText
     {
@@ -157,9 +181,8 @@ public sealed class NoteCard : INotifyPropertyChanged
                 _ => string.Empty,
             };
 
-            return NotePalette.NameOf(ColorKey) is not { } colour ? states
-                : states.Length == 0 ? colour
-                : $"{states}, {colour}";
+            string[] parts = [states, NotePalette.NameOf(ColorKey) ?? string.Empty, Mode == NoteMode.Markdown ? string.Empty : NameOf(Mode)];
+            return string.Join(", ", parts.Where(p => p.Length > 0));
         }
     }
 
@@ -168,6 +191,14 @@ public sealed class NoteCard : INotifyPropertyChanged
     /// <see cref="object.ToString"/>, which would otherwise be "Noto.NoteCard" for every card.
     /// </summary>
     public override string ToString() => DisplayTitle;
+
+    /// <summary>A mode as the card's menu, Settings and the help text name it (#195).</summary>
+    public static string NameOf(NoteMode mode) => mode switch
+    {
+        NoteMode.Code => "Code",
+        NoteMode.PlainText => "Plain text",
+        _ => "Markdown",
+    };
 
     private static string Lines(int count) => count == 1 ? "1 line" : $"{count} lines";
 

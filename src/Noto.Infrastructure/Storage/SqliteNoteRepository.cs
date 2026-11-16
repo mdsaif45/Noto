@@ -43,10 +43,10 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                 """
                 INSERT INTO Notes
                     (Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                     SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+                     SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode)
                 VALUES
                     ($id, $folderId, $content, $colorKey, $isPinned, $isFolded,
-                     $sortOrder, $createdAt, $updatedAt, $deletedAt);
+                     $sortOrder, $createdAt, $updatedAt, $deletedAt, $mode);
                 """;
 
             // Pattern-matched rather than written as `note.FolderId?.Value`,
@@ -71,6 +71,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             command.Parameters.AddWithValue(
                 "$deletedAt",
                 note.DeletedAt is { } deleted ? Format(deleted) : DBNull.Value);
+            command.Parameters.AddWithValue("$mode", note.Mode.ToString());
 
             command.ExecuteNonQuery();
         }
@@ -115,10 +116,10 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                     """
                     INSERT INTO Notes
                         (Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                         SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+                         SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode)
                     VALUES
                         ($id, $folderId, $content, $colorKey, $isPinned, $isFolded,
-                         $sortOrder, $createdAt, $updatedAt, NULL);
+                         $sortOrder, $createdAt, $updatedAt, NULL, $mode);
                     """;
                 command.Parameters.AddWithValue("$id", note.Id.Value);
                 command.Parameters.AddWithValue("$folderId", note.FolderId is { } folder ? folder.Value : DBNull.Value);
@@ -129,6 +130,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                 command.Parameters.AddWithValue("$sortOrder", sortOrder);
                 command.Parameters.AddWithValue("$createdAt", Format(note.CreatedAt));
                 command.Parameters.AddWithValue("$updatedAt", Format(note.UpdatedAt));
+                command.Parameters.AddWithValue("$mode", note.Mode.ToString());
                 command.ExecuteNonQuery();
             }
 
@@ -166,7 +168,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             command.CommandText =
                 """
                 SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode
                 FROM Notes
                 WHERE Id = $id AND DeletedAt IS NULL;
                 """;
@@ -469,6 +471,10 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
     public void SetColor(NoteId id, string? colorKey, DateTimeOffset updatedAt) =>
         UpdateNoteField(id, "ColorKey", (object?)colorKey ?? DBNull.Value, updatedAt, "colour");
 
+    // By the member's name, as NoteModes.Parse reads it back (migration 5).
+    public void SetMode(NoteId id, NoteMode mode, DateTimeOffset updatedAt) =>
+        UpdateNoteField(id, "Mode", mode.ToString(), updatedAt, "change the mode of");
+
     public void SoftDelete(NoteId id, DateTimeOffset deletedAt)
     {
         try
@@ -664,7 +670,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             command.CommandText =
                 """
                 SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode
                 FROM Notes
                 WHERE DeletedAt IS NOT NULL
                 ORDER BY DeletedAt DESC, Id ASC;
@@ -766,7 +772,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             // rowid join is ADR-012's; MATCH gets the escaped query only (ADR-003).
             command.CommandText = """
                 SELECT n.Id, n.FolderId, n.Content, n.ColorKey, n.IsPinned, n.IsFolded,
-                       n.SortOrder, n.CreatedAt, n.UpdatedAt, n.DeletedAt
+                       n.SortOrder, n.CreatedAt, n.UpdatedAt, n.DeletedAt, n.Mode
                 FROM NotesFts
                 JOIN Notes n ON n.rowid = NotesFts.rowid
                 WHERE NotesFts MATCH $match
@@ -815,14 +821,14 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             command.CommandText = folderId is null
                 ? """
                   SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                         SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                         SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode
                   FROM Notes
                   WHERE FolderId IS NULL AND DeletedAt IS NULL
                   ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
                   """
                 : """
                   SELECT Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                         SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                         SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode
                   FROM Notes
                   WHERE FolderId = $folderId AND DeletedAt IS NULL
                   ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
@@ -907,7 +913,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
             command.CommandText =
                 """
                 SELECT n.Id, n.FolderId, n.Content, n.ColorKey, n.IsPinned, n.IsFolded,
-                       n.SortOrder, n.CreatedAt, n.UpdatedAt, n.DeletedAt
+                       n.SortOrder, n.CreatedAt, n.UpdatedAt, n.DeletedAt, n.Mode
                 FROM Notes n
                 INNER JOIN NoteTags nt ON nt.NoteId = n.Id
                 WHERE nt.TagId = $tagId AND n.DeletedAt IS NULL
@@ -998,6 +1004,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
         CreatedAt = Parse(reader.GetString(7)),
         UpdatedAt = Parse(reader.GetString(8)),
         DeletedAt = reader.IsDBNull(9) ? null : Parse(reader.GetString(9)),
+        Mode = NoteModes.Parse(reader.GetString(10)),
     };
 
     private static string Format(DateTimeOffset value) => Timestamps.Format(value);

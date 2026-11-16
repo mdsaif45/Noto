@@ -99,6 +99,9 @@ public sealed partial class NoteEditorHost : UserControl
 
     private bool _showMarkup;
 
+    /// <summary>How the note is read (#195): only Markdown is styled; Code and plain text are the text as typed.</summary>
+    private NoteMode _mode;
+
     public NoteEditorHost()
     {
         InitializeComponent();
@@ -199,13 +202,17 @@ public sealed partial class NoteEditorHost : UserControl
     /// <summary>The user asked to open the link at the caret or the pointer (Ctrl+Enter, Ctrl+Click): its destination.</summary>
     internal event EventHandler<string>? LinkOpenRequested;
 
-    /// <summary>Shows <paramref name="markdown"/> as <paramref name="note"/>'s source, styled, with nothing to undo.</summary>
-    internal void Load(NoteId note, string markdown)
+    /// <summary>
+    /// Shows <paramref name="markdown"/> as <paramref name="note"/>'s source, read in <paramref name="mode"/> (#195), with
+    /// nothing to undo.
+    /// </summary>
+    internal void Load(NoteId note, string markdown, NoteMode mode)
     {
         Note = note;
         _history.Clear();
+        UseMode(mode);
         _text = Normalize(markdown);
-        _document = MarkdownDocument.Parse(_text);
+        _document = MarkdownDocument.Parse(_text, _mode);
 
         long started = Stopwatch.GetTimestamp();
         Set(() => NoteEditor.Document.SetText(TextSetOptions.FormatRtf, MarkdownStyling.Rtf(_document, Palette())));
@@ -222,6 +229,34 @@ public sealed partial class NoteEditorHost : UserControl
             Trace.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Noto.Editor rendered chars={_text.Length} ms={Stopwatch.GetElapsedTime(started).TotalMilliseconds:F2}"));
         };
         Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += rendered;
+    }
+
+    /// <summary>
+    /// Reads the note being edited in <paramref name="mode"/> from now on (#195): the same text, the caret and undo kept,
+    /// the whole note styled again for the mode.
+    /// </summary>
+    internal void SetMode(NoteMode mode)
+    {
+        if (mode == _mode)
+        {
+            return;
+        }
+
+        Flush();
+        UseMode(mode);
+        _document = MarkdownDocument.Parse(_text, _mode);
+        HideToolbar();
+        RestyleAll();
+    }
+
+    /// <summary>
+    /// Code is spell checked no more (D45): a misspelt identifier is not a mistake. Markdown and plain text are prose,
+    /// and keep it. The font comes from <see cref="Palette"/>.
+    /// </summary>
+    private void UseMode(NoteMode mode)
+    {
+        _mode = mode;
+        NoteEditor.IsSpellCheckEnabled = mode != NoteMode.Code;
     }
 
     /// <summary>Takes keyboard focus with the caret at <paramref name="placement"/>.</summary>
@@ -293,6 +328,12 @@ public sealed partial class NoteEditorHost : UserControl
             case EditorCommand.Picture:
                 PickPicture();
                 return true;
+        }
+
+        // Code and plain text have no formatting (#195): a command would only type Markdown into them.
+        if (_mode != NoteMode.Markdown)
+        {
+            return false;
         }
 
         Func<string, TextSelection, TextEdit?> transform = command switch
@@ -400,7 +441,7 @@ public sealed partial class NoteEditorHost : UserControl
         if (_composingFrom is not null)
         {
             _text = now;
-            _document = MarkdownDocument.Parse(now);
+            _document = MarkdownDocument.Parse(now, _mode);
             ContentChanged?.Invoke(this, EventArgs.Empty);
             return;
         }
@@ -432,9 +473,9 @@ public sealed partial class NoteEditorHost : UserControl
             _history.Record(from, edit, EditKind.Other, _composingSelection);
         }
 
-        MarkdownDocument was = MarkdownDocument.Parse(from);
+        MarkdownDocument was = MarkdownDocument.Parse(from, _mode);
         _text = now;
-        _document = MarkdownDocument.Parse(now);
+        _document = MarkdownDocument.Parse(now, _mode);
         Restyle(MarkdownDocument.ChangedRegion(was, _document));
         ContentChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -448,7 +489,7 @@ public sealed partial class NoteEditorHost : UserControl
         long started = Stopwatch.GetTimestamp();
         MarkdownDocument was = _document;
         _text = now;
-        _document = MarkdownDocument.Parse(now);
+        _document = MarkdownDocument.Parse(now, _mode);
         (int start, int length) region = MarkdownDocument.ChangedRegion(was, _document);
         if (whole)
         {
@@ -678,6 +719,9 @@ public sealed partial class NoteEditorHost : UserControl
     /// </summary>
     private async void PasteAsync(bool formatted, DataPackageView? from = null)
     {
+        // Code and plain text take the clipboard's text as it is (#195): no HTML turned into Markdown, no links or pictures.
+        bool asMarkdown = _mode == NoteMode.Markdown;
+        formatted &= asMarkdown;
         string? html = null;
         string? plain = null;
         IReadOnlyList<string> paths = [];
@@ -689,7 +733,7 @@ public sealed partial class NoteEditorHost : UserControl
             DataPackageView clipboard = from ?? Clipboard.GetContent();
 
             // Files and folders copied in Explorer become links to them (D34): each item's own full path.
-            if (clipboard.Contains(StandardDataFormats.StorageItems))
+            if (asMarkdown && clipboard.Contains(StandardDataFormats.StorageItems))
             {
                 paths = [.. (await clipboard.GetStorageItemsAsync()).Select(i => i.Path).Where(Path.IsPathFullyQualified)];
             }
@@ -706,7 +750,7 @@ public sealed partial class NoteEditorHost : UserControl
             }
 
             // A picture alone (a screenshot, an image copied from a browser or an editor); with text, the text wins.
-            if (paths.Count == 0 && plain is null && html is null && clipboard.Contains(StandardDataFormats.Bitmap))
+            if (asMarkdown && paths.Count == 0 && plain is null && html is null && clipboard.Contains(StandardDataFormats.Bitmap))
             {
                 picture = await clipboard.GetBitmapAsync();
             }
@@ -737,7 +781,7 @@ public sealed partial class NoteEditorHost : UserControl
             return;
         }
 
-        TextEdit? edit = plain is not null ? MarkdownCommands.LinkSelection(_text, at, plain) : null;
+        TextEdit? edit = plain is not null && asMarkdown ? MarkdownCommands.LinkSelection(_text, at, plain) : null;
 
         if (edit is null && formatted && PastesCodeBlock && plain is not null)
         {
@@ -828,7 +872,8 @@ public sealed partial class NoteEditorHost : UserControl
         if (e.Key == VirtualKey.Enter && !ctrl && !alt)
         {
             Flush();
-            TextEdit? edit = shift ? null : MarkdownCommands.ContinueList(_text, _selection);
+            // Only Markdown has lists to continue (#195); in Code and plain text Enter is a line break, RichEdit's own.
+            TextEdit? edit = shift || _mode != NoteMode.Markdown ? null : MarkdownCommands.ContinueList(_text, _selection);
             edit ??= shift ? new TextEdit(_selection.Start, _selection.Length, "\n", TextSelection.Caret(_selection.Start + 1)) : null;
 
             if (edit is { } enter)
@@ -843,9 +888,16 @@ public sealed partial class NoteEditorHost : UserControl
         if (e.Key == VirtualKey.Tab && !ctrl && !alt)
         {
             // In a list Tab nests and Shift+Tab un-nests (G36, G37); anywhere else it moves focus.
+            // In Code, Tab types an indent (#195) and Shift+Tab still moves focus back: the keyboard's way out, with Escape.
+            // Plain text has no lists, so Tab moves focus there.
             e.Handled = true;
             Flush();
             Func<string, TextSelection, TextEdit?> shiftItems = shift ? MarkdownCommands.OutdentListItems : MarkdownCommands.IndentListItems;
+            if (_mode != NoteMode.Markdown)
+            {
+                shiftItems = _mode == NoteMode.Code && !shift ? NoteModes.IndentCode : static (_, _) => null;
+            }
+
             if (shiftItems(_text, _selection) is { } indented)
             {
                 Apply(indented, record: true);
@@ -955,8 +1007,8 @@ public sealed partial class NoteEditorHost : UserControl
         Surface: ColorOf(NoteEditor.Background),
         Mark: ColorOf(NoteEditor.MarkBrush),
         MarkText: ColorOf(NoteEditor.MarkTextBrush),
-        BodyFont: FontFamily.Source.Split(',')[0].Trim(),
-        CodeFont: FirstFamily("FontFamilyCode"),
+        BodyFont: _mode == NoteMode.Code ? CodeFont : FontFamily.Source.Split(',')[0].Trim(),
+        CodeFont: CodeFont,
         BodySize: FontSize,
         Heading1Size: Scaled("FontSizeHeading"),
         Heading2Size: Scaled("FontSizeHeading2"),
@@ -980,8 +1032,14 @@ public sealed partial class NoteEditorHost : UserControl
         (modifiers == VirtualKeyModifiers.Control && key is (VirtualKey)0xBC or VirtualKey.F or (VirtualKey)0xBB or (VirtualKey)0xBD or VirtualKey.Add or VirtualKey.Subtract)
         || (modifiers == (VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift) && key == (VirtualKey)0xBB);
 
-    /// <summary>RTF and TOM name one font: the family list's first.</summary>
-    private static string FirstFamily(string key) => ((FontFamily)Application.Current.Resources[key]).Source.Split(',')[0].Trim();
+    /// <summary>
+    /// Code's font (#195; code spans and blocks too): RTF and TOM name one font, so not the token's list but its first
+    /// family that is there, Cascadia Mono, which Windows 11 ships, else Consolas, which every Windows since Vista has.
+    /// </summary>
+    // ponytail: the shipped file is the test, so a Cascadia Mono installed per user reads as absent and gets Consolas,
+    // still monospace; read the font collection if that ever matters.
+    private static readonly string CodeFont =
+        File.Exists(Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "CascadiaMono.ttf")) ? "Cascadia Mono" : "Consolas";
 
     /// <summary>CRLF and lone CR become LF: one character per break, as the control stores them (ADR-017 §1).</summary>
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
