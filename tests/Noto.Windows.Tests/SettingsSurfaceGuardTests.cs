@@ -298,7 +298,8 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Contains("(e.OriginalSource as FrameworkElement)?.DataContext is TItem", Main, StringComparison.Ordinal);
 
         // Cards are edited in place, not opened (ADR-016 §6): one click on a card that is not editing edits it, whatever
-        // the setting; a click in the editor is the editor's, and a double click has no meaning on the stack.
+        // the setting; a click in the editor is the editor's. A double click on a card folds it (B12, #190), decided on
+        // the second press (NoteStackGuardTests), never by the framework's double tap.
         Assert.Contains("(e.OriginalSource as FrameworkElement)?.DataContext is NoteCard { IsEditing: false } card", Body(Main, "OnNoteListTapped"), StringComparison.Ordinal);
         Assert.DoesNotContain("SingleClickOpen", Body(Main, "OnNoteListTapped"), StringComparison.Ordinal);
         Assert.Null(MainXaml.Descendants().Single(e => (string?)e.Attribute(X + "Name") == "NoteList").Attribute("DoubleTapped"));

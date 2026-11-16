@@ -71,6 +71,10 @@
     49  #202, the chords Narrator leaves to Noto: Alt+Shift+Left folds the focused card and Alt+Shift+Right unfolds it,
         focus kept, nothing else folded; Alt+Shift+Left in the editor saves, folds and leaves editing; in the editor
         Alt+Shift+Down edits the next card and Alt+Shift+Up returns, its text kept
+    50  #190: the list bar's More menu (named) folds every card, then unfolds every card, each item disabled when it would
+        change nothing; a double-click on a card that is not being edited (its title) folds it and leaves it not
+        editing, focus on it; a second double-click unfolds it; a double-click inside the editor of a card already being
+        edited stays the editor's: it neither folds nor leaves editing
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -221,6 +225,16 @@ function Drag-To([int] $FromX, [int] $FromY, [int] $ToX, [int] $ToY) {
     }
     Start-Sleep -Milliseconds 500
     [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 1200
+}
+function Double-Click([int] $X, [int] $Y) {
+    <# A real double-click (two left clicks well inside the double-click time), only while Noto is in front and there. #>
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { throw 'refusing to click: Noto is not the foreground window' }
+    Fence $X $Y
+    [void][NotoVal.Win32]::SetCursorPos($X, $Y); Start-Sleep -Milliseconds 150
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 40; [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 90
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 40; [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 900
 }
 function Centre($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2)) }
 function Grip($Element) { $r = $Element.Current.BoundingRectangle; @([int]($r.X + 6), [int]($r.Y + $r.Height / 2)) }
@@ -776,6 +790,39 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $wentNext = (Editors).Count -eq 1 -and ((Editor-Value) -replace "`r`n?", "`n") -eq ("$next" -replace "`r`n?", "`n"); $nextSaid = Editor-Value
     Send-ToNoto @(0x12, 0x10) 0x26   # Alt+Shift+Up
     Add-Result $run '49 in the editor Alt+Shift+Down edits the next card, Alt+Shift+Up returns to it with its text' ($null -ne $next -and $wentNext -and (Editors).Count -eq 1 -and (Editor-Value) -eq $typed -and (Focused) -match 'id=NoteEditor') "next='$next' got='$nextSaid' back=$(Editor-Value) focus=$(Focused)"
+    Send-ToNoto @() 0x1B
+
+    # 50 - #190: the list bar's menu folds all and unfolds all; a double-click folds a card that is not being edited
+    $menuButton = Find-ById 'NoteListMenuButton'
+    $menuName = $menuButton.Current.Name
+    $total = ActiveCount
+    $menuButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    Choose 'Fold all'
+    $foldedAll = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND IsFolded = 1' @{ '$f' = $FolderId } -Scalar)
+    $menuButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    $foldOffered = Menu-Enabled 'Fold all'; $unfoldOffered = Menu-Enabled 'Unfold all'
+    Choose 'Unfold all'
+    $leftFolded = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND IsFolded = 1' @{ '$f' = $FolderId } -Scalar)
+    $menuButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    $unfoldAgain = Menu-Enabled 'Unfold all'
+    Send-ToNoto @() 0x1B   # closes the menu
+    Add-Result $run '50 the list bar''s More menu folds every card, then unfolds every card; each disabled when it would change nothing' ($menuName -eq 'More' -and $foldedAll -eq $total -and -not $foldOffered -and $unfoldOffered -and $leftFolded -eq 0 -and -not $unfoldAgain) "name=$menuName folded=$foldedAll/$total offered fold=$foldOffered unfold=$unfoldOffered after=$leftFolded unfold again=$unfoldAgain"
+
+    # A one-line card, so its centre is its title.
+    $c = Cards | Where-Object { $_.Current.Name -like 'Filler *' -and -not $_.Current.IsOffscreen } | Select-Object -First 1
+    $name = $c.Current.Name; $id = IdOf $name; $xy = Centre $c
+    Double-Click $xy[0] $xy[1]
+    $folded = (Flag $id 'IsFolded') -eq 1; $notEditing = (Editors).Count -eq 0; $focus = Focused-Name; $help = Card-Help $name
+    $xy = Centre (Card $name)
+    Double-Click $xy[0] $xy[1]
+    Add-Result $run '50 a double-click on a card''s title folds it, not editing, focus on it; a second unfolds it' ($folded -and $notEditing -and $focus -eq $name -and $help -match 'Folded' -and (Flag $id 'IsFolded') -eq 0 -and (Editors).Count -eq 0 -and (Stored $id) -eq $name) "card=$name folded=$folded editors=$((Editors).Count) focus=$focus help='$help' unfolded=$((Flag $id 'IsFolded') -eq 0) db=$(Stored $id)"
+
+    # In a card already being edited (past the double-click time), a double-click is the editor's.
+    Edit-Card $name
+    Start-Sleep -Milliseconds 800
+    $xy = Centre (Editors | Select-Object -First 1)
+    Double-Click $xy[0] $xy[1]
+    Add-Result $run '50 a double-click inside the editor of a card being edited neither folds it nor leaves editing' ((Flag $id 'IsFolded') -eq 0 -and (Editors).Count -eq 1 -and (Editor-Value) -eq $name) "folded=$(Flag $id 'IsFolded') editors=$((Editors).Count) value=$(Editor-Value)"
     Send-ToNoto @() 0x1B
 
     # 18 - closing while editing saves, then exits cleanly

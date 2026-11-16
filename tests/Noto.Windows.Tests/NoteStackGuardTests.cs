@@ -239,6 +239,50 @@ public sealed class NoteStackGuardTests
     }
 
     [Fact]
+    public void The_list_bar_has_a_named_menu_of_fold_all_and_unfold_all_with_their_keys_offered_only_when_they_apply()
+    {
+        // B13, B18 (#190): a "More" button between the count and New note, so the tab order is the list, the menu, New note.
+        XElement button = Named(MainXaml.Root!, "NoteListMenuButton");
+        Assert.Equal("More", (string?)button.Attribute("AutomationProperties.Name"));
+        Assert.Equal("OnNoteListMenuClick", (string?)button.Attribute("Click"));
+        Assert.Null(button.Attribute("IsTabStop"));
+        Assert.Equal(
+            ["NoteCountText", "NoteListMenuButton", "NewNoteButton"],
+            button.Parent!.Elements().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>());
+        Assert.Contains("NoteListMenuButton.IsEnabled = interactive;", Body(Main, "ApplyNoteState"), StringComparison.Ordinal);
+
+        // The same commands as Ctrl+Alt+Shift+Left and Right, showing those keys; disabled when they would change nothing.
+        string menu = Body(Main, "OnNoteListMenuClick");
+        Assert.Contains(@"MenuItem(""Fold all"", ""Ctrl+Alt+Shift+Left"", () => FoldAll(folded: true), _stack.CanFoldAll(folded: true))", menu, StringComparison.Ordinal);
+        Assert.Contains(@"MenuItem(""Unfold all"", ""Ctrl+Alt+Shift+Right"", () => FoldAll(folded: false), _stack.CanFoldAll(folded: false))", menu, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_double_click_folds_a_card_that_was_not_being_edited_and_never_one_already_in_the_editor()
+    {
+        // B12 (#190): decided on the second press, which the editor opened by the first click handles, so handled too.
+        Assert.Contains(
+            "NoteList.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnNoteListPointerPressed), handledEventsToo: true);",
+            Main,
+            StringComparison.Ordinal);
+
+        // Only a click that began editing a card can start a double-click; a click in the editor began nothing.
+        string tapped = Body(Main, "OnNoteListTapped");
+        Assert.Matches(@"bool wasFolded = card\.IsFolded;\s*EditCard\(card\.Id, CaretPlacement\.End\);\s*_cardClick = _stack\.Editing\?\.Value == card\.Id", tapped);
+        Assert.Matches(@"if \(Environment\.TickCount64 - _foldedByClickAt <= _system\.DoubleClickTime\)\s*\{\s*e\.Handled = true;\s*return;\s*\}", tapped);
+        Assert.True(tapped.IndexOf("_foldedByClickAt", StringComparison.Ordinal) < tapped.IndexOf("EditCard(", StringComparison.Ordinal), "The second click's tap would edit the folded card again.");
+
+        // The second press: the left button, soon and close (Windows' rule, in Core), on the card the first click edited.
+        // The click is used once; the card leaves editing, saved, and toggles from what it was before the first click.
+        string pressed = Body(Main, "OnNoteListPointerPressed");
+        Assert.Contains("!point.Properties.IsLeftButtonPressed", pressed, StringComparison.Ordinal);
+        Assert.Contains("_cardClick = null;", pressed, StringComparison.Ordinal);
+        Assert.Contains("_stack.Editing?.Value != first.Id", pressed, StringComparison.Ordinal);
+        Assert.Contains("DoubleClick.IsSecond(first.At, first.Position.X, first.Position.Y, now, point.Position.X, point.Position.Y, _system.DoubleClickTime)", pressed, StringComparison.Ordinal);
+        Assert.Matches(@"_foldedByClickAt = now;\s*if \(TryEndEdit\(\)\)\s*\{\s*FoldCard\(first\.Id, folded: !first\.WasFolded\);", pressed);
+    }
+
+    [Fact]
     public void Menus_name_the_pin_and_fold_action_that_applies_and_pin_has_no_key()
     {
         string card = Body(Main, "OnNoteListContextRequested");

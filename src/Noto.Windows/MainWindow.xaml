@@ -634,10 +634,11 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <!-- The list's bar (B18, C19): how many notes, and a new one. -->
+                <!-- The list's bar (B18, C19): how many notes, the list's menu (#190), and a new note. -->
                 <Grid Grid.Row="3" ColumnSpacing="{StaticResource SpaceS}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -647,9 +648,20 @@
                         VerticalAlignment="Center"
                         Style="{StaticResource FolderPaneGuidanceStyle}" />
 
+                    <!-- The list's menu (B13, B18, #190): Fold all and Unfold all, with their keys. -->
+                    <Button
+                        x:Name="NoteListMenuButton"
+                        Grid.Column="1"
+                        Style="{StaticResource HeaderButtonStyle}"
+                        Click="OnNoteListMenuClick"
+                        ToolTipService.ToolTip="More"
+                        AutomationProperties.Name="More">
+                        <FontIcon Glyph="&#xE712;" FontSize="{StaticResource IconSize}" />
+                    </Button>
+
                     <Button
                         x:Name="NewNoteButton"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Style="{StaticResource HeaderButtonStyle}"
                         Click="OnNewNoteClick"
                         ToolTipService.ToolTip="New note (Ctrl+N)"
