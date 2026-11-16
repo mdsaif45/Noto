@@ -801,7 +801,7 @@ the documented use cases (D38, I4) without pretending to be a share sheet.
 | `[ ]` | I5 | Export via Shortcuts | Shortcuts action wrapping image export | Image export via CLI | ADAPT | — | |
 | `[ ]` | I6 | Print | `⌘P` | `Ctrl+P` | SHOULD | — | = B21 |
 | `[x]` | I7 | Text / markdown export | **None.** Image export and print only | **Bulk export to markdown files** | BETTER | — | ADR-002; ships in M1 **v0.2 score (2026-11-13):** Export as Markdown: everything, a folder or a note, with pictures and an index (ADR-020; `Invoke-Portability`). |
-| `[~]` | I8 | Automatic backups | Auto backup to the data folder; 15 / 30 / 45 min; auto-cleanup | Same, incl. the three intervals and cleanup | MUST | #199 | **v0.2 score (2026-11-13):** F15 (#15): once a day, the last seven kept. Not the three intervals. |
+| `[x]` | I8 | Automatic backups | Auto backup to the data folder; 15 / 30 / 45 min; auto-cleanup | Same, incl. the three intervals and cleanup | MUST | #199 | **v0.2 score (2026-11-13):** F15 (#15): once a day, the last seven kept. Not the three intervals. **v0.3 score (2026-11-16):** Settings › Data › How often: every day (the default), or every 45, 30 or 15 minutes; the cleanup is unchanged, the last seven automatic backups kept (#199; `Invoke-AutoBackup` case 4). |
 | `[x]` | I9 | Manual backup | Browse Backups → Make backup; manual backups locked from cleanup | Same, incl. the lock | MUST | — | **v0.2 score (2026-11-13):** Settings › Back up writes a whole backup where the user chooses; automatic cleanup only removes Noto's own `auto-` backups, so a manual one is never pruned (F15). |
 | `[x]` | I10 | Restore a backup | Restore from a chosen backup | Same, verified in M4 | MUST | — | **v0.2 score (2026-11-13):** Settings › Restore, with a backup taken first (ADR-020; `Invoke-Portability`). |
 | `[~]` | I11 | Backups in cloud drive | Backup folder may be iCloud Drive | **User-chosen backup folder** (OneDrive etc.) | ADAPT | — | Noto writes to a folder; the user picks it **v0.2 score (2026-11-13):** A manual backup goes to any folder the user picks, OneDrive included. Automatic backups go to the data folder only. |
@@ -879,7 +879,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J35 | Data → iCloud sync | enable / disable | **Absent** — no sync in v1 | DROP | — | = I12, ADR-002 |
 | `[x]` | J36 | Data → Data locations | reveal data folders | Reveal data folder in Explorer | MUST | — | One location, not two **v0.2 score (2026-11-13):** Settings › Open data folder in Explorer (`Invoke-Settings` case 10). |
 | `[x]` | J37 | Backups → Automatic backups | enable / disable | Same, **on by default** | MUST | — | = I8 **v0.2 score (2026-11-13):** Settings › Back up automatically, on by default (F15, #15). |
-| `[ ]` | J38 | Backups → Frequency | 15 / 30 / 45 min | Same three | MUST | #199 | = I8 **v0.2 score (2026-11-13):** Not built: once a day. |
+| `[x]` | J38 | Backups → Frequency | 15 / 30 / 45 min | Same three | MUST | #199 | = I8 **v0.2 score (2026-11-13):** Not built: once a day. **v0.3 score (2026-11-16):** = I8: the row under Back up automatically, disabled while it is off, applied at once (#199). |
 | `[ ]` | J39 | Backups → Backup folder | custom, incl. iCloud Drive | Custom folder, any path incl. OneDrive | ADAPT | — | = I11 |
 | `[x]` | J40 | Backups → Browse backups | make / restore / lock | Same | MUST | — | = I9, I10 **v0.2 score (2026-11-13):** Settings › Back up and Restore; manual backups are never pruned (I9). |
 
