@@ -1,6 +1,6 @@
 # v0.2 release checklist
 
-**Status:** steps 1–4 done; the release workflow and publishing are the owner's. **Prepared:** 2026-11-13.
+**Status:** released, [v0.2.0](https://github.com/mdsaif45/Noto/releases/tag/v0.2.0), 2026-11-15. **Prepared:** 2026-11-13.
 **Updated:** 2026-11-14, campaign run.
 **Related:** [release-v0.2.md](release-v0.2.md) (the items), [release-v0.1.md](release-v0.1.md) (the last release),
 [ADR-008](../decisions/ADR-008-packaging-and-identity.md), [CHANGELOG](../../CHANGELOG.md)
@@ -41,12 +41,12 @@ display, 1920 × 1080 at 100%), on AC power, on a temporary virtual desktop unle
    - `Invoke-Performance.ps1 -Runs 5 -IdleSeconds 60 -NoteCount 1000` against [quality-gates.md](../architecture/quality-gates.md).
    Every fail is fixed before step 4, or filed and listed under the CHANGELOG's known limitations by the owner's decision.
 4. [x] **Date the CHANGELOG:** `[0.2.0] - <date>`; the known limitations below added.
-5. [ ] **Run the release workflow** (owner): Actions › Release › Run, version `0.2.0`. It checks the version and the
+5. [x] **Run the release workflow** (owner; run 43697519902, 2026-11-15): Actions › Release › Run, version `0.2.0`. It checks the version and the
    CHANGELOG, builds the installer from `main`, and creates a **draft** GitHub release with `Noto.App-win-Setup.exe`, the
    package and the feed.
    The owner then installs it from that draft on their own PC, over or beside v0.1 (decided 2026-11-14, in place of
    `Invoke-Install.ps1` here).
-6. [ ] **Publish** (owner): read the draft and publish it. Publishing tags `v0.2.0`. Noto never looks for updates, so
+6. [x] **Publish** (owner; published 2026-11-15 as the latest release): read the draft and publish it. Publishing tags `v0.2.0`. Noto never looks for updates, so
    a v0.1 user runs the v0.2 installer; the notes are kept.
 
 ## The campaign, run 2026-11-14
@@ -98,7 +98,7 @@ desktops, with the desktop preflight clear.
 - [ ] #30 and #153's two-monitor half, when a second display is connected
 - [ ] #32: Windows 10 22H2, on a clean machine
 - [ ] #31: a drag from the desktop, with its icons shown
-- [ ] Decide which of #185–#199 (the open MUST gaps), #201–#203 join v0.3
+- [x] Decide which of #185–#199 (the open MUST gaps), #201–#203 join v0.3: [release-v0.3.md](release-v0.3.md)
 
 ## Decisions for the owner before step 2
 
