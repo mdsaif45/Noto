@@ -195,7 +195,7 @@ public sealed class NoteStackGuardTests
         Assert.Contains("Refuse(Describe(created.Failure!));", ask, StringComparison.Ordinal);
 
         // Saved first, then the pane's own CreateFolder (no second creation path), then the ordinary move into it.
-        int save = ask.IndexOf("(_stack.Editing?.Value == id && !TryEndEdit())", StringComparison.Ordinal);
+        int save = ask.IndexOf("(_stack.Editing is { } editing && editing.Value == id && !TryEndEdit())", StringComparison.Ordinal);
         int create = ask.IndexOf("_commands.Dispatch(new CreateFolder(name.Text))", StringComparison.Ordinal);
         int move = ask.IndexOf("MoveCard(id, created.Value, FolderName.Normalise(name.Text)!);", StringComparison.Ordinal);
         Assert.True(save >= 0 && save < create && create < move, $"save={save} create={create} move={move}");
