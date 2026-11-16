@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batch 1 in progress. **Planned:** 2026-11-16.
+**Status:** batch 1 in review (PRs #208–#212), batch 2 in progress. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -33,16 +33,19 @@ tests, `dotnet format`, and the runtime harness for the area).
 | 4 | Search: Ctrl+R opens a result's link, Ctrl+Click its folder | #197 | D37, E4, E5, G48, G49 | S–M | The first safe link in the note, through the existing link rule; no safe link shows a notice |
 | 5 | Move to: a new folder inline | #189 | B11 | S–M | "New folder…" at the end of Move to, with the folder rules of the **+** button |
 
-## Batch 2: the remaining small and medium slices
+## Batch 2: five slices, built in parallel
 
-| Item | Issue | Rows | Note |
-|---|---|---|---|
-| The note list's menu, and double-click to fold | #190 | B12, B13, B18 | Double-click must not break one-click editing: needs a short design note |
-| Folder history: last folder, recent folders from Back | #193 | C5, C6, G10, C14, J10 | Three parts, one PR each if needed |
-| Narrator says a row's state | #201 | (M4) | ADR-016 §8: the state joins the row's name after the title. The harnesses move to automation ids |
-| Keys that work with Narrator on | #202 | (M4) | Alternative chords, or Narrator's pass-through documented and tested |
-| Global shortcuts: change side, keep open | #198 | G5, G50, J25 | **Decided:** both, unbound by default, rebindable, on the per-action hotkey path of #156–#159 |
-| Note colour style: background or bar | #191 | — | Background the default; High Contrast unchanged |
+| # | Item | Issue | Rows | Size | Decision taken |
+|---|---|---|---|---|---|
+| 6 | The note list's menu, and double-click to fold | #190 | B12, B13, B18 | M | A "…" menu on the list's bar with Fold all and Unfold all. A double-click folds only where it can't be editing: a card that isn't being edited. Inside an editor it stays word selection |
+| 7 | Folder history | #193 | C5, C6, G10, C14, J10 | M | A list of recently opened folders, separate from Move to's. Ctrl+Shift+O switches between the last two folders. Back lists the recent ones. "Open the last folder when Noto starts", off by default |
+| 8 | Global shortcuts: change side, keep open | #198 | G5, G50, J25 | S–M | Both off by default and rebindable, on #159's path. Pressed while hidden, Noto stays hidden. Ctrl+D is unchanged |
+| 9 | Note colour style: background or bar | #191 | — | S | Background, today's look, is the default. Bar draws the edge marker without the tint. High Contrast is unchanged |
+| 10 | Keys that work with Narrator on | #202 | (M4) | S | Ctrl+Alt+arrows stay. Alternative chords that Narrator leaves alone are added for fold, unfold, previous and next note, and shown in the menus |
+
+**Moved out of batch 2:** #201, *Narrator says a row's state*. It changes every row's accessible name, which nearly every
+harness finds rows by, so it gets a PR of its own after batches 1 and 2 land, with the harnesses moved to automation
+ids in the same change.
 
 ## Batch 3: larger features
 
