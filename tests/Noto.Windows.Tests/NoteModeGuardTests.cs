@@ -158,7 +158,7 @@ public sealed class NoteModeGuardTests
         // From the first frame, and again when it changes; Ctrl+N, the new-note shortcuts and the clipboard's all create
         // through CreateNoteInOpenFolder.
         Assert.Contains("NewNoteMode = preferences.NewNoteMode,", App, StringComparison.Ordinal);
-        Assert.Contains("_stack.Create(NewNotePlacement, selected, NewNoteMode)", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode)", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Equal(1, Regex.Count(Main, @"_stack\.Create\("));
     }
 
@@ -166,9 +166,9 @@ public sealed class NoteModeGuardTests
     public void The_editor_harness_proves_code_mode_at_run_time_and_across_a_restart()
     {
         string harness = File.ReadAllText(SourcePath("tools", "validation", "Invoke-Editor.ps1"));
-        Assert.Contains("Add-Result $run '23 Code from the menu", harness, StringComparison.Ordinal);
+        Assert.Contains("Add-Result $run '25 Code from the menu", harness, StringComparison.Ordinal);
         Assert.Contains("Card-Mode 'A plain note with no markup at all.' 'Code'", harness, StringComparison.Ordinal);
-        Assert.Matches(@"Stop-Noto \$script:noto[\s\S]*\(Stored-Mode \$Plain\) -eq 'Code'", harness);
+        Assert.Matches(@"Stop-Noto \$script:noto[\s\S]*\(Stored-Mode \$CodeModeNoteId\) -eq 'Code'", harness);
     }
 
     // ---------------------------------------------------------------- helpers

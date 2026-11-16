@@ -281,7 +281,7 @@ public sealed class NoteStackSessionTests : IDisposable
     public void A_new_note_takes_the_mode_it_is_created_in_and_a_mode_change_keeps_the_card_editing_with_its_text()
     {
         // D28: the "New notes are" setting reaches the note through creation (#195).
-        CommandResult<NoteId> created = _stack.Create(NewNotePlacement.Bottom, null, NoteMode.Code);
+        CommandResult<NoteId> created = _stack.Create(NewNotePlacement.Bottom, null, mode: NoteMode.Code);
         Assert.Equal(NoteMode.Code, _stack.Notes.Single(n => n.Id == created.Value).Mode);
 
         _stack.UpdateDraft(created.Value, "**not bold**");
