@@ -308,11 +308,11 @@ function New-Note-By([int] $Key, [string] $Label) {
     Send-NoteChord $target.Hwnd $Key
     Until { (Fg) -eq $noto.Hwnd -and (Focused-Id) -eq 'NoteEditor' } 5
 }
-function Note-Recorder-Status { if (Show-Id 'NewNoteHotkeyRecorderStatus') { (Element 'NewNoteHotkeyRecorderStatus').Current.Name } else { '' } }   # scrolled into view first: rows above it move it down the page
-function Recorder-Status { if (Show-Id 'HotkeyRecorderStatus') { (Element 'HotkeyRecorderStatus').Current.Name } else { '' } }   # scrolled into view first: rows above it move it down the page
+function Note-Recorder-Status { $e = Element 'NewNoteHotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
+function Recorder-Status { $e = Element 'HotkeyRecorderStatus'; if ($e -and -not $e.Current.IsOffscreen) { $e.Current.Name } else { '' } }
 function Recorder-Start {
     if (-not (Visible-Id 'SettingsRoot')) { Open-Settings-ByButton }
-    (Find-ById 'HotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
+    $null = Show-Id 'HotkeyRecorderStatus'; (Find-ById 'HotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
     Send-ToNoto @() 0x20   # Space selects the recorder
     if (-not (Until { (Recorder-Status) -match '^Recording' })) { throw "the recorder did not start: '$(Recorder-Status)'" }
 }
@@ -425,7 +425,7 @@ try {
 
             Noto-Front '17 rebind'
             To-FolderList; Open-Settings-ByButton
-            (Find-ById 'NewNoteHotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
+            $null = Show-Id 'NewNoteHotkeyRecorderStatus'; (Find-ById 'NewNoteHotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
             Send-ToNoto @() 0x20
             if (-not (Until { (Note-Recorder-Status) -match '^Recording' })) { throw "the new-note recorder did not start: '$(Note-Recorder-Status)'" }
             $m = Trace-Mark
@@ -433,7 +433,7 @@ try {
             $rebound = Wait-Trace $m 'Noto\.Hotkey rebind outcome=Rebound .*to=Ctrl\+Shift\+Win\+J registered=True action=NewNote'
             Add-Result $run '17 recorded as Ctrl+Shift+Win+J: registered, N released, J stored and shown' ($rebound -and (Stored 'activation.new-note.binding') -eq 'Ctrl+Shift+Win+J' -and -not (Note-Chord-Free $VkJ) -and (Note-Chord-Free $VkN) -and (Note-Recorder-Status) -match 'now Ctrl\+Shift\+Win\+J') "status='$(Note-Recorder-Status)'; trace: $(Trace-Since $m)"
 
-            (Find-ById 'NewNoteHotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
+            $null = Show-Id 'NewNoteHotkeyRecorderStatus'; (Find-ById 'NewNoteHotkeyRecorder').SetFocus(); Start-Sleep -Milliseconds 200
             Send-ToNoto @() 0x20
             if (-not (Until { (Note-Recorder-Status) -match '^Recording' })) { throw "the new-note recorder did not start again: '$(Note-Recorder-Status)'" }
             $m = Trace-Mark
