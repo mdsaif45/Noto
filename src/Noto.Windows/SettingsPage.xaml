@@ -354,6 +354,24 @@
                                     AutomationProperties.HelpText="Above selected text in a note. The keys and the Format menu work either way." />
                             </Grid>
 
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Paste code as a code block" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Lines of code you paste go in a code block. Ctrl+Shift+V always pastes plain text." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="PasteCodeBlockSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnPasteCodeBlockToggled"
+                                    AutomationProperties.Name="Paste code as a code block"
+                                    AutomationProperties.HelpText="Lines of code you paste go in a code block. Ctrl+Shift+V always pastes plain text." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -38,6 +38,10 @@
     23  #194: Ctrl+] nests a list item and Ctrl+[ un-nests it, as Tab and Shift+Tab do, one undo step; on a plain line
         they change nothing; the Format menu's Insert separator puts a --- line at the caret, a blank line above it, one
         undo step. (Ctrl+Shift+P's picture picker is covered by ImageGuardTests only: a real picker can't be driven.)
+    24  D39/D41 (#187): with Settings' "Paste code as a code block" turned on (stored), Ctrl+V of plain-text code and of
+        an editor's HTML copy (no <pre>) each make a fenced code block on lines of their own; Ctrl+Shift+V pastes the
+        same clipboard plain; a web address pasted over a selection still links it (D53). Turned off (stored), Ctrl+V
+        of the same code inserts exactly the clipboard's text: no fence, no spaces added. The clipboard is restored.
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -465,6 +469,56 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     Add-Result $run '23 Ctrl+] nests and Ctrl+[ un-nests a list item, one undo step, nothing on a plain line; Insert separator adds a --- line, one undo step' ($indented -eq "Packing`n- socks`n  - shoes" -and $outdented -eq $list -and $undone -eq $list -and $plain -eq $list -and $separated -eq "$list`n`n---`n" -and $unseparated -eq $list -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "indented='$($indented -replace "`n", '
 ')' outdented same=$($outdented -eq $list) undone same=$($undone -eq $list) plain same=$($plain -eq $list) separated='$($separated -replace "`n", '
 ')' undone same=$($unseparated -eq $list)"
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
+
+    # 24 - D39/D41 (#187): code pasted as a code block when Settings asks; otherwise exactly the clipboard's text
+    $f = '```'
+    $code = "cd src`r`ndotnet build -c Release`r`ngit status"
+    $codeLf = "cd src`ndotnet build -c Release`ngit status"
+    $savedClip = Get-Clipboard -Raw
+    try {
+        Send-ToNoto @(0x11) 0xBC 1200   # Ctrl+, : Settings
+        (Find-ById 'PasteCodeBlockSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 500
+        $on = Stored-Setting 'editor.paste-code-block'
+        Send-ToNoto @() 0x1B 1200
+        Edit-Card 'A plain note with no markup at all.'
+        Set-EditorText 'Code:'
+        Send-ToNoto @(0x11) 0x23 300
+        Set-Clipboard -Value $code; Start-Sleep -Milliseconds 300
+        Send-ToNoto @(0x11) 0x56 900
+        $fenced = Editor-Value
+        # An editor's copy (VS Code's): HTML with no <pre>, its lines in divs, and the code as plain text.
+        Set-HtmlClipboard "<div style='white-space: pre;'><div><span style='color: #569cd6;'>const</span> x = 1;</div><div>console.log(x);</div></div>" "const x = 1;`r`nconsole.log(x);"
+        Send-ToNoto @(0x11) 0x56 900
+        $fromEditor = Editor-Value
+        Send-ToNoto @(0x11, 0x10) 0x56 900   # Ctrl+Shift+V: plain, never fenced
+        $plainKey = Editor-Value
+        # A web address over a selection is still its link (D53), the setting on.
+        Set-EditorText 'read the spec today'
+        (Range-Of 'spec').Select(); Start-Sleep -Milliseconds 300
+        Set-Clipboard -Value 'https://example.com/spec'; Start-Sleep -Milliseconds 300
+        Send-ToNoto @(0x11) 0x56 900
+        $linked = Editor-Value
+        $wantFenced = "Code:`n$f`n$codeLf`n$f`n"
+        $wantEditor = "$wantFenced$f`nconst x = 1;`nconsole.log(x);`n$f`n"
+        Add-Result $run '24 on (stored): Ctrl+V of code makes a code block, an editor''s HTML copy too; Ctrl+Shift+V plain; a link over a selection still links' ($on -eq 'true' -and $fenced -eq $wantFenced -and $fromEditor -eq $wantEditor -and $plainKey -eq "${wantEditor}const x = 1;`nconsole.log(x);" -and $linked -eq 'read the [spec](https://example.com/spec) today') "stored=$on fenced=$($fenced -eq $wantFenced) editor=$($fromEditor -eq $wantEditor) plain=$($plainKey -eq "${wantEditor}const x = 1;`nconsole.log(x);") linked='$linked' value='$($plainKey -replace "`n", '\n')'"
+        Set-EditorText 'A plain note with no markup at all.'
+        Send-ToNoto @() 0x1B 900
+
+        Send-ToNoto @(0x11) 0xBC 1200
+        (Find-ById 'PasteCodeBlockSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 500
+        $off = Stored-Setting 'editor.paste-code-block'
+        Send-ToNoto @() 0x1B 1200
+        Edit-Card 'A plain note with no markup at all.'
+        Set-EditorText 'Code:'
+        Send-ToNoto @(0x11) 0x23 300
+        Set-Clipboard -Value $code; Start-Sleep -Milliseconds 300
+        Send-ToNoto @(0x11) 0x56 900
+        $asIs = Editor-Value
+        Add-Result $run '24 off (stored): Ctrl+V of code pastes exactly the clipboard''s text, no fence and no spaces added' ($off -eq 'false' -and $asIs -eq "Code:$codeLf") "stored=$off value='$($asIs -replace "`n", '\n')'"
+    }
+    finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
 

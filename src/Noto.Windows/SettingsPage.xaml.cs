@@ -178,6 +178,7 @@ public sealed partial class SettingsPage : UserControl
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
             BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
+            PasteCodeBlockSetting.IsOn = preferences.PasteCodeBlock;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
             ClipboardNoteHotkeySetting.IsOn = preferences.ClipboardNoteHotkeyEnabled;
@@ -276,6 +277,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnFormatToolbarToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetFormatToolbar(FormatToolbarSetting.IsOn));
+
+    private void OnPasteCodeBlockToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetPasteCodeBlock(PasteCodeBlockSetting.IsOn));
 
     // How often (#199) is off while automatic backup is, as a shortcut's recorder is while its shortcut is.
     private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e)

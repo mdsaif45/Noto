@@ -656,6 +656,9 @@ public sealed partial class NoteEditorHost : UserControl
         }
     }
 
+    /// <summary>Whether Ctrl+V puts code in a fenced code block (the setting <c>editor.paste-code-block</c>, D39, #187); set by the app.</summary>
+    internal static bool PastesCodeBlock { get; set; }
+
     /// <summary>Pastes the clipboard as Ctrl+V does (F18, #157: a new note from the clipboard is a new note and this paste).</summary>
     internal void PasteClipboard() => PasteAsync(formatted: true);
 
@@ -722,7 +725,9 @@ public sealed partial class NoteEditorHost : UserControl
         TextSelection at = _selection;
 
         // In order: copied files, images kept and shown, the rest as links; a web address over a selection links it
-        // (D53), whatever HTML came with it; then formatted HTML as Markdown, or the plain text.
+        // (D53), whatever HTML came with it; code in a fenced block when Settings asks (D39, #187), unless the HTML
+        // brought one of its own (an editor's copy carries HTML without one); then formatted HTML as Markdown, or the
+        // plain text, exactly as it was copied: nothing adds spaces around it (D41).
         if (paths.Count > 0)
         {
             AddFiles(paths);
@@ -730,6 +735,11 @@ public sealed partial class NoteEditorHost : UserControl
         }
 
         TextEdit? edit = plain is not null ? MarkdownCommands.LinkSelection(_text, at, plain) : null;
+
+        if (edit is null && formatted && PastesCodeBlock && plain is not null)
+        {
+            edit = PastedCode.Fence(_text, at, plain, html);
+        }
 
         if (edit is null && (html ?? plain) is { } pasted)
         {
