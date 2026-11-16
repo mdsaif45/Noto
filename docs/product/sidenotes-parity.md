@@ -489,7 +489,7 @@ architecturally.
 | `[ ]` | D31 | Image from iPhone/iPad | Continuity Camera | **No equivalent** | DROP | — | Apple Continuity. No Windows analogue |
 | `[x]` | D32 | Copy image quickly | Copy an embedded image to clipboard | Same | SHOULD | — | **v0.3 score (2026-11-16):** Copy picture in the editor's menu on a picture's line, and Ctrl+C on a selected picture, put the image itself on the clipboard (#187; `Invoke-Images` case 16). |
 | `[ ]` | D33 | Save image to file | Export an embedded image | Same | SHOULD | — | |
-| `[~]` | D34 | File & folder shortcuts | Drop a file → shortcut with preview; standard / compact | Same; both preview styles; double-click opens | MUST | #196 | Path validation, principle 10 **v0.2 score (2026-11-13):** A dropped or pasted file becomes a link to its path, opened with Ctrl+Click (ADR-019). No preview styles, no double-click. |
+| `[x]` | D34 | File & folder shortcuts | Drop a file → shortcut with preview; standard / compact | Same; both preview styles; double-click opens | MUST | #196 | Path validation, principle 10 **v0.2 score (2026-11-13):** A dropped or pasted file becomes a link to its path, opened with Ctrl+Click (ADR-019). No preview styles, no double-click. **v0.3 score (2026-11-16):** A dropped or pasted file or folder is a shortcut line with the shell's own icon, Standard or Compact; double-click or Ctrl+Click opens it through `ShellLaunch`'s checks (#196; `Invoke-Images` case 16, `Invoke-Links` case 10). Cards still show a link. |
 | `[ ]` | D35 | Quick Look preview | Space previews an image or file | **In-app preview** on Space for images; Explorer preview otherwise | ADAPT | — | Quick Look is a macOS system service |
 | `[x]` | D36 | Text snippets | Notes as reusable snippets via search + quick copy | Same pattern; no separate snippet feature | MUST | — | Emergent from E3, not new machinery **v0.2 score (2026-11-13):** Search plus Ctrl+C / Ctrl+Shift+C (E3) makes any note a snippet. |
 | `[x]` | D37 | URL handling | URLs clickable; `⌘R` launches from search | Clickable, scheme-validated; `Ctrl+R` from search | MUST | #197 | ADR-004 security rules **v0.2 score (2026-11-13):** Clickable and scheme-validated. No Ctrl+R from Search. **v0.3 score (2026-11-16):** Ctrl+R in Search launches the chosen note's first link the allow-list accepts, through the editor's own launch path (#197; `Invoke-Search` case 12). |
@@ -796,7 +796,7 @@ the documented use cases (D38, I4) without pretending to be a share sheet.
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | I1 | Import text files | Drop text files, or whole folders, to create notes | Same, incl. bulk folder import | MUST | — | **v0.2 score (2026-11-13):** Settings › Import brings in a folder of Markdown; dropped `.md` / `.txt` files become notes (ADR-020; F9, #152). |
 | `[x]` | I2 | Import images | Dropped images embedded; behavior configurable | Same | MUST | — | **v0.2 score (2026-11-13):** A dropped picture becomes a note holding it; an imported folder brings the pictures its notes use (F9, #152; ADR-020). |
-| `[~]` | I3 | Import as shortcuts | Files become previewed shortcuts, not content | Same; standard / compact styles | MUST | #196 | = D34 **v0.2 score (2026-11-13):** A file dropped into a note becomes a link to it. No preview styles. |
+| `[x]` | I3 | Import as shortcuts | Files become previewed shortcuts, not content | Same; standard / compact styles | MUST | #196 | = D34 **v0.2 score (2026-11-13):** A file dropped into a note becomes a link to it. No preview styles. **v0.3 score (2026-11-16):** Files dropped into a note become shortcuts with icon previews, in both styles; text files can insert their text instead (J30) (#196). |
 | `[ ]` | I4 | Export note to image | Share → save/copy image; background, margins, ratio, bottom bar | Same, with the same four export settings | SHOULD | — | |
 | `[ ]` | I5 | Export via Shortcuts | Shortcuts action wrapping image export | Image export via CLI | ADAPT | — | |
 | `[ ]` | I6 | Print | `⌘P` | `Ctrl+P` | SHOULD | — | = B21 |
@@ -857,7 +857,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[x]` | J13 | Text → Font size | adjustable | Same | MUST | — | = D48 **v0.2 score (2026-11-13):** Settings › Text size (F13, #154). |
 | `[ ]` | J14 | Text → Line height | Tight / Normal / Relaxed | Same | SHOULD | — | = D49 |
 | `[ ]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 |
-| `[ ]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. |
+| `[x]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › File links: Standard (the default) or Compact, applied at once (#196). |
 | `[ ]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | |
 | `[ ]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 |
 | `[ ]` | J19 | Text → No auto-spaces on paste | on / off | Same | SHOULD | — | = D41 **v0.3 score (2026-11-16):** = D41: nothing adds spaces, so no switch (#187). |
@@ -871,7 +871,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J27 | Importing → DnD on screen edge | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J28 | Importing → Show while dragging | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. |
 | `[ ]` | J29 | Importing → Move imported files to Trash | on / off | Move to **Recycle Bin**, off by default | ADAPT | — | Destructive — never default on |
-| `[ ]` | J30 | Importing → Import behavior | images and text files | Same | MUST | #196 | = I1, I2 **v0.2 score (2026-11-13):** Not built. |
+| `[x]` | J30 | Importing → Import behavior | images and text files | Same | MUST | #196 | = I1, I2 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › Importing: When you drop a picture (keep a copy, the default; or add a shortcut) and When you drop a text file into a note (add a shortcut, the default; or insert its text) (#196). |
 | `[ ]` | J31 | Exporting → Image background | color or transparent | Same | SHOULD | — | = I4 |
 | `[ ]` | J32 | Exporting → Image margins | adjustable | Same | SHOULD | — | = I4 |
 | `[ ]` | J33 | Exporting → Image ratio | selectable | Same | SHOULD | — | = I4 |
