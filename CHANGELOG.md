@@ -10,11 +10,6 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ## [Unreleased]
 
-### Fixed
-
-- Narrator says a folder's or a note's state with its title, such as "Work, Pinned" or "Weekly sync, Folded, 3 lines
-  hidden". It read only the title before (#201).
-
 ### Added
 
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
@@ -52,6 +47,11 @@ format or behavior. Breaking changes are always called out explicitly.
   the installed Noto registers the link for the current user (#192).
 - A note can be Markdown, Code or Plain text, from the card's menu under *Mode*. Code shows the text exactly as typed,
   in a monospace font with spell check off. Settings › *New notes are* sets the mode for new notes (#195).
+
+### Fixed
+
+- Narrator says a folder's or a note's state with its title, such as "Work, Pinned" or "Weekly sync, Folded, 3 lines
+  hidden". It read only the title before (#201).
 
 ## [0.2.0] - 2026-11-14
 
