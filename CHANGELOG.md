@@ -22,6 +22,10 @@ format or behavior. Breaking changes are always called out explicitly.
   Ctrl+Enter on a note opens the folder it is in (#197).
 - Move to (Ctrl+Shift+M, or the card menu) can create a folder: choose *New folder…*, type a name and press Enter, and
   the note moves into it (#189).
+### Fixed
+- With Narrator on, Alt+Shift+Left and Alt+Shift+Right fold and unfold a note, and Alt+Shift+Up and Alt+Shift+Down
+  move to the previous and next note while editing. Narrator keeps Ctrl+Alt+arrows for itself; without Narrator they
+  still work (#202).
 
 ## [0.2.0] - 2026-11-14
 

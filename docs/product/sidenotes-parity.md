@@ -643,8 +643,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G8 | Back / hide (4 modes) | `⎋` | `Esc` | MUST | — | **Done** — = A12 |
 | `[x]` | G9 | Enter folder | `⌘↓` | `Ctrl+Down` | MUST | — | **Done** — M2-2 (#60). Same code as C4, whose `[~]` is the single-click setting |
 | `[ ]` | G10 | Last-open folder | `⌘⌥O` | `Ctrl+Alt+O` | MUST | #193 | **v0.2 score (2026-11-13):** Not built (§10.2 final chord Ctrl+Shift+O). |
-| `[x]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Down. |
-| `[x]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up. |
+| `[x]` | G11 | Next note | `⌘⌥↓` | `Ctrl+Alt+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Down. **v0.3 score (2026-11-16):** Also Alt+Shift+Up in the editor, which Narrator leaves alone (#202; `Invoke-NoteStack` case 48, `Invoke-Narrator` N4). |
+| `[x]` | G12 | Previous note | `⌘⌥↑` | `Ctrl+Alt+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up. **v0.3 score (2026-11-16):** Also Alt+Shift+Down in the editor, which Narrator leaves alone (#202). |
 | `[ ]` | G13 | Hide (optional binding) | `⌘↩` | `Ctrl+Enter` | SHOULD | — | Off by default; see A11 |
 
 ### 7.3 Note management
@@ -656,8 +656,8 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G16 | Move note to folder | `⇧⌘M` | `Ctrl+Shift+M` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Shift+M (`Invoke-NoteStack` cases 19–21). |
 | `[x]` | G17 | Move note up | `⇧⌥⌘↑` | `Ctrl+Alt+Shift+Up` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Up. |
 | `[x]` | G18 | Move note down | `⇧⌥⌘↓` | `Ctrl+Alt+Shift+Down` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Down. |
-| `[x]` | G19 | Fold note | `⌥⌘←` | `Ctrl+Alt+Left` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Left (`Invoke-NoteStack` case 23). |
-| `[x]` | G20 | Unfold note | `⌥⌘→` | `Ctrl+Alt+Right` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Right. |
+| `[x]` | G19 | Fold note | `⌥⌘←` | `Ctrl+Alt+Left` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Left (`Invoke-NoteStack` case 23). **v0.3 score (2026-11-16):** Also Alt+Shift+Left, which works with Narrator on (#202; `Invoke-Narrator` N4). |
+| `[x]` | G20 | Unfold note | `⌥⌘→` | `Ctrl+Alt+Right` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Right. **v0.3 score (2026-11-16):** Also Alt+Shift+Right, which works with Narrator on (#202). |
 | `[x]` | G21 | Fold all | `⇧⌥⌘←` | `Ctrl+Alt+Shift+Left` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Left (`Invoke-NoteStack` case 27). |
 | `[x]` | G22 | Unfold all | `⇧⌥⌘→` | `Ctrl+Alt+Shift+Right` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Right. |
 | `[x]` | G23 | Set note color 1–6 | `⌘1`…`⌘6` | `Ctrl+1`…`Ctrl+6` | MUST | — | **v0.2 score (2026-11-13):** F7 (#150): Ctrl+1–Ctrl+6 (`Invoke-NoteStack` case 46). |
