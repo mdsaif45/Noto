@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
-using Noto.Core.Notes;
 using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;

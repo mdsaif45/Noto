@@ -345,14 +345,14 @@ public sealed class SettingsSurfaceGuardTests
         string window = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
         Assert.Equal(1, Regex.Count(window, @"_stack\.Create\("));
         Assert.DoesNotContain("new CreateNote(", window, StringComparison.Ordinal);
-        Assert.Contains("_stack.Create(NewNotePlacement, selected, content);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Contains("CreateNoteInOpenFolder();", Body(Main, "OnCreateNoteAccelerator"), StringComparison.Ordinal);
         Assert.Contains("private void OnNewNoteClick(object sender, RoutedEventArgs e) => CreateNoteInOpenFolder();", Main, StringComparison.Ordinal);
         Assert.Contains("MenuItem(\"New note\", \"Ctrl+N\", () => CreateNoteInOpenFolder())", Main, StringComparison.Ordinal);
         Assert.Contains("CreateNoteInOpenFolder(content);", Body(Code(Path.Join(Windows, "MainWindow.NewNoteShortcut.cs")), "NewNoteFromShortcut"), StringComparison.Ordinal);
 
         // The session hands the placement to the command, and the command's handler decides through the one rule.
-        Assert.Contains("new CreateNote(folder, content, placement, selected)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
+        Assert.Contains("new CreateNote(folder, content, placement, selected, mode)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
         Assert.Contains("NewNotePlacementRule.Resolve(command.Placement, command.Selected,", Code(SourcePath("src", "Noto.UseCases", "Notes", "CreateNote.cs")), StringComparison.Ordinal);
     }
 
