@@ -23,6 +23,7 @@ format or behavior. Breaking changes are always called out explicitly.
 - Move to (Ctrl+Shift+M, or the card menu) can create a folder: choose *New folder…*, type a name and press Enter, and
   the note moves into it (#189).
 ### Fixed
+
 - With Narrator on, Alt+Shift+Left and Alt+Shift+Right fold and unfold a note, and Alt+Shift+Up and Alt+Shift+Down
   move to the previous and next note while editing. Narrator keeps Ctrl+Alt+arrows for itself; without Narrator they
   still work (#202).
@@ -47,9 +48,6 @@ format or behavior. Breaking changes are always called out explicitly.
   the installed Noto registers the link for the current user (#192).
 - A note can be Markdown, Code or Plain text, from the card's menu under *Mode*. Code shows the text exactly as typed,
   in a monospace font with spell check off. Settings › *New notes are* sets the mode for new notes (#195).
-
-### Fixed
-
 - Narrator says a folder's or a note's state with its title, such as "Work, Pinned" or "Weekly sync, Folded, 3 lines
   hidden". It read only the title before (#201).
 
