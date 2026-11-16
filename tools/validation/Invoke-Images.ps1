@@ -492,9 +492,6 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
     }
     finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
 
-    if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
-
-
     # 17 - a text file dropped on the editor, with each "When you drop a text file into a note" choice (#196)
     $txt = Join-Path $run.Root 'notes.txt'; [System.IO.File]::WriteAllText($txt, "first dropped line`nsecond dropped line")   # 38 bytes
     function Drop-Onto([string] $Needle, [string] $File) {
@@ -559,6 +556,9 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
     $undoneText = (Editor-Value) -eq $original
     Leave-Editor
     Add-Result $run '17 a dropped text file is a shortcut by default, drawn with its type and size; set to insert its text, its text; one undo each' ($linked -and $null -ne $details -and $undoneLink -and $stored -eq 'InsertText' -and $asText -and $undoneText) "$effect linked=$linked details='$(if ($details) { $details.Current.Name })' undone=$undoneLink stored=$stored inserted='$($inserted -replace "`n", ' | ')' undone=$undoneText"
+    if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+
+
     # 13 - the picture pasted and undone in case 9 is no note's: aged a week, the next start sweeps it
     if ($script:pasted) { (Get-Item (Join-Path $folderOfImages $script:pasted)).LastWriteTime = $week }
     $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
