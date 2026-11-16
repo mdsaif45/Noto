@@ -50,7 +50,7 @@ public sealed class KeyboardAccessibilityGuardTests
     [Theory]
     [InlineData("CreateNoteInOpenFolder", "Note created")]
     [InlineData("DeleteCard", "Note moved to the Recycle Bin")]
-    [InlineData("MoveCard", "Moved to {target.Name}")]
+    [InlineData("MoveCard", "Moved to {name}")]
     [InlineData("PinCard", "pinned ? \"Pinned\" : \"Unpinned\"")]
     [InlineData("FoldCard", "folded ? \"Folded\" : \"Unfolded\"")]
     [InlineData("FoldAll", "All notes folded")]

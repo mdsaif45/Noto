@@ -477,6 +477,22 @@ public sealed class NoteStackSessionTests : IDisposable
         Assert.Equal([new NoteMoved(_a, _other)], told);
     }
 
+    [Fact]
+    public void A_note_moved_into_a_folder_made_for_it_is_counted_there_and_the_folder_is_recorded_as_recent()
+    {
+        // Move to › New folder… (#189) is the pane's CreateFolder followed by an ordinary move.
+        WorkspacePreferences preferences = Preferences();
+        using var subscription = _events.Subscribe<NoteMoved>(e => preferences.RememberMoveTarget(e.FolderId, _folders.ListActive()));
+        CommandResult<FolderId> created = new CreateFolderHandler(_folders, _clock).Handle(new CreateFolder("  Made for it\n"));
+
+        Assert.True(_stack.Move(_b, created.Value).IsSuccess);
+
+        Assert.Equal("Made for it", _folders.ListActive().Single(f => f.Id == created.Value).Name);
+        Assert.Equal([_a, _c], _stack.Notes.Select(n => n.Id));
+        Assert.Equal(1, new ListFoldersQuery(_folders, _notes).NoteCounts()[created.Value]);
+        Assert.Equal([created.Value], preferences.RecentMoveFolders);
+    }
+
     // ---- recent folders (B11) ------------------------------------------------------------------------
 
     [Fact]

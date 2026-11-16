@@ -169,8 +169,37 @@ public sealed class NoteStackGuardTests
         // The card being edited is saved first, and the move goes through the session.
         string moveCard = Body(Main, "MoveCard");
         Assert.Contains("(_stack.Editing?.Value == id && !TryEndEdit())", moveCard, StringComparison.Ordinal);
-        Assert.Contains("_stack.Move(note, target.Id)", moveCard, StringComparison.Ordinal);
+        Assert.Contains("_stack.Move(note, target)", moveCard, StringComparison.Ordinal);
         Assert.True(moveCard.IndexOf("_stack.AfterRemoval(note)", StringComparison.Ordinal) < moveCard.IndexOf("_stack.Move(", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Move_to_ends_with_new_folder_which_creates_through_the_panes_command_then_moves_the_ordinary_way()
+    {
+        // #189: last, after a separator, in both the key's menu and the card menu (they share MoveDestinations).
+        string destinations = Body(Main, "MoveDestinations");
+        Assert.Matches(
+            @"items\.Add\(new MenuFlyoutSeparator\(\)\);\s*items\.Add\(MenuItem\(""New folder…"", string\.Empty, \(\) => _ = DispatcherQueue\.TryEnqueueGuarded\(Microsoft\.UI\.Dispatching\.DispatcherQueuePriority\.Low, \(\) => AskMoveToNewFolder\(id\)\)\)\);\s*return items;",
+            destinations);
+        Assert.True(destinations.IndexOf("\"All folders\"", StringComparison.Ordinal) < destinations.IndexOf("\"New folder…\"", StringComparison.Ordinal));
+
+        // A named, identified name box; Enter confirms; a refusal is the pane's words, announced, and keeps the box.
+        string ask = Body(Main, "AskMoveToNewFolder");
+        Assert.Contains(@"AutomationProperties.SetName(name, ""New folder name"");", ask, StringComparison.Ordinal);
+        Assert.Contains(@"AutomationProperties.SetAutomationId(name, ""MoveNewFolderName"");", ask, StringComparison.Ordinal);
+        Assert.Contains(@"AutomationProperties.SetName(move, ""Create folder and move the note"");", ask, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetLiveSetting(refusal, AutomationLiveSetting.Assertive);", ask, StringComparison.Ordinal);
+        Assert.Contains("Accessible.SetAnnounces(refusal, true);", ask, StringComparison.Ordinal);
+        Assert.Contains("flyout.Opened += (_, _) => _ = name.Focus(FocusState.Programmatic);", ask, StringComparison.Ordinal);
+        Assert.Matches(@"if \(e\.Key == VirtualKey\.Enter\)\s*\{\s*e\.Handled = true;\s*Submit\(\);", ask);
+        Assert.Contains("Refuse(Describe(created.Failure!));", ask, StringComparison.Ordinal);
+
+        // Saved first, then the pane's own CreateFolder (no second creation path), then the ordinary move into it.
+        int save = ask.IndexOf("(_stack.Editing?.Value == id && !TryEndEdit())", StringComparison.Ordinal);
+        int create = ask.IndexOf("_commands.Dispatch(new CreateFolder(name.Text))", StringComparison.Ordinal);
+        int move = ask.IndexOf("MoveCard(id, created.Value, FolderName.Normalise(name.Text)!);", StringComparison.Ordinal);
+        Assert.True(save >= 0 && save < create && create < move, $"save={save} create={create} move={move}");
+        Assert.Equal(2, Regex.Count(Main, @"new CreateFolder\(")); // the pane's create row, and this
     }
 
     [Fact]

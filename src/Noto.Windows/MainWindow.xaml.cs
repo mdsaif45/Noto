@@ -2054,7 +2054,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// Where a card can move (workspace-management.md §3): the recent folders first, then every other folder in
-    /// folder-list order. Never the card's own folder: moving there is not a move.
+    /// folder-list order, then New folder… (#189). Never the card's own folder: moving there is not a move.
     /// </summary>
     private List<MenuFlyoutItemBase> MoveDestinations(string id)
     {
@@ -2074,13 +2074,13 @@ public sealed partial class MainWindow : Window
         IReadOnlyList<Folder> recent = RecentFolders.Shown(RecentMoveFolders?.Invoke() ?? [], folders, _openFolderId);
         foreach (Folder folder in recent)
         {
-            items.Add(MenuItem(folder.Name, string.Empty, () => MoveCard(id, folder)));
+            items.Add(MenuItem(folder.Name, string.Empty, () => MoveCard(id, folder.Id, folder.Name)));
         }
 
         var all = new MenuFlyoutSubItem { Text = "All folders" };
         foreach (Folder folder in folders.Where(f => f.Id != _openFolderId))
         {
-            all.Items.Add(MenuItem(folder.Name, string.Empty, () => MoveCard(id, folder)));
+            all.Items.Add(MenuItem(folder.Name, string.Empty, () => MoveCard(id, folder.Id, folder.Name)));
         }
 
         if (recent.Count > 0)
@@ -2089,14 +2089,112 @@ public sealed partial class MainWindow : Window
         }
 
         items.Add(all.Items.Count > 0 ? all : MenuItem("No other folders", string.Empty, static () => { }, enabled: false));
+
+        // Asked once the menu has closed, so the menu's own return of focus to the card cannot take it from the name box.
+        items.Add(new MenuFlyoutSeparator());
+        items.Add(MenuItem("New folder…", string.Empty, () => _ = DispatcherQueue.TryEnqueueGuarded(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => AskMoveToNewFolder(id))));
         return items;
     }
 
     /// <summary>
-    /// Moves a card's note to <paramref name="target"/> (B11). The card being edited is saved first; a failed save
-    /// moves nothing. The card leaves the stack and focus goes to the next card, else the previous.
+    /// Move to › New folder… (B11, #189): a name box at the card, focused. Enter (or Move) creates the folder through
+    /// the folder pane's own command, so its rules and its words are the pane's (<see cref="Describe"/>): a refused
+    /// name keeps the box open with what was typed. Escape, or clicking away, closes it and creates nothing.
     /// </summary>
-    private void MoveCard(string id, Folder target)
+    /// <remarks>
+    /// The card being edited is saved before the folder is made, so a failed save creates nothing. Once the folder
+    /// exists, the move is an ordinary one (<see cref="MoveCard"/>): if it fails, which only a note or a store gone from
+    /// under it can cause, the folder stays (empty, visible, harmless) and the move's own notice says why. Taking the
+    /// folder back would be a second write that can fail the same way.
+    /// </remarks>
+    private void AskMoveToNewFolder(string id)
+    {
+        if (_noteState != NoteState.Loaded
+            || Notes.FirstOrDefault(n => n.Id == id) is not { } card
+            || NoteList.ContainerFromItem(card) is not ListViewItem container)
+        {
+            return;
+        }
+
+        ResourceDictionary resources = Microsoft.UI.Xaml.Application.Current.Resources;
+        var name = new TextBox { PlaceholderText = "New folder name", Style = (Style)resources["FolderNameInputStyle"], MinWidth = 220 };
+        AutomationProperties.SetName(name, "New folder name");
+        AutomationProperties.SetAutomationId(name, "MoveNewFolderName");
+        var refusal = new TextBlock { Style = (Style)resources["FolderPaneNoticeStyle"], TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+        AutomationProperties.SetAutomationId(refusal, "MoveNewFolderNotice");
+        AutomationProperties.SetLiveSetting(refusal, AutomationLiveSetting.Assertive);
+        Accessible.SetAnnounces(refusal, true);
+        var move = new Button { Content = "Move", Style = (Style)resources["FolderPaneButtonStyle"], HorizontalAlignment = HorizontalAlignment.Right };
+        AutomationProperties.SetName(move, "Create folder and move the note");
+        var body = new StackPanel { Spacing = (double)resources["SpaceS"] };
+        body.Children.Add(name);
+        body.Children.Add(refusal);
+        body.Children.Add(move);
+
+        var flyout = new Flyout { Content = body };
+
+        void Refuse(string message)
+        {
+            refusal.Text = message;
+            refusal.Visibility = Visibility.Visible;
+            _ = name.Focus(FocusState.Programmatic);
+        }
+
+        void Submit()
+        {
+            if (_noteState != NoteState.Loaded || (_stack.Editing?.Value == id && !TryEndEdit()))
+            {
+                flyout.Hide();
+                return;
+            }
+
+            CommandResult<FolderId> created;
+            try
+            {
+                created = _commands.Dispatch(new CreateFolder(name.Text));
+            }
+            catch (StorageException ex)
+            {
+                Refuse($"Could not create the folder: {ex.Message}");
+                return;
+            }
+
+            if (!created.IsSuccess)
+            {
+                Refuse(Describe(created.Failure!));
+                return;
+            }
+
+            flyout.Hide();
+            MoveCard(id, created.Value, FolderName.Normalise(name.Text)!);
+        }
+
+        name.KeyDown += (_, e) =>
+        {
+            if (e.Key == VirtualKey.Enter)
+            {
+                e.Handled = true;
+                Submit();
+            }
+        };
+        move.Click += (_, _) => Submit();
+        flyout.Opened += (_, _) => _ = name.Focus(FocusState.Programmatic);
+        flyout.Closed += (_, _) =>
+        {
+            if (Notes.Any(n => n.Id == id))
+            {
+                FocusNoteRow(id);
+            }
+        };
+        flyout.ShowAt(container);
+    }
+
+    /// <summary>
+    /// Moves a card's note to <paramref name="target"/>, named <paramref name="name"/> (B11). The card being edited is
+    /// saved first; a failed save moves nothing. The card leaves the stack and focus goes to the next card, else the
+    /// previous.
+    /// </summary>
+    private void MoveCard(string id, FolderId target, string name)
     {
         if (_noteState != NoteState.Loaded || (_stack.Editing?.Value == id && !TryEndEdit()))
         {
@@ -2108,7 +2206,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            CommandResult result = _stack.Move(note, target.Id);
+            CommandResult result = _stack.Move(note, target);
 
             if (!result.IsSuccess)
             {
@@ -2120,7 +2218,7 @@ public sealed partial class MainWindow : Window
             ShowCards(_stack.Notes);
             HideNoteNotice();
             ApplyNoteState();
-            Announce($"Moved to {target.Name}");
+            Announce($"Moved to {name}");
 
             if (next is { } focus)
             {
