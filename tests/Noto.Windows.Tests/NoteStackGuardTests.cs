@@ -54,6 +54,29 @@ public sealed class NoteStackGuardTests
     }
 
     [Fact]
+    public void A_rows_name_says_its_state_after_its_title_from_the_one_helper_and_follows_it()
+    {
+        // #201: Narrator reads a list item's name and position, never its help text, so a row's name is its title then
+        // its state. The container names itself from its item's ToString, read each time it is asked, so the name
+        // follows a fold, colour or mode changed in place; nothing else may name the container and go stale.
+        string card = Code(Path.Join(Windows, "NoteCard.cs"));
+        string folder = Code(Path.Join(Windows, "FolderListItem.cs"));
+
+        Assert.Contains("public override string ToString() => RowState.Name(DisplayTitle, HelpText);", card, StringComparison.Ordinal);
+        Assert.Contains("RowState.Of(IsPinned, IsFolded, HiddenLines, NotePalette.NameOf(ColorKey), Mode == NoteMode.Markdown ? string.Empty : NameOf(Mode));", card, StringComparison.Ordinal);
+        Assert.Contains("public override string ToString() => RowState.Name(Name, RowState.Of(IsPinned, folded: false, hiddenLines: 0));", folder, StringComparison.Ordinal);
+        Assert.Contains("public string HelpText => RowState.Of(IsPinned, folded: false, hiddenLines: 0,", folder, StringComparison.Ordinal);
+
+        // Each state a card changes in place tells its bindings the help text changed; the name is read from the same.
+        foreach (string setter in new[] { "IsFolded", "ColorKey", "Mode", "Content" })
+        {
+            Assert.Contains("Changed(nameof(HelpText));", Property(card, setter), StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotMatch(@"AutomationProperties\.SetName\((args\.ItemContainer|container)\b", Main);
+    }
+
+    [Fact]
     public void An_editor_loads_the_stacks_text_for_its_card_so_a_recycled_container_loses_nothing()
     {
         // The text lives in the session, not the control: a realised editor loads it, every change goes back to it,
@@ -499,6 +522,27 @@ public sealed class NoteStackGuardTests
         }
 
         throw new InvalidOperationException($"Unbalanced body for {method}");
+    }
+
+    /// <summary>A property's body: from its declaration's first brace to the brace that closes it.</summary>
+    private static string Property(string source, string name)
+    {
+        var declaration = Regex.Match(source, $@"public [\w?]+ {name}\s*\{{");
+        Assert.True(declaration.Success, $"Not found: {name}");
+        int open = source.IndexOf('{', declaration.Index);
+        int depth = 0;
+
+        for (int i = open; i < source.Length; i++)
+        {
+            depth += source[i] switch { '{' => 1, '}' => -1, _ => 0 };
+
+            if (depth == 0)
+            {
+                return source[open..(i + 1)];
+            }
+        }
+
+        throw new InvalidOperationException($"Unbalanced body for {name}");
     }
 
     /// <summary>Walks up to the repository root; a guard that silently skips is worse than none.</summary>

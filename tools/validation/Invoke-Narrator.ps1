@@ -12,8 +12,8 @@
   window. The clipboard, which the copied phrase passes through, is restored after. Speech recap (Narrator key + Alt +
   X) was tried first: its text is inside a XAML island UI Automation does not reach.
 
-    N1  the folder list: a row says its name, and "Pinned" for the pinned one
-    N3  the card stack: a card says its title, and "Folded" with the lines it hides
+    N1  the folder list: a row says its name, and "Pinned" with it for the pinned one (#201)
+    N3  the card stack: a card says its title, and "Folded" with the lines it hides, with it (#201)
     N4  card commands: "Unfolded" and "Folded" are announced, by Alt+Shift+Right and Alt+Shift+Left: Narrator takes
         Ctrl+Alt+arrows for its tables and answers "Not on table" (#202)
     N5  the editor: "Note content"
@@ -122,8 +122,8 @@ try {
         $rows = Rows 'FolderList'
         Focus-On $rows[1]; $homeSaid = Spoken
         Focus-On $rows[0]; $work = Spoken
-        Start-Sleep -Seconds 5; $workLater = Spoken   # a hint (help text) comes after a pause, as its own phrase
-        Add-Result $run 'N1 folder list: a row says its name, Pinned for the pinned one' ($work -match 'Work' -and "$work $workLater" -match 'Pinned' -and $homeSaid -match 'Home') "Work: '$work' then '$workLater' | Home: '$homeSaid'"
+        # #201: the state is in the phrase said with the row, not a later hint (Narrator reads no help text: measured).
+        Add-Result $run 'N1 folder list: a row says its name, and Pinned with it for the pinned one' ($work -match 'Work, Pinned' -and $homeSaid -match 'Home' -and $homeSaid -notmatch 'Pinned') "Work: '$work' | Home: '$homeSaid'"
 
         # N3 - the card stack
         Focus-On (Rows 'FolderList')[0]
@@ -131,16 +131,15 @@ try {
         $cards = Rows 'NoteList'
         Focus-On $cards[0]; $firstCard = Spoken
         Focus-On $cards[1]; $folded = Spoken
-        Start-Sleep -Seconds 5; $foldedLater = Spoken
-        Add-Result $run 'N3 card stack: a card says its title; a folded one says Folded and what it hides' ($firstCard -match 'Weekly sync' -and $folded -match 'Folded note' -and "$folded $foldedLater" -match 'Folded, 1 line hidden') "first: '$firstCard' | folded: '$folded' then '$foldedLater'"
+        Add-Result $run 'N3 card stack: a card says its title; a folded one says Folded and what it hides, with it' ($firstCard -match 'Weekly sync' -and $firstCard -notmatch 'Folded' -and $folded -match 'Folded note, Folded, 1 line hidden') "first: '$firstCard' | folded: '$folded'"
 
         # N4 - commands announced, by the chords Narrator leaves to Noto (#202)
         Send-ToNoto @(0x12, 0x10) 0x27 2000; $unfolded = Spoken   # Alt+Shift+Right
         Focus-On (Rows 'NoteList')[1]
         Send-ToNoto @(0x12, 0x10) 0x25 2000; $foldedAgain = Spoken   # Alt+Shift+Left
-        # Case-sensitive ("Unfolded" holds "folded"), and not the card's title "Folded note": the card's own phrase
-        # must not pass for the announcement.
-        Add-Result $run 'N4 Alt+Shift+Right and Alt+Shift+Left with Narrator on, announced: Unfolded, Folded' ($unfolded -cmatch '\bUnfolded\b' -and $foldedAgain -cmatch '\bFolded\b(?! note)') "unfold: '$unfolded' | fold: '$foldedAgain'"
+        # Case-sensitive ("Unfolded" holds "folded"), and not the card's own phrase, which holds its title "Folded note"
+        # and, folded, "Folded" too (#201): it must not pass for the announcement.
+        Add-Result $run 'N4 Alt+Shift+Right and Alt+Shift+Left with Narrator on, announced: Unfolded, Folded' ($unfolded -cmatch '\bUnfolded\b' -and $foldedAgain -cmatch '\bFolded\b(?! note)' -and $foldedAgain -notmatch 'Folded note') "unfold: '$unfolded' | fold: '$foldedAgain'"
 
         # N5 - the editor
         Focus-On (Rows 'NoteList')[0]

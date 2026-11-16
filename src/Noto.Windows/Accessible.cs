@@ -12,9 +12,10 @@ namespace Noto;
 public static class Accessible
 {
     /// <summary>
-    /// A row's state ("Pinned", "Folded, 3 lines hidden", a colour), as its help text and its item status. Narrator
-    /// reads a list item's name and position but not its help text (measured: "Work, 1 of 2", never "Pinned"); item
-    /// status is read with the item.
+    /// A row's state ("Pinned", "Folded, 3 lines hidden", a colour), as its help text, item status and full
+    /// description. Narrator reads a list item's name and position but none of these (measured: "Work, 1 of 2", never
+    /// "Pinned"), so the folder and note rows also say it in their name, after the title (#201: their items'
+    /// <c>ToString</c>, from the same <see cref="Core.Workspace.RowState"/>).
     /// </summary>
     internal static void SetRowState(DependencyObject row, string state)
     {

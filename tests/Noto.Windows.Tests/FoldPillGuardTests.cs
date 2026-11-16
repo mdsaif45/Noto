@@ -29,7 +29,7 @@ public sealed class FoldPillGuardTests
 
         // Counted by the domain's title rule, and only while folded: typing in an unfolded note never counts lines.
         Assert.Contains("public int HiddenLines => IsFolded ? NoteTitle.LinesBelow(Content) : 0;", Card, StringComparison.Ordinal);
-        Assert.Contains("$\"folded, {Lines(HiddenLines)} hidden\"", Card, StringComparison.Ordinal);
+        Assert.Contains("RowState.Of(IsPinned, IsFolded, HiddenLines,", Card, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -64,9 +64,9 @@ function Find-ById([string] $Id, [int] $Seconds = 10) {
     throw "no visible element '$Id' within ${Seconds}s"
 }
 function Rows([string] $ListId) { @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) }
-function Row([string] $ListId, [string] $Name) { Rows $ListId | Where-Object { $_.Current.Name -eq $Name } | Select-Object -First 1 }
+function Row([string] $ListId, [string] $Name) { Rows $ListId | Where-Object { (Get-RowTitle $_.Current.Name) -eq $Name } | Select-Object -First 1 }
 function Focused { $f = $AE::FocusedElement; "$($f.Current.ControlType.ProgrammaticName)|id=$($f.Current.AutomationId)|name=$($f.Current.Name)" }
-function Focused-Name { $AE::FocusedElement.Current.Name }
+function Focused-Name { Get-RowTitle $AE::FocusedElement.Current.Name }
 function Mine([System.Windows.Automation.ControlType] $Type, [string] $Name) {
     $cond = [System.Windows.Automation.AndCondition]::new(
         [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $Type),

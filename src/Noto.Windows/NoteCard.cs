@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Noto.Core.Notes;
+using Noto.Core.Workspace;
 
 namespace Noto;
 
@@ -164,33 +165,21 @@ public sealed class NoteCard : INotifyPropertyChanged
     public string ReadText => IsFolded || string.IsNullOrWhiteSpace(Content) ? DisplayTitle : Content;
 
     /// <summary>
-    /// The card's states, for assistive technology: its name is the title (ADR-016 §8). A colour is named here too,
-    /// so it is never only a colour (F7, #150), and so is a mode that is not Markdown (#195), so a note that shows its
-    /// markup is never mistaken for one that lost its formatting.
+    /// The card's states, for assistive technology (ADR-016 §8): in its help text, item status and full description,
+    /// and after its title in its name (#201). A colour is named here too, so it is never only a colour (F7, #150), and
+    /// so is a mode that is not Markdown (#195), so a note that shows its markup is never mistaken for one that lost its
+    /// formatting.
     /// </summary>
-    public string HelpText
-    {
-        get
-        {
-            string folded = HiddenLines > 0 ? $"folded, {Lines(HiddenLines)} hidden" : "folded";
-            string states = (IsPinned, IsFolded) switch
-            {
-                (true, true) => "Pinned, " + folded,
-                (true, false) => "Pinned",
-                (false, true) => char.ToUpperInvariant(folded[0]) + folded[1..],
-                _ => string.Empty,
-            };
-
-            string[] parts = [states, NotePalette.NameOf(ColorKey) ?? string.Empty, Mode == NoteMode.Markdown ? string.Empty : NameOf(Mode)];
-            return string.Join(", ", parts.Where(p => p.Length > 0));
-        }
-    }
+    public string HelpText =>
+        RowState.Of(IsPinned, IsFolded, HiddenLines, NotePalette.NameOf(ColorKey), Mode == NoteMode.Markdown ? string.Empty : NameOf(Mode));
 
     /// <summary>
-    /// The title. <b>Accessibility:</b> a generated container with no name of its own announces its item's
-    /// <see cref="object.ToString"/>, which would otherwise be "Noto.NoteCard" for every card.
+    /// The card's name: its title, then its states ("Weekly sync, Folded, 3 lines hidden"; #201). <b>Accessibility:</b>
+    /// the card's container has no name of its own and announces its item's <see cref="object.ToString"/>, read each
+    /// time it is asked, so a fold, colour or mode changed in place is in the name at once. Narrator reads a list
+    /// item's name and position, not its help text.
     /// </summary>
-    public override string ToString() => DisplayTitle;
+    public override string ToString() => RowState.Name(DisplayTitle, HelpText);
 
     /// <summary>A mode as the card's menu, Settings and the help text name it (#195).</summary>
     public static string NameOf(NoteMode mode) => mode switch

@@ -95,7 +95,7 @@ function Find-ById($Hwnd, [string] $Id, [int] $Seconds = 10) {
 function Folder-Names($Hwnd) {
     $list = Find-ById $Hwnd 'FolderList'
     if (-not $list) { return @() }
-    @($list.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)) | ForEach-Object { $_.Current.Name })
+    @($list.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)) | ForEach-Object { Get-RowTitle $_.Current.Name })
 }
 function Notes-Intact {
     $rows = foreach ($id in $NoteIds) { Get-NotoScalar $run -Exe $script:sqlite -DataRoot $script:data -Sql 'SELECT Content FROM Notes WHERE Id = $i AND DeletedAt IS NULL' -Parameters @{ '$i' = $id } }

@@ -222,7 +222,7 @@ function Card([string] $Title) {
     $list = Find-ById 'NoteList'; $card = $null
     foreach ($pass in 0..30) {
         $items = $list.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))
-        $card = @($items | Where-Object { $_.Current.Name -eq $Title })[0]
+        $card = @($items | Where-Object { (Get-RowTitle $_.Current.Name) -eq $Title })[0]
         if ($card) { break }
         try { $sp = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern); if ($pass -eq 15) { $sp.SetScrollPercent(-1, 0) } else { $sp.Scroll('NoAmount', 'LargeIncrement') } } catch { }
         Start-Sleep -Milliseconds 200

@@ -356,7 +356,7 @@ exit (Invoke-IsolatedRun $run -Title 'Data portability (ADR-020)' -Body {
     $rows = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)))
     $menuExports = Join-Path $out 'menu'; New-Item -ItemType Directory $menuExports | Out-Null
     $results = foreach ($name in @('Folder 03 ✓', 'Nothing here')) {
-        $row = @($rows | Where-Object { $_.Current.Name -eq $name })[0]
+        $row = @($rows | Where-Object { (Get-RowTitle $_.Current.Name) -eq $name })[0]
         $row.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
         $row.SetFocus(); Start-Sleep -Milliseconds 300
         Send-ToNoto @(0x10) 0x79 900
@@ -379,7 +379,7 @@ exit (Invoke-IsolatedRun $run -Title 'Data portability (ADR-020)' -Body {
     # 13 - a missing picture: Folder 01's notes refer to pictures 1, 21, 41...; the first is removed
     Remove-Item (Join-Path $script:data $pictureRefs[1])
     $missingOut = Join-Path $out 'missing'; New-Item -ItemType Directory $missingOut | Out-Null
-    $row = @(@((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { $_.Current.Name -eq 'Folder 01 ✓' })[0]
+    $row = @(@((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Folder 01 ✓' })[0]
     $row.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
     $row.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79 900

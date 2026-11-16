@@ -355,6 +355,18 @@ function Get-NotoScalar {
     finally { $c.Close(); [Microsoft.Data.Sqlite.SqliteConnection]::ClearAllPools() }
 }
 
+# ------------------------------------------------------------------ rows
+
+function Get-RowTitle {
+    <# A folder row's or note card's title, from its UI Automation name: the name is the title, then its state when it
+       has one ("Work, Pinned", "Weekly sync, Folded, 3 lines hidden, Blue, Code"; #201, ADR-016 §8). The words are
+       Noto.Core's RowState ones and NotePalette's colours. Only trailing state words are cut, so a title with a comma
+       survives; a title that itself ends in ", Pinned" (or another state word) would not, so test data avoids that. #>
+    param([AllowNull()] [AllowEmptyString()] [string] $Name)
+    if (-not $Name) { return $Name }
+    $Name -creplace '(, (Pinned|Folded|\d+ lines? hidden|Yellow|Green|Blue|Purple|Pink|Grey|Code|Plain text))+$', ''
+}
+
 # ------------------------------------------------------------------ evidence
 
 function Get-WindowEvidence {
