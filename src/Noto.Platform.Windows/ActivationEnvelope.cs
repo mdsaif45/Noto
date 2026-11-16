@@ -1,18 +1,22 @@
 using System.Buffers.Binary;
 using System.Text;
+using Noto.Core.Automation;
 
 namespace Noto.Platform.Windows;
 
 /// <summary>What a second launch asks the running Noto to do.</summary>
 public enum ActivationKind : byte
 {
-    /// <summary>Show the workspace. The only kind version 1 accepts; its payload is empty.</summary>
+    /// <summary>Show the workspace. Its payload is empty.</summary>
     Activate = 1,
 
-    /// <summary>Reserved for a future <c>noto://</c> link. Rejected in version 1.</summary>
+    /// <summary>
+    /// Show the workspace and do what a <c>noto://</c> link asks (#192, ADR-022). Its payload is the link, which must
+    /// be one <see cref="NotoUri.Parse"/> accepts. A command-line verb travels as its link.
+    /// </summary>
     Uri = 2,
 
-    /// <summary>Reserved for future command-line verbs. Rejected in version 1.</summary>
+    /// <summary>Reserved, never sent: command-line verbs travel as their link (<see cref="Uri"/>). Rejected.</summary>
     Cli = 3,
 }
 
@@ -47,7 +51,7 @@ public enum EnvelopeError
     /// <summary>A version other than <see cref="ActivationEnvelope.Version"/>.</summary>
     UnsupportedVersion,
 
-    /// <summary>A kind version 1 does not handle, reserved ones included.</summary>
+    /// <summary>A kind version 1 does not handle: <see cref="ActivationKind.Cli"/> and any undefined one.</summary>
     UnknownKind,
 
     /// <summary>The length field does not match the bytes that follow it.</summary>
@@ -64,11 +68,15 @@ public readonly record struct ActivationRequest(ActivationKind Kind, string Payl
 {
     /// <summary>"Show the workspace."</summary>
     public static ActivationRequest Activate { get; } = new(ActivationKind.Activate, string.Empty);
+
+    /// <summary>What a launch hands over (#192): its link's request, or a plain activation when it has none.</summary>
+    public static ActivationRequest For(AutomationRequest? request) =>
+        request is null ? Activate : new(ActivationKind.Uri, NotoUri.Format(request));
 }
 
 /// <summary>
-/// The activation protocol, version 1 (A17, ADR-013): one request and one
-/// reply per pipe connection.
+/// The activation protocol, version 1 (A17, ADR-013; its <c>Uri</c> kind, #192 and ADR-022): one request and
+/// one reply per pipe connection.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -88,7 +96,11 @@ public static class ActivationEnvelope
     public const byte Version = 1;
 
     /// <summary>The largest request, header included, in bytes.</summary>
-    public const int MaxSize = 8 * 1024;
+    /// <remarks>
+    /// 64 KiB since #192 (it was 8 KiB): the longest link a note's text can make (<see cref="NotoUri.MaxTextLength"/>)
+    /// must fit, and the length field is a <c>uint16</c>.
+    /// </remarks>
+    public const int MaxSize = 64 * 1024;
 
     /// <summary>Magic, version, kind and length.</summary>
     public const int HeaderSize = 8;
@@ -158,7 +170,9 @@ public static class ActivationEnvelope
             return EnvelopeError.UnsupportedVersion;
         }
 
-        if (message[5] != (byte)ActivationKind.Activate)
+        var kind = (ActivationKind)message[5];
+
+        if (kind is not (ActivationKind.Activate or ActivationKind.Uri))
         {
             return EnvelopeError.UnknownKind;
         }
@@ -170,13 +184,37 @@ public static class ActivationEnvelope
             return EnvelopeError.BadLength;
         }
 
-        // Activate carries nothing; any payload is malformed.
-        if (length != 0)
+        if (kind == ActivationKind.Activate)
+        {
+            // Activate carries nothing; any payload is malformed.
+            if (length != 0)
+            {
+                return EnvelopeError.BadPayload;
+            }
+
+            request = ActivationRequest.Activate;
+            return EnvelopeError.None;
+        }
+
+        // A link is validated here, at the boundary, by the one parser (ADR-022): what is not a request Noto has
+        // never reaches it.
+        string link;
+
+        try
+        {
+            link = StrictUtf8.GetString(message[HeaderSize..]);
+        }
+        catch (ArgumentException)
         {
             return EnvelopeError.BadPayload;
         }
 
-        request = ActivationRequest.Activate;
+        if (NotoUri.Parse(link).Request is null)
+        {
+            return EnvelopeError.BadPayload;
+        }
+
+        request = new ActivationRequest(ActivationKind.Uri, link);
         return EnvelopeError.None;
     }
 

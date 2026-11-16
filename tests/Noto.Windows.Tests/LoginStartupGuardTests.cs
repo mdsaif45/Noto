@@ -31,7 +31,7 @@ public sealed class LoginStartupGuardTests
     [Fact]
     public void A_login_start_claims_without_a_handoff_or_a_message_box()
     {
-        Assert.Contains("if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths)))", Body(App, "OnLaunched"), StringComparison.Ordinal);
+        Assert.Contains("if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths, automation)))", Body(App, "OnLaunched"), StringComparison.Ordinal);
 
         string claim = Code(Body(App, "ClaimForLogin"));
         Assert.Contains("InstanceOwnership.TryAcquire(_instanceKey)", claim, StringComparison.Ordinal);

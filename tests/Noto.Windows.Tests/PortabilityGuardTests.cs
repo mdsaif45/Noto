@@ -22,7 +22,7 @@ public sealed class PortabilityGuardTests
     public void A_restore_is_applied_after_the_claim_and_before_the_database_opens()
     {
         string launch = Body(App, "OnLaunched");
-        int claim = Index(launch, "if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths)))");
+        int claim = Index(launch, "if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths, automation)))");
         int apply = Index(launch, "RestoreOutcome restored = PendingRestore.ApplyIfPending(paths, TimeProvider.System);");
         int open = Index(launch, "var database = new NotoDatabase(paths.DatabaseFile, log);");
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -7,6 +8,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Noto.Core;
 using Noto.Core.Activation;
+using Noto.Core.Automation;
 using Noto.Core.Commands;
 using Noto.Core.Diagnostics;
 using Noto.Core.Folders;
@@ -486,6 +488,12 @@ public partial class App : Application
     /// <summary>At most one launch request waiting for the UI thread.</summary>
     private readonly PendingLaunch _pendingLaunch = new();
 
+    /// <summary>Later launches' links (#192), waiting for <see cref="RunPendingLaunch"/>, oldest first.</summary>
+    private readonly ConcurrentQueue<AutomationRequest> _automation = new();
+
+    /// <summary>How many links may wait for the UI thread at once; later ones are dropped, and traced.</summary>
+    private const int MaxWaitingAutomation = 16;
+
     /// <summary>A close that will go ahead has begun: no activation starts after it.</summary>
     private volatile bool _closing;
 
@@ -538,16 +546,21 @@ public partial class App : Application
         // here, first, and end the process. Only then: Velopack's start-up code logs every start it sees to a file of
         // its own, which an ordinary start must not leave behind. No update is ever looked for or applied (v0.1 has no
         // network access). Uninstall removes the start-with-Windows entry when it is this copy's, and never the notes:
-        // they are not in the install folder.
+        // they are not in the install folder. #192 (ADR-022): install and update register the noto:// scheme for this
+        // copy, per user; uninstall removes it when it opens this copy. Only an installed copy runs a hook, so a build
+        // or a portable copy never registers.
         if (InstalledCopy.IsHook(Environment.GetCommandLineArgs()))
         {
             VelopackApp.Build()
                 .SetAutoApplyOnStartup(false)
+                .OnAfterInstallFastCallback(version => RegisterScheme())
+                .OnAfterUpdateFastCallback(version => RegisterScheme())
                 .OnBeforeUninstallFastCallback(version =>
                 {
                     if (Environment.ProcessPath is { } executable)
                     {
                         _ = LoginRegistration.ForCurrentUser(executable).RemoveIfThis();
+                        _ = ProtocolRegistration.ForCurrentUser(executable).RemoveIfThis();
                     }
                 })
                 .Run();
@@ -563,6 +576,15 @@ public partial class App : Application
         // inside the Highlight fill (measured). Set before any window exists; every element defers to it
         // (ElementHighContrastAdjustment.Application, its default), the settings page created later included.
         HighContrastAdjustment = ApplicationHighContrastAdjustment.None;
+    }
+
+    /// <summary>Points the <c>noto://</c> scheme at this installed copy (#192): Velopack's install and update hooks.</summary>
+    private static void RegisterScheme()
+    {
+        if (Environment.ProcessPath is { } executable)
+        {
+            _ = ProtocolRegistration.ForCurrentUser(executable).Register();
+        }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -582,6 +604,10 @@ public partial class App : Application
         bool login = commandLine.Contains(LoginRegistration.LoginSwitch);
         string? dataRoot = commandLine
             .FirstOrDefault(a => a.StartsWith(DataRootSwitch, StringComparison.Ordinal))?[DataRootSwitch.Length..];
+
+        // #192 (ADR-022): a noto:// link or a command-line verb, read once by the one parser. A refusal is traced and
+        // the launch goes on as a plain one; a start at sign-in never acts on one, since it never shows anything.
+        AutomationRequest? automation = login ? null : ReadAutomation(commandLine);
 
         var paths = string.IsNullOrWhiteSpace(dataRoot)
             ? NotoStoragePaths.ForCurrentUser()
@@ -626,7 +652,7 @@ public partial class App : Application
         // A17 (ADR-013): decide who owns this data root before anything opens
         // it. A second launch hands its request to the owner and exits here —
         // no database, no window.
-        if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths)))
+        if (!(login ? ClaimForLogin(paths) : ClaimDataRoot(paths, automation)))
         {
             return;
         }
@@ -869,6 +895,12 @@ public partial class App : Application
         main.WelcomeEnded = outcome => _ = outcome == WelcomeState.Completed ? onboarding.Complete() : onboarding.Skip();
         main.WelcomeAtStart = welcome;
 
+        // #192: this start's link or verb, done once the folder list has first loaded, as a later launch's is.
+        if (automation is not null)
+        {
+            main.RunAutomation(automation);
+        }
+
         // What the last start's restore did, said where the user is looking when Noto opens.
         main.ShowRestoreOutcome(restored);
 
@@ -1044,14 +1076,15 @@ public partial class App : Application
     /// <c>OutputDebugString</c> in Release builds, which is where the runtime
     /// harness reads them. They name outcomes only — never a path.
     /// </remarks>
-    private bool ClaimDataRoot(NotoStoragePaths paths)
+    private bool ClaimDataRoot(NotoStoragePaths paths, AutomationRequest? automation)
     {
         _instanceKey = InstanceKey.ForDataRoot(paths.Root);
-        InstanceClaim claim = InstanceOwnership.Claim(_instanceKey, ProcessIdentity.IsElevated(), out _ownership);
+        ActivationRequest handoff = ActivationRequest.For(automation);
+        InstanceClaim claim = InstanceOwnership.Claim(_instanceKey, ProcessIdentity.IsElevated(), handoff, out _ownership);
 
         Trace.WriteLine(
             $"Noto.Instance claim outcome={claim.Outcome} refusal={claim.Refusal} tookOver={claim.TookOver} "
-            + $"recovered={_ownership?.Recovered ?? false} key={_instanceKey.PathHash}");
+            + $"recovered={_ownership?.Recovered ?? false} kind={handoff.Kind} key={_instanceKey.PathHash}");
 
         if (claim.Outcome == ClaimOutcome.Owner)
         {
@@ -1110,6 +1143,26 @@ public partial class App : Application
         return false;
     }
 
+    /// <summary>
+    /// This launch's link or command-line verb (#192, ADR-022), or <see langword="null"/>: none, or refused. A refusal
+    /// is traced by its reason and the verb's kind, never with the text it came with.
+    /// </summary>
+    private static AutomationRequest? ReadAutomation(string[] commandLine)
+    {
+        AutomationParse parsed = NotoCommandLine.Parse(commandLine[1..]);
+
+        if (parsed.Refusal != AutomationRefusal.None)
+        {
+            Trace.WriteLine($"Noto.Automation refused reason={parsed.Refusal} from=start");
+        }
+        else if (parsed.Request is { } request)
+        {
+            Trace.WriteLine($"Noto.Automation read verb={request.GetType().Name} from=start");
+        }
+
+        return parsed.Request;
+    }
+
     private static string? RefusalMessage(InstanceClaim claim) => (claim.Outcome, claim.Refusal) switch
     {
         (ClaimOutcome.HandedOff, _) => null,
@@ -1130,7 +1183,7 @@ public partial class App : Application
     {
         DispatcherQueue ui = DispatcherQueue.GetForCurrentThread();
 
-        PipeStartStatus status = ActivationPipeServer.Start(_instanceKey!, _ => OnLaunchRequested(ui), out _activationPipe, out int error);
+        PipeStartStatus status = ActivationPipeServer.Start(_instanceKey!, request => OnLaunchRequested(ui, request), out _activationPipe, out int error);
 
         Trace.WriteLine($"Noto.Instance pipe status={status} error={error} key={_instanceKey!.PathHash}");
     }
@@ -1138,10 +1191,24 @@ public partial class App : Application
     /// <summary>
     /// A later launch's request, on the pipe's thread. Never touches the
     /// window: it is handed to the UI thread, folded into any request
-    /// already waiting there.
+    /// already waiting there. A link's request (#192) waits beside it, in order: those are not folded, since each
+    /// asks for something of its own. The envelope has already checked it with the one parser (ADR-022).
     /// </summary>
-    private ActivationReply OnLaunchRequested(DispatcherQueue ui)
+    private ActivationReply OnLaunchRequested(DispatcherQueue ui, ActivationRequest request)
     {
+        if (request.Kind == ActivationKind.Uri && NotoUri.Parse(request.Payload).Request is { } automation)
+        {
+            // Bounded: a flood of launches cannot grow it while the UI thread is busy. The launch itself still shows Noto.
+            if (_automation.Count < MaxWaitingAutomation)
+            {
+                _automation.Enqueue(automation);
+            }
+            else
+            {
+                Trace.WriteLine($"Noto.Automation dropped verb={automation.GetType().Name} waiting={_automation.Count}");
+            }
+        }
+
         if (_pendingLaunch.Offer(Environment.TickCount) && !ui.TryEnqueueGuarded(RunPendingLaunch))
         {
             // The dispatcher is shutting down with the process.
@@ -1178,6 +1245,12 @@ public partial class App : Application
         }
 
         Trace.WriteLine($"Noto.Instance launch action={action} key={_instanceKey?.PathHash}");
+
+        // #192: then what each link asked, in the order the launches arrived; Noto is already shown for it.
+        while (_automation.TryDequeue(out AutomationRequest? automation))
+        {
+            _main?.RunAutomation(automation);
+        }
     }
 
     /// <summary>

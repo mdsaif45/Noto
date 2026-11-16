@@ -163,7 +163,7 @@ public sealed class InstanceOwnership : IDisposable
     /// <remarks>
     /// <list type="number">
     /// <item>Take the mutex without waiting. Taken (or abandoned): owner.</item>
-    /// <item>Held: send <see cref="ActivationRequest.Activate"/> over the pipe.
+    /// <item>Held: send the request over the pipe: a plain activation, or a link's (#192).
     /// Accepted: handed off. Rejected, another user or another session: refused.</item>
     /// <item>Shutting down: wait up to 10 s for the mutex and take over, or
     /// give up as unreachable.</item>
@@ -175,11 +175,15 @@ public sealed class InstanceOwnership : IDisposable
     /// </remarks>
     /// <param name="key">The data root's key.</param>
     /// <param name="elevated">Whether this process is elevated.</param>
+    /// <param name="request">What a handoff asks of the owner: a plain activation, or a link's request (#192).</param>
     /// <param name="ownership">Held for the life of the process when the outcome is <see cref="ClaimOutcome.Owner"/>.</param>
-    public static InstanceClaim Claim(InstanceKey key, bool elevated, out InstanceOwnership? ownership) =>
-        Claim(key, elevated, ClaimTimings.Default, out ownership);
+    public static InstanceClaim Claim(InstanceKey key, bool elevated, ActivationRequest request, out InstanceOwnership? ownership) =>
+        Claim(key, elevated, request, ClaimTimings.Default, out ownership);
 
-    internal static InstanceClaim Claim(InstanceKey key, bool elevated, ClaimTimings timings, out InstanceOwnership? ownership)
+    internal static InstanceClaim Claim(InstanceKey key, bool elevated, ClaimTimings timings, out InstanceOwnership? ownership) =>
+        Claim(key, elevated, ActivationRequest.Activate, timings, out ownership);
+
+    internal static InstanceClaim Claim(InstanceKey key, bool elevated, ActivationRequest request, ClaimTimings timings, out InstanceOwnership? ownership)
     {
         ArgumentNullException.ThrowIfNull(key);
 
@@ -199,7 +203,7 @@ public sealed class InstanceOwnership : IDisposable
                 TimeSpan remaining = timings.Unreachable - clock.Elapsed;
                 TimeSpan connect = remaining < ActivationPipeClient.ConnectTimeout ? remaining : ActivationPipeClient.ConnectTimeout;
 
-                switch (ActivationPipeClient.Send(key, ActivationRequest.Activate, connect))
+                switch (ActivationPipeClient.Send(key, request, connect))
                 {
                     case HandoffStatus.Accepted:
                         return new InstanceClaim(ClaimOutcome.HandedOff, ClaimRefusal.None, TookOver: false);

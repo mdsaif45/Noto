@@ -306,7 +306,10 @@ Noto opened, never rotated) and hold the file open.
 - the Apps entry;
 - the shortcut;
 - the `Run\Noto` value, **only if it starts this installed copy** (the
-  uninstall hook, `LoginRegistration.RemoveIfThis`).
+  uninstall hook, `LoginRegistration.RemoveIfThis`);
+- the per-user `noto://` scheme, **only if it opens this installed copy**
+  (`ProtocolRegistration.RemoveIfThis`). Install and update register it for
+  the installed copy; a build never does (ADR-022).
 
 **It never removes the notes**, so it has nothing to ask about. Velopack's own
 log of the install and uninstall hooks stays in `%LOCALAPPDATA%\velopack\`.

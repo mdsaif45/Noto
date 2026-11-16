@@ -39,12 +39,34 @@ public sealed class PackagingGuardTests
     }
 
     [Fact]
-    public void An_uninstall_removes_this_copys_start_at_login_and_nothing_else()
+    public void An_uninstall_removes_this_copys_start_at_login_and_link_scheme_and_nothing_else()
     {
         string constructor = Code(Constructor());
 
-        Assert.Matches(@"\.OnBeforeUninstallFastCallback\(version =>\s*\{\s*if \(Environment\.ProcessPath is \{ \} executable\)\s*\{\s*_ = LoginRegistration\.ForCurrentUser\(executable\)\.RemoveIfThis\(\);\s*\}\s*\}\)", constructor);
+        Assert.Matches(@"\.OnBeforeUninstallFastCallback\(version =>\s*\{\s*if \(Environment\.ProcessPath is \{ \} executable\)\s*\{\s*_ = LoginRegistration\.ForCurrentUser\(executable\)\.RemoveIfThis\(\);\s*_ = ProtocolRegistration\.ForCurrentUser\(executable\)\.RemoveIfThis\(\);\s*\}\s*\}\)", constructor);
         Assert.DoesNotContain(".Disable()", constructor, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Install_and_update_register_the_link_scheme_for_this_copy_and_only_hooks_do()
+    {
+        // #192 (ADR-022): only an installed copy runs a hook, so a build or a portable copy never registers.
+        string constructor = Code(Constructor());
+
+        Assert.Contains(".OnAfterInstallFastCallback(version => RegisterScheme())", constructor, StringComparison.Ordinal);
+        Assert.Contains(".OnAfterUpdateFastCallback(version => RegisterScheme())", constructor, StringComparison.Ordinal);
+        Assert.True(Index(constructor, "RegisterScheme()") < Index(constructor, ".Run();"));
+        Assert.Matches(@"private static void RegisterScheme\(\)\s*\{\s*if \(Environment\.ProcessPath is \{ \} executable\)\s*\{\s*_ = ProtocolRegistration\.ForCurrentUser\(executable\)\.Register\(\);\s*\}\s*\}", App);
+
+        string app = Code(App);
+        Assert.Equal(1, Regex.Count(app, @"\.Register\(\)"));
+        Assert.Equal(2, Regex.Count(app, @"RegisterScheme\(\)\)"));
+
+        // Per user, never machine-wide.
+        foreach (string file in Sources())
+        {
+            Assert.DoesNotContain("Registry.LocalMachine", File.ReadAllText(file), StringComparison.Ordinal);
+        }
     }
 
     [Fact]

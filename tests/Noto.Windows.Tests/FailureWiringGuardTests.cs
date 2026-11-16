@@ -19,7 +19,7 @@ public sealed class FailureWiringGuardTests
         int log = Index(App, "new RollingFileLog(paths.LogsDirectory)");
         int boundary = Index(App, "_failures = new FailureBoundary(log, SaveOnFailure, ExitAfterFailure);");
         // The call, not the declaration: matched without its surrounding condition, which run at login (#94) extends.
-        int claim = Index(App, "ClaimDataRoot(paths)");
+        int claim = Index(App, "ClaimDataRoot(paths, automation)");
 
         Assert.True(log < boundary && boundary < claim, $"log={log} boundary={boundary} claim={claim}");
         Assert.Contains("_failures.Fail(UnhandledSource.UiThread, e.Exception);", App, StringComparison.Ordinal);

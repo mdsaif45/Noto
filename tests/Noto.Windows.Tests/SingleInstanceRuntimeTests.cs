@@ -436,12 +436,12 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
         { "version 2", ActivationEnvelope.Frame(2, 1, []) },
         { "version 0", ActivationEnvelope.Frame(0, 1, []) },
         { "unknown kind 9", ActivationEnvelope.Frame(1, 9, []) },
-        { "reserved Uri", ActivationEnvelope.Frame(1, 2, "noto://x"u8) },
+        { "Uri, not a request Noto has", ActivationEnvelope.Frame(1, 2, "noto://x"u8) },
         { "reserved Cli", ActivationEnvelope.Frame(1, 3, "--x"u8) },
         { "length too long", ActivationEnvelope.Frame(1, 1, [], declaredLength: 10) },
         { "trailing bytes", ActivationEnvelope.Frame(1, 1, "abc"u8, declaredLength: 0) },
         { "activate with payload", ActivationEnvelope.Frame(1, 1, "x"u8) },
-        { "8 KiB exactly", ActivationEnvelope.Frame(1, 1, new byte[ActivationEnvelope.MaxSize - ActivationEnvelope.HeaderSize]) },
+        { "64 KiB exactly", ActivationEnvelope.Frame(1, 1, new byte[ActivationEnvelope.MaxSize - ActivationEnvelope.HeaderSize]) },
     };
 
     [Theory]
@@ -464,7 +464,7 @@ public sealed class SingleInstanceRuntimeTests(ITestOutputHelper output)
 
     [Theory]
     [InlineData(ActivationEnvelope.MaxSize + 1)]
-    [InlineData(64 * 1024)]
+    [InlineData(128 * 1024)]
     public void An_oversized_request_is_never_accepted_and_the_owner_stays_healthy(int size)
     {
         InstanceKey key = NewKey();
