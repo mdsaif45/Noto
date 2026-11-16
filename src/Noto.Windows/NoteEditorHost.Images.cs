@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -13,7 +14,10 @@ using Noto.Core.Images;
 using Noto.Core.Markdown;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
+using WinRT.Interop;
 
 namespace Noto;
 
@@ -230,6 +234,48 @@ public sealed partial class NoteEditorHost
                 ImageNotice?.Invoke(this, Explain(outcome));
             }
         }
+    }
+
+    /// <summary>
+    /// Ctrl+Shift+P (G35, D29, #194): a picture chosen in Windows' picker, of the types a drop or a paste keeps, kept
+    /// and inserted at the caret as a dropped one is: one undo step. Cancelling changes nothing. The picker belongs to
+    /// this editor's window, as an unpackaged app's pickers must (as Settings' backup pickers do).
+    /// </summary>
+    private async void PickPicture()
+    {
+        if (Images is null || XamlRoot is null)
+        {
+            return;
+        }
+
+        var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.PicturesLibrary, ViewMode = PickerViewMode.Thumbnail };
+        foreach (string type in ImageReference.Types)
+        {
+            picker.FileTypeFilter.Add("." + type);
+        }
+
+        InitializeWithWindow.Initialize(picker, Win32Interop.GetWindowFromWindowId(XamlRoot.ContentIslandEnvironment.AppWindowId));
+
+        StorageFile? file;
+        try
+        {
+            file = await picker.PickSingleFileAsync();
+        }
+        catch (COMException)
+        {
+            ImageNotice?.Invoke(this, "The picture couldn't be chosen.");
+            return;
+        }
+
+        // Cancelled, or a file with no path of its own (one only a provider app holds): nothing to keep a copy of.
+        if (file is null || !Path.IsPathFullyQualified(file.Path))
+        {
+            return;
+        }
+
+        Flush();
+        AddFiles([file.Path]);
+        _ = NoteEditor.Focus(FocusState.Programmatic);
     }
 
     /// <summary>A picture on the clipboard (a screenshot, a copied image), kept as PNG and inserted at the caret.</summary>

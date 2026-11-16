@@ -35,6 +35,24 @@ public sealed class ImageGuardTests
     }
 
     [Fact]
+    public void Ctrl_Shift_P_picks_a_picture_owned_by_the_window_and_inserts_it_as_a_dropped_one()
+    {
+        // #194 (G35, D29): the picture command opens the picker; the picker can't be driven by the harness, so this is its check.
+        Assert.Matches(@"case EditorCommand\.Picture:\s*PickPicture\(\);\s*return true;", Body(Host, "Run"));
+
+        string pick = Body(Images, "PickPicture");
+
+        // The types a drop and a paste keep, and the window handle an unpackaged app's picker needs.
+        Assert.Matches(@"foreach \(string type in ImageReference\.Types\)\s*\{\s*picker\.FileTypeFilter\.Add\(""\."" \+ type\);", pick);
+        Assert.Contains("InitializeWithWindow.Initialize(picker, Win32Interop.GetWindowFromWindowId(XamlRoot.ContentIslandEnvironment.AppWindowId));", pick, StringComparison.Ordinal);
+
+        // Cancelling returns before anything is read back or changed; a chosen file goes the drop's way: one undo step.
+        Assert.Matches(@"if \(file is null \|\| !Path\.IsPathFullyQualified\(file\.Path\)\)\s*\{\s*return;\s*\}\s*Flush\(\);\s*AddFiles\(\[file\.Path\]\);", pick);
+        Assert.Single(Regex.Matches(pick, @"AddFiles\("));
+        Assert.DoesNotContain("Apply(", pick, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Image_files_are_kept_as_copies_and_other_files_linked()
     {
         string files = Body(Images, "AddFiles");

@@ -142,6 +142,10 @@ public sealed class EditorHostGuardTests
             "(VirtualKey.U, false) => EditorCommand.Underline", "(VirtualKey.E, true) => EditorCommand.Strikethrough", "(VirtualKey.H, true) => EditorCommand.Heading",
             "(VirtualKey.L, false) => EditorCommand.Bullets", "(VirtualKey.L, true) => EditorCommand.Numbers", "(VirtualKey.T, false) => EditorCommand.Tasks",
             "((VirtualKey)0xBE, false) => EditorCommand.TaskDone", "(VirtualKey.R, true) => EditorCommand.ShowMarkup",
+
+            // #194: Ctrl+] / Ctrl+[ by the US layout's bracket keys (VK_OEM_6, VK_OEM_4), and Ctrl+Shift+P.
+            "((VirtualKey)0xDD, false) => EditorCommand.Indent", "((VirtualKey)0xDB, false) => EditorCommand.Outdent",
+            "(VirtualKey.P, true) => EditorCommand.Picture",
         })
         {
             Assert.Contains(chord, Host, StringComparison.Ordinal);
@@ -167,7 +171,27 @@ public sealed class EditorHostGuardTests
             .Where(i => (string?)i.Attribute("Click") == "OnFormatClick")
             .Select(i => (string?)i.Attribute("Tag"))
             .ToList();
-        Assert.Equal(["Bold", "Italic", "Underline", "Highlight", "Strikethrough", "Code", "Link", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "ClearCheckedTasks", "CodeBlock", "ShowMarkup"], items);
+        Assert.Equal(["Bold", "Italic", "Underline", "Highlight", "Strikethrough", "Code", "Link", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "ClearCheckedTasks", "CodeBlock", "Separator", "Picture", "ShowMarkup"], items);
+    }
+
+    [Fact]
+    public void Ctrl_brackets_shift_list_items_as_Tab_does_and_the_separator_is_Cores()
+    {
+        // #194 (G36, G37, D16): the same Core transforms as Tab and Shift+Tab, and one Core edit for the separator, each
+        // applied through Run's one recorded step. Elsewhere the bracket chords are handled and do nothing.
+        Assert.Contains("EditorCommand.Indent => MarkdownCommands.IndentListItems,", Host, StringComparison.Ordinal);
+        Assert.Contains("EditorCommand.Outdent => MarkdownCommands.OutdentListItems,", Host, StringComparison.Ordinal);
+        Assert.Contains("EditorCommand.Separator => (text, selection) => MarkdownCommands.InsertSeparator(text, selection),", Host, StringComparison.Ordinal);
+        Assert.Matches(@"if \(ctrl && !alt && Chord\(e\.Key, shift\) is \{ \} command\)\s*\{\s*e\.Handled = true;\s*_ = Run\(command\);", Host);
+        Assert.Matches(@"if \(transform\(_text, _selection\) is not \{ \} edit\)\s*\{\s*return false;\s*\}\s*Apply\(edit, record: true\);", Body(Host, "Run"));
+
+        // The menu's separator item has no key to teach, and the picture's shows its chord.
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        var items = XDocument.Load(Path.Join(Windows, "MainWindow.xaml")).Descendants(xaml + "MenuFlyoutItem").ToList();
+        Assert.Equal("Insert separator", (string?)items.Single(i => (string?)i.Attribute("Tag") == "Separator").Attribute("Text"));
+        XElement picture = items.Single(i => (string?)i.Attribute("Tag") == "Picture");
+        Assert.Equal("Insert picture", (string?)picture.Attribute("Text"));
+        Assert.Equal("Ctrl+Shift+P", (string?)picture.Attribute("KeyboardAcceleratorTextOverride"));
     }
 
     [Fact]

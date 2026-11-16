@@ -56,6 +56,10 @@ internal enum EditorCommand
     TaskDone,
     ClearCheckedTasks,
     CodeBlock,
+    Indent,
+    Outdent,
+    Separator,
+    Picture,
     Undo,
     Redo,
     ShowMarkup,
@@ -284,6 +288,9 @@ public sealed partial class NoteEditorHost : UserControl
                 _showMarkup = !_showMarkup;
                 RestyleAll();
                 return true;
+            case EditorCommand.Picture:
+                PickPicture();
+                return true;
         }
 
         Func<string, TextSelection, TextEdit?> transform = command switch
@@ -302,6 +309,9 @@ public sealed partial class NoteEditorHost : UserControl
             EditorCommand.TaskDone => MarkdownCommands.ToggleTaskDone,
             EditorCommand.ClearCheckedTasks => MarkdownCommands.ClearCheckedTasks,
             EditorCommand.CodeBlock => MarkdownCommands.WrapInCodeBlock,
+            EditorCommand.Indent => MarkdownCommands.IndentListItems,
+            EditorCommand.Outdent => MarkdownCommands.OutdentListItems,
+            EditorCommand.Separator => (text, selection) => MarkdownCommands.InsertSeparator(text, selection),
             _ => throw new ArgumentOutOfRangeException(nameof(command)),
         };
 
@@ -881,7 +891,13 @@ public sealed partial class NoteEditorHost : UserControl
         }
     }
 
-    /// <summary>The editor's chord map (implementation plan §10; Ctrl+E and Ctrl+K for code and link).</summary>
+    /// <summary>
+    /// The editor's chord map (implementation plan §10; Ctrl+E and Ctrl+K for code and link). Ctrl+] and Ctrl+[ (G36,
+    /// G37, #194) are the keys with the US layout's brackets, VK_OEM_6 and VK_OEM_4, as Ctrl+. is VK_OEM_PERIOD; where a
+    /// layout types its brackets with AltGr, that is Ctrl+Alt and never a chord here. They shift list items as Tab and
+    /// Shift+Tab do and are no-ops elsewhere: indented plain text would be a code block to Markdown. Ctrl+Shift+P is
+    /// insert picture (G35, D29), which the parity doc gives the chord over pin note (G26).
+    /// </summary>
     private static EditorCommand? Chord(VirtualKey key, bool shift) => (key, shift) switch
     {
         (VirtualKey.Z, false) => EditorCommand.Undo,
@@ -898,6 +914,9 @@ public sealed partial class NoteEditorHost : UserControl
         (VirtualKey.T, false) => EditorCommand.Tasks,
         (VirtualKey.T, true) => EditorCommand.ClearCheckedTasks,
         ((VirtualKey)0xBE, false) => EditorCommand.TaskDone,
+        ((VirtualKey)0xDD, false) => EditorCommand.Indent,
+        ((VirtualKey)0xDB, false) => EditorCommand.Outdent,
+        (VirtualKey.P, true) => EditorCommand.Picture,
         (VirtualKey.R, true) => EditorCommand.ShowMarkup,
         _ => null,
     };
