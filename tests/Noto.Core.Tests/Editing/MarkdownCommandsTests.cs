@@ -182,6 +182,19 @@ public sealed class MarkdownCommandsTests
     }
 
     [Theory]
+    [InlineData("|", "---\n|")]
+    [InlineData("text|", "text\n\n---\n|")]
+    [InlineData("te|xt", "te\n\n---\n|xt")]
+    [InlineData("text\n|", "text\n\n---\n|")]
+    [InlineData("text\n|next", "text\n\n---\n|next")]
+    [InlineData("text\n\n|", "text\n\n---\n|")]
+    [InlineData("text|\nnext", "text\n\n---\n|\nnext")]
+    [InlineData("  |", "  \n---\n|")]
+    [InlineData("a [sel] b", "a sel\n\n---\n| b")]
+    public void A_separator_is_its_own_line_never_a_heading_underline(string before, string after) =>
+        AssertCommand((text, selection) => MarkdownCommands.InsertSeparator(text, selection), before, after);
+
+    [Theory]
     [InlineData("one\ntw|o\nthree", "tw|o\none\nthree")]
     [InlineData("one\n[two\nthree]", "[two\nthree]\none")]
     [InlineData("a\n[b\n]c", "[b\n]a\nc")]
@@ -217,6 +230,7 @@ public sealed class MarkdownCommandsTests
             MarkdownCommands.ToggleBullets, MarkdownCommands.ToggleNumbers, MarkdownCommands.ToggleTasks,
             MarkdownCommands.ToggleTaskDone, MarkdownCommands.ClearCheckedTasks, MarkdownCommands.WrapInCodeBlock, MarkdownCommands.InsertLink, MarkdownCommands.ContinueList,
             MarkdownCommands.IndentListItems, MarkdownCommands.OutdentListItems, MarkdownCommands.MoveLinesUp, MarkdownCommands.MoveLinesDown,
+            (t, s) => MarkdownCommands.InsertSeparator(t, s),
         ];
 
         foreach (Func<string, TextSelection, TextEdit?> command in commands)

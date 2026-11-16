@@ -297,6 +297,23 @@ public static class MarkdownCommands
     }
 
     /// <summary>
+    /// The Format menu's separator (D16, #194): a <c>---</c> line at the selection's end, the selected text kept, and
+    /// the caret at the start of the line after it, where the rest of the caret's line goes. A blank line goes before
+    /// it unless the line above is blank already: <c>---</c> right under text underlines that text as a heading to
+    /// other Markdown readers (CommonMark's setext heading), and the note's Markdown is what they read.
+    /// </summary>
+    public static TextEdit InsertSeparator(string text, TextSelection selection)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        int at = selection.End;
+        int line = LineStart(text, at);
+        string above = at > line ? text[line..at] : line > 0 ? text[LineStart(text, line - 1)..(line - 1)] : string.Empty;
+        string separator = (at > line ? "\n" : string.Empty) + (string.IsNullOrWhiteSpace(above) ? string.Empty : "\n") + "---\n";
+        return new TextEdit(at, 0, separator, TextSelection.Caret(at + separator.Length));
+    }
+
+    /// <summary>
     /// Links to local files and folders (D34), one per line, replacing the selection: each reads as its name and opens
     /// its full path. The caret goes after the last.
     /// </summary>

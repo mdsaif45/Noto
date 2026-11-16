@@ -35,6 +35,9 @@
     21  F8 (#151), in Dark: a selection shows the formatting toolbar, focus staying in the text; its Highlight writes
         ::text:: and the editor draws the highlight's colour; a caret hides it; the card draws the highlight too; with
         the toolbar turned off in Settings, a selection shows none
+    23  #194: Ctrl+] nests a list item and Ctrl+[ un-nests it, as Tab and Shift+Tab do, one undo step; on a plain line
+        they change nothing; the Format menu's Insert separator puts a --- line at the caret, a blank line above it, one
+        undo step. (Ctrl+Shift+P's picture picker is covered by ImageGuardTests only: a real picker can't be driven.)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -435,6 +438,33 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Clear checked tasks')) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid })[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
     $byMenu = Editor-Value
     Add-Result $run '22 Ctrl+Shift+T removes every checked task, the rest kept; one undo brings them back; the menu does the same' ($cleared -eq "Errands`n- [ ] bank`nthen home" -and $undone -eq $tasks -and $redone -eq $cleared -and $byMenu -eq $cleared -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "cleared='$($cleared -replace "`n", ' | ')' undone same=$($undone -eq $tasks) redone same=$($redone -eq $cleared) menu same=$($byMenu -eq $cleared)"
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
+
+    # 23 - #194 (G36, G37, D16): Ctrl+] / Ctrl+[ (VK_OEM_6 / VK_OEM_4) and the Format menu's Insert separator
+    Edit-Card 'A plain note with no markup at all.'
+    $list = "Packing`n- socks`n- shoes"
+    Set-EditorText $list
+    (Range-Of 'shoes').Select(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0xDD 600   # Ctrl+]
+    $indented = Editor-Value
+    Send-ToNoto @(0x11) 0xDB 600   # Ctrl+[
+    $outdented = Editor-Value
+    Send-ToNoto @(0x11) 0xDD 600
+    Send-ToNoto @(0x11) 0x5A 600   # Ctrl+Z: the indent was one step
+    $undone = Editor-Value
+    (Range-Of 'Packing').Select(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0xDD 600   # Ctrl+] on a plain line: nothing
+    $plain = Editor-Value
+    Send-ToNoto @(0x11) 0x23 300   # Ctrl+End
+    (Find-ById 'CardFormatButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Insert separator')) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid })[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    $separated = Editor-Value
+    Send-ToNoto @(0x11) 0x5A 600   # Ctrl+Z: the separator was one step
+    $unseparated = Editor-Value
+    Add-Result $run '23 Ctrl+] nests and Ctrl+[ un-nests a list item, one undo step, nothing on a plain line; Insert separator adds a --- line, one undo step' ($indented -eq "Packing`n- socks`n  - shoes" -and $outdented -eq $list -and $undone -eq $list -and $plain -eq $list -and $separated -eq "$list`n`n---`n" -and $unseparated -eq $list -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "indented='$($indented -replace "`n", '
+')' outdented same=$($outdented -eq $list) undone same=$($undone -eq $list) plain same=$($plain -eq $list) separated='$($separated -replace "`n", '
+')' undone same=$($unseparated -eq $list)"
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
 
