@@ -666,8 +666,19 @@
                         Click="OnNewNoteClick"
                         ToolTipService.ToolTip="New note (Ctrl+N)"
                         AutomationProperties.Name="New note"
+                        AutomationProperties.HelpText="Right-click, or press Shift+F10, for New note from clipboard."
                         AutomationProperties.AcceleratorKey="Control+N">
                         <FontIcon Glyph="&#xE710;" FontSize="{StaticResource IconSize}" />
+                        <!--
+                            B3, D43 (#187): its menu, by right-click, Shift+F10, the Menu key or a touch hold; a click
+                            still makes a note. A context menu, not a chevron: the bar stays one button.
+                        -->
+                        <Button.ContextFlyout>
+                            <MenuFlyout Opening="OnNewNoteMenuOpening">
+                                <MenuFlyoutItem Text="New note" KeyboardAcceleratorTextOverride="Ctrl+N" Click="OnNewNoteClick" />
+                                <MenuFlyoutItem x:Name="NewNoteFromClipboardItem" Text="New note from clipboard" Click="OnNewNoteFromClipboardClick" />
+                            </MenuFlyout>
+                        </Button.ContextFlyout>
                     </Button>
                 </Grid>
             </Grid>

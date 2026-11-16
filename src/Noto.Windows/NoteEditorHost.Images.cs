@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Noto.Core.Editing;
@@ -302,6 +303,130 @@ public sealed partial class NoteEditorHost
 
         Flush();
         Apply(MarkdownCommands.InsertImage(_text, _selection, reference, "Pasted image"), record: true);
+    }
+
+    /// <summary>
+    /// Copy picture (D32, #187): the editor's context menu offers it on a picture's line, and Ctrl+C (or the menu's
+    /// Copy) with only a picture selected copies the picture too. Called once the editor's events are wired.
+    /// </summary>
+    /// <remarks>
+    /// A picture is drawn over the space below its line and takes no input, so a right-click on it reaches the text
+    /// there: that line. RichEdit opens its menu before any handler of the request runs, so the right button's press,
+    /// which comes first, says where; Shift+F10, the Menu key and a touch hold use the caret.
+    /// </remarks>
+    private void AttachPictureCopy()
+    {
+        NoteEditor.AddHandler(PointerPressedEvent, new PointerEventHandler((_, e) =>
+        {
+            Microsoft.UI.Input.PointerPoint pressed = e.GetCurrentPoint(NoteEditor);
+            _menuPoint = pressed.Properties.IsRightButtonPressed
+                ? new Windows.Foundation.Point(
+                    pressed.Position.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left,
+                    pressed.Position.Y - NoteEditor.BorderThickness.Top - NoteEditor.Padding.Top + ScrolledBy)
+                : null;
+        }), handledEventsToo: true);
+
+        NoteEditor.ContextFlyout ??= new TextCommandBarFlyout();
+        NoteEditor.ContextFlyout.Opening += OnEditorMenuOpening;
+        NoteEditor.CopyingToClipboard += OnCopyingToClipboard;
+    }
+
+    // Where the right button was last pressed in the text, in RichEdit's client coordinates, until its menu reads it.
+    private Windows.Foundation.Point? _menuPoint;
+
+    // The menu's Copy picture, made once; in the menu only while it opens on a picture's line.
+    private AppBarButton? _copyPicture;
+
+    // The file of the picture the menu opened on.
+    private string? _menuPicture;
+
+    /// <summary>The editor's menu opens: Copy picture is in it when it opens on a picture's line (D32).</summary>
+    private void OnEditorMenuOpening(object? sender, object e)
+    {
+        if (sender is not CommandBarFlyout menu)
+        {
+            return;
+        }
+
+        Flush();
+        int at = _menuPoint is { } point ? NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition : _selection.Active;
+        _menuPoint = null;
+        _menuPicture = Images?.PathOf(ImageReference.At(_document, at));
+
+        if (_copyPicture is null)
+        {
+            _copyPicture = new AppBarButton { Label = "Copy picture", Icon = new SymbolIcon(Symbol.Copy) };
+            AutomationProperties.SetName(_copyPicture, "Copy picture");
+            _copyPicture.Click += (_, _) =>
+            {
+                if (_menuPicture is { } path)
+                {
+                    CopyPicture(path, source: null);
+                }
+            };
+        }
+
+        _ = menu.SecondaryCommands.Remove(_copyPicture);
+        if (_menuPicture is not null)
+        {
+            menu.SecondaryCommands.Insert(0, _copyPicture);
+        }
+    }
+
+    /// <summary>
+    /// Ctrl+C, or the menu's Copy, with only a picture selected (its caption whole, D32): its source as text, as any copy
+    /// of the text is, so a paste in a note shows it again, and the picture itself for every other app.
+    /// </summary>
+    private void OnCopyingToClipboard(RichEditBox sender, TextControlCopyingToClipboardEventArgs e)
+    {
+        Flush();
+        if (Images?.PathOf(ImageReference.Selected(_document, _selection.Start, _selection.End)) is { } path)
+        {
+            e.Handled = true;
+            CopyPicture(path, source: _text.Substring(_selection.Start, _selection.Length));
+        }
+    }
+
+    /// <summary>
+    /// Puts a kept picture on the clipboard as itself (D32, #187): the file's own bytes as the bitmap, never re-encoded;
+    /// from the menu also the file, for Explorer and chat apps; from a selection its source text instead.
+    /// </summary>
+    private async void CopyPicture(string path, string? source)
+    {
+        var package = new DataPackage();
+        if (source is not null)
+        {
+            package.SetText(source);
+        }
+
+        try
+        {
+            StorageFile file = await StorageFile.GetFileFromPathAsync(path);
+            package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));
+            if (source is null)
+            {
+                package.SetStorageItems([file]);
+            }
+        }
+        catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException)
+        {
+            // The text is still copied; the menu's copy, which has nothing else, says so.
+            if (source is null)
+            {
+                ImageNotice?.Invoke(this, "The picture couldn't be copied.");
+                return;
+            }
+        }
+
+        try
+        {
+            Clipboard.SetContent(package);
+            Trace.WriteLine($"Noto.Editor picture copied text={source is not null}");
+        }
+        catch (COMException)
+        {
+            ImageNotice?.Invoke(this, "Nothing was copied: another app is using the clipboard. Try again.");
+        }
     }
 
     private static string Explain(ImageKeeping outcome) => outcome switch

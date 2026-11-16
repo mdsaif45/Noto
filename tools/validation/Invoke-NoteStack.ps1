@@ -75,6 +75,9 @@
         change nothing; a double-click on a card that is not being edited (its title) folds it and leaves it not
         editing, focus on it; a second double-click unfolds it; a double-click inside the editor of a card already being
         edited stays the editor's: it neither folds nor leaves editing
+    51  #187 (B3, D43): Shift+F10 on the + button: New note and New note from clipboard, the second disabled with
+        nothing on the clipboard; with text on it, choosing it makes one new note holding that text, editing, stored on
+        Escape. The clipboard is set with Set-Clipboard and the user's text restored afterwards
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -824,6 +827,32 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Double-Click $xy[0] $xy[1]
     Add-Result $run '50 a double-click inside the editor of a card being edited neither folds it nor leaves editing' ((Flag $id 'IsFolded') -eq 0 -and (Editors).Count -eq 1 -and (Editor-Value) -eq $name) "folded=$(Flag $id 'IsFolded') editors=$((Editors).Count) value=$(Editor-Value)"
     Send-ToNoto @() 0x1B
+
+    # 51 - #187 (B3, D43): the + button's menu; New note from clipboard is the tray's path, so a new note holding the text
+    $savedClip = Get-Clipboard -Raw
+    try {
+        $clipText = 'From the clipboard · 48'
+        Set-Clipboard -Value $null; Start-Sleep -Milliseconds 500
+        $plus = Find-ById 'NewNoteButton'
+        $plus.SetFocus(); Start-Sleep -Milliseconds 300
+        Send-ToNoto @(0x10) 0x79
+        $plusMenu = Menu-Items
+        $offeredEmpty = Menu-Enabled 'New note from clipboard'
+        Send-ToNoto @() 0x1B
+        Set-Clipboard -Value $clipText; Start-Sleep -Milliseconds 500
+        $plus.SetFocus(); Start-Sleep -Milliseconds 300
+        Send-ToNoto @(0x10) 0x79
+        $offered = Menu-Enabled 'New note from clipboard'
+        $before = ActiveCount
+        Choose 'New note from clipboard'
+        $deadline = (Get-Date).AddSeconds(4)
+        while ((Editor-Value) -ne $clipText -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
+        $value = Editor-Value; $editors = (Editors).Count; $focus = Focused; $count = ActiveCount
+        Send-ToNoto @() 0x1B
+        $stored = IdOf $clipText
+        Add-Result $run '51 the + button''s menu: New note, and New note from clipboard (off when empty); it makes one note holding the text, editing, stored' (($plusMenu -join ',') -eq 'New note,New note from clipboard' -and -not $offeredEmpty -and $offered -and $count -eq $before + 1 -and $editors -eq 1 -and $value -eq $clipText -and $focus -match 'id=NoteEditor' -and $stored -ne '') "menu=$($plusMenu -join ',') empty-offered=$offeredEmpty offered=$offered notes=$before->$count editors=$editors value='$value' focus=$focus stored=$stored"
+    }
+    finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

@@ -132,6 +132,37 @@ public sealed class ImageGuardTests
         Assert.Contains("private void OnEditorImageNotice(object? sender, string message) => ShowNoteNotice(message);", MainImages, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void A_picture_is_copied_as_itself_from_the_editors_menu_and_from_a_selection_of_it()
+    {
+        // D32 (#187): wired once with the editor's events; the right button's press says where its menu opened.
+        Assert.Matches(@"AttachToolbar\(\);\s*AttachPictureCopy\(\);", Host);
+        string attach = Body(Images, "AttachPictureCopy");
+        Assert.Contains("NoteEditor.AddHandler(PointerPressedEvent, new PointerEventHandler(", attach, StringComparison.Ordinal);
+        Assert.Contains("pressed.Properties.IsRightButtonPressed", attach, StringComparison.Ordinal);
+        Assert.Contains("NoteEditor.ContextFlyout.Opening += OnEditorMenuOpening;", attach, StringComparison.Ordinal);
+        Assert.Contains("NoteEditor.CopyingToClipboard += OnCopyingToClipboard;", attach, StringComparison.Ordinal);
+
+        // The menu offers it on a picture's line only (Core's ImageReference.At), at the press or else the caret.
+        string opening = Body(Images, "OnEditorMenuOpening");
+        Assert.Contains("_menuPoint is { } point ? NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition : _selection.Active", opening, StringComparison.Ordinal);
+        Assert.Contains("_menuPicture = Images?.PathOf(ImageReference.At(_document, at));", opening, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(_copyPicture, \"Copy picture\");", opening, StringComparison.Ordinal);
+        Assert.Matches(@"_ = menu\.SecondaryCommands\.Remove\(_copyPicture\);\s*if \(_menuPicture is not null\)\s*\{\s*menu\.SecondaryCommands\.Insert\(0, _copyPicture\);", opening);
+
+        // Ctrl+C or Copy with only the picture selected (Core's ImageReference.Selected): its source text and the picture.
+        string copying = Body(Images, "OnCopyingToClipboard");
+        Assert.Matches(@"ImageReference\.Selected\(_document, _selection\.Start, _selection\.End\)\) is \{ \} path\)\s*\{\s*e\.Handled = true;\s*CopyPicture\(path, source: _text\.Substring\(_selection\.Start, _selection\.Length\)\);", copying);
+
+        // The kept file's own bytes, never re-encoded; the file too from the menu; a failure said, never silent.
+        string copy = Body(Images, "CopyPicture");
+        Assert.Contains("package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));", copy, StringComparison.Ordinal);
+        Assert.Matches(@"if \(source is null\)\s*\{\s*package\.SetStorageItems\(\[file\]\);", copy);
+        Assert.DoesNotContain("BitmapEncoder", copy, StringComparison.Ordinal);
+        Assert.Contains("Clipboard.SetContent(package);", copy, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Count(copy, @"ImageNotice\?\.Invoke\(this, "));
+    }
+
     private static string Code(string path) => Regex.Replace(File.ReadAllText(path), @"^\s*//.*$", string.Empty, RegexOptions.Multiline);
 
     private static string Body(string source, string method)
