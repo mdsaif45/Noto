@@ -31,6 +31,8 @@ format or behavior. Breaking changes are always called out explicitly.
   Neither shows or hides Noto; Ctrl+D inside Noto is unchanged (#198).
 - The note list's bar has a *More* menu with Fold all and Unfold all, and a double-click on a note that isn't being
   edited folds or unfolds it; inside a note being edited, a double-click still selects a word (#190).
+- Settings › Appearance › *Note colour style*: Background tints a coloured note and marks its edge, as before; Bar
+  shows only the coloured edge (#191).
 
 ## [0.2.0] - 2026-11-14
 
