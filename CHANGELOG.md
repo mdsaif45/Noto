@@ -33,6 +33,8 @@ format or behavior. Breaking changes are always called out explicitly.
   edited folds or unfolds it; inside a note being edited, a double-click still selects a word (#190).
 - Settings › Appearance › *Note colour style*: Background tints a coloured note and marks its edge, as before; Bar
   shows only the coloured edge (#191).
+- The note list's **+** button has a menu (right-click or Shift+F10) with *New note from clipboard*, and a picture in a
+  note can be copied as a picture from the editor's menu, or with Ctrl+C when it alone is selected (#187).
 
 ## [0.2.0] - 2026-11-14
 
