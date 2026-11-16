@@ -322,6 +322,16 @@ public static class SettingKeys
         new("appearance.note-size", NoteText.DefaultSize, NoteText.IsSize);
 
     /// <summary>
+    /// How a coloured card shows its colour (#191; parity B15, F10, J23): Background or Bar.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="NoteColorStyle.Background"/>, the tint and marker Noto drew before the setting existed (#150).
+    /// Stored by member name; a value that is not a member is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<NoteColorStyle> AppearanceNoteColorStyle =
+        new("appearance.note-color-style", NoteColorStyle.Background, Enum.IsDefined);
+
+    /// <summary>
     /// Whether a small formatting toolbar shows above selected text in the editor (F8, #151).
     /// </summary>
     /// <remarks>Default on, as SideNotes has it; the keys and the Format menu do the same either way.</remarks>
@@ -423,6 +433,7 @@ public static class SettingKeys
         AppearanceTheme,
         AppearanceNoteFont,
         AppearanceNoteSize,
+        AppearanceNoteColorStyle,
         EditorFormatToolbar,
         BackupAutomatic,
         BackupFrequency,

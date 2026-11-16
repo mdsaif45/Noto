@@ -36,6 +36,7 @@ public sealed class SettingsSurfaceGuardTests
             ("AppearanceTheme", @"ApplyTheme\(_main, preferences\.Theme\)"),
             ("AppearanceNoteFont", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("AppearanceNoteSize", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
+            ("AppearanceNoteColorStyle", @"_main\.ApplyNoteColorStyle\(preferences\.NoteColorStyle\)"),
             ("BackupAutomatic", @"_ = CheckAutomaticBackup\(\)"),
             ("BackupFrequency", @"_ = CheckAutomaticBackup\(\)"),
             ("EditorFormatToolbar", @"NoteEditorHost\.ShowsFormatToolbar = preferences\.FormatToolbar"),
@@ -95,7 +96,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(17, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(18, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -355,7 +356,7 @@ public sealed class SettingsSurfaceGuardTests
         string[] ids =
         [
             "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "NewNotePlacementSetting", "SideSetting",
-            "EscapeSetting", "ThemeSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
+            "EscapeSetting", "ThemeSetting", "NoteColorStyleSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
 
@@ -398,11 +399,11 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // The settings (the note font and text size, F13; automatic backups, F15, and how often, #199; the formatting
-        // toolbar, F8; the new-note shortcut and its recorder, F17; the clipboard's, F18; Search's, F21; where a new note
-        // goes, #188; change side's and keep open's, #198), the Data group's
+        // The settings (the note colour style, #191; the note font and text size, F13; automatic backups, F15, and how
+        // often, #199; the formatting toolbar, F8; the new-note shortcut and its recorder, F17; the clipboard's, F18;
+        // Search's, F21; where a new note goes, #188; change side's and keep open's, #198), the Data group's
         // Back up, Restore, Export, Import and their progress line (ADR-020), and Help's Welcome tour (ADR-021).
-        Assert.Equal(31, rows.Count);
+        Assert.Equal(32, rows.Count);
 
         foreach (XElement row in rows)
         {

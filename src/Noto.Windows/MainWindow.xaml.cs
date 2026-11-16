@@ -1665,6 +1665,29 @@ public sealed partial class MainWindow : Window
         container.FontSize = _noteSize;
     }
 
+    /// <summary>How a coloured card shows its colour (#191): Background until the stored style is applied.</summary>
+    private NoteColorStyle _noteColorStyle;
+
+    /// <summary>
+    /// Shows every coloured card in a style (#191): Background tints it and marks its edge, Bar marks its edge only. A
+    /// state on each realised card's container, so the list is not rebuilt; a card realised later takes it as it is
+    /// (<see cref="OnRowContainerContentChanging"/>). Its colour's name, in its help text, is the same in both.
+    /// </summary>
+    internal void ApplyNoteColorStyle(NoteColorStyle style)
+    {
+        _noteColorStyle = style;
+
+        for (int i = 0; i < NoteList.Items.Count; i++)
+        {
+            if (NoteList.ContainerFromIndex(i) is ListViewItem container)
+            {
+                VisualStateManager.GoToState(container, NotePalette.StateOf(style), useTransitions: false);
+            }
+        }
+
+        Trace.WriteLine($"Noto.Settings note-color-style={style}");
+    }
+
     private void StepNoteSizeBy(int direction)
     {
         if (StepNoteSize?.Invoke(direction) is double size)
@@ -2376,11 +2399,13 @@ public sealed partial class MainWindow : Window
 
         Accessible.SetRowState(args.ItemContainer, help);
 
-        // A recycled container takes this card's colour, or none (F7, #150), and the note text's family and size (F13).
+        // A recycled container takes this card's colour, or none (F7, #150), the note text's family and size (F13),
+        // and the colour style (#191).
         if (args.Item is NoteCard colored)
         {
             VisualStateManager.GoToState(args.ItemContainer, NotePalette.StateOf(colored.ColorKey), useTransitions: false);
             ApplyNoteText(args.ItemContainer);
+            VisualStateManager.GoToState(args.ItemContainer, NotePalette.StateOf(_noteColorStyle), useTransitions: false);
         }
     }
 

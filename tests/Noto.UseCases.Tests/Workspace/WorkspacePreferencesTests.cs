@@ -261,6 +261,7 @@ public sealed class WorkspacePreferencesTests
         var preferences = new WorkspacePreferences(new FakeSettings());
 
         Assert.Equal(WorkspaceTheme.System, preferences.Theme);
+        Assert.Equal(NoteColorStyle.Background, preferences.NoteColorStyle);
         Assert.False(preferences.SingleClickOpen);
         Assert.True(preferences.HideOnDeactivation);
         Assert.True(preferences.HotkeyEnabled);
@@ -314,6 +315,7 @@ public sealed class WorkspacePreferencesTests
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
         { "SetNewNotePlacement", SettingKeys.NotesNewPlacement.Name, NewNotePlacement.AboveSelected },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
+        { "SetNoteColorStyle", SettingKeys.AppearanceNoteColorStyle.Name, NoteColorStyle.Bar },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
     };
@@ -341,6 +343,7 @@ public sealed class WorkspacePreferencesTests
     [InlineData("SetEscape", 9)]
     [InlineData("SetTheme", 5)]
     [InlineData("SetNewNotePlacement", 4)]
+    [InlineData("SetNoteColorStyle", 2)]
     public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
     {
         var store = new FakeSettings();
@@ -350,6 +353,7 @@ public sealed class WorkspacePreferencesTests
             "SetEdge" => (WorkspaceEdge)undefined,
             "SetEscape" => (EscapeBehavior)undefined,
             "SetNewNotePlacement" => (NewNotePlacement)undefined,
+            "SetNoteColorStyle" => (NoteColorStyle)undefined,
             _ => (WorkspaceTheme)undefined,
         };
 
@@ -388,6 +392,7 @@ public sealed class WorkspacePreferencesTests
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
         "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
+        "SetNoteColorStyle" => preferences.SetNoteColorStyle((NoteColorStyle)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
@@ -401,6 +406,7 @@ public sealed class WorkspacePreferencesTests
         "SetSingleClickOpen" => preferences.SingleClickOpen,
         "SetNewNotePlacement" => preferences.NewNotePlacement,
         "SetTheme" => preferences.Theme,
+        "SetNoteColorStyle" => preferences.NoteColorStyle,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),

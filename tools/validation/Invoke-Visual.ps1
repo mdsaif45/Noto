@@ -21,6 +21,9 @@
      6  Settings: every control in every group ends at the same right edge
     13  every surface captured in both themes: folders, stack, editor, image-rich note, search, settings, recycle bin
     15  per theme: a coloured card (F7, #150) is tinted off an uncoloured card's fill, and its help text names the colour
+    17  per theme: Settings' Note colour style set to Bar (#191), live: the coloured card's fill is an uncoloured card's,
+        its leading edge keeps the colour's marker, and its help text still names the colour; back to Background, it is
+        tinted again
     16  per theme: a #rrggbb code (F14, #155) shows a swatch of its colour, and UI Automation reads the card's text as
         written, with no object character for the swatch
     14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
@@ -323,6 +326,41 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $plain = $cards | Where-Object { $_.Current.Name -ne 'Project plan' } | Select-Object -First 1
         $fb = if ($blue) { (Region-Stats $blue.Current.BoundingRectangle).Fill }; $fp = if ($plain) { (Region-Stats $plain.Current.BoundingRectangle).Fill }
         Add-Result $run "15 ${theme}: a coloured card (Blue) is tinted off an uncoloured card, and its help text names the colour" ($fb -and $fp -and (Distance $fb $fp) -ge 6 -and $blue.Current.HelpText -match 'Blue') "blue fill=$(if ($fb) { $fb.Name }) plain fill=$(if ($fp) { $fp.Name }) help='$(if ($blue) { $blue.Current.HelpText })'"
+
+        # 17 - #191: the Bar style, chosen in Settings and applied live, drops the tint and keeps the marker
+        function Style-Cards {
+            $all = Items (Find-ById 'NoteList')
+            $b = $all | Where-Object { $_.Current.Name -eq 'Project plan' } | Select-Object -First 1
+            # An unselected uncoloured card: a selected card has its own fill and the accent on its edge.
+            $p = $all | Where-Object { $_.Current.Name -ne 'Project plan' -and -not $_.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } | Select-Object -First 1
+            [pscustomobject]@{ Blue = $b; Plain = $p }
+        }
+        function Set-ColourStyle([string] $Name) {
+            Send-ToNoto @(0x11) 0xBC 1400   # Ctrl+,
+            $box = Find-ById 'NoteColorStyleSetting'
+            $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 500
+            $item = $AE::RootElement.FindFirst($Scope::Descendants, [System.Windows.Automation.AndCondition]::new([System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, $Name), [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem), [System.Windows.Automation.PropertyCondition]::new($AE::ProcessIdProperty, $script:noto.Pid)))
+            if (-not $item) { throw "no '$Name' in NoteColorStyleSetting" }
+            $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); Start-Sleep -Milliseconds 300
+            try { $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
+            Start-Sleep -Milliseconds 400
+            Send-ToNoto @() 0x1B 900   # back to the stack
+        }
+        function Stored-Style { Get-NotoScalar $run -Exe $NotoExe -DataRoot $script:data -Sql 'SELECT Value FROM Settings WHERE Key = $k' -Parameters @{ '$k' = 'appearance.note-color-style' } }
+        $band = [int](12 * $scale)   # the marker sits 4 to 8 DIP in from the card's leading edge
+        Set-ColourStyle 'Bar'
+        $s = Style-Cards
+        $barBlue = if ($s.Blue) { Region-Stats $s.Blue.Current.BoundingRectangle }; $barPlain = if ($s.Plain) { Region-Stats $s.Plain.Current.BoundingRectangle }
+        $marker = if ($s.Blue) { (Region-Stats $s.Blue.Current.BoundingRectangle $band).Accent } else { 0 }
+        $help = if ($s.Blue) { $s.Blue.Current.HelpText } else { '' }
+        $storedBar = Stored-Style
+        Set-ColourStyle 'Background'
+        $s = Style-Cards
+        $backBlue = if ($s.Blue) { (Region-Stats $s.Blue.Current.BoundingRectangle).Fill }; $backPlain = if ($s.Plain) { (Region-Stats $s.Plain.Current.BoundingRectangle).Fill }
+        $barSame = $barBlue -and $barPlain -and (Distance $barBlue.Fill $barPlain.Fill) -le 2
+        $tintedAgain = $backBlue -and $backPlain -and (Distance $backBlue $backPlain) -ge 6
+        Add-Result $run "17 ${theme}: in the Bar style a coloured card has an uncoloured card's fill and keeps its marker; Background tints it again" ($barSame -and $marker -ge 20 -and $help -match 'Blue' -and $tintedAgain -and $storedBar -eq 'Bar' -and (Stored-Style) -eq 'Background') "bar: blue fill=$(if ($barBlue) { $barBlue.Fill.Name }) plain fill=$(if ($barPlain) { $barPlain.Fill.Name }) marker px=$marker help='$help' stored=$storedBar; background: blue fill=$(if ($backBlue) { $backBlue.Name }) plain fill=$(if ($backPlain) { $backPlain.Name })"
+        $cards = Items (Find-ById 'NoteList')
 
         # 4 - type hierarchy
         $title = Font-Size (Find-ById 'NoteFolderTitle'); $body = Font-Size (Find-ById 'NoteCountText')
