@@ -18,6 +18,8 @@ format or behavior. Breaking changes are always called out explicitly.
   The last seven automatic backups are kept, as before (#199).
 - Ctrl+Shift+P inserts a picture chosen from your files; Ctrl+] and Ctrl+[ indent and outdent list items; the Format
   menu inserts a separator line, and a picture (#194).
+- In Search, Ctrl+R opens the chosen note's first link (only the kinds of link Noto already opens), and Ctrl+Click or
+  Ctrl+Enter on a note opens the folder it is in (#197).
 
 ## [0.2.0] - 2026-11-14
 
