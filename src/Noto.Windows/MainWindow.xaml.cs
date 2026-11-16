@@ -2142,7 +2142,7 @@ public sealed partial class MainWindow : Window
 
         void Submit()
         {
-            if (_noteState != NoteState.Loaded || (_stack.Editing?.Value == id && !TryEndEdit()))
+            if (_noteState != NoteState.Loaded || (_stack.Editing is { } editing && editing.Value == id && !TryEndEdit()))
             {
                 flyout.Hide();
                 return;
