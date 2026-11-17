@@ -52,7 +52,7 @@ public sealed class EdgeRevealGuardTests
 
         for (int i = 0; i < 10; i++)
         {
-            EdgePointer? pointer = EdgePointer.Start(window, static _ => { });
+            using EdgePointer? pointer = EdgePointer.Start(window, static _ => { });
             Assert.NotNull(pointer);
             Assert.True(EdgePointer.IsInstalled);
             Assert.Throws<InvalidOperationException>(() => EdgePointer.Start(window, static _ => { }));

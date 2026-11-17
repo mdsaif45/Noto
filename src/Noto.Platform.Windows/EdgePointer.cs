@@ -172,7 +172,7 @@ public sealed unsafe class EdgePointer : IDisposable
     internal static EdgeZone ZoneFor(DisplayMonitor display, IReadOnlyList<DisplayMonitor> all, DockEdge side)
     {
         PixelRect bounds = display.Bounds;
-        int corner = (int)Math.Round(CornerDip * display.Dpi / 96.0);
+        int corner = (int)Math.Round(CornerDip * (double)display.Dpi / 96.0);
         bool shared = all.Any(d => d.Bounds != bounds
             && (side == DockEdge.Right ? d.Bounds.Left == bounds.Right : d.Bounds.Right == bounds.Left)
             && d.Bounds.Top < bounds.Bottom && d.Bounds.Bottom > bounds.Top);
