@@ -57,8 +57,11 @@ public sealed class NoteStackGuardTests
     public void A_rows_name_says_its_state_after_its_title_from_the_one_helper_and_follows_it()
     {
         // #201: Narrator reads a list item's name and position, never its help text, so a row's name is its title then
-        // its state. The container names itself from its item's ToString, read each time it is asked, so the name
-        // follows a fold, colour or mode changed in place; nothing else may name the container and go stale.
+        // its state, from its item's ToString. A container reads that once, when it is made, so the one place every state
+        // change goes through (SetRowState) names it again (measured: a fold left the old name, Invoke-NoteStack 23).
+        Assert.Matches(
+            @"if \(row is SelectorItem \{ Content: NoteCard or FolderListItem \} item\)\s*\{\s*AutomationProperties\.SetName\(row, item\.Content\.ToString\(\)\);",
+            Code(Path.Join(Windows, "Accessible.cs")));
         string card = Code(Path.Join(Windows, "NoteCard.cs"));
         string folder = Code(Path.Join(Windows, "FolderListItem.cs"));
 
