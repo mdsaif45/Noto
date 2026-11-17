@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 
 namespace Noto;
 
@@ -17,11 +18,21 @@ public static class Accessible
     /// "Pinned"), so the folder and note rows also say it in their name, after the title (#201: their items'
     /// <c>ToString</c>, from the same <see cref="Core.Workspace.RowState"/>).
     /// </summary>
+    /// <remarks>
+    /// The name is set here as well, from the item: a container's name taken from its item's <c>ToString</c> is read
+    /// once, when the container is made, so a fold or a pin on a shown row left the old name (measured,
+    /// <c>Invoke-NoteStack</c> case 23). Every state change already comes through here.
+    /// </remarks>
     internal static void SetRowState(DependencyObject row, string state)
     {
         AutomationProperties.SetHelpText(row, state);
         AutomationProperties.SetItemStatus(row, state);
         AutomationProperties.SetFullDescription(row, state);
+
+        if (row is SelectorItem { Content: NoteCard or FolderListItem } item)
+        {
+            AutomationProperties.SetName(row, item.Content.ToString());
+        }
     }
 
     /// <summary>
