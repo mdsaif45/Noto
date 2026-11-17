@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batches 1–3 merged (PRs #208–#225, 2026-11-17), batch 4 in progress. **Planned:** 2026-11-16.
+**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17), batch 5 in progress. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -83,6 +83,29 @@ After the batches, MUST rows stand at 138 of 147 done ([sidenotes-parity.md](../
 
 **Then:** #185's Open Bar (A3) and the v0.3 release. #186 and #203 stay after it: each needs an ADR-007 decision and
 hardware this machine lacks.
+
+## Batch 4: merged
+
+#201, #185 part 1, #17 and #11 close-outs, the dependency updates (#229) and the recount all merged on 2026-11-17.
+Measured on the way:
+- **Hot Side** shows Noto but does not take the foreground: Windows refuses it (ADR-007 §9).
+- **SQLite 3.53** reads a double-quoted string as a column name. Noto's SQL never relied on that; one harness did, and
+  is fixed.
+
+## Batch 5: the Open Bar, and the first SHOULD rows (v0.4)
+
+The MUST rows within reach close with the Open Bar. The SHOULD rows begin in a new
+[v0.4 milestone](https://github.com/mdsaif45/Noto/milestone/13).
+
+| # | Item | Issue | Rows | Decision taken |
+|---|---|---|---|---|
+| 21 | The Open Bar | #185 (2 of 2) | A3, J1, J27 | A visible edge handle with SideNotes' three hide modes, its own toggle, built on #231's edge geometry (ADR-007 §9) |
+| 22 | Duplicate a note, and a folder | #232 | B22, C12 | One command each. A copy shares its pictures' files, and the orphan sweep counts every reference |
+| 23 | The backup folder | #233 | I11, J39 | Any folder the user picks, OneDrive included. Only `auto-*` files are ever pruned. A missing folder falls back to the default and says so |
+| 24 | Line height and paragraph spacing | #234 | D49, D50, J14, J15 | Three presets each; Normal is today's exact look. The editor and the read view share the values |
+| 25 | Clear formatting, and save a picture | #235 | D21, D33 | Inline marks only (block structure and pictures untouched), one undo step. Save picture as… copies the kept file byte for byte |
+
+**Not yet:** Print (B21, G25, I6). WinUI 3 printing for an unpackaged app needs a spike first.
 
 ## Later in v0.3, or v0.4: the edge and the platform
 
