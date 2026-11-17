@@ -107,8 +107,9 @@ try {
         $now = [DateTimeOffset]::UtcNow.ToString('O')
         $null = Sql "INSERT INTO Folders (Id, Name, SortOrder, IsPinned, CreatedAt, UpdatedAt) VALUES (`$f, 'Work', 1, 1, `$t, `$t)" @{ '$f' = $Work; '$t' = $now }
         $null = Sql "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Home', 2, `$t, `$t)" @{ '$f' = $HomeFolder; '$t' = $now }
-        $null = Sql "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsFolded, CreatedAt, UpdatedAt) VALUES ('01J00000000000000000000B01', `$f, `"# Weekly sync`n**Bold** words`n- [ ] call`", 1, 0, `$t, `$t)" @{ '$f' = $Work; '$t' = $now }
-        $null = Sql "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsFolded, CreatedAt, UpdatedAt) VALUES ('01J00000000000000000000B02', `$f, `"Folded note`nhidden line`", 2, 1, `$t, `$t)" @{ '$f' = $Work; '$t' = $now }
+        # The text goes in as a parameter: SQLite 3.53 (Microsoft.Data.Sqlite 10) no longer reads a double-quoted string as text.
+        $null = Sql "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsFolded, CreatedAt, UpdatedAt) VALUES ('01J00000000000000000000B01', `$f, `$c, 1, 0, `$t, `$t)" @{ '$f' = $Work; '$t' = $now; '$c' = "# Weekly sync`n**Bold** words`n- [ ] call" }
+        $null = Sql "INSERT INTO Notes (Id, FolderId, Content, SortOrder, IsFolded, CreatedAt, UpdatedAt) VALUES ('01J00000000000000000000B02', `$f, `$c, 2, 1, `$t, `$t)" @{ '$f' = $Work; '$t' = $now; '$c' = "Folded note`nhidden line" }
         Set-NotoSetting $run -Exe $NotoExe -DataRoot $script:data -Key 'workspace.hide-on-deactivation' -Value 'false'
 
         $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
