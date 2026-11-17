@@ -83,9 +83,10 @@ public readonly record struct EdgeZone(WorkspaceEdge Side, int Left, int Right, 
             return false;
         }
 
-        return Side == WorkspaceEdge.Right
-            ? x >= Right - EdgeReveal.Band && (x < Right || !Shared)
-            : x < Left + EdgeReveal.Band && (x >= Left || !Shared);
+        // Past the edge counts too (the hook sees it before the pointer is clipped), unless another display is there.
+        bool inBand = Side == WorkspaceEdge.Right ? x >= Right - EdgeReveal.Band : x < Left + EdgeReveal.Band;
+        bool onThisDisplay = Side == WorkspaceEdge.Right ? x < Right : x >= Left;
+        return inBand && (onThisDisplay || !Shared);
     }
 
     /// <summary><paramref name="x"/> moved inside the display, where the pointer itself stops.</summary>
