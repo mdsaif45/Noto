@@ -817,15 +817,18 @@ time to the UI thread (`DispatcherQueue`), where it becomes
 drop of §4 (closing, resizing, mid-transition, stale, startup). No new request
 kind and no new rule.
 
-**Focus — the open measurement.** The hotkey takes the foreground because
-`WM_HOTKEY` entitles it to; a pointer resting on another application's window
-gives Noto no such right, and Noto does not inject input to acquire one (that is
-what the harness's negative controls exist to catch). So a reveal ends shown,
-docked and topmost, and `SetForegroundWindow` is asked for as for any launch;
-if Windows refuses it, the user's click or the hotkey brings it in front. For a
-drag this is what matters: a drop needs no foreground. Which of the two Windows
-does is recorded by `Invoke-Settings.ps1` case 23 (`foreground=`), not asserted,
-and is to be written here when measured.
+**Focus — measured.** The hotkey takes the foreground because `WM_HOTKEY`
+entitles it to; a pointer resting on another application's window gives Noto no
+such right, and Noto does not inject input to acquire one (that is what the
+harness's negative controls exist to catch). So a reveal ends shown, docked and
+topmost, and `SetForegroundWindow` is asked for as for any launch. **Measured
+2026-11-17** (`Invoke-Settings.ps1` case 23, Windows 11 26300, one display):
+Windows refuses it. Noto is shown at the edge (`shown=True`) but the other
+application keeps the foreground (`foreground=False`). The user's click, or the
+hotkey, brings it in front. For a drag this is what matters: a drop needs no
+foreground. Hot Side is therefore a way to *see* Noto at a glance, not to start
+typing in it; that is accepted, and a focus-taking reveal is not pursued (it
+would need injected input).
 
 **Not decided here.** SideNotes' hide-when-the-pointer-leaves behaviour (an
 edge-revealed panel retracting on its own) is not part of A4 or A15 as scored;
