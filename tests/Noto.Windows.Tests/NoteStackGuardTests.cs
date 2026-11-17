@@ -57,11 +57,13 @@ public sealed class NoteStackGuardTests
     public void A_rows_name_says_its_state_after_its_title_from_the_one_helper_and_follows_it()
     {
         // #201: Narrator reads a list item's name and position, never its help text, so a row's name is its title then
-        // its state, from its item's ToString. A container reads that once, when it is made, so the one place every state
-        // change goes through (SetRowState) names it again (measured: a fold left the old name, Invoke-NoteStack 23).
-        Assert.Matches(
-            @"if \(row is SelectorItem \{ Content: NoteCard or FolderListItem \} item\)\s*\{\s*AutomationProperties\.SetName\(row, item\.Content\.ToString\(\)\);",
-            Code(Path.Join(Windows, "Accessible.cs")));
+        // its state, from its item's ToString. A row reads that once, when it is made, so a card's row follows the card's
+        // own changes and lets go when it is recycled (measured: a fold left the old name, Invoke-NoteStack 23).
+        Assert.Contains("NameRow(args.ItemContainer, args.InRecycleQueue ? null : args.Item as NoteCard);", Body(Main, "OnRowContainerContentChanging"), StringComparison.Ordinal);
+        string name = Body(Main, "NameRow");
+        Assert.Contains("previous.Card.PropertyChanged -= previous.Handler;", name, StringComparison.Ordinal);
+        Assert.Contains("card.PropertyChanged += Rename;", name, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(row, card.ToString())", name, StringComparison.Ordinal);
         string card = Code(Path.Join(Windows, "NoteCard.cs"));
         string folder = Code(Path.Join(Windows, "FolderListItem.cs"));
 

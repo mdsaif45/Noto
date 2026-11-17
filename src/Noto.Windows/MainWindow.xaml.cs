@@ -1,12 +1,15 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
 using Noto.Core.Commands;
@@ -2400,6 +2403,38 @@ public sealed partial class MainWindow : Window
         where T : class =>
         source is ListViewItem { Content: T item } ? item : (source as FrameworkElement)?.DataContext as T;
 
+    // Each card row's name-follower, so a recycled row stops following the card it showed (#201).
+    private readonly ConditionalWeakTable<SelectorItem, CardNamer> _rowNames = [];
+
+    /// <summary>
+    /// Names a card's row by its title and state, and keeps it so while the row shows that card (#201). A row takes its
+    /// name from its item's <c>ToString</c> only once, when it is made, so a fold, a pin, a colour or new text on a shown
+    /// card left the old name (measured, <c>Invoke-NoteStack</c> case 23). The row follows the card's own changes
+    /// instead; a recycled row lets go. Folder rows are made again on every change, so their name is never stale.
+    /// </summary>
+    private void NameRow(SelectorItem row, NoteCard? card)
+    {
+        if (_rowNames.TryGetValue(row, out CardNamer? previous))
+        {
+            previous.Card.PropertyChanged -= previous.Handler;
+            _ = _rowNames.Remove(row);
+        }
+
+        if (card is null)
+        {
+            row.ClearValue(AutomationProperties.NameProperty);
+            return;
+        }
+
+        void Rename(object? sender, PropertyChangedEventArgs e) => AutomationProperties.SetName(row, card.ToString());
+
+        AutomationProperties.SetName(row, card.ToString());
+        card.PropertyChanged += Rename;
+        _rowNames.Add(row, new CardNamer(card, Rename));
+    }
+
+    private sealed record CardNamer(NoteCard Card, PropertyChangedEventHandler Handler);
+
     /// <summary>
     /// Gives a realised or recycled row its states for assistive technology. The row UI Automation reports is the
     /// container, not the template inside it (measured: help text on the template never reached the focused row), so
@@ -2415,6 +2450,7 @@ public sealed partial class MainWindow : Window
         };
 
         Accessible.SetRowState(args.ItemContainer, help);
+        NameRow(args.ItemContainer, args.InRecycleQueue ? null : args.Item as NoteCard);
 
         // A recycled container takes this card's colour, or none (F7, #150), the note text's family and size (F13),
         // and the colour style (#191).
