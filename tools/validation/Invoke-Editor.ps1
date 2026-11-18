@@ -46,6 +46,10 @@
         the help text; in the editor '**bold**' and '# heading' stay raw (not hidden, not bold, no larger) in the code
         font, and Tab types four spaces; the card reads the text raw, titled by its raw first line; after a restart the
         note is still Code; Markdown from the menu renders it again
+    26  #235 (D21): typed bold, italic, strikethrough, underline, highlight, code and a link, all selected, Ctrl+\ clears
+        them to their text (the link's target gone), one undo step; with only 'bold' selected, the Format menu's Clear
+        formatting clears that span alone. (Save picture as is covered by ImageGuardTests only: a real picker can't be
+        driven.)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
@@ -598,6 +602,26 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     $rendered23 = Read-Text (Card 'heading')
     Add-Result $run '25 Code from the menu: markup raw, not hidden, bold or larger, in the code font; Tab types 4 spaces; kept across a restart; Markdown renders it again' ($before23 -eq 'Markdown' -and $storedCode -eq 'Code' -and $helpCode -match 'Code' -and $hidden23 -eq $false -and [int]$weight23 -lt 600 -and [double]$headSize -eq [double]$textSize -and $font23 -match 'Cascadia Mono|Consolas' -and $tabbed -and $read23 -match '# heading' -and $read23 -match '\*\*bold\*\*' -and $kept23 -and $reopened -and $beforeBack -eq 'Code' -and (Stored-Mode $CodeModeNoteId) -eq 'Markdown' -and $rendered23 -notmatch '\*\*|#') "checked=$before23 stored=$storedCode help='$helpCode' hidden=$hidden23 weight=$weight23 size=$headSize/$textSize font='$font23' tab=$tabbed read='$($read23 -replace "`r|`n", ' | ')' restart=$kept23 reopened=$reopened back-checked=$beforeBack rendered='$($rendered23 -replace "`r|`n", ' | ')' $shot23"
     Edit-Card 'heading'
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
+
+    # 26 - #235 (D21): Ctrl+\ (VK_OEM_5) and the Format menu's Clear formatting, one undo step
+    Edit-Card 'A plain note with no markup at all.'
+    $formatted = 'Plan: **bold** *it* ~~old~~ ==under== ::mark:: `code` [link](https://example.com) end'
+    Set-EditorText 'Plan: '
+    Send-ToNoto @(0x11) 0x23 300   # Ctrl+End
+    Type-Text $formatted.Substring(6)
+    $typed = Editor-Value
+    Send-ToNoto @(0x11) 0x41 300   # Ctrl+A
+    Send-ToNoto @(0x11) 0xDC 600   # Ctrl+\ (VK_OEM_5)
+    $plainAgain = Editor-Value
+    Send-ToNoto @(0x11) 0x5A 600   # Ctrl+Z: the clear was one step
+    $restored = Editor-Value
+    (Range-Of 'bold').Select(); Start-Sleep -Milliseconds 300
+    (Find-ById 'CardFormatButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Clear formatting')) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid })[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 700
+    $boldCleared = Editor-Value
+    Add-Result $run '26 Ctrl+\ clears every mark in the selection to its text, a link to its text, one undo step; the menu''s Clear formatting clears only the selected span' ($typed -eq $formatted -and $plainAgain -eq 'Plan: bold it old under mark code link end' -and $restored -eq $formatted -and $boldCleared -eq ($formatted -replace '\*\*bold\*\*', 'bold') -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "typed same=$($typed -eq $formatted) cleared='$plainAgain' undone same=$($restored -eq $formatted) menu='$boldCleared'"
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
 

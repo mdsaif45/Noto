@@ -610,6 +610,8 @@
                                                 <MenuFlyoutItem Text="Strikethrough" Tag="Strikethrough" KeyboardAcceleratorTextOverride="Ctrl+Shift+E" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Code" Tag="Code" KeyboardAcceleratorTextOverride="Ctrl+E" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Link" Tag="Link" KeyboardAcceleratorTextOverride="Ctrl+K" Click="OnFormatClick" />
+                                                <!-- #235 (D21): the selection's inline formatting removed, its text kept. -->
+                                                <MenuFlyoutItem Text="Clear formatting" Tag="ClearFormatting" KeyboardAcceleratorTextOverride="Ctrl+\" Click="OnFormatClick" />
                                                 <MenuFlyoutSeparator />
                                                 <MenuFlyoutItem Text="Heading" Tag="Heading" KeyboardAcceleratorTextOverride="Ctrl+Shift+H" Click="OnFormatClick" />
                                                 <MenuFlyoutItem Text="Bulleted list" Tag="Bullets" KeyboardAcceleratorTextOverride="Ctrl+L" Click="OnFormatClick" />
