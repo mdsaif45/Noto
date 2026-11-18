@@ -71,26 +71,16 @@ public sealed partial class MainWindow
             return;
         }
 
-        FilesImport? import;
         try
         {
-            import = TryEndEdit() ? await Import(dropped.Paths, folder, ShowNoteNotice) : null;
+            if (TryEndEdit())
+            {
+                await ImportOnStack(dropped.Paths, folder);
+            }
         }
         finally
         {
             DroppedItems.Release(dropped.Copies);
-        }
-
-        if (import is null || _openFolderId != folder)
-        {
-            return;
-        }
-
-        RefreshNotes();
-        Said(import, into: null, ShowNoteStatus, ShowNoteNotice, NoteUndoImportButton);
-        if (import.Notes.Count > 0)
-        {
-            FocusNoteRow(import.Notes[0].Value);
         }
     }
 
@@ -107,17 +97,83 @@ public sealed partial class MainWindow
             return;
         }
 
-        FilesImport? import;
         try
         {
-            import = await Import(dropped.Paths, FolderId.From(row.Id), ShowNotice);
+            await ImportOnRow(dropped.Paths, row);
         }
         finally
         {
             DroppedItems.Release(dropped.Copies);
         }
+    }
 
-        if (import is null)
+    /// <summary>
+    /// Files dropped on the Open Bar (#185; parity J27), once the app has shown Noto: they go where a drop on Noto would,
+    /// the open folder's stack, else the selected folder (else the first), as a new note from a shortcut chooses. Settings,
+    /// Search and the Recycle Bin are left first; the welcome tour is left alone.
+    /// </summary>
+    internal async void ImportDroppedOnBar(IReadOnlyList<string> files)
+    {
+        if (WelcomeSurface is not null || Portability is not { Busy: false })
+        {
+            return;
+        }
+
+        if (SettingsSurface is not null)
+        {
+            CloseSettings();
+        }
+
+        if (SearchSurface is not null)
+        {
+            CloseSearch(restoreFocus: false);
+        }
+
+        if (RecycleBinSurface is not null)
+        {
+            CloseRecycleBin();
+        }
+
+        if (_openFolderId is { } folder)
+        {
+            if (_noteState == NoteState.Loaded && TryEndEdit())
+            {
+                await ImportOnStack(files, folder);
+            }
+        }
+        else if (_state == PaneState.Loaded)
+        {
+            if ((FolderList.SelectedItem as FolderListItem ?? Folders.FirstOrDefault(f => f.Id == _selectedId) ?? Folders.FirstOrDefault()) is { } row)
+            {
+                await ImportOnRow(files, row);
+            }
+            else
+            {
+                ShowStatus("Make a folder first: a note goes in a folder.");
+            }
+        }
+    }
+
+    /// <summary>Into the open folder's stack: one result on the stack's line, the first new note focused.</summary>
+    private async Task ImportOnStack(IReadOnlyList<string> files, FolderId folder)
+    {
+        if (await Import(files, folder, ShowNoteNotice) is not { } import || _openFolderId != folder)
+        {
+            return;
+        }
+
+        RefreshNotes();
+        Said(import, into: null, ShowNoteStatus, ShowNoteNotice, NoteUndoImportButton);
+        if (import.Notes.Count > 0)
+        {
+            FocusNoteRow(import.Notes[0].Value);
+        }
+    }
+
+    /// <summary>Into a folder from the folder list: one result on the list's line, naming the folder.</summary>
+    private async Task ImportOnRow(IReadOnlyList<string> files, FolderListItem row)
+    {
+        if (await Import(files, FolderId.From(row.Id), ShowNotice) is not { } import)
         {
             return;
         }

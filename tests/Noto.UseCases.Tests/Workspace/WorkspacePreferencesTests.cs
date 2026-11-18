@@ -100,6 +100,16 @@ public sealed class WorkspacePreferencesTests
         Assert.False(preferences.DragReveal);
     }
 
+    [Fact]
+    public void With_nothing_stored_the_open_bar_is_off_and_takes_drops_once_on()
+    {
+        // #185 part 2: no handle on the user's screen until asked for (principle 7); a drop aimed at it is no surprise.
+        var preferences = new WorkspacePreferences(new FakeSettings());
+
+        Assert.Equal(OpenBarMode.Off, preferences.OpenBar);
+        Assert.True(preferences.OpenBarDrop);
+    }
+
     // ------------------------------------------------ width resolution
 
     public static TheoryData<Stored, Stored, double> Chain()
@@ -329,6 +339,8 @@ public sealed class WorkspacePreferencesTests
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
         { "SetHotSide", SettingKeys.HotSideEnabled.Name, true },
         { "SetDragReveal", SettingKeys.DragRevealEnabled.Name, true },
+        { "SetOpenBar", SettingKeys.OpenBarMode.Name, OpenBarMode.HideWhenIdle },
+        { "SetOpenBarDrop", SettingKeys.OpenBarDrop.Name, false },
         { "SetNewNotePlacement", SettingKeys.NotesNewPlacement.Name, NewNotePlacement.AboveSelected },
         { "SetOpenLastFolder", SettingKeys.WorkspaceOpenLastFolder.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
@@ -363,6 +375,7 @@ public sealed class WorkspacePreferencesTests
     [InlineData("SetNewNotePlacement", 4)]
     [InlineData("SetNoteColorStyle", 2)]
     [InlineData("SetNewNoteMode", 3)]
+    [InlineData("SetOpenBar", 3)]
     public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
     {
         var store = new FakeSettings();
@@ -374,6 +387,7 @@ public sealed class WorkspacePreferencesTests
             "SetNewNotePlacement" => (NewNotePlacement)undefined,
             "SetNoteColorStyle" => (NoteColorStyle)undefined,
             "SetNewNoteMode" => (NoteMode)undefined,
+            "SetOpenBar" => (OpenBarMode)undefined,
             _ => (WorkspaceTheme)undefined,
         };
 
@@ -466,6 +480,8 @@ public sealed class WorkspacePreferencesTests
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
         "SetHotSide" => preferences.SetHotSide((bool)value),
         "SetDragReveal" => preferences.SetDragReveal((bool)value),
+        "SetOpenBar" => preferences.SetOpenBar((OpenBarMode)value),
+        "SetOpenBarDrop" => preferences.SetOpenBarDrop((bool)value),
         "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
         "SetOpenLastFolder" => preferences.SetOpenLastFolder((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
@@ -484,6 +500,8 @@ public sealed class WorkspacePreferencesTests
         "SetSingleClickOpen" => preferences.SingleClickOpen,
         "SetHotSide" => preferences.HotSide,
         "SetDragReveal" => preferences.DragReveal,
+        "SetOpenBar" => preferences.OpenBar,
+        "SetOpenBarDrop" => preferences.OpenBarDrop,
         "SetNewNotePlacement" => preferences.NewNotePlacement,
         "SetOpenLastFolder" => preferences.OpenLastFolder,
         "SetTheme" => preferences.Theme,

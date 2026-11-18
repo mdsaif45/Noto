@@ -212,6 +212,28 @@ public static class SettingKeys
         new("activation.drag-reveal.enabled", false);
 
     /// <summary>
+    /// Whether the Open Bar, a small handle at the docked screen edge that shows Noto when clicked, is there while Noto
+    /// is hidden, and how it hides (#185; parity A3, J1): Off, AlwaysShown or HideWhenIdle.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="Activation.OpenBarMode.Off"/>: a handle on the user's screen is theirs to ask for, and every activation
+    /// surface is independently disableable (principle 7). With it off there is no bar window at all (ADR-007 §10).
+    /// Stored by member name; a value that is not a member is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<OpenBarMode> OpenBarMode =
+        new("activation.open-bar.mode", Activation.OpenBarMode.Off, Enum.IsDefined);
+
+    /// <summary>
+    /// Whether files dropped on the Open Bar are imported, as a drop on Noto's lists imports them (#185; parity J27).
+    /// </summary>
+    /// <remarks>
+    /// Default on: the bar itself is off by default, and a drop the user aims at it is no surprise. Off, the bar takes no
+    /// drop. Independent of drag to reveal (<see cref="DragRevealEnabled"/>), which shows Noto for a drop into it.
+    /// </remarks>
+    public static readonly SettingKey<bool> OpenBarDrop =
+        new("activation.open-bar-drop.enabled", true);
+
+    /// <summary>
     /// The vertical screen edge the workspace docks to.
     /// </summary>
     /// <remarks>
@@ -519,6 +541,8 @@ public static class SettingKeys
         KeepOpenHotkeyBinding,
         HotSideEnabled,
         DragRevealEnabled,
+        OpenBarMode,
+        OpenBarDrop,
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,

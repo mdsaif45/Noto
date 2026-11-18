@@ -177,6 +177,8 @@ public sealed partial class SettingsPage : UserControl
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
             HotSideSetting.IsOn = preferences.HotSide;
             DragRevealSetting.IsOn = preferences.DragReveal;
+            Select(OpenBarSetting, preferences.OpenBar.ToString());
+            OpenBarDropSetting.IsOn = preferences.OpenBarDrop;
             OpenLastFolderSetting.IsOn = preferences.OpenLastFolder;
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
@@ -325,6 +327,12 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnDragRevealToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetDragReveal(DragRevealSetting.IsOn));
+
+    private void OnOpenBarChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => OpenBarSetting.SelectedItem is not null && p.SetOpenBar(Selected<OpenBarMode>(OpenBarSetting)));
+
+    private void OnOpenBarDropToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetOpenBarDrop(OpenBarDropSetting.IsOn));
 
     private void OnOpenLastFolderToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetOpenLastFolder(OpenLastFolderSetting.IsOn));
