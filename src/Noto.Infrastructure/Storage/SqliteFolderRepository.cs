@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Noto.Core.Folders;
+using Noto.Core.Notes;
 using Noto.Core.Storage;
 
 namespace Noto.Infrastructure.Storage;
@@ -93,31 +94,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         try
         {
             using var connection = _database.OpenConnection();
-            using var command = connection.CreateCommand();
-
-            command.CommandText =
-                """
-                INSERT INTO Folders
-                    (Id, Name, ColorKey, IsPinned, IsCollapsed,
-                     SortOrder, CreatedAt, UpdatedAt, DeletedAt)
-                VALUES
-                    ($id, $name, $colorKey, $isPinned, $isCollapsed,
-                     $sortOrder, $createdAt, $updatedAt, $deletedAt);
-                """;
-
-            command.Parameters.AddWithValue("$id", folder.Id.Value);
-            command.Parameters.AddWithValue("$name", folder.Name);
-            command.Parameters.AddWithValue("$colorKey", (object?)folder.ColorKey ?? DBNull.Value);
-            command.Parameters.AddWithValue("$isPinned", folder.IsPinned ? 1 : 0);
-            command.Parameters.AddWithValue("$isCollapsed", folder.IsCollapsed ? 1 : 0);
-            command.Parameters.AddWithValue("$sortOrder", folder.SortOrder);
-            command.Parameters.AddWithValue("$createdAt", Timestamps.Format(folder.CreatedAt));
-            command.Parameters.AddWithValue("$updatedAt", Timestamps.Format(folder.UpdatedAt));
-            command.Parameters.AddWithValue(
-                "$deletedAt",
-                folder.DeletedAt is { } deletedAt ? Timestamps.Format(deletedAt) : DBNull.Value);
-
-            command.ExecuteNonQuery();
+            Insert(connection, null, folder, folder.SortOrder);
         }
         catch (SqliteException ex)
         {
@@ -126,6 +103,81 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
                 $"Could not insert folder '{folder.Id}'.",
                 ex);
         }
+    }
+
+    public void AddWithNotes(Folder folder, FolderPlacement placement, IReadOnlyList<Note> notes)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        ArgumentNullException.ThrowIfNull(notes);
+
+        try
+        {
+            using var connection = _database.OpenConnection();
+            using var transaction = connection.BeginTransaction();
+
+            // An anchor that is no longer an active folder cannot place it: the end instead, read in this transaction.
+            if (placement.AfterSibling is { } sibling && !IsActive(connection, transaction, sibling))
+            {
+                placement = FolderPlacement.Last;
+            }
+
+            double sortOrder = placement.AtEnd
+                ? (SortOrderEngine.MaxSortOrder(connection, SortOrderScope.AllFolders, transaction) is { } max ? max + 1 : 0)
+                : SortOrderEngine.ResolvePosition(connection, transaction, SortOrderScope.AllFolders, ToEnginePlacement(placement), folder.Id.Value, folder.UpdatedAt);
+
+            Insert(connection, transaction, folder, sortOrder);
+            foreach (Note note in notes)
+            {
+                SqliteNoteRepository.Insert(connection, transaction, note, note.SortOrder);
+            }
+
+            transaction.Commit();
+        }
+        catch (SqliteException ex)
+        {
+            throw new StorageException(
+                StorageFailure.Unknown,
+                $"Could not create folder '{folder.Id}' with its notes.",
+                ex);
+        }
+    }
+
+    private static void Insert(SqliteConnection connection, SqliteTransaction? transaction, Folder folder, double sortOrder)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO Folders
+                (Id, Name, ColorKey, IsPinned, IsCollapsed,
+                 SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+            VALUES
+                ($id, $name, $colorKey, $isPinned, $isCollapsed,
+                 $sortOrder, $createdAt, $updatedAt, $deletedAt);
+            """;
+
+        command.Parameters.AddWithValue("$id", folder.Id.Value);
+        command.Parameters.AddWithValue("$name", folder.Name);
+        command.Parameters.AddWithValue("$colorKey", (object?)folder.ColorKey ?? DBNull.Value);
+        command.Parameters.AddWithValue("$isPinned", folder.IsPinned ? 1 : 0);
+        command.Parameters.AddWithValue("$isCollapsed", folder.IsCollapsed ? 1 : 0);
+        command.Parameters.AddWithValue("$sortOrder", sortOrder);
+        command.Parameters.AddWithValue("$createdAt", Timestamps.Format(folder.CreatedAt));
+        command.Parameters.AddWithValue("$updatedAt", Timestamps.Format(folder.UpdatedAt));
+        command.Parameters.AddWithValue(
+            "$deletedAt",
+            folder.DeletedAt is { } deletedAt ? Timestamps.Format(deletedAt) : DBNull.Value);
+
+        command.ExecuteNonQuery();
+    }
+
+    private static bool IsActive(SqliteConnection connection, SqliteTransaction transaction, FolderId id)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT 1 FROM Folders WHERE Id = $id AND DeletedAt IS NULL;";
+        command.Parameters.AddWithValue("$id", id.Value);
+        return command.ExecuteScalar() is not null;
     }
 
     public void Rename(FolderId id, string name, DateTimeOffset updatedAt)

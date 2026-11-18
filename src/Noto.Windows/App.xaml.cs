@@ -796,6 +796,8 @@ public partial class App : Application
             .Register<CreateNote, CommandResult<NoteId>, NoteCreated>(
                 new CreateNoteHandler(notes, clock).Handle,
                 static (command, result) => new NoteCreated(result.Value, command.FolderId))
+            .Register<DuplicateNote, CommandResult<NoteId>>(new DuplicateNoteHandler(notes, clock).Handle)
+            .Register<DuplicateFolder, CommandResult<FolderId>>(new DuplicateFolderHandler(folders, notes, clock).Handle)
             .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(notes, clock).Handle)
             .Register<MoveNoteToFolder, CommandResult, NoteMoved>(
                 new MoveNoteToFolderHandler(notes, clock).Handle,

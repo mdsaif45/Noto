@@ -201,6 +201,29 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     }
 
     /// <summary>
+    /// Duplicates <paramref name="note"/> below it (B22, #232), saving and leaving the card being edited first, so the
+    /// copy holds what the user sees; a failed save copies nothing. Nothing edits afterwards: the copy is a card.
+    /// </summary>
+    public CommandResult<NoteId> Duplicate(NoteId note)
+    {
+        CommandResult left = EndEdit();
+
+        if (!left.IsSuccess)
+        {
+            return CommandResult.Failed<NoteId>(left.Failure!);
+        }
+
+        CommandResult<NoteId> copied = _commands.Dispatch(new DuplicateNote(note));
+
+        if (copied.IsSuccess)
+        {
+            Read();
+        }
+
+        return copied;
+    }
+
+    /// <summary>
     /// Moves <paramref name="note"/> to the recycle bin (B7). If it was being edited, its unsaved text goes with it,
     /// unsaved: the read that follows no longer finds it (<see cref="Read"/>).
     /// </summary>

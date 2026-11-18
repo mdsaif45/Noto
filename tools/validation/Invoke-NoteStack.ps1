@@ -82,6 +82,9 @@
     52  #193: entering Elsewhere, then Ctrl+Shift+O three times: Stack, Elsewhere, Stack (the history stored, most
         recent first); Shift+F10 on Back lists only Elsewhere and choosing it enters it; the chevron, named "Recent
         folders", lists only Stack; Ctrl+Shift+O from the editor with unsaved text saves it first, then switches
+    53  #232: the card menu's Duplicate puts a copy with the same text directly below the card, not pinned, nothing
+        editing, focus on a card of that name; Ctrl+Shift+D copies the focused card again; back on the folder list,
+        the folder menu's Duplicate makes "Stack copy" right after Stack, holding the same notes in the same order
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -894,6 +897,33 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Edit-Card 'Saved by switching'
     Set-EditorText 'Saved by Back'
     Send-ToNoto @() 0x1B
+
+    # 53 - #232: Duplicate from the card menu and Ctrl+Shift+D; Duplicate from the folder menu
+    $c = Cards | Where-Object { (Get-RowTitle $_.Current.Name) -like 'Filler *' -and -not $_.Current.IsOffscreen } | Select-Object -First 1
+    $name = Get-RowTitle $c.Current.Name; $id = IdOf $name; $before = ActiveCount
+    $c.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79   # Shift+F10
+    Choose 'Duplicate'
+    $copyId = [string](Sql $script:data 'SELECT Id FROM Notes WHERE Content = $c AND Id <> $n AND DeletedAt IS NULL' @{ '$c' = $name; '$n' = $id } -Scalar)
+    $ids = @(Sql-Rows 'SELECT Id FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder, Id' @{ '$f' = $FolderId })
+    $below = $copyId -ne '' -and $ids.IndexOf($id) -ge 0 -and $ids.IndexOf($id) + 1 -eq $ids.IndexOf($copyId)
+    $focus = Focused-Name; $editors = (Editors).Count
+    Add-Result $run '53 the card menu''s Duplicate: a copy with the same text directly below, not pinned, nothing editing, focus on it' ($below -and (ActiveCount) -eq $before + 1 -and (Stored $copyId) -eq $name -and (Flag $copyId 'IsPinned') -eq 0 -and $editors -eq 0 -and $focus -eq $name) "card=$name copy=$copyId below=$below notes=$before->$(ActiveCount) editors=$editors focus=$focus"
+    Send-ToNoto @(0x11, 0x10) 0x44   # Ctrl+Shift+D
+    $same = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE Content = $c AND DeletedAt IS NULL' @{ '$c' = $name } -Scalar)
+    Add-Result $run '53 Ctrl+Shift+D copies the focused card again' ($same -eq 3 -and (ActiveCount) -eq $before + 2 -and (Editors).Count -eq 0) "copies=$same notes=$(ActiveCount) editors=$((Editors).Count)"
+    (Find-ById 'BackButton').GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 800
+    $row = @((Find-ById 'FolderList').FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem))) | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Stack' } | Select-Object -First 1
+    $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $row.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79   # Shift+F10
+    Choose 'Duplicate'
+    $made = [string](Sql $script:data 'SELECT Id FROM Folders WHERE Name = $n AND DeletedAt IS NULL' @{ '$n' = 'Stack copy' } -Scalar)
+    $contents = 'SELECT Content FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL ORDER BY IsPinned DESC, SortOrder, Id'
+    $originalNotes = @(Sql-Rows $contents @{ '$f' = $FolderId }) -join '|'
+    $copiedNotes = if ($made) { @(Sql-Rows $contents @{ '$f' = $made }) -join '|' } else { '' }
+    $rows = Folder-Rows
+    Add-Result $run '53 the folder menu''s Duplicate: "Stack copy" right after Stack, the same notes in the same order, focus on it' ($made -ne '' -and (Folders-Named 'Stack copy') -eq 1 -and $copiedNotes -eq $originalNotes -and $rows.IndexOf('Stack copy') -eq $rows.IndexOf('Stack') + 1 -and (Focused-Name) -eq 'Stack copy') "made=$made rows=$($rows -join ',') same notes=$($copiedNotes -eq $originalNotes) count=$(@(Sql-Rows $contents @{ '$f' = $made }).Count) focus=$(Focused-Name)"
+    Enter-Folder
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

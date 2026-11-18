@@ -46,6 +46,7 @@ public sealed class NoteStackSessionTests : IDisposable
                 .Register<UpdateNoteContent, CommandResult>(new UpdateNoteContentHandler(_notes, _clock).Handle)
                 .Register<CreateNote, CommandResult<NoteId>>(new CreateNoteHandler(_notes, _clock).Handle)
                 .Register<DeleteNote, CommandResult>(new DeleteNoteHandler(_notes, _clock).Handle)
+                .Register<DuplicateNote, CommandResult<NoteId>>(new DuplicateNoteHandler(_notes, _clock).Handle)
                 .Register<SetNoteMode, CommandResult>(new SetNoteModeHandler(_notes, _clock).Handle)
                 .Register<MoveNoteToFolder, CommandResult, NoteMoved>(
                     new MoveNoteToFolderHandler(_notes, _clock).Handle,
@@ -243,6 +244,36 @@ public sealed class NoteStackSessionTests : IDisposable
         Sql("DROP TRIGGER inject;");
         Assert.True(_stack.EndEdit().IsSuccess);
         Assert.Equal("typed", Stored(_a));
+    }
+
+    [Fact]
+    public void Duplicating_saves_and_leaves_the_card_being_edited_first_and_the_copy_holds_what_was_typed()
+    {
+        // #232: the copy is of what the user sees, below the original, and nothing edits afterwards.
+        Assert.True(_stack.BeginEdit(_a).IsSuccess);
+        _stack.UpdateDraft(_a, "typed");
+
+        CommandResult<NoteId> copy = _stack.Duplicate(_a);
+
+        Assert.True(copy.IsSuccess);
+        Assert.Null(_stack.Editing);
+        Assert.Equal("typed", Stored(_a));
+        Assert.Equal([_a, copy.Value, _b, _c], _stack.Notes.Select(n => n.Id));
+        Assert.Equal("typed", _stack.Notes[1].Content);
+    }
+
+    [Fact]
+    public void A_failed_save_duplicates_nothing_and_keeps_editing()
+    {
+        Assert.True(_stack.BeginEdit(_a).IsSuccess);
+        _stack.UpdateDraft(_a, "typed");
+        Sql("UPDATE Notes SET DeletedAt = '2026-11-02T09:00:00.0000000+00:00' WHERE Id = $p;", _a.Value);
+
+        Assert.False(_stack.Duplicate(_a).IsSuccess);
+
+        Assert.Equal(_a, _stack.Editing);
+        Assert.Equal("typed", _stack.Draft);
+        Assert.Equal(3, Count("SELECT COUNT(*) FROM Notes;"));
     }
 
     [Fact]

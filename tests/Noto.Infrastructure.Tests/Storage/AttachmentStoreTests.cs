@@ -183,6 +183,29 @@ public sealed class AttachmentStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_picture_a_duplicate_shares_is_kept_while_any_note_refers_to_it()
+    {
+        // #232: a duplicated note names the same file, not a copy. Purging the original leaves the copy's reference, so
+        // the sweep keeps the file; purging the copy too lets it go.
+        using var db = new FolderTestContext();
+        var folder = db.SeedFolder();
+        string reference = _store.Keep(Png, "png").Reference!;
+        File.SetLastWriteTimeUtc(_store.PathOf(reference)!, DateTime.UtcNow - AttachmentStore.SweepGrace - TimeSpan.FromDays(1));
+        var original = new Noto.UseCases.Notes.CreateNoteHandler(db.Notes, db.Clock).Handle(new Noto.UseCases.Notes.CreateNote(folder, $"pic\n![p]({reference})")).Value;
+        var copy = new Noto.UseCases.Notes.DuplicateNoteHandler(db.Notes, db.Clock).Handle(new Noto.UseCases.Notes.DuplicateNote(original)).Value;
+
+        db.Notes.SoftDelete(original, db.Clock.UtcNow);
+        Assert.True(db.Notes.Purge(original));
+        Assert.Equal(0, _store.SweepUnreferenced(db.Database, DateTimeOffset.UtcNow));
+        Assert.NotNull(_store.PathOf(reference));
+
+        db.Notes.SoftDelete(copy, db.Clock.UtcNow);
+        Assert.True(db.Notes.Purge(copy));
+        Assert.Equal(1, _store.SweepUnreferenced(db.Database, DateTimeOffset.UtcNow));
+        Assert.Null(_store.PathOf(reference));
+    }
+
+    [Fact]
     public void Every_note_counts_for_the_sweep_binned_ones_too()
     {
         using var db = new FolderTestContext();
