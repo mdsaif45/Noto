@@ -151,7 +151,7 @@ public sealed class ImageGuardTests
         Assert.Contains("_menuPicture = Images?.PathOf(ImageReference.At(_document, at));", opening, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetName(_copyPicture, \"Copy picture\");", opening, StringComparison.Ordinal);
         // The menu is shared by every text control: each editor takes its own item out, and only the target decides.
-        Assert.Matches(@"_ = menu\.SecondaryCommands\.Remove\(_copyPicture\);\s*\}\s*if \(!ReferenceEquals\(menu\.Target, NoteEditor\)\)\s*\{\s*return;", opening);
+        Assert.Matches(@"_ = menu\.SecondaryCommands\.Remove\(_copyPicture\);\s*_ = menu\.SecondaryCommands\.Remove\(_savePicture\);\s*\}\s*if \(!ReferenceEquals\(menu\.Target, NoteEditor\)\)\s*\{\s*return;", opening);
         Assert.Matches(@"if \(_menuPicture is not null\)\s*\{\s*menu\.SecondaryCommands\.Insert\(0, _copyPicture\);", opening);
 
         // Ctrl+C or Copy with only the picture selected (Core's ImageReference.Selected): its source text and the picture.
@@ -166,6 +166,29 @@ public sealed class ImageGuardTests
         Assert.DoesNotContain("BitmapEncoder", copy, StringComparison.Ordinal);
         Assert.Contains("Clipboard.SetContent(package);", copy, StringComparison.Ordinal);
         Assert.Equal(2, Regex.Count(copy, @"ImageNotice\?\.Invoke\(this, "));
+    }
+
+    [Fact]
+    public void A_picture_is_saved_as_its_kept_file_from_the_same_menu_through_a_picker_owned_by_the_window()
+    {
+        // D33 (#235): beside Copy picture, on the same picture's line and the same menu target; the picker can't be
+        // driven by the harness, so this is its check.
+        string opening = Body(Images, "OnEditorMenuOpening");
+        Assert.Contains("_menuPictureName = ImageReference.SaveNameAt(_document, at);", opening, StringComparison.Ordinal);
+        Assert.Contains("_savePicture = new AppBarButton { Label = \"Save picture as…\", Icon = new SymbolIcon(Symbol.Save) };", opening, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(_savePicture, \"Save picture as\");", opening, StringComparison.Ordinal);
+        Assert.Matches(@"if \(_menuPicture is \{ \} path\)\s*\{\s*SavePicture\(path, _menuPictureName\);", opening);
+        Assert.Matches(@"menu\.SecondaryCommands\.Insert\(0, _copyPicture\);\s*menu\.SecondaryCommands\.Insert\(1, _savePicture\);", opening);
+
+        // The caption as the name, the file's own type, the window's handle as an unpackaged app's picker needs; the kept
+        // file copied byte for byte; cancelling does nothing; a failure said through the editor's image notice.
+        string save = Body(Images, "SavePicture");
+        Assert.Contains("SuggestedFileName = name ?? Path.GetFileNameWithoutExtension(path),", save, StringComparison.Ordinal);
+        Assert.Contains("picker.FileTypeChoices.Add(type.TrimStart('.').ToUpperInvariant() + \" image\", [type]);", save, StringComparison.Ordinal);
+        Assert.Contains("InitializeWithWindow.Initialize(picker, Win32Interop.GetWindowFromWindowId(XamlRoot.ContentIslandEnvironment.AppWindowId));", save, StringComparison.Ordinal);
+        Assert.Matches(@"if \(await picker\.PickSaveFileAsync\(\) is \{ \} destination\)\s*\{\s*StorageFile picture = await StorageFile\.GetFileFromPathAsync\(path\);\s*await picture\.CopyAndReplaceAsync\(destination\);", save);
+        Assert.DoesNotContain("BitmapEncoder", save, StringComparison.Ordinal);
+        Assert.Contains("ImageNotice?.Invoke(this, \"The picture couldn't be saved.\");", save, StringComparison.Ordinal);
     }
 
     private static string Code(string path) => Regex.Replace(File.ReadAllText(path), @"^\s*//.*$", string.Empty, RegexOptions.Multiline);
