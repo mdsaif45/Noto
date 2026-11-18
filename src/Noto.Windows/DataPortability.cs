@@ -55,17 +55,28 @@ internal sealed class DataPortability(
     /// </summary>
     public DateTimeOffset? NewestAutomaticBackup { get; private set; }
 
+    /// <summary>The backup folder setting <see cref="NewestAutomaticBackup"/> was read for (#233): another folder is read again.</summary>
+    private string? _newestFor;
+
     /// <summary>
-    /// Takes an automatic backup into the data root's backups when one is due at <paramref name="frequency"/>, then
-    /// removes the automatic backups past the seven newest (F15, #15). Nothing is done while another backup, restore,
-    /// export or import runs: the next check takes it. Once the backups have been read, a check with nothing due is a
-    /// comparison with the clock and reads nothing (#199).
+    /// The chosen backup folder the last automatic backup could not go to, so it went to the data root's backups
+    /// (#233); <see langword="null"/> once one has gone where it should. Settings says so while it is still the one chosen.
+    /// </summary>
+    public string? UnavailableBackupFolder { get; private set; }
+
+    /// <summary>
+    /// Takes an automatic backup into <paramref name="folder"/> (the stored backup folder: empty for the data root's
+    /// backups, #233) when one is due at <paramref name="frequency"/>, then removes the automatic backups there past the
+    /// seven newest (F15, #15). A chosen folder that is gone or cannot be written falls back to the data root's backups
+    /// (<see cref="AutomaticBackupWriter"/>). Nothing is done while another backup, restore, export or import runs: the
+    /// next check takes it. Once a folder's backups have been read, a check with nothing due is a comparison with the
+    /// clock and reads nothing (#199); a changed folder is read again, so a folder with none has one due.
     /// </summary>
     /// <returns>Whether a backup was written.</returns>
     /// <exception cref="PortabilityException">The backup could not be taken or written: nothing was written.</exception>
-    public async Task<bool> BackupIfDue(BackupFrequency frequency)
+    public async Task<bool> BackupIfDue(BackupFrequency frequency, string folder)
     {
-        if (NewestAutomaticBackup is { } known && !AutomaticBackups.IsDue(known, TimeProvider.System.GetLocalNow(), frequency))
+        if (_newestFor == folder && NewestAutomaticBackup is { } known && !AutomaticBackups.IsDue(known, TimeProvider.System.GetLocalNow(), frequency))
         {
             return false;
         }
@@ -77,38 +88,14 @@ internal sealed class DataPortability(
 
         try
         {
-            (bool written, NewestAutomaticBackup) = await Run(() =>
+            AutomaticBackupCheck check = await Run(() => AutomaticBackupWriter.BackupIfDue(database, paths, folder, frequency, AppVersion, TimeProvider.System));
+            (NewestAutomaticBackup, _newestFor) = (check.Newest, folder);
+            if (check.Written)
             {
-                string directory = paths.BackupsDirectory;
-                Directory.CreateDirectory(directory);
-                var names = Directory.EnumerateFiles(directory).Select(f => Path.GetFileName(f)).ToList();
-                DateTimeOffset now = TimeProvider.System.GetLocalNow();
-                DateTimeOffset? newest = names.Select(AutomaticBackups.TakenAt).Max();
+                UnavailableBackupFolder = check.FellBack ? folder : null;
+            }
 
-                if (!AutomaticBackups.IsDue(newest, now, frequency))
-                {
-                    return (false, newest);
-                }
-
-                string name = AutomaticBackups.FileName(now);
-                BackupWriter.Create(database, paths.AttachmentsDirectory, Path.Join(directory, name), AppVersion, TimeProvider.System);
-
-                foreach (string expired in AutomaticBackups.Expired([.. names, name]))
-                {
-                    try
-                    {
-                        File.Delete(Path.Join(directory, expired));
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    {
-                        // Kept for now (open elsewhere, say): the next backup prunes it.
-                    }
-                }
-
-                return (true, AutomaticBackups.TakenAt(name));
-            });
-
-            return written;
+            return check.Written;
         }
         catch (InvalidOperationException)
         {
@@ -116,6 +103,12 @@ internal sealed class DataPortability(
             return false;
         }
     }
+
+    /// <summary>
+    /// What to store for a folder the user picked as the backup folder (#233); <see langword="null"/> when it is inside
+    /// the data root, other than its own backups (which is the default).
+    /// </summary>
+    public string? BackupFolderFor(string picked) => AutomaticBackups.FolderFor(picked, paths.Root, paths.BackupsDirectory);
 
     /// <summary>
     /// Windows' save dialog creates the file it returns (measured: a cancelled backup left an empty one). A backup that
@@ -189,9 +182,23 @@ internal sealed class DataPortability(
         return (await picker.PickSaveFileAsync())?.Path;
     }
 
-    /// <summary>Asks for a backup to restore; <see langword="null"/> when the user cancels.</summary>
-    public async Task<string?> PickBackup()
+    /// <summary>
+    /// Asks for a backup to restore; <see langword="null"/> when the user cancels. While a chosen backup folder is there
+    /// (#233), it opens in it, where the automatic backups are: Windows App SDK's picker, since Windows' own can only
+    /// start in a known location. Otherwise Windows' own, in Documents, as before.
+    /// </summary>
+    public async Task<string?> PickBackup(string backupFolder)
     {
+        if (backupFolder.Length > 0 && Directory.Exists(backupFolder))
+        {
+            var inFolder = new Microsoft.Windows.Storage.Pickers.FileOpenPicker(Microsoft.UI.Win32Interop.GetWindowIdFromWindow(window()))
+            {
+                SuggestedFolder = backupFolder,
+            };
+            inFolder.FileTypeFilter.Add(BackupManifest.Extension);
+            return (await inFolder.PickSingleFileAsync())?.Path;
+        }
+
         var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
         picker.FileTypeFilter.Add(BackupManifest.Extension);
         InitializeWithWindow.Initialize(picker, window());

@@ -3,6 +3,7 @@ using Noto.Core.Diagnostics;
 using Noto.Core.Folders;
 using Noto.Core.Links;
 using Noto.Core.Notes;
+using AutomaticBackups = Noto.Core.Portability.AutomaticBackups;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
 using Frequency = Noto.Core.Portability.BackupFrequency;
@@ -419,6 +420,18 @@ public static class SettingKeys
         new("backup.frequency", Frequency.Daily, Enum.IsDefined);
 
     /// <summary>
+    /// The folder automatic backups go to (#233; parity I11, J39): empty for the data root's backups, or an absolute
+    /// path the user chose, OneDrive's say.
+    /// </summary>
+    /// <remarks>
+    /// Default empty, where Noto has always written them. A path not in its normal form is refused when written and
+    /// reads as the default (<see cref="AutomaticBackups.IsFolder"/>); one inside the data root is refused before it is
+    /// written (<see cref="AutomaticBackups.FolderFor"/>). A change applies at once: the next check reads the new folder.
+    /// </remarks>
+    public static readonly SettingKey<string> BackupFolder =
+        new("backup.folder", AutomaticBackups.DefaultFolder, AutomaticBackups.IsFolder);
+
+    /// <summary>
     /// Where a new note goes in its folder (parity B5, J8): Bottom, Top, AboveSelected or BelowSelected.
     /// </summary>
     /// <remarks>
@@ -517,6 +530,7 @@ public static class SettingKeys
         EditorPasteCodeBlock,
         BackupAutomatic,
         BackupFrequency,
+        BackupFolder,
         NotesNewPlacement,
         NotesNewMode,
         NotesRecentMoveFolders,

@@ -39,6 +39,7 @@ public sealed class SettingsSurfaceGuardTests
             ("AppearanceNoteColorStyle", @"_main\.ApplyNoteColorStyle\(preferences\.NoteColorStyle\)"),
             ("BackupAutomatic", @"_ = CheckAutomaticBackup\(\)"),
             ("BackupFrequency", @"_ = CheckAutomaticBackup\(\)"),
+            ("BackupFolder", @"_ = CheckAutomaticBackup\(\)"),
             ("EditorFormatToolbar", @"NoteEditorHost\.ShowsFormatToolbar = preferences\.FormatToolbar"),
             ("EditorPasteCodeBlock", @"NoteEditorHost\.PastesCodeBlock = preferences\.PasteCodeBlock"),
             ("EditorFileLinks", @"_main\.ApplyFileLinks\(preferences\.FileLinks\)"),
@@ -104,7 +105,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(24, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(26, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -411,9 +412,9 @@ public sealed class SettingsSurfaceGuardTests
         // often, #199; the formatting toolbar, F8; pasting code as a code block, D39 (#187); the new-note shortcut and its
         // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188, and what it is, #195; change
         // side's and keep open's, #198), the Data group's Back up, Restore, Export, Import and their progress line
-        // (ADR-020), Help's Welcome tour (ADR-021), opening the last folder at start (#193), and file links and the two
-        // Importing choices (#196).
-        Assert.Equal(38, rows.Count);
+        // (ADR-020), Help's Welcome tour (ADR-021), opening the last folder at start (#193), file links and the two
+        // Importing choices (#196), and the backup folder (#233).
+        Assert.Equal(39, rows.Count);
 
         foreach (XElement row in rows)
         {
@@ -490,6 +491,43 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Contains("BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;", shown, StringComparison.Ordinal);
         Assert.Contains("BackupFrequencySetting.IsEnabled = _context.Preferences.AutomaticBackups;", Body(Page, "OnAutomaticBackupToggled"), StringComparison.Ordinal);
         Assert.Contains("p.SetBackupFrequency(Selected<BackupFrequency>(BackupFrequencySetting))", Page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_backup_folder_is_chosen_with_a_folder_picker_and_can_be_set_back_to_the_default()
+    {
+        // #233 (I11, J39): the row follows How often; the path (or the default, in words) is its description, Change...
+        // picks a folder, a folder inside the data folder is refused before anything is written, and Use the default
+        // shows only while a folder is chosen, handing focus to Change... as it goes. Both write through the one setter;
+        // the owner reads the new folder at once (the first test).
+        XElement frequency = Named(PageXaml, "BackupFrequencySetting");
+        XElement change = Named(PageXaml, "BackupFolderButton");
+        XElement reset = Named(PageXaml, "DefaultBackupFolderButton");
+        var rows = frequency.Parent!.Parent!.Elements().ToList();
+
+        Assert.Equal(rows.IndexOf(frequency.Parent!) + 1, rows.IndexOf(change.Parent!));
+        Assert.Equal("Change the backup folder", (string?)change.Attribute("AutomationProperties.Name"));
+        Assert.Equal("OnBackupFolderClick", (string?)change.Attribute("Click"));
+        Assert.Same(change.Parent, reset.Parent!.Parent);
+        Assert.Equal("Collapsed", (string?)reset.Attribute("Visibility"));
+        Assert.Equal("Back up into Noto's data folder", (string?)reset.Attribute("AutomationProperties.Name"));
+        Assert.Equal("{StaticResource SettingDescriptionStyle}", (string?)Named(PageXaml, "BackupFolderText").Attribute("Style"));
+
+        Assert.Contains("ShowBackupFolder(preferences.BackupFolder);", Body(Page, "ShowStored"), StringComparison.Ordinal);
+        string shown = Body(Page, "ShowBackupFolder");
+        Assert.Contains("BackupFolderText.Text = chosen ? folder : \"In Noto's data folder\";", shown, StringComparison.Ordinal);
+        Assert.Contains("DefaultBackupFolderButton.Visibility = chosen ? Visibility.Visible : Visibility.Collapsed;", shown, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(BackupFolderButton,", shown, StringComparison.Ordinal);
+
+        string pick = Body(Page, "OnBackupFolderClick");
+        int picked = pick.IndexOf("await _context.Portability.PickFolder()", StringComparison.Ordinal);
+        int checkedAt = pick.IndexOf("_context.Portability.BackupFolderFor(picked) is not { } folder", StringComparison.Ordinal);
+        int written = pick.IndexOf("Write(p => p.SetBackupFolder(folder));", StringComparison.Ordinal);
+        Assert.True(picked > 0 && picked < checkedAt && checkedAt < written, $"picked {picked}, checked {checkedAt}, written {written}");
+
+        string reverted = Body(Page, "OnDefaultBackupFolderClick");
+        Assert.Contains("Write(p => p.SetBackupFolder(AutomaticBackups.DefaultFolder));", reverted, StringComparison.Ordinal);
+        Assert.Contains("_ = BackupFolderButton.Focus(FocusState.Programmatic);", reverted, StringComparison.Ordinal);
     }
 
     [Fact]

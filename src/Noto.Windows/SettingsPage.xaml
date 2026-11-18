@@ -867,7 +867,7 @@
                                     AutomationProperties.Name="Back up everything to a file" />
                             </Grid>
 
-                            <!-- F15 (#15): automatic backups, the last seven kept, into the data folder's backups. -->
+                            <!-- F15 (#15): automatic backups, the last seven kept, into the backup folder (#233). -->
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -875,7 +875,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
                                     <TextBlock Text="Back up automatically" Style="{StaticResource SettingLabelStyle}" />
-                                    <TextBlock Text="Into the data folder's backups. The last 7 are kept." Style="{StaticResource SettingDescriptionStyle}" />
+                                    <TextBlock Text="Into the backup folder. The last 7 are kept." Style="{StaticResource SettingDescriptionStyle}" />
                                 </StackPanel>
                                 <ToggleSwitch
                                     x:Name="AutomaticBackupSetting"
@@ -883,7 +883,7 @@
                                     Style="{StaticResource SettingToggleSwitchStyle}"
                                     Toggled="OnAutomaticBackupToggled"
                                     AutomationProperties.Name="Back up automatically"
-                                    AutomationProperties.HelpText="Into the data folder's backups. The last 7 are kept." />
+                                    AutomationProperties.HelpText="Into the backup folder. The last 7 are kept." />
                             </Grid>
 
                             <!-- #199 (I8, J38): how often; off, like a shortcut's recorder, while automatic backup is off. -->
@@ -906,6 +906,39 @@
                                     <ComboBoxItem Content="Every 30 minutes" Tag="Every30Minutes" />
                                     <ComboBoxItem Content="Every 15 minutes" Tag="Every15Minutes" />
                                 </ComboBox>
+                            </Grid>
+
+                            <!--
+                                #233 (I11, J39): where automatic backups go, the data folder's backups or a folder the user
+                                picks; the path is the description, and Use the default shows only while one is chosen.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Backup folder" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="BackupFolderText"
+                                        Style="{StaticResource SettingDescriptionStyle}" />
+                                    <Button
+                                        x:Name="DefaultBackupFolderButton"
+                                        Style="{StaticResource SettingSubtleButtonStyle}"
+                                        Content="Use the default"
+                                        Visibility="Collapsed"
+                                        Click="OnDefaultBackupFolderClick"
+                                        AutomationProperties.Name="Back up into Noto's data folder" />
+                                </StackPanel>
+                                <Button
+                                    x:Name="BackupFolderButton"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource SettingButtonStyle}"
+                                    Content="Change…"
+                                    Click="OnBackupFolderClick"
+                                    AutomationProperties.Name="Change the backup folder" />
                             </Grid>
 
                             <Grid Style="{StaticResource SettingRowStyle}">

@@ -86,6 +86,46 @@ public sealed class PortabilityGuardTests
     }
 
     [Fact]
+    public void Automatic_backups_go_to_the_chosen_folder_read_again_when_it_changes_and_a_fall_back_is_said()
+    {
+        // #233: the stored folder reaches the writer (whose folders, pruning and fall-back are tested in Infrastructure);
+        // the newest-backup cache holds for the folder it was read from only, so a new folder is read and one with none
+        // has a backup due; a backup that fell back is traced apart and said in Settings while that folder is chosen.
+        string due = Body(Portability, "BackupIfDue");
+        Assert.Contains("AutomaticBackupWriter.BackupIfDue(database, paths, folder, frequency, AppVersion, TimeProvider.System)", due, StringComparison.Ordinal);
+        Assert.Contains("(NewestAutomaticBackup, _newestFor) = (check.Newest, folder);", due, StringComparison.Ordinal);
+        Assert.Matches(@"if \(check\.Written\)\s*\{\s*UnavailableBackupFolder = check\.FellBack \? folder : null;", due);
+        Assert.Contains("AutomaticBackups.FolderFor(picked, paths.Root, paths.BackupsDirectory)", Portability, StringComparison.Ordinal);
+
+        string check = Body(App, "BackupIfDue");
+        Assert.Contains("string folder = preferences.BackupFolder;", check, StringComparison.Ordinal);
+        Assert.Contains("\"Noto.Backup automatic written fell-back=default\"", check, StringComparison.Ordinal);
+
+        string show = Body(Code(Path.Join(Windows, "SettingsPage.xaml.cs")), "Show");
+        Assert.Contains("ShowNotice(folder.Length > 0 && context.Portability.UnavailableBackupFolder == folder ? BackupFolderUnavailable : null);", show, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Restore_opens_in_the_chosen_backup_folder_while_it_is_there_and_a_manual_backup_still_asks_where()
+    {
+        // #233: Windows' own open picker can only start in a known location, so the Windows App SDK's opens in the chosen
+        // folder; with none chosen, or one that is gone, the picker is Windows' own in Documents, as before.
+        string restore = Data[Index(Data, "private async void OnRestoreClick")..Index(Data, "private async void OnExportClick")];
+        Assert.Contains("data.PickBackup(_context!.Preferences.BackupFolder)", restore, StringComparison.Ordinal);
+
+        string pick = Body(Portability, "PickBackup");
+        Assert.Contains("if (backupFolder.Length > 0 && Directory.Exists(backupFolder))", pick, StringComparison.Ordinal);
+        Assert.Contains("new Microsoft.Windows.Storage.Pickers.FileOpenPicker(Microsoft.UI.Win32Interop.GetWindowIdFromWindow(window()))", pick, StringComparison.Ordinal);
+        Assert.Contains("SuggestedFolder = backupFolder,", pick, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Count(pick, Regex.Escape("FileTypeFilter.Add(BackupManifest.Extension);")));
+        Assert.Contains("SuggestedStartLocation = PickerLocationId.DocumentsLibrary", pick, StringComparison.Ordinal);
+
+        // Back up... is unchanged: the save picker, wherever the user chooses.
+        Assert.Contains("if (await data.PickBackupDestination() is not { } file)", Data, StringComparison.Ordinal);
+        Assert.DoesNotContain("BackupFolder", Body(Portability, "PickBackupDestination"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Results_are_said_politely_and_failures_assertively()
     {
         XDocument settings = XDocument.Load(Path.Join(Windows, "SettingsPage.xaml"));
