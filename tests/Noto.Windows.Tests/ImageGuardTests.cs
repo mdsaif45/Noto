@@ -100,7 +100,7 @@ public sealed class ImageGuardTests
         string place = Body(Images, "PlaceImages");
         Assert.Matches(@"ImageMarks\.Children\.Clear\(\);\s*if \(_showMarkup \|\| Images is null\)\s*\{\s*return;", place);
         Assert.Contains("AutomationProperties.SetAccessibilityView(element, AccessibilityView.Raw);", place, StringComparison.Ordinal);
-        Assert.Contains("rect.Bottom - height - ImageGap + top", place, StringComparison.Ordinal);
+        Assert.Contains("rect.Bottom - after - height - ImageGap + top", place, StringComparison.Ordinal);   // the paragraph spacing below it (#234)
 
         // The size is the store's file's and Core's fit; decoded at the drawn width, never at full resolution.
         string files = Code(Path.Join(Windows, "ImageFiles.cs"));

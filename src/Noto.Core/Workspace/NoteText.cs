@@ -2,7 +2,7 @@ namespace Noto.Core.Workspace;
 
 /// <summary>
 /// The note text's font and size (F13, #154; parity D47, D48, D51, G41, G42, J12, J13): what may be stored, and the
-/// steps the size shortcuts take.
+/// steps the size shortcuts take; and what its line height and paragraph spacing measure (#234).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -45,4 +45,34 @@ public static class NoteText
         < 0 => Sizes.LastOrDefault(s => s < size, Sizes[0]),
         _ => size,
     };
+
+    /// <summary>
+    /// A line's height as a multiple of its text's size (#234; D49, J14): 1.15 Compact, 1.5 Relaxed, and 0 for
+    /// Normal, which keeps the font's own line height, Noto's look before the setting. A heading's lines take the
+    /// multiple of the heading's size, so it is never cut.
+    /// </summary>
+    /// <remarks>
+    /// A multiple of the size, not of the font's own height, so the editor (RichEdit's exact line spacing) and the read
+    /// view (a block's line height) draw the same lines from the same number. Most families' own height is about 1.2 to
+    /// 1.35 of their size, so Compact is tighter and Relaxed looser than Normal.
+    /// </remarks>
+    public static double LineHeight(TextSpacing spacing) => spacing switch
+    {
+        TextSpacing.Compact => 1.15,
+        TextSpacing.Relaxed => 1.5,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// The space after each paragraph, in DIPs, at the note text's <paramref name="size"/> (#234; D50, J15): half the
+    /// size Relaxed, none otherwise. Normal had none before the setting: what Compact takes away from it is a heading's
+    /// space above (<see cref="SpacesHeadings"/>).
+    /// </summary>
+    public static double SpaceAfter(TextSpacing spacing, double size) => spacing == TextSpacing.Relaxed ? size / 2 : 0;
+
+    /// <summary>
+    /// Whether a heading that is not the note's first line keeps its space above, which separates sections in the
+    /// editor (#234): every preset but Compact, which spaces nothing.
+    /// </summary>
+    public static bool SpacesHeadings(TextSpacing spacing) => spacing != TextSpacing.Compact;
 }

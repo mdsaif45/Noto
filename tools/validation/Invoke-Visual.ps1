@@ -24,6 +24,8 @@
     17  per theme: Settings' Note colour style set to Bar (#191), live: the coloured card's fill is an uncoloured card's,
         its leading edge keeps the colour's marker, and its help text still names the colour; back to Background, it is
         tinted again
+    18  per theme: Settings' Line height set to Relaxed (#234), live, makes a multi-line card taller, and Normal gives back
+        the height it had with nothing stored (the look before the setting); the same for Paragraph spacing
     16  per theme: a #rrggbb code (F14, #155) shows a swatch of its colour, and UI Automation reads the card's text as
         written, with no object character for the swatch
     14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
@@ -335,17 +337,19 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
             $p = $all | Where-Object { (Get-RowTitle $_.Current.Name) -ne 'Project plan' -and -not $_.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } | Select-Object -First 1
             [pscustomobject]@{ Blue = $b; Plain = $p }
         }
-        function Set-ColourStyle([string] $Name) {
+        function Set-Choice([string] $Id, [string] $Name) {
+            <# Chooses $Name in the Settings drop-down $Id, then goes back to the stack. #>
             Send-ToNoto @(0x11) 0xBC 1400   # Ctrl+,
-            $box = Find-ById 'NoteColorStyleSetting'
+            $box = Find-ById $Id
             $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 500
             $item = $AE::RootElement.FindFirst($Scope::Descendants, [System.Windows.Automation.AndCondition]::new([System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, $Name), [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem), [System.Windows.Automation.PropertyCondition]::new($AE::ProcessIdProperty, $script:noto.Pid)))
-            if (-not $item) { throw "no '$Name' in NoteColorStyleSetting" }
+            if (-not $item) { throw "no '$Name' in $Id" }
             $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); Start-Sleep -Milliseconds 300
             try { $box.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { }
             Start-Sleep -Milliseconds 400
             Send-ToNoto @() 0x1B 900   # back to the stack
         }
+        function Set-ColourStyle([string] $Name) { Set-Choice 'NoteColorStyleSetting' $Name }
         function Stored-Style { Get-NotoScalar $run -Exe $NotoExe -DataRoot $script:data -Sql 'SELECT Value FROM Settings WHERE Key = $k' -Parameters @{ '$k' = 'appearance.note-color-style' } }
         $band = [int](12 * $scale)   # the marker sits 4 to 8 DIP in from the card's leading edge
         Set-ColourStyle 'Bar'
@@ -360,6 +364,21 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $barSame = $barBlue -and $barPlain -and (Distance $barBlue.Fill $barPlain.Fill) -le 2
         $tintedAgain = $backBlue -and $backPlain -and (Distance $backBlue $backPlain) -ge 6
         Add-Result $run "17 ${theme}: in the Bar style a coloured card has an uncoloured card's fill and keeps its marker; Background tints it again" ($barSame -and $marker -ge 20 -and $help -match 'Blue' -and $tintedAgain -and $storedBar -eq 'Bar' -and (Stored-Style) -eq 'Background') "bar: blue fill=$(if ($barBlue) { $barBlue.Fill.Name }) plain fill=$(if ($barPlain) { $barPlain.Fill.Name }) marker px=$marker help='$help' stored=$storedBar; background: blue fill=$(if ($backBlue) { $backBlue.Name }) plain fill=$(if ($backPlain) { $backPlain.Name })"
+
+        # 18 - #234: Relaxed line height, chosen in Settings and applied live, makes a multi-line card taller; Normal
+        # gives back the height it had with nothing stored (the look before the setting); Relaxed paragraph spacing too
+        function Sync-Height {
+            Start-Sleep -Milliseconds 400
+            $card = Items (Find-ById 'NoteList') | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Weekly sync' } | Select-Object -First 1
+            if ($card) { [int]$card.Current.BoundingRectangle.Height } else { 0 }
+        }
+        function Stored([string] $Key) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $script:data -Sql 'SELECT Value FROM Settings WHERE Key = $k' -Parameters @{ '$k' = $Key } }
+        $today = Sync-Height
+        Set-Choice 'LineHeightSetting' 'Relaxed'; $relaxed = Sync-Height; $storedRelaxed = Stored 'appearance.line-height'
+        Set-Choice 'LineHeightSetting' 'Normal'; $normal = Sync-Height
+        Set-Choice 'ParagraphSpacingSetting' 'Relaxed'; $spaced = Sync-Height; $storedSpaced = Stored 'appearance.paragraph-spacing'
+        Set-Choice 'ParagraphSpacingSetting' 'Normal'; $unspaced = Sync-Height
+        Add-Result $run "18 ${theme}: Relaxed line height and Relaxed paragraph spacing each make a multi-line card taller, live; Normal gives back today's height" ($today -gt 0 -and $relaxed -gt $today + 4 -and [Math]::Abs($normal - $today) -le 1 -and $spaced -gt $today + 4 -and [Math]::Abs($unspaced - $today) -le 1 -and $storedRelaxed -eq 'Relaxed' -and $storedSpaced -eq 'Relaxed' -and (Stored 'appearance.line-height') -eq 'Normal' -and (Stored 'appearance.paragraph-spacing') -eq 'Normal') "today=$today line relaxed=$relaxed normal=$normal; paragraphs relaxed=$spaced normal=$unspaced; stored=$storedRelaxed/$storedSpaced"
         $cards = Items (Find-ById 'NoteList')
 
         # 4 - type hierarchy

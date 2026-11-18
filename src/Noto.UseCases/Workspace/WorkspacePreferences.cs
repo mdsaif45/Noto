@@ -83,6 +83,12 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The size notes are shown in, in DIPs (F13, D48).</summary>
     public double NoteSize => _settings.Read(SettingKeys.AppearanceNoteSize);
 
+    /// <summary>The note text's line height (#234, D49).</summary>
+    public TextSpacing LineHeight => _settings.Read(SettingKeys.AppearanceLineHeight);
+
+    /// <summary>The note text's paragraph spacing (#234, D50).</summary>
+    public TextSpacing ParagraphSpacing => _settings.Read(SettingKeys.AppearanceParagraphSpacing);
+
     /// <summary>How a coloured card shows its colour: tinted with a bar, or the bar only (#191, F10).</summary>
     public NoteColorStyle NoteColorStyle => _settings.Read(SettingKeys.AppearanceNoteColorStyle);
 
@@ -273,6 +279,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the size notes are shown in.</summary>
     /// <returns>Whether it was kept: a size outside <see cref="NoteText.Sizes"/> is refused.</returns>
     public bool SetNoteSize(double size) => TryWrite(SettingKeys.AppearanceNoteSize, size);
+
+    /// <summary>Sets the note text's line height (#234).</summary>
+    /// <returns>Whether it was kept: a value that is not a preset is refused.</returns>
+    public bool SetLineHeight(TextSpacing spacing) => TryWrite(SettingKeys.AppearanceLineHeight, spacing);
+
+    /// <summary>Sets the note text's paragraph spacing (#234).</summary>
+    /// <returns>Whether it was kept: a value that is not a preset is refused.</returns>
+    public bool SetParagraphSpacing(TextSpacing spacing) => TryWrite(SettingKeys.AppearanceParagraphSpacing, spacing);
 
     /// <summary>Sets how a coloured card shows its colour (#191).</summary>
     /// <returns>Whether it was kept: a value that is not a style is refused.</returns>

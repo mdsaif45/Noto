@@ -86,8 +86,9 @@ public sealed class LinkGuardTests
         Assert.Contains("AutomationProperties.SetAccessibilityView(element, AccessibilityView.Raw);", place, StringComparison.Ordinal);
         Assert.Contains("TaskMarks.Children.Add(element);", place, StringComparison.Ordinal);
 
-        // An edit, Show markup or a theme change restyles a line: its indent goes with its space below.
-        Assert.Matches(@"paragraph\.SpaceAfter = 0;\s*paragraph\.SetIndents\(0, 0, 0\);", Code(Path.Join(Windows, "NoteEditorHost.Styling.cs")));
+        // An edit, Show markup or a theme change restyles a line: its indent goes with its space below, back to the
+        // paragraph spacing alone (#234).
+        Assert.Matches(@"paragraph\.SpaceAfter = lastLine == block\.Start \? Points\(palette\.SpaceAfter\) : 0;\s*paragraph\.SetIndents\(0, 0, 0\);", Code(Path.Join(Windows, "NoteEditorHost.Styling.cs")));
 
         // The style applies to the editor open now, at once.
         Assert.Matches(@"NoteEditorHost\.FileLinks = style;\s*_editor\?\.ShowFileLinks\(\);", Body(Links, "ApplyFileLinks"));

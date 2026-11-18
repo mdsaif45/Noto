@@ -178,6 +178,8 @@ public sealed partial class SettingsPage : UserControl
             Select(NoteColorStyleSetting, preferences.NoteColorStyle.ToString());
             NoteFontSetting.SelectedItem = NoteFontSetting.Items.OfType<ComboBoxItem>().FirstOrDefault(i => FontOf(i) == preferences.NoteFont);
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
+            Select(LineHeightSetting, preferences.LineHeight.ToString());
+            Select(ParagraphSpacingSetting, preferences.ParagraphSpacing.ToString());
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
             HotSideSetting.IsOn = preferences.HotSide;
@@ -289,6 +291,12 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnNoteSizeChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => NoteSizeSetting.SelectedItem is ComboBoxItem { Tag: string size } && p.SetNoteSize(double.Parse(size, CultureInfo.InvariantCulture)));
+
+    private void OnLineHeightChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => LineHeightSetting.SelectedItem is not null && p.SetLineHeight(Selected<TextSpacing>(LineHeightSetting)));
+
+    private void OnParagraphSpacingChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => ParagraphSpacingSetting.SelectedItem is not null && p.SetParagraphSpacing(Selected<TextSpacing>(ParagraphSpacingSetting)));
 
     /// <summary>The stored values shown again: a size changed by its shortcut while Settings is open (F13).</summary>
     internal void Refresh() => ShowStored();
