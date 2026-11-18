@@ -545,8 +545,8 @@ inside Noto to replace it would be a new subsystem to maintain for years
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | D47 | Font family | Any installed font, across UI elements | Font family selection; token-driven (ADR-011) | MUST | — | **v0.2 score (2026-11-13):** F13 (#154): Settings › Font, from a closed list of Windows fonts, token-driven. |
 | `[x]` | D48 | Font size | `⌘+` / `⌘−` | `Ctrl+=` / `Ctrl+-`, persisted | MUST | — | **v0.2 score (2026-11-13):** F13 (#154): Settings › Text size, Ctrl+= and Ctrl+-, stored (`Invoke-Settings` case 16). |
-| `[ ]` | D49 | Line height | Tight / Normal / Relaxed | The same three presets | SHOULD | — | |
-| `[ ]` | D50 | Paragraph spacing | Tight / Normal / Relaxed | The same three presets | SHOULD | — | |
+| `[x]` | D49 | Line height | Tight / Normal / Relaxed | The same three presets | SHOULD | — | **v0.3 score (2026-11-16):** Settings › Appearance › Line height: Compact (1.15× the text size), Normal (the font's own, as before) or Relaxed (1.5×), live in the editor and the cards (#234; `Invoke-Visual` case 18). |
+| `[x]` | D50 | Paragraph spacing | Tight / Normal / Relaxed | The same three presets | SHOULD | — | **v0.3 score (2026-11-16):** Settings › Appearance › Paragraph spacing: Compact, Normal (as before) or Relaxed (half the text size after each paragraph), live in the editor and the cards (#234; `Invoke-Visual` case 18). |
 | `[x]` | D51 | Missing-font fallback | Crash fixed in 1.6.1 | Font fallback; never fails on a missing font | MUST | — | A bug in SideNotes is a requirement here **v0.2 score (2026-11-13):** F13 (#154): a chosen family is always followed by the design system's, so a missing font falls back. |
 
 **D51 is included because the inventory recorded the crash.** A user-selected
@@ -867,8 +867,8 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J11 | Text → Default text formatting | Markdown / Code (/ plain) | Same | SHOULD | — | = D28 |
 | `[x]` | J12 | Text → Font family | any installed font | Same | MUST | — | = D47 **v0.2 score (2026-11-13):** Settings › Font (F13, #154). |
 | `[x]` | J13 | Text → Font size | adjustable | Same | MUST | — | = D48 **v0.2 score (2026-11-13):** Settings › Text size (F13, #154). |
-| `[ ]` | J14 | Text → Line height | Tight / Normal / Relaxed | Same | SHOULD | — | = D49 |
-| `[ ]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 |
+| `[x]` | J14 | Text → Line height | Tight / Normal / Relaxed | Same | SHOULD | — | = D49 **v0.3 score (2026-11-16):** = D49 (#234). |
+| `[x]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 **v0.3 score (2026-11-16):** = D50 (#234). |
 | `[x]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › File links: Standard (the default) or Compact, applied at once (#196). |
 | `[ ]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | |
 | `[ ]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 |

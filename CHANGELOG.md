@@ -12,6 +12,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Settings › Appearance › *Line height* and *Paragraph spacing*: Compact, Normal or Relaxed, applied at once to the
+  note being edited and to every card. Normal keeps the look notes had before (#234).
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
   the + button and the new-note shortcuts all follow it, at once (#188).
 - Settings › Data › *How often*: Noto backs itself up every day (still the default), or every 45, 30 or 15 minutes.
