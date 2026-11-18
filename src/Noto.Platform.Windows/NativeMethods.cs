@@ -765,4 +765,106 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool CloseDesktop(nint hDesktop);
+
+    // The Open Bar (#185 part 2, ADR-007 §10): a small topmost handle that never activates, half see-through, that
+    // takes clicks and dropped files, and follows the foreground for the full-screen check.
+    internal const int GWL_EXSTYLE = -20;
+    internal const uint WS_EX_TOPMOST = 0x00000008;
+    internal const uint WS_EX_LAYERED = 0x00080000;
+    internal const uint WS_EX_NOACTIVATE = 0x08000000;
+    internal const nint HWND_TOPMOST = -1;
+    internal const uint LWA_ALPHA = 0x00000002;
+    internal const int SW_HIDE = 0;
+    internal const int SW_SHOWNOACTIVATE = 4;
+    internal const uint WM_PAINT = 0x000F;
+    internal const uint WM_ERASEBKGND = 0x0014;
+    internal const uint WM_SYSCOLORCHANGE = 0x0015;
+    internal const uint WM_SETTINGCHANGE = 0x001A;
+    internal const uint WM_MOUSEACTIVATE = 0x0021;
+    internal const uint WM_DISPLAYCHANGE = 0x007E;
+    internal const uint WM_TIMER = 0x0113;
+    internal const uint WM_MOUSEMOVE = 0x0200;
+    internal const uint WM_DROPFILES = 0x0233;
+    internal const uint WM_DPICHANGED = 0x02E0;
+    internal const uint WM_DWMCOLORIZATIONCOLORCHANGED = 0x0320;
+    internal const int MA_NOACTIVATE = 3;
+    internal const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+    internal const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+    internal const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+    internal const uint SPI_GETHIGHCONTRAST = 0x0042;
+    internal const uint HCF_HIGHCONTRASTON = 0x00000001;
+    internal const int COLOR_HIGHLIGHT = 13;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct PAINTSTRUCT
+    {
+        public nint hdc;
+        public int fErase;
+        public RECT rcPaint;
+        public int fRestore;
+        public int fIncUpdate;
+        public fixed byte rgbReserved[32];
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct HIGHCONTRASTW
+    {
+        public uint cbSize;
+        public uint dwFlags;
+        public nint lpszDefaultScheme;
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetLayeredWindowAttributes(nint hwnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nint BeginPaint(nint hWnd, PAINTSTRUCT* lpPaint);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool EndPaint(nint hWnd, PAINTSTRUCT* lpPaint);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial int FillRect(nint hDC, RECT* lprc, nint hbr);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool InvalidateRect(nint hWnd, nint lpRect, [MarshalAs(UnmanagedType.Bool)] bool bErase);
+
+    [LibraryImport("gdi32.dll", SetLastError = true)]
+    internal static partial nint CreateSolidBrush(uint color);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial uint GetSysColor(int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SystemParametersInfo(uint uiAction, uint uiParam, void* pvParam, uint fWinIni);
+
+    [LibraryImport("dwmapi.dll")]
+    internal static partial int DwmGetColorizationColor(out uint pcrColorization, [MarshalAs(UnmanagedType.Bool)] out bool pfOpaqueBlend);
+
+    [LibraryImport("shell32.dll", SetLastError = true)]
+    internal static partial void DragAcceptFiles(nint hWnd, [MarshalAs(UnmanagedType.Bool)] bool fAccept);
+
+    [LibraryImport("shell32.dll", EntryPoint = "DragQueryFileW", SetLastError = true)]
+    internal static partial uint DragQueryFile(nint hDrop, uint iFile, char* lpszFile, uint cch);
+
+    [LibraryImport("shell32.dll", SetLastError = true)]
+    internal static partial void DragFinish(nint hDrop);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    internal static partial nint SetWinEventHook(
+        uint eventMin,
+        uint eventMax,
+        nint hmodWinEventProc,
+        delegate* unmanaged<nint, uint, nint, int, int, uint, uint, void> pfnWinEventProc,
+        uint idProcess,
+        uint idThread,
+        uint dwFlags);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool UnhookWinEvent(nint hWinEventHook);
 }

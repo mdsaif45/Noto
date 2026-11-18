@@ -79,6 +79,12 @@
        SetCursorPos does not) brought to the docked edge's middle and left resting shows Noto, docked (whether it
        also took the foreground is recorded, not asserted); turned off, the hook is removed at once and the same rest
        leaves Noto hidden. The pointer is never clicked, and only moved on the display Noto docks to
+    24 Open Bar (#185 part 2, A3): Off by default with no bar window, its drop switch on; Always shown creates the bar
+       at once (stored), hidden while Noto is shown; with Noto hidden it is shown at the docked edge of the work area,
+       narrow and only part of the edge's height (found by its title among Noto's own windows); one real click on it
+       (only once the window under the pointer is the bar) shows Noto docked, through a launch, and the bar goes;
+       Off destroys the window at once and none appears with Noto hidden. Whether the click's show took the
+       foreground is recorded, not asserted
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -109,7 +115,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled', 'activation.open-bar.mode', 'activation.open-bar-drop.enabled')
 
 # ---------------------------------------------------------------- helpers
 
@@ -153,7 +159,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'OpenBarSetting', 'OpenBarDropSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -369,6 +375,21 @@ function Rest-AtEdge {
     $at
 }
 function Pointer-Away { $m = Docked-Display; $null = Pointer-To ([int](($m.rcMonitor.Left + $m.rcMonitor.Right) / 2)) ([int](($m.rcWork.Top + $m.rcWork.Bottom) / 2)) }
+
+# Case 24 (#185 part 2): the Open Bar, found by its title among Noto's own top-level windows.
+function Open-Bar { [NotoVal.Win32]::TopWindows([uint32]$noto.Pid) | Where-Object { [NotoVal.Win32]::Text($_) -eq 'Noto Open Bar' } | Select-Object -First 1 }
+function Bar-Rect([IntPtr] $Bar) { $r = New-Object NotoVal.Win32+RECT; [void][NotoVal.Win32]::GetWindowRect($Bar, [ref]$r); $r }
+function Click-Bar([IntPtr] $Bar) {
+    <# One real click at the bar's centre, only while the window under that point, with the pointer on it, is the bar. #>
+    $r = Bar-Rect $Bar
+    $pt = New-Object NotoVal.Win32+POINT; $pt.X = [int](($r.Left + $r.Right) / 2); $pt.Y = [int](($r.Top + $r.Bottom) / 2)
+    if ([NotoVal.Win32]::WindowFromPoint($pt) -ne $Bar) { throw "refusing to click at ($($pt.X),$($pt.Y)): it is not the Open Bar" }
+    [void][NotoVal.Win32]::SetCursorPos($pt.X, $pt.Y); Start-Sleep -Milliseconds 150
+    $at = New-Object NotoVal.Pointer+XY; [void][NotoVal.Pointer]::GetCursorPos([ref]$at)
+    if ($at.X -ne $pt.X -or $at.Y -ne $pt.Y -or [NotoVal.Win32]::WindowFromPoint($pt) -ne $Bar) { throw "refusing to click: the pointer is at ($($at.X),$($at.Y)), not over the Open Bar" }
+    [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero)
+    $pt
+}
 
 function Restart-Noto {
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly before a restart' }
@@ -730,6 +751,56 @@ try {
             Noto-Front '23 end'
         }
 
+        # ------------------------------------------------ 24 Open Bar (#185 part 2, A3): a real click on the handle
+        if (Want 24) {
+            Noto-Front '24'
+            if (-not (Test-DockedAt (Ev) 'Right')) { Add-Invalid $run '24 Noto is not docked right, the side this case measures'; return }
+            To-FolderList; Open-Settings-ByButton
+            $display = Docked-Display
+            $offByDefault = (Combo-Value 'OpenBarSetting') -eq 'Off' -and (Is-On 'OpenBarDropSetting') -and -not (Open-Bar)
+            $mark = Trace-Mark; Choose 'OpenBarSetting' 'Always shown'
+            $on = (Wait-Trace $mark 'Noto\.OpenBar created') -and (Wait-Trace $mark 'Noto\.OpenBar configured mode=AlwaysShown drops=True side=Right notoHidden=False') -and (Stored 'activation.open-bar.mode') -eq 'AlwaysShown'
+            $bar = Open-Bar
+            $hiddenWhileShown = $bar -and -not [NotoVal.Win32]::IsWindowVisible($bar)
+            Add-Result $run '24 Off by default with no bar window; Always shown creates it at once, stored, hidden while Noto is shown' ($offByDefault -and $on -and $hiddenWhileShown) "off by default=$offByDefault bar=$bar hiddenWhileShown=$hiddenWhileShown trace: $(Trace-Since $mark)"
+            Close-Settings-ByBack
+            if (-not $bar) { return }
+
+            # Hidden: another app in front hides Noto (hide when I click elsewhere is on by default), and the bar appears.
+            Pointer-Away
+            $null = Set-ForegroundByKeyboard $target
+            $hidden = Until { -not (Ev).WsVisible }
+            $shown = Until { [NotoVal.Win32]::IsWindowVisible($bar) } 3
+            $r = Bar-Rect $bar
+            $scale = [NotoVal.Dpi]::GetDpiForWindow($noto.Hwnd) / 96.0
+            $narrow = ($r.Right - $r.Left) -ge 1 -and ($r.Right - $r.Left) -le [math]::Ceiling(8 * $scale)
+            $part = $r.Top -gt $display.rcWork.Top -and $r.Bottom -lt $display.rcWork.Bottom -and ($r.Bottom - $r.Top) -lt ($display.rcWork.Bottom - $display.rcWork.Top) / 2
+            $atEdge = $r.Right -eq $display.rcWork.Right
+            Add-Result $run '24 Noto hidden: the bar is shown at the docked edge, narrow and only part of its height' ($hidden -and $shown -and $atEdge -and $narrow -and $part) "hidden=$hidden shown=$shown bar=($($r.Left),$($r.Top))-($($r.Right),$($r.Bottom)) work=($($display.rcWork.Left),$($display.rcWork.Top))-($($display.rcWork.Right),$($display.rcWork.Bottom)) scale=$scale"
+
+            # One real click on it, fenced: only once the window under the pointer is the bar.
+            $mark = Trace-Mark
+            $at = Click-Bar $bar
+            $opened = Until { (Ev).WsVisible -and (Test-DockedAt (Ev) 'Right') } 3
+            $launched = (Wait-Trace $mark 'Noto\.OpenBar open files=0') -and (Wait-Trace $mark 'Noto\.Workspace request=Launch action=Show')
+            $gone = Until { -not [NotoVal.Win32]::IsWindowVisible($bar) } 3
+            Add-Result $run '24 a real click on the bar shows Noto, docked, through a launch, and the bar goes while Noto is shown' ($opened -and $launched -and $gone) "click=($($at.X),$($at.Y)) shown=$((Ev).WsVisible) foreground=$((Fg) -eq $noto.Hwnd) barVisible=$([NotoVal.Win32]::IsWindowVisible($bar)) trace: $(Trace-Since $mark)"
+            Pointer-Away
+
+            # Off: no window at all, and none with Noto hidden.
+            Noto-Front '24 off'
+            To-FolderList; Open-Settings-ByButton
+            $mark = Trace-Mark; Choose 'OpenBarSetting' 'Off'
+            $removed = (Wait-Trace $mark 'Noto\.OpenBar removed') -and (Stored 'activation.open-bar.mode') -eq 'Off' -and -not [NotoVal.Win32]::IsWindow($bar)
+            Close-Settings-ByBack
+            $null = Set-ForegroundByKeyboard $target
+            $hidden = Until { -not (Ev).WsVisible }
+            Start-Sleep -Milliseconds 500
+            $none = -not (Open-Bar) -and -not ((Trace-Since $mark) -match 'Noto\.OpenBar created')
+            Add-Result $run '24 Off: the bar window is destroyed at once, and none appears while Noto is hidden' ($removed -and $hidden -and $none) "removed=$removed hidden=$hidden none=$none trace: $(Trace-Since $mark)"
+            Noto-Front '24 end'
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -808,7 +879,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'OpenBarSetting', 'OpenBarDropSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

@@ -65,6 +65,12 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Whether dragging something to the docked edge shows Noto (#185; parity A15, J27, J28).</summary>
     public bool DragReveal => _settings.Read(SettingKeys.DragRevealEnabled);
 
+    /// <summary>Whether the Open Bar is there while Noto is hidden, and how it hides (#185; parity A3, J1).</summary>
+    public OpenBarMode OpenBar => _settings.Read(SettingKeys.OpenBarMode);
+
+    /// <summary>Whether files dropped on the Open Bar are imported (#185; parity J27).</summary>
+    public bool OpenBarDrop => _settings.Read(SettingKeys.OpenBarDrop);
+
     /// <summary>Whether Noto starts in the folder last opened (parity C14, J10, #193).</summary>
     public bool OpenLastFolder => _settings.Read(SettingKeys.WorkspaceOpenLastFolder);
 
@@ -200,6 +206,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets whether dragging something to the docked edge shows Noto (#185).</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetDragReveal(bool on) => TryWrite(SettingKeys.DragRevealEnabled, on);
+
+    /// <summary>Sets whether the Open Bar is there, and how it hides (#185).</summary>
+    /// <returns>Whether it was kept: a value that is not a mode is refused.</returns>
+    public bool SetOpenBar(OpenBarMode mode) => TryWrite(SettingKeys.OpenBarMode, mode);
+
+    /// <summary>Sets whether files dropped on the Open Bar are imported (#185).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetOpenBarDrop(bool on) => TryWrite(SettingKeys.OpenBarDrop, on);
 
     /// <summary>Sets the mode a new note starts in (#195, D28). Notes already written keep their own.</summary>
     /// <returns>Whether it was kept: a value that is not a mode is refused.</returns>

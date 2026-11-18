@@ -196,6 +196,9 @@ internal sealed class WindowCoordinator(
     /// <summary>The window was hidden (F22: a hidden Noto gives back the memory it is not using).</summary>
     public event EventHandler? Hidden;
 
+    /// <summary>The window was shown, restored or brought forward (#185: the Open Bar goes while Noto is shown).</summary>
+    public event EventHandler? Shown;
+
     public WorkspaceAction OnActivationRequested(WorkspaceRequest request, int requestTime) =>
         Handle(request, requestTime, generationCurrent: false, string.Empty);
 
@@ -284,6 +287,11 @@ internal sealed class WindowCoordinator(
             // arriving show; a show reverses a leaving hide), never stale.
             _transitioning = false;
             _lastTransitionEnd = Environment.TickCount;
+        }
+
+        if (action != WorkspaceAction.Hide)
+        {
+            Shown?.Invoke(this, EventArgs.Empty);
         }
 
         return action;

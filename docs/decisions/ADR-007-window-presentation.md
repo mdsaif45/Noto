@@ -720,8 +720,8 @@ unelevated Noto — a limitation to document rather than to work around.
 ### 9. Edge activation — Hot Side and drag to reveal
 
 > **Added 2026-11-17 by #185 part 1** (parity A4, A15, J27, J28; principle 7).
-> The Open Bar (A3), an always-present edge handle, is #185 part 2 and is not
-> decided here. Nothing in §4 changes: a reveal is one more entry point into the
+> The Open Bar (A3), an always-present edge handle, is #185 part 2 (§10).
+> Nothing in §4 changes: a reveal is one more entry point into the
 > same coordinator.
 
 **Two settings, both off by default, each independent.** Settings › Sidebar:
@@ -841,6 +841,98 @@ wrong display, shared edge, full-screen, locked, shown, once per arrival, clock
 wrap); `EdgeRevealGuardTests` (the hook only while on, its callback, its thread,
 the zone and full-screen arithmetic, the coordinator path); the settings guards;
 `Invoke-Settings.ps1` case 23 (the real pointer).
+
+### 10. Edge activation — the Open Bar
+
+> **Added 2026-11-18 by #185 part 2** (parity A3, J1, J27; principle 7). §9's
+> objection to an edge window was to a full-height strip used for *hover*; the
+> Open Bar is a different thing, a small visible handle the user aims at.
+> Nothing in §4 or §9 changes: a click is one more entry into the same
+> coordinator.
+
+**Two settings, in Settings › Sidebar.** *Open Bar*: Off / Always shown / Hide
+when the mouse is idle (`activation.open-bar.mode`, default **Off**; SideNotes'
+"always hidden" is Off, so the bar is independently disableable). *Drop files on
+the Open Bar* (`activation.open-bar-drop.enabled`, J27, default **on**: the bar
+itself is opt-in, and a drop aimed at it is no surprise). Applied at once by the
+composition root's one owner, `ApplyOpenBar`.
+
+**Mechanism: one small window, only while on.**
+
+```
+  Off                 no window, no event hook                        (nothing to cost)
+  on                  OpenBarWindow: a STATIC popup, subclassed, on the UI thread
+                      WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_LAYERED
+                      + one out-of-context EVENT_SYSTEM_FOREGROUND hook (UI thread's loop)
+  Noto shown/hidden   coordinator Shown / Hidden -> ApplyOpenBar -> Configure(notoHidden)
+  click (WM_LBUTTONUP) -> App.OpenFromBar -> coordinator, Launch
+  drop (WM_DROPFILES) -> Launch, then MainWindow.ImportDroppedOnBar(files)
+  Off again, or exit  Dispose: unhook, DestroyWindow; ReleaseResources disposes it
+```
+
+- **Geometry.** 6 × 96 DIP at the docked display's DPI, never taller than the
+  work area, flush with the **work area's** docked edge (where Noto docks, so
+  beside a taskbar on that side), centred on its height. The rest of the edge,
+  scroll bars and caption buttons included, stays the application's.
+- **Never activates.** `WS_EX_NOACTIVATE` and `MA_NOACTIVATE`: a click leaves
+  the foreground where it was until the launch brings Noto forward (the click
+  is the input that entitles it to). `WM_NCHITTEST` answers `HTCLIENT`, as a
+  static control would otherwise let the pointer through.
+- **Look.** The system accent (`DwmGetColorizationColor`) at 60 % opacity
+  (`SetLayeredWindowAttributes`, `LWA_ALPHA`; §2's "XAML, not layered" is about
+  the workspace, not this GDI-painted handle). High contrast: `COLOR_HIGHLIGHT`,
+  opaque (ADR-011). Recoloured on `WM_SETTINGCHANGE`, `WM_SYSCOLORCHANGE` and
+  `WM_DWMCOLORIZATIONCOLORCHANGED`.
+- **Re-placed** at every configure (each show, hide, setting and side change),
+  and on `WM_DISPLAYCHANGE`, `WM_DPICHANGED` and `WM_SETTINGCHANGE`, which a
+  top-level window receives (§9's hook thread could not).
+
+**When it shows.** A pure state machine in Core, `OpenBar`, unit tested:
+
+```
+  Hidden     Off; Noto shown (a minimized Noto counts as hidden: a launch restores it);
+             a full-screen app in front of the docked display (§9's FillsDisplay);
+             the input desktop elsewhere (§9's lock check)
+  Shown      Always shown; Hide when idle, until 3 s pass with no pointer over it
+  Faded      Hide when idle, after those 3 s: alpha 1/255, invisible but still hit-testable,
+             so the pointer over it (WM_MOUSEMOVE) draws it again and restarts the count,
+             and a click or drop still works
+```
+
+The full-screen and lock reads are made at every configure and at every
+foreground change; nothing polls. The one timer is the one-shot fade, running
+only between the bar appearing (or being pointed at) and its fading.
+
+**Drop: the shell's own, not an OLE target.** `DragAcceptFiles` while the drop
+setting is on; `WM_DROPFILES` gives the paths (`DragQueryFile`), then Noto is
+shown as for a click and the files go where a drop on Noto would: the open
+folder's stack, else the selected folder (else the first), through the same
+importer, result line and Undo as F9 (`ImportOnStack`, `ImportOnRow`). No COM
+`IDropTarget`, no second import path.
+
+**Decided against.**
+
+- *Fading by the §9 hook when Hot Side or drag is on.* "Near" the bar would be
+  the pointer in §9's band; the bar's own `WM_MOUSEMOVE` gives "over" it with no
+  cross-thread signal and one path whatever the other settings are.
+- *Session notifications for the lock.* The bar lives on the user's desktop,
+  which Windows neither shows nor routes input to while locked; the lock check
+  at each re-read is enough.
+
+**Known limits.** A window that goes full-screen without a foreground change
+(a browser's F11, a video's full-screen button) is noticed at the next
+foreground change, so the bar can sit over it until then; following the
+foreground window's location changes would close that, at a per-move cost. A
+drag over a *faded* bar does not draw it (no `WM_MOUSEMOVE` during a drag), but
+the drop is still taken; drag to reveal (§9) shows Noto for such a drag.
+Unvalidated: a mixed-DPI multi-display layout (#30).
+
+**Evidence.** `OpenBarTests` (Core: the three modes, away, the one-shot fade,
+pointer, return, mode switches); `OpenBarGuardTests` (the window's styles, no
+activation, the hit test, the click, drops only when on, placement, the one
+timer, the foreground hook, the bar only while on and destroyed when off or at
+exit, the show/hide subscriptions, the coordinator path, one import path); the
+settings guards; `Invoke-Settings.ps1` case 24 (a real click on the bar).
 
 ---
 

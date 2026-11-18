@@ -478,6 +478,12 @@ public partial class App : Application
     /// </summary>
     private EdgePointer? _edgePointer;
 
+    /// <summary>
+    /// The Open Bar (#185 part 2, ADR-007 §10): <see langword="null"/> while it is off, so there is no window at all, or
+    /// when Windows refused it.
+    /// </summary>
+    private OpenBarWindow? _openBar;
+
     /// <summary>Which data root this process owns (A17).</summary>
     private InstanceKey? _instanceKey;
 
@@ -1037,6 +1043,11 @@ public partial class App : Application
             // #185: the edge is read again whenever Noto is hidden, the one state a reveal starts from.
             _coordinator.Hidden += (_, _) => ApplyEdgeReveal(preferences);
             ApplyEdgeReveal(preferences);
+
+            // #185 part 2: the Open Bar is there while Noto is hidden and goes whenever it is shown.
+            _coordinator.Hidden += (_, _) => ApplyOpenBar(preferences);
+            _coordinator.Shown += (_, _) => ApplyOpenBar(preferences);
+            ApplyOpenBar(preferences);
         }
 
         // F22 (#160): a start at sign-in stays hidden; once its start-up work is done, it gives back what it is not using.
@@ -1530,10 +1541,15 @@ public partial class App : Application
         {
             _coordinator?.ChangeEdge(DockEdges.From(preferences.Edge));
             ApplyEdgeReveal(preferences);
+            ApplyOpenBar(preferences);
         }
         else if (key == SettingKeys.HotSideEnabled || key == SettingKeys.DragRevealEnabled)
         {
             ApplyEdgeReveal(preferences);
+        }
+        else if (key == SettingKeys.OpenBarMode || key == SettingKeys.OpenBarDrop)
+        {
+            ApplyOpenBar(preferences);
         }
         else if (key == SettingKeys.WorkspaceEscape && _main is not null)
         {
@@ -1628,6 +1644,61 @@ public partial class App : Application
 
         WorkspaceAction action = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, requestTime);
         Trace.WriteLine($"Noto.Edge reveal action={action}");
+    }
+
+    /// <summary>
+    /// The Open Bar (#185 part 2, ADR-007 §10), applied at once: the window exists only while the setting is on, and is
+    /// told what is on, the side, and whether Noto is hidden (a minimized Noto counts: a launch restores it). Called at
+    /// launch, when either setting or the side changes, and whenever Noto is shown or hidden.
+    /// </summary>
+    private void ApplyOpenBar(WorkspacePreferences preferences)
+    {
+        OpenBarMode mode = preferences.OpenBar;
+
+        if (mode == OpenBarMode.Off || _windowHandle is null || _docked is null || _coordinator is null)
+        {
+            _openBar?.Dispose();
+            _openBar = null;
+            return;
+        }
+
+        if (_openBar is null)
+        {
+            try
+            {
+                _openBar = OpenBarWindow.Create(_windowHandle, OpenFromBar);
+            }
+            catch (Win32Exception ex)
+            {
+                // No bar: the other ways to Noto are unaffected, and the next change of the setting tries again.
+                Trace.WriteLine($"Noto.OpenBar created=False error={ex.NativeErrorCode}");
+                return;
+            }
+        }
+
+        bool hidden = WindowActivation.PresenceOf(_windowHandle) is WorkspacePresence.Hidden or WorkspacePresence.Minimized;
+        _openBar.Configure(mode, preferences.OpenBarDrop, _docked.Edge, hidden);
+    }
+
+    /// <summary>
+    /// The Open Bar was clicked, or files were dropped on it (#185; parity A3, J27): Noto is shown through the one
+    /// activation path, as a launch, as the hotkey, the tray and Hot Side show it; the files then go where a drop on
+    /// Noto would (<see cref="MainWindow.ImportDroppedOnBar"/>).
+    /// </summary>
+    private void OpenFromBar(int requestTime, IReadOnlyList<string> files)
+    {
+        if (_closing || _coordinator is null)
+        {
+            return;
+        }
+
+        WorkspaceAction action = _coordinator.OnActivationRequested(WorkspaceRequest.Launch, requestTime);
+        Trace.WriteLine($"Noto.OpenBar launch action={action}");
+
+        if (files.Count > 0)
+        {
+            _main?.ImportDroppedOnBar(files);
+        }
     }
 
     /// <summary>
@@ -1735,6 +1806,7 @@ public partial class App : Application
         _changeSideHotkey?.Dispose();
         _keepOpenHotkey?.Dispose();
         _edgePointer?.Dispose();
+        _openBar?.Dispose();
 
         // Every save has run: close the database file before the mutex goes, so a successor never meets this
         // process's handle and the process never ends holding it.

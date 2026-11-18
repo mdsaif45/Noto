@@ -26,13 +26,13 @@ public enum EdgeGesture
     Drag,
 }
 
-/// <summary>What the platform does with its one timer after a pointer event (#185).</summary>
+/// <summary>What the platform does with its one timer after an event (#185): the edge's dwell, or the Open Bar's fade.</summary>
 public enum EdgeStep
 {
     /// <summary>Nothing changes: no timer, or the running one stays.</summary>
     None,
 
-    /// <summary>Start the timer, or restart it, for <see cref="EdgeReveal.Dwell"/> milliseconds.</summary>
+    /// <summary>Start the timer, or restart it, for <see cref="EdgeReveal.Dwell"/> (or <see cref="OpenBar.IdleDelay"/>) milliseconds.</summary>
     Arm,
 
     /// <summary>Stop the timer.</summary>
