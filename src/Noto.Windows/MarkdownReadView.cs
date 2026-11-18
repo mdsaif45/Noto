@@ -10,6 +10,7 @@ using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Noto.Core.Notes;
+using Noto.Core.Workspace;
 using Windows.UI.Text;
 
 namespace Noto;
@@ -53,6 +54,48 @@ internal sealed partial class MarkdownReadView : UserControl
         // The note text's family and size come from the card (F13, #154); headings scale with the size.
         _ = RegisterPropertyChangedCallback(FontSizeProperty, (_, _) => Render());
         _ = RegisterPropertyChangedCallback(FontFamilyProperty, (_, _) => Render());
+
+        // Its line height and paragraph spacing (#234), the editor's: rendered again when they change while it is
+        // loaded, and on loading when they changed while it was not (a recycled card's view).
+        Loaded += (_, _) =>
+        {
+            NoteSpacing.Changed -= OnSpacingChanged;
+            NoteSpacing.Changed += OnSpacingChanged;
+            OnSpacingChanged(null, EventArgs.Empty);
+        };
+        Unloaded += (_, _) => NoteSpacing.Changed -= OnSpacingChanged;
+    }
+
+    /// <summary>The line height and paragraph spacing this view was last rendered in (#234).</summary>
+    private (TextSpacing LineHeight, TextSpacing Paragraphs) _spacing = (NoteSpacing.LineHeight, NoteSpacing.Paragraphs);
+
+    private void OnSpacingChanged(object? sender, EventArgs e)
+    {
+        if (_spacing != (NoteSpacing.LineHeight, NoteSpacing.Paragraphs))
+        {
+            Render();
+        }
+    }
+
+    /// <summary>
+    /// Gives <paramref name="paragraph"/> the note text's line height and paragraph spacing (#234), as the editor gives
+    /// its lines: lines a multiple of <paramref name="size"/>, a heading's own; the space after at the note's size. A
+    /// paragraph holding a picture keeps each line at least that tall instead, so the picture is never cut. Normal sets
+    /// nothing: the view is as it was before the settings.
+    /// </summary>
+    private void Space(Paragraph paragraph, double size, bool pictures = false)
+    {
+        double after = NoteSpacing.SpaceAfter(FontSize);
+        if (after > 0)
+        {
+            paragraph.Margin = new Thickness(0, 0, 0, after);
+        }
+
+        if (NoteSpacing.LineMultiple > 0)
+        {
+            paragraph.LineHeight = NoteSpacing.LineMultiple * size;
+            paragraph.LineStackingStrategy = pictures ? LineStackingStrategy.MaxHeight : LineStackingStrategy.BlockLineHeight;
+        }
     }
 
     /// <summary>
@@ -127,20 +170,28 @@ internal sealed partial class MarkdownReadView : UserControl
         view.Blocks.Clear();
         view.TextHighlighters.Clear();
         _marked.Clear();
+        _spacing = (NoteSpacing.LineHeight, NoteSpacing.Paragraphs);
         string source = Source ?? string.Empty;
 
-        // A Code or plain text note is its text as typed (#195), as a very long note is.
+        // A Code or plain text note is its text as typed (#195), as a very long note is. With paragraph spacing, each line
+        // is a paragraph, as each is in the editor (#234); a very long note stays one.
         if (source.Length > RenderedLimit || Mode != NoteMode.Markdown)
         {
-            var plain = new Paragraph();
-            var text = new Run { Text = source };
-            if (Mode == NoteMode.Code)
+            bool lines = source.Length <= RenderedLimit && NoteSpacing.SpaceAfter(FontSize) > 0;
+            foreach (string line in lines ? source.Split('\n') : [source])
             {
-                text.FontFamily = (FontFamily)Application.Current.Resources["FontFamilyCode"];
+                var plain = new Paragraph();
+                var text = new Run { Text = line };
+                if (Mode == NoteMode.Code)
+                {
+                    text.FontFamily = (FontFamily)Application.Current.Resources["FontFamilyCode"];
+                }
+
+                plain.Inlines.Add(text);
+                Space(plain, FontSize);
+                view.Blocks.Add(plain);
             }
 
-            plain.Inlines.Add(text);
-            view.Blocks.Add(plain);
             return;
         }
 
@@ -161,6 +212,7 @@ internal sealed partial class MarkdownReadView : UserControl
         {
             var paragraph = new Paragraph();
             Inlines(document, block, paragraph, markup, link, code);
+            bool pictures = false;
 
             // Each image below its caption, the caption being what a reader of the screen hears.
             foreach (MarkdownSpan image in block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image))
@@ -174,8 +226,10 @@ internal sealed partial class MarkdownReadView : UserControl
                 paragraph.Inlines.Add(new LineBreak());
                 paragraph.Inlines.Add(new InlineUIContainer { Child = holder });
                 _ = Picture(holder, ReferenceOf(document, block, image), room, markup);
+                pictures = true;
             }
 
+            Space(paragraph, block.Kind == MarkdownBlockKind.Heading ? HeadingSize(block.Level) : FontSize, pictures);
             view.Blocks.Add(paragraph);
         }
 

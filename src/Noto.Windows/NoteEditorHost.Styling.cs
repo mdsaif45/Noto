@@ -7,7 +7,11 @@ using Windows.UI;
 
 namespace Noto;
 
-/// <summary>What the editor styles with: the theme's colours and the design system's type, resolved for this theme.</summary>
+/// <summary>
+/// What the editor styles with: the theme's colours and the design system's type, resolved for this theme, and the note
+/// text's line height and paragraph spacing (#234, <see cref="NoteSpacing"/>): <paramref name="LineHeight"/> a multiple
+/// of each line's text size, 0 for the font's own; <paramref name="SpaceAfter"/> in DIPs.
+/// </summary>
 internal readonly record struct EditorPalette(
     Color Text,
     Color Markup,
@@ -22,9 +26,18 @@ internal readonly record struct EditorPalette(
     double Heading1Size,
     double Heading2Size,
     double Heading3Size,
-    bool ShowMarkup)
+    bool ShowMarkup,
+    double LineHeight,
+    double SpaceAfter,
+    bool SpacesHeadings)
 {
     public double HeadingSize(int level) => level switch { 1 => Heading1Size, 2 => Heading2Size, _ => Heading3Size };
+
+    /// <summary>
+    /// Whether a paragraph has a line height or a space after of its own: Normal for both has neither, and its RTF is
+    /// Noto's from before the settings, exactly (#234).
+    /// </summary>
+    public bool Spaced => LineHeight > 0 || SpaceAfter > 0;
 }
 
 /// <summary>
@@ -98,14 +111,19 @@ internal static class MarkdownStyling
         var looks = new Look[text.Length];
         var levels = new int[text.Length];
 
-        var spaced = new HashSet<int>();
+        // Where each heading starts, and its level; where each block's last line starts, the line the space after goes
+        // under (#234): a code fence is one block, spaced after its last line as the read view spaces its paragraph.
+        var headings = new Dictionary<int, int>();
+        var lastLines = new HashSet<int>();
 
         foreach (MarkdownBlock block in document.Blocks)
         {
-            if (block.Kind == MarkdownBlockKind.Heading && block.Start > 0)
+            if (block.Kind == MarkdownBlockKind.Heading)
             {
-                spaced.Add(block.Start);
+                headings[block.Start] = block.Level;
             }
+
+            lastLines.Add(LastLineStart(text, block));
 
             foreach (MarkdownSpan span in block.Spans)
             {
@@ -134,10 +152,29 @@ internal static class MarkdownStyling
                 continue;
             }
 
-            // A paragraph's spacing is set where its text starts: \pard resets it, \sb is in twentieths of a point.
-            if ((run == 0 || text[run - 1] == '\n') && text.Length > 0 && (run == text.Length || text[run] != '\n'))
+            // A paragraph's spacing is set where its text starts: \pard resets it; \sb, \sa and \sl are in twentieths of
+            // a point, \sl negative for exactly that height. An empty line keeps the paragraph before's, unless a line
+            // height or space after is set (#234): then it has its own, as Restyle gives it.
+            if ((run == 0 || text[run - 1] == '\n') && text.Length > 0 && (run == text.Length || text[run] != '\n' || palette.Spaced))
             {
-                rtf.Append(spaced.Contains(run) ? $@"\pard\sb{(int)(HeadingSpaceBefore * 20)} " : @"\pard ");
+                bool heading = headings.TryGetValue(run, out int level);
+                rtf.Append(@"\pard");
+                if (heading && run > 0 && palette.SpacesHeadings)
+                {
+                    rtf.Append(@"\sb").Append((int)(HeadingSpaceBefore * 20));
+                }
+
+                if (palette.LineHeight > 0)
+                {
+                    rtf.Append(@"\sl-").Append(Twips(palette.LineHeight * (heading ? palette.HeadingSize(level) : palette.BodySize))).Append(@"\slmult0");
+                }
+
+                if (palette.SpaceAfter > 0 && lastLines.Contains(run))
+                {
+                    rtf.Append(@"\sa").Append(Twips(palette.SpaceAfter));
+                }
+
+                rtf.Append(' ');
             }
 
             Emit(rtf, text, run, i, looks[run], levels[run], palette);
@@ -177,13 +214,29 @@ internal static class MarkdownStyling
                     continue;
                 }
 
-                // A heading's space above, as the load gave it; any other block in the region has none. No block has
-                // space below or an indent until an image's or a shortcut's is set again where it is drawn
-                // (NoteEditorHost.PlaceImages, PlaceShortcuts).
+                // A heading's space above, as the load gave it; any other block in the region has none. Each line its
+                // height, and the block's last line the paragraph spacing below (#234). No block has more below or an
+                // indent until an image's or a shortcut's is set again where it is drawn (NoteEditorHost.PlaceImages,
+                // PlaceShortcuts).
+                bool heading = block.Kind == MarkdownBlockKind.Heading;
+                int lastLine = LastLineStart(document.Source, block);
                 ITextParagraphFormat paragraph = target.GetRange(block.Start, block.End).ParagraphFormat;
-                paragraph.SpaceBefore = block.Kind == MarkdownBlockKind.Heading && block.Start > 0 ? HeadingSpaceBefore : 0;
-                paragraph.SpaceAfter = 0;
+                paragraph.SpaceBefore = heading && block.Start > 0 && palette.SpacesHeadings ? HeadingSpaceBefore : 0;
+                paragraph.SpaceAfter = lastLine == block.Start ? Points(palette.SpaceAfter) : 0;
                 paragraph.SetIndents(0, 0, 0);
+                if (palette.LineHeight > 0)
+                {
+                    paragraph.SetLineSpacing(LineSpacingRule.Exactly, Points(palette.LineHeight * (heading ? palette.HeadingSize(block.Level) : palette.BodySize)));
+                }
+                else
+                {
+                    paragraph.SetLineSpacing(LineSpacingRule.Single, 1);
+                }
+
+                if (lastLine != block.Start && palette.SpaceAfter > 0)
+                {
+                    target.GetRange(lastLine, block.End).ParagraphFormat.SpaceAfter = Points(palette.SpaceAfter);
+                }
 
                 foreach (MarkdownSpan span in block.Spans)
                 {
@@ -311,6 +364,16 @@ internal static class MarkdownStyling
 
         rtf.Append('}');
     }
+
+    /// <summary>
+    /// Where <paramref name="block"/>'s last line starts: its start, but in a code fence, the only block of more than one
+    /// line (#234).
+    /// </summary>
+    private static int LastLineStart(string text, MarkdownBlock block) =>
+        block.Length == 0 ? block.Start : Math.Max(block.Start, text.LastIndexOf('\n', block.End - 1, block.Length) + 1);
+
+    /// <summary>DIPs as twentieths of a point, RTF's unit.</summary>
+    private static int Twips(double dips) => (int)Math.Round(dips * 15);
 
     private static string Rgb(Color c) => string.Create(CultureInfo.InvariantCulture, $@"\red{c.R}\green{c.G}\blue{c.B};");
 

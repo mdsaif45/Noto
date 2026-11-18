@@ -912,6 +912,9 @@ public partial class App : Application
         // The note text's font and size (F13, #154), from the first frame; the size shortcuts write the stored size,
         // which comes back here as any change does.
         main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
+
+        // Its line height and paragraph spacing (#234), from the first frame too.
+        NoteSpacing.Apply(preferences.LineHeight, preferences.ParagraphSpacing);
         NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
 
         // File shortcuts and what a file dropped into a note becomes (#196).
@@ -1511,6 +1514,10 @@ public partial class App : Application
         else if ((key == SettingKeys.AppearanceNoteFont || key == SettingKeys.AppearanceNoteSize) && _main is not null)
         {
             _main.ApplyNoteText(preferences.NoteFont, preferences.NoteSize);
+        }
+        else if (key == SettingKeys.AppearanceLineHeight || key == SettingKeys.AppearanceParagraphSpacing)
+        {
+            NoteSpacing.Apply(preferences.LineHeight, preferences.ParagraphSpacing);
         }
         else if (key == SettingKeys.AppearanceNoteColorStyle && _main is not null)
         {

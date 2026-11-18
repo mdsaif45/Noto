@@ -162,6 +162,15 @@ public sealed partial class NoteEditorHost : UserControl
         // The note text's family and size come from the card (F13, #154): restyled when they change.
         _ = RegisterPropertyChangedCallback(FontSizeProperty, (_, _) => RestyleAll());
         _ = RegisterPropertyChangedCallback(FontFamilyProperty, (_, _) => RestyleAll());
+
+        // Its line height and paragraph spacing (#234): restyled when they change, while it is loaded. A note loaded
+        // later is styled with them as they are then.
+        Loaded += (_, _) =>
+        {
+            NoteSpacing.Changed -= OnSpacingChanged;
+            NoteSpacing.Changed += OnSpacingChanged;
+        };
+        Unloaded += (_, _) => NoteSpacing.Changed -= OnSpacingChanged;
         NoteEditor.PreviewKeyDown += OnPreviewKeyDown;
         NoteEditor.SizeChanged += (_, _) => QueueTaskMarks();
         NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);
@@ -533,7 +542,9 @@ public sealed partial class NoteEditorHost : UserControl
             NoteEditor.Document.Selection.SetRange(keep.Start, keep.End);
         });
 
-    /// <summary>A theme switch or Show markup: the whole note again, the selection kept.</summary>
+    private void OnSpacingChanged(object? sender, EventArgs e) => RestyleAll();
+
+    /// <summary>A theme switch, Show markup, or the note text's look (F13, #234): the whole note again, the selection kept.</summary>
     private void RestyleAll()
     {
         if (Note is null)
@@ -659,6 +670,8 @@ public sealed partial class NoteEditorHost : UserControl
         int from = view > 0 ? NoteEditor.Document.GetRangeFromPoint(new Windows.Foundation.Point(0, Math.Max(0, _marksBand.Top)), PointOptions.ClientCoordinates).StartPosition : 0;
         int to = view > 0 ? NoteEditor.Document.GetRangeFromPoint(new Windows.Foundation.Point(NoteEditor.ActualWidth, _marksBand.Bottom), PointOptions.ClientCoordinates).EndPosition : _text.Length;
 
+        double after = NoteSpacing.SpaceAfter(FontSize);
+
         foreach (MarkdownBlock task in tasks.Where(t => t.End >= from && t.Start <= to))
         {
             MarkdownSpan marker = task.Spans.First(s => s.Kind == MarkdownSpanKind.ListMarker);
@@ -670,6 +683,8 @@ public sealed partial class NoteEditorHost : UserControl
                 continue;
             }
 
+            // Sized and centred on the line's text, not the paragraph spacing below it (#234).
+            rect.Height = TextHeight(rect, task.End, after);
             double size = Math.Round(rect.Height * 0.8);
             var mark = new FontIcon
             {
@@ -682,6 +697,23 @@ public sealed partial class NoteEditorHost : UserControl
             Canvas.SetTop(mark, at.Y + ((rect.Height - size) / 2));
             TaskMarks.Children.Add(mark);
         }
+    }
+
+    /// <summary>
+    /// The height of the line <paramref name="rect"/> (RichEdit's, of characters on one line) is on, without the
+    /// paragraph spacing <paramref name="after"/> below it (#234): a paragraph's last line's rectangle takes that space in
+    /// (measured for images), so a mark centred on the whole of it would sit low. <paramref name="paragraphEnd"/> is
+    /// where the paragraph's text ends. With no spacing there is nothing to look up.
+    /// </summary>
+    private double TextHeight(Windows.Foundation.Rect rect, int paragraphEnd, double after)
+    {
+        if (after <= 0 || paragraphEnd <= 0)
+        {
+            return rect.Height;
+        }
+
+        NoteEditor.Document.GetRange(paragraphEnd - 1, paragraphEnd).GetRect(PointOptions.ClientCoordinates, out Windows.Foundation.Rect last, out _);
+        return Math.Abs(last.Bottom - rect.Bottom) < 0.5 ? Math.Max(0, rect.Height - after) : rect.Height;
     }
 
     /// <summary>Changes the document as Noto, never read back as a user edit.</summary>
@@ -1013,7 +1045,10 @@ public sealed partial class NoteEditorHost : UserControl
         Heading1Size: Scaled("FontSizeHeading"),
         Heading2Size: Scaled("FontSizeHeading2"),
         Heading3Size: Scaled("FontSizeHeading3"),
-        ShowMarkup: _showMarkup);
+        ShowMarkup: _showMarkup,
+        LineHeight: NoteSpacing.LineMultiple,
+        SpaceAfter: NoteSpacing.SpaceAfter(FontSize),
+        SpacesHeadings: NoteSpacing.SpacesHeadings);
 
     private static Windows.UI.Color ColorOf(Brush? brush) => brush is SolidColorBrush solid ? solid.Color : Colors.Transparent;
 

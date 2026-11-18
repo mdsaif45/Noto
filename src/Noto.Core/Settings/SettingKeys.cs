@@ -7,6 +7,7 @@ using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
 using Frequency = Noto.Core.Portability.BackupFrequency;
 using NoteText = Noto.Core.Workspace.NoteText;
+using TextSpacing = Noto.Core.Workspace.TextSpacing;
 using WelcomeState = Noto.Core.Workspace.WelcomeState;
 using WorkspaceTheme = Noto.Core.Workspace.WorkspaceTheme;
 
@@ -346,6 +347,28 @@ public static class SettingKeys
         new("appearance.note-size", NoteText.DefaultSize, NoteText.IsSize);
 
     /// <summary>
+    /// The note text's line height (#234; parity D49, J14): Compact, Normal or Relaxed.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="TextSpacing.Normal"/>, the font's own line height, Noto's look before the setting. What each
+    /// preset measures is <see cref="NoteText.LineHeight"/>. Stored by member name; a value that is not a member is
+    /// refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<TextSpacing> AppearanceLineHeight =
+        new("appearance.line-height", TextSpacing.Normal, Enum.IsDefined);
+
+    /// <summary>
+    /// The note text's paragraph spacing (#234; parity D50, J15): Compact, Normal or Relaxed.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="TextSpacing.Normal"/>, Noto's look before the setting. What each preset measures is
+    /// <see cref="NoteText.SpaceAfter"/> and <see cref="NoteText.SpacesHeadings"/>. Stored by member name; a value that
+    /// is not a member is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<TextSpacing> AppearanceParagraphSpacing =
+        new("appearance.paragraph-spacing", TextSpacing.Normal, Enum.IsDefined);
+
+    /// <summary>
     /// How a coloured card shows its colour (#191; parity B15, F10, J23): Background or Bar.
     /// </summary>
     /// <remarks>
@@ -509,6 +532,8 @@ public static class SettingKeys
         AppearanceTheme,
         AppearanceNoteFont,
         AppearanceNoteSize,
+        AppearanceLineHeight,
+        AppearanceParagraphSpacing,
         AppearanceNoteColorStyle,
         EditorFormatToolbar,
         EditorFileLinks,

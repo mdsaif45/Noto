@@ -359,6 +359,51 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- #234: the note text's line height and paragraph spacing (D49, D50, J14, J15). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Line height" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="The space between the lines of a note." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="LineHeightSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnLineHeightChanged"
+                                    AutomationProperties.Name="Line height"
+                                    AutomationProperties.HelpText="The space between the lines of a note.">
+                                    <ComboBoxItem Content="Compact" Tag="Compact" />
+                                    <ComboBoxItem Content="Normal" Tag="Normal" />
+                                    <ComboBoxItem Content="Relaxed" Tag="Relaxed" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Paragraph spacing" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="The space after each paragraph of a note." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="ParagraphSpacingSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnParagraphSpacingChanged"
+                                    AutomationProperties.Name="Paragraph spacing"
+                                    AutomationProperties.HelpText="The space after each paragraph of a note.">
+                                    <ComboBoxItem Content="Compact" Tag="Compact" />
+                                    <ComboBoxItem Content="Normal" Tag="Normal" />
+                                    <ComboBoxItem Content="Relaxed" Tag="Relaxed" />
+                                </ComboBox>
+                            </Grid>
+
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

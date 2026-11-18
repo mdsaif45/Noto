@@ -36,6 +36,8 @@ public sealed class SettingsSurfaceGuardTests
             ("AppearanceTheme", @"ApplyTheme\(_main, preferences\.Theme\)"),
             ("AppearanceNoteFont", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("AppearanceNoteSize", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
+            ("AppearanceLineHeight", @"NoteSpacing\.Apply\(preferences\.LineHeight, preferences\.ParagraphSpacing\)"),
+            ("AppearanceParagraphSpacing", @"NoteSpacing\.Apply\(preferences\.LineHeight, preferences\.ParagraphSpacing\)"),
             ("AppearanceNoteColorStyle", @"_main\.ApplyNoteColorStyle\(preferences\.NoteColorStyle\)"),
             ("BackupAutomatic", @"_ = CheckAutomaticBackup\(\)"),
             ("BackupFrequency", @"_ = CheckAutomaticBackup\(\)"),
@@ -104,7 +106,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(24, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(26, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -407,13 +409,14 @@ public sealed class SettingsSurfaceGuardTests
             Assert.All(panel.Elements(), e => Assert.Equal("Grid", e.Name.LocalName));
         }
 
-        // The settings (the note colour style, #191; the note font and text size, F13; automatic backups, F15, and how
+        // The settings (the note colour style, #191; the note font and text size, F13, and its line height and paragraph
+        // spacing, #234; automatic backups, F15, and how
         // often, #199; the formatting toolbar, F8; pasting code as a code block, D39 (#187); the new-note shortcut and its
         // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188, and what it is, #195; change
         // side's and keep open's, #198), the Data group's Back up, Restore, Export, Import and their progress line
         // (ADR-020), Help's Welcome tour (ADR-021), opening the last folder at start (#193), and file links and the two
         // Importing choices (#196).
-        Assert.Equal(38, rows.Count);
+        Assert.Equal(40, rows.Count);
 
         foreach (XElement row in rows)
         {
