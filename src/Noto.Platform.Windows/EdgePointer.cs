@@ -203,7 +203,7 @@ public sealed unsafe class EdgePointer : IDisposable
     }
 
     /// <summary>The foreground window is full-screen on the docked display. The desktop itself never is.</summary>
-    private static bool ForegroundFills(PixelRect display)
+    internal static bool ForegroundFills(PixelRect display)
     {
         nint foreground = NativeMethods.GetForegroundWindow();
         nint shell = NativeMethods.GetShellWindow();
@@ -219,7 +219,7 @@ public sealed unsafe class EdgePointer : IDisposable
     }
 
     /// <summary>The session is locked, or another desktop (a secure prompt) has the input: this one cannot be opened.</summary>
-    private static bool InputElsewhere()
+    internal static bool InputElsewhere()
     {
         nint desktop = NativeMethods.OpenInputDesktop(0, false, NativeMethods.DESKTOP_READOBJECTS);
 
