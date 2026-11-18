@@ -341,13 +341,17 @@ public sealed partial class NoteEditorHost
     // Where the right button was last pressed in the text, in RichEdit's client coordinates, until its menu reads it.
     private Windows.Foundation.Point? _menuPoint;
 
-    // The menu's Copy picture, made once; in the menu only while it opens on a picture's line.
+    // The menu's Copy picture and Save picture as, made once; in the menu only while it opens on a picture's line.
     private AppBarButton? _copyPicture;
+    private AppBarButton? _savePicture;
 
-    // The file of the picture the menu opened on.
+    // The file of the picture the menu opened on, and the name Save picture as suggests for it.
     private string? _menuPicture;
+    private string? _menuPictureName;
 
-    /// <summary>The editor's menu opens: Copy picture is in it when it opens on a picture's line (D32).</summary>
+    /// <summary>
+    /// The editor's menu opens: Copy picture (D32) and Save picture as (D33, #235) are in it when it opens on a picture's line.
+    /// </summary>
     /// <remarks>
     /// Text controls share one built-in menu, so every editor's handler runs whenever it opens (measured: Copy picture
     /// was offered for another note's picture, Invoke-Images case 16). Each editor takes its own item out, and only the
@@ -363,6 +367,7 @@ public sealed partial class NoteEditorHost
         if (_copyPicture is not null)
         {
             _ = menu.SecondaryCommands.Remove(_copyPicture);
+            _ = menu.SecondaryCommands.Remove(_savePicture);
         }
 
         if (!ReferenceEquals(menu.Target, NoteEditor))
@@ -374,6 +379,7 @@ public sealed partial class NoteEditorHost
         int at = _menuPoint is { } point ? NoteEditor.Document.GetRangeFromPoint(point, PointOptions.ClientCoordinates).StartPosition : _selection.Active;
         _menuPoint = null;
         _menuPicture = Images?.PathOf(ImageReference.At(_document, at));
+        _menuPictureName = ImageReference.SaveNameAt(_document, at);
 
         if (_copyPicture is null)
         {
@@ -386,11 +392,57 @@ public sealed partial class NoteEditorHost
                     CopyPicture(path, source: null);
                 }
             };
+
+            _savePicture = new AppBarButton { Label = "Save picture as…", Icon = new SymbolIcon(Symbol.Save) };
+            AutomationProperties.SetName(_savePicture, "Save picture as");
+            _savePicture.Click += (_, _) =>
+            {
+                if (_menuPicture is { } path)
+                {
+                    SavePicture(path, _menuPictureName);
+                }
+            };
         }
 
         if (_menuPicture is not null)
         {
             menu.SecondaryCommands.Insert(0, _copyPicture);
+            menu.SecondaryCommands.Insert(1, _savePicture);
+        }
+    }
+
+    /// <summary>
+    /// Save picture as (D33, #235): Windows' save picker, owned by this editor's window as the backup pickers are, offers
+    /// the picture's caption as the name and its own type; the kept file is copied there byte for byte, never re-encoded.
+    /// Cancelling does nothing.
+    /// </summary>
+    private async void SavePicture(string path, string? name)
+    {
+        if (XamlRoot is null)
+        {
+            return;
+        }
+
+        string type = Path.GetExtension(path);
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+            SuggestedFileName = name ?? Path.GetFileNameWithoutExtension(path),
+        };
+        picker.FileTypeChoices.Add(type.TrimStart('.').ToUpperInvariant() + " image", [type]);
+        InitializeWithWindow.Initialize(picker, Win32Interop.GetWindowFromWindowId(XamlRoot.ContentIslandEnvironment.AppWindowId));
+
+        try
+        {
+            if (await picker.PickSaveFileAsync() is { } destination)
+            {
+                StorageFile picture = await StorageFile.GetFileFromPathAsync(path);
+                await picture.CopyAndReplaceAsync(destination);
+            }
+        }
+        catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException)
+        {
+            ImageNotice?.Invoke(this, "The picture couldn't be saved.");
         }
     }
 

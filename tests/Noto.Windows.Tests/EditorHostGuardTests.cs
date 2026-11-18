@@ -175,6 +175,9 @@ public sealed class EditorHostGuardTests
             // #194: Ctrl+] / Ctrl+[ by the US layout's bracket keys (VK_OEM_6, VK_OEM_4), and Ctrl+Shift+P.
             "((VirtualKey)0xDD, false) => EditorCommand.Indent", "((VirtualKey)0xDB, false) => EditorCommand.Outdent",
             "(VirtualKey.P, true) => EditorCommand.Picture",
+
+            // #235: Ctrl+\ by the US layout's backslash key (VK_OEM_5); Ctrl+Space is the CJK input methods'.
+            "((VirtualKey)0xDC, false) => EditorCommand.ClearFormatting",
         })
         {
             Assert.Contains(chord, Host, StringComparison.Ordinal);
@@ -200,7 +203,7 @@ public sealed class EditorHostGuardTests
             .Where(i => (string?)i.Attribute("Click") == "OnFormatClick")
             .Select(i => (string?)i.Attribute("Tag"))
             .ToList();
-        Assert.Equal(["Bold", "Italic", "Underline", "Highlight", "Strikethrough", "Code", "Link", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "ClearCheckedTasks", "CodeBlock", "Separator", "Picture", "ShowMarkup"], items);
+        Assert.Equal(["Bold", "Italic", "Underline", "Highlight", "Strikethrough", "Code", "Link", "ClearFormatting", "Heading", "Bullets", "Numbers", "Tasks", "TaskDone", "ClearCheckedTasks", "CodeBlock", "Separator", "Picture", "ShowMarkup"], items);
     }
 
     [Fact]
@@ -221,6 +224,21 @@ public sealed class EditorHostGuardTests
         XElement picture = items.Single(i => (string?)i.Attribute("Tag") == "Picture");
         Assert.Equal("Insert picture", (string?)picture.Attribute("Text"));
         Assert.Equal("Ctrl+Shift+P", (string?)picture.Attribute("KeyboardAcceleratorTextOverride"));
+    }
+
+    [Fact]
+    public void Clear_formatting_is_Cores_one_step_from_the_menu_and_Ctrl_backslash()
+    {
+        // #235 (D21): one Core edit applied through Run's one recorded step, Markdown notes only, as every format command.
+        Assert.Contains("EditorCommand.ClearFormatting => MarkdownCommands.ClearFormatting,", Host, StringComparison.Ordinal);
+        Assert.DoesNotContain("VirtualKey.Space", Host, StringComparison.Ordinal);
+
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+        XElement item = XDocument.Load(Path.Join(Windows, "MainWindow.xaml")).Descendants(xaml + "MenuFlyoutItem")
+            .Single(i => (string?)i.Attribute("Tag") == "ClearFormatting");
+        Assert.Equal("Clear formatting", (string?)item.Attribute("Text"));
+        Assert.Equal("Ctrl+\\", (string?)item.Attribute("KeyboardAcceleratorTextOverride"));
+        Assert.Equal("OnFormatClick", (string?)item.Attribute("Click"));
     }
 
     [Fact]

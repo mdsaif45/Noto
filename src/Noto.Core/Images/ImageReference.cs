@@ -71,7 +71,35 @@ public static partial class ImageReference
     /// that line (D32, #187). <see langword="null"/> when the line has none, even when the paragraph it is part of has
     /// one on another line (a picture line and the text under it are one paragraph).
     /// </summary>
-    public static string? At(MarkdownDocument document, int position)
+    public static string? At(MarkdownDocument document, int position) =>
+        PictureAt(document, position) is { } found ? document.Source.Substring(found.Source.Start, found.Source.Length) : null;
+
+    /// <summary>
+    /// The name Save picture as suggests for the picture <see cref="At"/> finds (D33, #235): its caption, as shown, made a
+    /// file name (a picture's own extension dropped, since the type is the file's); with no caption left, the kept
+    /// file's name. <see langword="null"/> when the line has no picture.
+    /// </summary>
+    public static string? SaveNameAt(MarkdownDocument document, int position)
+    {
+        if (PictureAt(document, position) is not { } found)
+        {
+            return null;
+        }
+
+        string text = document.Source;
+        string caption = text[(found.Image.Start + 2)..(found.Source.Start - 2)].Replace("\\[", "[", StringComparison.Ordinal).Replace("\\]", "]", StringComparison.Ordinal);
+        if (TypeOf(caption) is not null)
+        {
+            caption = Path.GetFileNameWithoutExtension(caption);
+        }
+
+        // What Windows refuses in a file name, and the dots and blanks it drops from the end.
+        string name = string.Concat(caption.Where(c => c >= ' ' && !"\\/:*?\"<>|".Contains(c, StringComparison.Ordinal))).Trim().TrimEnd('.', ' ');
+        return name.Length > 0 ? name : Path.GetFileNameWithoutExtension(text.Substring(found.Source.Start, found.Source.Length));
+    }
+
+    /// <summary>The picture on the line holding <paramref name="position"/>, as <see cref="At"/> chooses it, and its source.</summary>
+    private static (MarkdownSpan Image, MarkdownSpan Source)? PictureAt(MarkdownDocument document, int position)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (document.Blocks.FirstOrDefault(b => b.Start <= position && position <= b.End) is not { } block)
@@ -87,7 +115,7 @@ public static partial class ImageReference
         MarkdownSpan? image = images.Where(s => s.Start <= position && position <= s.End).Cast<MarkdownSpan?>().FirstOrDefault()
             ?? images.Cast<MarkdownSpan?>().LastOrDefault();
 
-        return image is { } i && SourceOf(block, i) is { } s ? document.Source.Substring(s.Start, s.Length) : null;
+        return image is { } i && SourceOf(block, i) is { } s ? (i, s) : null;
     }
 
     /// <summary>

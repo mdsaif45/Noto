@@ -14,6 +14,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
+- Format › *Clear formatting* (Ctrl+\) removes bold, italic, strikethrough, underline, highlight, code and links
+  (keeping their text) from the selection in one undo step; a picture's menu can save it to a file with *Save picture
+  as…* (#235).
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
   the + button and the new-note shortcuts all follow it, at once (#188).
 - Settings › Data › *How often*: Noto backs itself up every day (still the default), or every 45, 30 or 15 minutes.
