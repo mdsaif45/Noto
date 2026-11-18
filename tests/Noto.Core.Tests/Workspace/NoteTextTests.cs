@@ -1,9 +1,13 @@
+using Noto.Core.Settings;
 using Noto.Core.Workspace;
 using Xunit;
 
 namespace Noto.Core.Tests.Workspace;
 
-/// <summary>F13 (#154): the note text's fonts and sizes, and the steps the size shortcuts take (G41, G42).</summary>
+/// <summary>
+/// F13 (#154): the note text's fonts and sizes, and the steps the size shortcuts take (G41, G42); #234: what its line
+/// height and paragraph spacing presets measure.
+/// </summary>
 public sealed class NoteTextTests
 {
     [Theory]
@@ -38,5 +42,49 @@ public sealed class NoteTextTests
         Assert.False(NoteText.IsFont("georgia"));
         Assert.False(NoteText.IsFont("Comic Sans MS"));
         Assert.DoesNotContain(NoteText.DefaultFont, NoteText.Fonts);
+    }
+
+    [Theory]
+    [InlineData(TextSpacing.Compact, 1.15)]
+    [InlineData(TextSpacing.Normal, 0)]     // the font's own: Noto's look before the setting
+    [InlineData(TextSpacing.Relaxed, 1.5)]
+    public void A_line_height_is_a_multiple_of_the_text_size_and_normal_keeps_the_fonts_own(TextSpacing spacing, double multiple)
+    {
+        Assert.Equal(multiple, NoteText.LineHeight(spacing));
+    }
+
+    [Theory]
+    [InlineData(TextSpacing.Compact, 14, 0, false)]
+    [InlineData(TextSpacing.Normal, 14, 0, true)]      // Noto's look before the setting: no space after, headings spaced
+    [InlineData(TextSpacing.Relaxed, 14, 7, true)]
+    [InlineData(TextSpacing.Relaxed, 24, 12, true)]    // half the size, at every size
+    public void Paragraph_spacing_is_half_the_size_after_each_paragraph_relaxed_and_compact_spaces_nothing(TextSpacing spacing, double size, double after, bool headings)
+    {
+        Assert.Equal(after, NoteText.SpaceAfter(spacing, size));
+        Assert.Equal(headings, NoteText.SpacesHeadings(spacing));
+    }
+
+    [Fact]
+    public void Compact_is_tighter_and_relaxed_looser_than_normal()
+    {
+        Assert.True(NoteText.LineHeight(TextSpacing.Compact) < NoteText.LineHeight(TextSpacing.Relaxed));
+        Assert.True(NoteText.LineHeight(TextSpacing.Relaxed) > 1.35);   // above the default family's own height
+        Assert.True(NoteText.SpaceAfter(TextSpacing.Relaxed, NoteText.DefaultSize) > NoteText.SpaceAfter(TextSpacing.Normal, NoteText.DefaultSize));
+    }
+
+    [Fact]
+    public void Both_settings_are_declared_normal_by_default_and_refuse_a_value_that_is_not_a_preset()
+    {
+        Assert.Equal([TextSpacing.Compact, TextSpacing.Normal, TextSpacing.Relaxed], Enum.GetValues<TextSpacing>());
+
+        foreach ((SettingKey<TextSpacing> key, string name) in new[] { (SettingKeys.AppearanceLineHeight, "appearance.line-height"), (SettingKeys.AppearanceParagraphSpacing, "appearance.paragraph-spacing") })
+        {
+            Assert.Equal(name, key.Name);
+            Assert.Equal(TextSpacing.Normal, key.Default);
+            Assert.Equal(SettingValueKind.Enumeration, key.Kind);
+            Assert.Contains(key, SettingKeys.All);
+            Assert.All(Enum.GetValues<TextSpacing>(), v => Assert.True(key.IsValid(v)));
+            Assert.False(key.IsValid((TextSpacing)3));
+        }
     }
 }

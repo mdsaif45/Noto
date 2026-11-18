@@ -68,7 +68,9 @@ public sealed partial class NoteEditorHost
         bool large = FileLinks == FileLinkStyle.Standard;
         double size = large ? StandardIcon : CompactIcon;
         float indent = (float)((size + ShortcutGap) * 0.75);
-        float below = large ? (float)(DetailsHeight * 0.75) : 0;
+        // The paragraph spacing below the line (#234) stays below the details: the line is given both.
+        double after = NoteSpacing.SpaceAfter(FontSize);
+        float below = (float)(((large ? DetailsHeight : 0) + after) * 0.75);
         bool roomChanged = false;
 
         foreach (FileShortcut shortcut in shortcuts)
@@ -105,11 +107,11 @@ public sealed partial class NoteEditorHost
                 continue;
             }
 
-            // The icon in the indent, at the top of a Standard line, centred on a Compact one.
+            // The icon in the indent, at the top of a Standard line, centred on a Compact one's text.
             FrameworkElement icon = described.Icon is { } picture
                 ? new Image { Source = picture, Width = size, Height = size }
                 : new FontIcon { Glyph = described.Folder ? "" : "", FontSize = Math.Round(size * 0.8), Width = size, Height = size, Foreground = NoteEditor.MarkupBrush }; // Segoe Fluent Icons: Folder, Page
-            Place(icon, toMarks.TransformPoint(new Windows.Foundation.Point(left, name.Y + top + (large ? 0 : (name.Height - size) / 2))));
+            Place(icon, toMarks.TransformPoint(new Windows.Foundation.Point(left, name.Y + top + (large ? 0 : (TextHeight(name, shortcut.Line.End, after) - size) / 2))));
 
             if (large)
             {
@@ -125,7 +127,7 @@ public sealed partial class NoteEditorHost
                     MaxWidth = Math.Max(0, NoteEditor.ActualWidth - name.X - (2 * left)),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                 };
-                Place(details, toMarks.TransformPoint(new Windows.Foundation.Point(name.X + left, last.Bottom - DetailsHeight + top)));
+                Place(details, toMarks.TransformPoint(new Windows.Foundation.Point(name.X + left, last.Bottom - after - DetailsHeight + top)));
             }
         }
 

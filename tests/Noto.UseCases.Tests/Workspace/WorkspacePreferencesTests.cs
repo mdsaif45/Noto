@@ -283,6 +283,8 @@ public sealed class WorkspacePreferencesTests
 
         Assert.Equal(WorkspaceTheme.System, preferences.Theme);
         Assert.Equal(NoteColorStyle.Background, preferences.NoteColorStyle);
+        Assert.Equal(TextSpacing.Normal, preferences.LineHeight);
+        Assert.Equal(TextSpacing.Normal, preferences.ParagraphSpacing);
         Assert.False(preferences.SingleClickOpen);
         Assert.False(preferences.OpenLastFolder);
         Assert.Empty(preferences.RecentOpenedFolders);
@@ -346,6 +348,8 @@ public sealed class WorkspacePreferencesTests
         { "SetOpenLastFolder", SettingKeys.WorkspaceOpenLastFolder.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
         { "SetNoteColorStyle", SettingKeys.AppearanceNoteColorStyle.Name, NoteColorStyle.Bar },
+        { "SetLineHeight", SettingKeys.AppearanceLineHeight.Name, TextSpacing.Relaxed },
+        { "SetParagraphSpacing", SettingKeys.AppearanceParagraphSpacing.Name, TextSpacing.Compact },
         { "SetNewNoteMode", SettingKeys.NotesNewMode.Name, NoteMode.Code },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
@@ -376,6 +380,8 @@ public sealed class WorkspacePreferencesTests
     [InlineData("SetTheme", 5)]
     [InlineData("SetNewNotePlacement", 4)]
     [InlineData("SetNoteColorStyle", 2)]
+    [InlineData("SetLineHeight", 3)]
+    [InlineData("SetParagraphSpacing", 3)]
     [InlineData("SetNewNoteMode", 3)]
     [InlineData("SetOpenBar", 3)]
     public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
@@ -388,6 +394,7 @@ public sealed class WorkspacePreferencesTests
             "SetEscape" => (EscapeBehavior)undefined,
             "SetNewNotePlacement" => (NewNotePlacement)undefined,
             "SetNoteColorStyle" => (NoteColorStyle)undefined,
+            "SetLineHeight" or "SetParagraphSpacing" => (TextSpacing)undefined,
             "SetNewNoteMode" => (NoteMode)undefined,
             "SetOpenBar" => (OpenBarMode)undefined,
             _ => (WorkspaceTheme)undefined,
@@ -505,6 +512,8 @@ public sealed class WorkspacePreferencesTests
         "SetOpenLastFolder" => preferences.SetOpenLastFolder((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetNoteColorStyle" => preferences.SetNoteColorStyle((NoteColorStyle)value),
+        "SetLineHeight" => preferences.SetLineHeight((TextSpacing)value),
+        "SetParagraphSpacing" => preferences.SetParagraphSpacing((TextSpacing)value),
         "SetNewNoteMode" => preferences.SetNewNoteMode((NoteMode)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
@@ -526,6 +535,8 @@ public sealed class WorkspacePreferencesTests
         "SetOpenLastFolder" => preferences.OpenLastFolder,
         "SetTheme" => preferences.Theme,
         "SetNoteColorStyle" => preferences.NoteColorStyle,
+        "SetLineHeight" => preferences.LineHeight,
+        "SetParagraphSpacing" => preferences.ParagraphSpacing,
         "SetNewNoteMode" => preferences.NewNoteMode,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,

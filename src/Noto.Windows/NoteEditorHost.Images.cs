@@ -88,6 +88,8 @@ public sealed partial class NoteEditorHost
             return;
         }
 
+        // The paragraph spacing below the line (#234) stays below the picture: the line is given both.
+        double after = NoteSpacing.SpaceAfter(FontSize);
         bool spaceChanged = false;
         _imagesPending = 0;
         var placed = new List<(FrameworkElement Element, double Height, int LineEnd)>();
@@ -97,7 +99,7 @@ public sealed partial class NoteEditorHost
             (FrameworkElement element, double height) = Drawn(ReferenceOf(block, image), width);
 
             ITextRange line = NoteEditor.Document.GetRange(block.Start, block.End);
-            float space = (float)((height + (2 * ImageGap)) * 0.75);
+            float space = (float)((height + (2 * ImageGap) + after) * 0.75);
             if (Math.Abs(line.ParagraphFormat.SpaceAfter - space) > 0.5f)
             {
                 Set(() => line.ParagraphFormat.SpaceAfter = space);
@@ -120,9 +122,10 @@ public sealed partial class NoteEditorHost
 
         foreach ((FrameworkElement element, double height, int lineEnd) in placed)
         {
-            // A line's rectangle takes in the space below it (measured): the picture sits at the top of that space.
+            // A line's rectangle takes in the space below it (measured): the picture sits at the top of that space, the
+            // paragraph spacing under it.
             NoteEditor.Document.GetRange(Math.Max(0, lineEnd - 1), lineEnd).GetRect(PointOptions.ClientCoordinates, out Windows.Foundation.Rect rect, out _);
-            Windows.Foundation.Point at = toMarks.TransformPoint(new Windows.Foundation.Point(left, rect.Bottom - height - ImageGap + top));
+            Windows.Foundation.Point at = toMarks.TransformPoint(new Windows.Foundation.Point(left, rect.Bottom - after - height - ImageGap + top));
             AutomationProperties.SetAccessibilityView(element, AccessibilityView.Raw);
             Canvas.SetLeft(element, at.X);
             Canvas.SetTop(element, at.Y);
