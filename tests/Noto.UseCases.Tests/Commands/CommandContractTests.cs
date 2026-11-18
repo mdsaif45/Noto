@@ -25,8 +25,8 @@ public sealed class CommandContractTests
             .ToList();
 
         // 23, plus P1.1's PurgeNote, RestoreNoteToFolder, PurgeFolder and EmptyRecycleBin, Phase B2's
-        // FoldNotesInFolder, and #195's SetNoteMode.
-        Assert.Equal(29, handles.Count);
+        // FoldNotesInFolder, #195's SetNoteMode, and #232's DuplicateNote and DuplicateFolder.
+        Assert.Equal(31, handles.Count);
         Assert.True(undeclared.Count == 0, "Commands not declaring their handler's result: " + string.Join(", ", undeclared));
     }
 }
