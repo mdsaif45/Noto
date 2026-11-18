@@ -366,6 +366,8 @@
                     <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="OnCreateNoteAccelerator" />
                     <!-- Move the current card to another folder (B11, G16), from a card or its editor. -->
                     <KeyboardAccelerator Key="M" Modifiers="Control,Shift" Invoked="OnMoveAccelerator" />
+                    <!-- Duplicate the current card below it (B22, #232), from a card or its editor. -->
+                    <KeyboardAccelerator Key="D" Modifiers="Control,Shift" Invoked="OnDuplicateAccelerator" />
                     <!-- Switch to the folder open before this one (G10, C6, #193), from a card or its editor, saving first. -->
                     <KeyboardAccelerator Key="O" Modifiers="Control,Shift" Invoked="OnLastFolderAccelerator" />
                 </Grid.KeyboardAccelerators>

@@ -2101,6 +2101,7 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         menu.Items.Add(MenuItem("Edit", "Enter", () => EditCard(card.Id, CaretPlacement.End)));
         menu.Items.Add(MenuItem("New note", "Ctrl+N", () => CreateNoteInOpenFolder()));
+        menu.Items.Add(MenuItem("Duplicate", "Ctrl+Shift+D", () => DuplicateCard(card.Id)));
 
         var move = new MenuFlyoutSubItem { Text = "Move to" };
         foreach (MenuFlyoutItemBase item in MoveDestinations(card.Id))
@@ -2139,6 +2140,52 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 
         ShowMenu(menu, container, args);
+    }
+
+    /// <summary>Ctrl+Shift+D (B22, #232): duplicates the current card, from the card or its editor.</summary>
+    private void OnDuplicateAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_noteState == NoteState.Loaded && CurrentCard() is { } id)
+        {
+            DuplicateCard(id);
+        }
+    }
+
+    /// <summary>
+    /// Duplicates a card's note directly below it (B22, #232). The card being edited is saved and left first; a failed
+    /// save copies nothing. The copy is not edited: focus goes to its card, and the copy is announced.
+    /// </summary>
+    private void DuplicateCard(string id)
+    {
+        if (_noteState != NoteState.Loaded || !TryEndEdit())
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult<NoteId> result = _stack.Duplicate(NoteId.From(id));
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(DescribeNote(result.Failure!));
+                return;
+            }
+
+            string copy = result.Value.Value;
+            _selectedNoteId = copy;
+            ShowCards(_stack.Notes);
+            HideNoteNotice();
+            ApplyNoteState();
+            Announce("Duplicated");
+            FocusNoteRow(copy);
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not duplicate the note: {ex.Message}");
+        }
     }
 
     /// <summary>The folders notes were most recently moved to (B11), set by the composition root.</summary>
@@ -2378,6 +2425,7 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("Open", "Ctrl+Down", EnterSelectedFolder));
         menu.Items.Add(MenuItem("Rename", "F2", BeginRename));
         menu.Items.Add(MenuItem("Copy link", string.Empty, () => CopyFolderLink(folder.Id)));
+        menu.Items.Add(MenuItem("Duplicate", string.Empty, () => DuplicateFolder(folder.Id)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("New folder", "Ctrl+N", FocusInput));
         menu.Items.Add(new MenuFlyoutSeparator());
@@ -3270,6 +3318,40 @@ public sealed partial class MainWindow : Window
         catch (StorageException ex)
         {
             ShowNotice($"Could not pin the folder: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Duplicates a folder with its active notes (C12, #232): "&lt;name&gt; copy", right after it. The list is re-read
+    /// and focus goes to the copy, which is announced.
+    /// </summary>
+    private void DuplicateFolder(string id)
+    {
+        if (_state != PaneState.Loaded)
+        {
+            return;
+        }
+
+        try
+        {
+            CommandResult<FolderId> result = _commands.Dispatch(new DuplicateFolder(FolderId.From(id)));
+
+            if (!result.IsSuccess)
+            {
+                Refresh();
+                ShowNotice(Describe(result.Failure!));
+                return;
+            }
+
+            string copy = result.Value.Value;
+            _selectedId = copy;
+            Refresh();
+            FocusRow(copy);
+            Announce("Duplicated", FolderList);
+        }
+        catch (StorageException ex)
+        {
+            ShowNotice($"Could not duplicate the folder: {ex.Message}");
         }
     }
 

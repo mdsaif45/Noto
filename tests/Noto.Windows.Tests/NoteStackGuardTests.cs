@@ -202,6 +202,42 @@ public sealed class NoteStackGuardTests
     }
 
     [Fact]
+    public void Duplicating_a_card_is_one_path_from_its_menu_and_ctrl_shift_d_and_edits_nothing()
+    {
+        // #232 (B22): Ctrl+Shift+D on the stack's root, so it works from a card and from its editor. No other chord in
+        // the window or the editor's map takes it (Ctrl+D alone is keep open).
+        XElement key = MainXaml.Root!.Descendants().Single(e => e.Name.LocalName == "KeyboardAccelerator" && (string?)e.Attribute("Invoked") == "OnDuplicateAccelerator");
+        Assert.Equal(("D", "Control,Shift"), ((string?)key.Attribute("Key"), (string?)key.Attribute("Modifiers")));
+        Assert.Equal("NoteRoot", (string?)key.Ancestors().First(e => e.Attribute(X + "Name") is not null).Attribute(X + "Name"));
+        Assert.Single(MainXaml.Root!.Descendants(), e => e.Name.LocalName == "KeyboardAccelerator" && (string?)e.Attribute("Key") == "D" && (string?)e.Attribute("Modifiers") == "Control,Shift");
+        Assert.DoesNotContain("VirtualKey.D,", Body(Code(Path.Join(Windows, "NoteEditorHost.xaml.cs")), "Chord"), StringComparison.Ordinal);
+
+        Assert.Contains("DuplicateCard(id)", Body(Main, "OnDuplicateAccelerator"), StringComparison.Ordinal);
+        Assert.Contains(@"MenuItem(""Duplicate"", ""Ctrl+Shift+D"", () => DuplicateCard(card.Id))", Body(Main, "OnNoteListContextRequested"), StringComparison.Ordinal);
+
+        // The card being edited is saved and left first; the copy goes through the session, is focused and announced,
+        // and is never edited.
+        string duplicate = Body(Main, "DuplicateCard");
+        Assert.Contains("!TryEndEdit()", duplicate, StringComparison.Ordinal);
+        Assert.Contains("_stack.Duplicate(NoteId.From(id))", duplicate, StringComparison.Ordinal);
+        Assert.Contains("FocusNoteRow(copy)", duplicate, StringComparison.Ordinal);
+        Assert.Contains(@"Announce(""Duplicated"")", duplicate, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartEditor", duplicate, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Duplicating_a_folder_is_in_its_menu_and_dispatches_one_command_then_focuses_the_copy()
+    {
+        // #232 (C12).
+        Assert.Contains(@"MenuItem(""Duplicate"", string.Empty, () => DuplicateFolder(folder.Id))", Body(Main, "OnFolderListContextRequested"), StringComparison.Ordinal);
+
+        string duplicate = Body(Main, "DuplicateFolder");
+        Assert.Contains("_commands.Dispatch(new DuplicateFolder(FolderId.From(id)))", duplicate, StringComparison.Ordinal);
+        Assert.Contains("FocusRow(copy)", duplicate, StringComparison.Ordinal);
+        Assert.Contains(@"Announce(""Duplicated"", FolderList)", duplicate, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Move_to_ends_with_new_folder_which_creates_through_the_panes_command_then_moves_the_ordinary_way()
     {
         // #189: last, after a separator, in both the key's menu and the card menu (they share MoveDestinations).
