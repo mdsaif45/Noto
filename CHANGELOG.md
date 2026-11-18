@@ -19,6 +19,8 @@ format or behavior. Breaking changes are always called out explicitly.
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Duplicate a note from its card menu or with Ctrl+Shift+D: the copy appears directly below it with the same text,
   colour and mode. Duplicate a folder from its menu to get "<name> copy" holding copies of all its notes, in order (#232).
+- Settings › Data › *Backup folder*: automatic backups can go to a folder you choose, such as one in OneDrive. If
+  it is missing or can't be written to, the backup goes to Noto's data folder and Settings says so (#233).
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
   the + button and the new-note shortcuts all follow it, at once (#188).
 - Settings › Data › *How often*: Noto backs itself up every day (still the default), or every 45, 30 or 15 minutes.
