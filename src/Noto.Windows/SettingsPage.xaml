@@ -285,6 +285,47 @@
                                     AutomationProperties.HelpText="So you can drop it into Noto." />
                             </Grid>
 
+                            <!-- #185 part 2 (A3, J1, J27): the Open Bar, off by default; its drop has its own switch. Applied at once. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Open Bar" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A small handle at the screen edge while Noto is hidden. Click it to show Noto." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="OpenBarSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnOpenBarChanged"
+                                    AutomationProperties.Name="Open Bar"
+                                    AutomationProperties.HelpText="A small handle at the screen edge while Noto is hidden. Click it to show Noto.">
+                                    <ComboBoxItem Content="Off" Tag="Off" />
+                                    <ComboBoxItem Content="Always shown" Tag="AlwaysShown" />
+                                    <ComboBoxItem Content="Hide when the mouse is idle" Tag="HideWhenIdle" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Drop files on the Open Bar" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Shows Noto and imports them, as a drop on Noto does." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="OpenBarDropSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnOpenBarDropToggled"
+                                    AutomationProperties.Name="Drop files on the Open Bar"
+                                    AutomationProperties.HelpText="Shows Noto and imports them, as a drop on Noto does." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>
