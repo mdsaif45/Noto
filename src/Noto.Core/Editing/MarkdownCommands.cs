@@ -189,6 +189,80 @@ public static class MarkdownCommands
             }
         }
 
+        return Removed(text, removed, selection);
+    }
+
+    /// <summary>
+    /// Clear formatting (D21, #235): the inline markup of every span the selection touches goes, its text stays, as one
+    /// edit, so one undo step. Bold, italic, strikethrough, underline, highlight and code lose their markers; a link keeps
+    /// its text and loses its target. A bare web address has no markup and stays a link; a picture is not formatting and
+    /// stays, its caption too; headings, list markers, task boxes, quotes and fences are lines, not inline markup, and stay.
+    /// A caret clears the spans around it, as the toggles act on the word at the caret.
+    /// </summary>
+    /// <remarks>
+    /// A span the selection cuts through is cleared whole, not split around the selection: a marker only opens before
+    /// text and closes after it (CommonMark's flanking rules), so markers put back at a cut beside a space or a comma would
+    /// read as text, and the part meant to stay formatted would lose it anyway. One undo brings the whole span back.
+    /// </remarks>
+    /// <returns>The edit, or <see langword="null"/> when the selection touches no formatting.</returns>
+    public static TextEdit? ClearFormatting(string text, TextSelection selection)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        IReadOnlyList<MarkdownSpan> spans = MarkdownDocument.Parse(text).Spans;
+        var images = spans.Where(s => s.Kind == MarkdownSpanKind.Image).ToList();
+        var removed = new List<(int Start, int End)>();
+
+        foreach (MarkdownSpan span in spans.Where(s => s.Kind is MarkdownSpanKind.Strong or MarkdownSpanKind.Emphasis or MarkdownSpanKind.Strikethrough
+            or MarkdownSpanKind.Underline or MarkdownSpanKind.Highlight or MarkdownSpanKind.Code or MarkdownSpanKind.Link))
+        {
+            // Each span's own markers touch its text: the markup ending where it starts, and the markup starting where it ends.
+            // A span in a picture's caption is the picture's; a link around a picture has the picture as its text, and goes.
+            MarkdownSpan? open = spans.Where(s => s.Kind == MarkdownSpanKind.Markup && s.End == span.Start).Cast<MarkdownSpan?>().FirstOrDefault();
+            MarkdownSpan? close = spans.Where(s => s.Kind == MarkdownSpanKind.Markup && s.Start == span.End).Cast<MarkdownSpan?>().FirstOrDefault();
+
+            if (open is not { } before || close is not { } after || images.Any(i => i.Start < span.Start && span.End <= i.End))
+            {
+                continue;
+            }
+
+            int end = after.End;
+            if (span.Kind == MarkdownSpanKind.Link)
+            {
+                // "[text](target)": a bare address beside emphasis touches that emphasis's markers, not a '['.
+                if (text[before.Start] != '[' || spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start == after.End).Cast<MarkdownSpan?>().FirstOrDefault() is not { } target)
+                {
+                    continue;
+                }
+
+                end = target.End + 1;
+            }
+
+            bool touched = selection.IsCaret
+                ? span.Start <= selection.Start && selection.Start <= span.End
+                : selection.Start < end && before.Start < selection.End;
+
+            if (touched)
+            {
+                removed.Add((before.Start, before.End));
+                removed.Add((after.Start, end));
+            }
+        }
+
+        if (removed.Count == 0)
+        {
+            return null;
+        }
+
+        removed.Sort();
+        return Removed(text, removed, selection);
+    }
+
+    /// <summary>
+    /// The edit that removes <paramref name="removed"/> (in order, none overlapping) from <paramref name="text"/>, the
+    /// selection kept on the text that stays; an end inside a removed range goes to where that range was.
+    /// </summary>
+    private static TextEdit Removed(string text, List<(int Start, int End)> removed, TextSelection selection)
+    {
         int first = removed[0].Start;
         int last = removed[^1].End;
 

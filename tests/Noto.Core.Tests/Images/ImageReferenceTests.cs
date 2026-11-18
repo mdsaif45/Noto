@@ -76,6 +76,19 @@ public sealed class ImageReferenceTests
     }
 
     [Theory]
+    [InlineData("![red square](attachments/a.png)", "red square")] // its caption, as shown
+    [InlineData("![holiday.JPG](attachments/a.jpg)", "holiday")] // a dropped file's name: the type is the file's
+    [InlineData("![notes.txt](attachments/a.png)", "notes.txt")] // not a picture's extension: part of the name
+    [InlineData(@"![a \[draft\]: v2?](attachments/a.png)", "a [draft] v2")] // unescaped, without what Windows refuses
+    [InlineData("![ ... ](attachments/01J000000000000000000000AB.png)", "01J000000000000000000000AB")] // nothing left: the file's name
+    [InlineData("![](attachments/a.webp)", "a")] // no caption
+    [InlineData("no picture", null)]
+    public void A_picture_is_saved_under_its_caption_or_else_its_files_name(string content, string? name)
+    {
+        Assert.Equal(name, ImageReference.SaveNameAt(MarkdownDocument.Parse(content), 3));
+    }
+
+    [Theory]
     [InlineData(5, "attachments/a.png")] // the picture's line
     [InlineData(37, null)] // the line under it, in the same paragraph: no picture there (measured, Invoke-Images 16)
     [InlineData(54, null)] // the end of the note, on that line
