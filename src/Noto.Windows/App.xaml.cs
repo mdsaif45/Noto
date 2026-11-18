@@ -1527,7 +1527,7 @@ public partial class App : Application
         {
             NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
         }
-        else if (key == SettingKeys.BackupAutomatic || key == SettingKeys.BackupFrequency)
+        else if (key == SettingKeys.BackupAutomatic || key == SettingKeys.BackupFrequency || key == SettingKeys.BackupFolder)
         {
             _ = CheckAutomaticBackup();
         }
@@ -2268,8 +2268,8 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Checks for an automatic backup now, on the timer or because Back up automatically or its frequency changed
-    /// (#199), then sets the timer for when the next is due: a change applies at once, without a restart.
+    /// Checks for an automatic backup now, on the timer or because Back up automatically, its frequency (#199) or its
+    /// folder (#233) changed, then sets the timer for when the next is due: a change applies at once, without a restart.
     /// </summary>
     private async Task CheckAutomaticBackup()
     {
@@ -2324,8 +2324,9 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// An automatic backup, if it is on and one is due at the chosen frequency (F15, #15; #199). A failure is traced and
-    /// tried again an interval later, an hour at most, as if one had been taken; it never interrupts the user.
+    /// An automatic backup, if it is on and one is due at the chosen frequency (F15, #15; #199), into the chosen folder or
+    /// the data folder's backups (#233). A failure is traced and tried again an interval later, an hour at most, as if one
+    /// had been taken; it never interrupts the user.
     /// </summary>
     /// <returns>How long to wait before the next check: an hour while automatic backup is off.</returns>
     private static async Task<TimeSpan> BackupIfDue(DataPortability portability, WorkspacePreferences preferences)
@@ -2342,7 +2343,13 @@ public partial class App : Application
 
         try
         {
-            Trace.WriteLine(await portability.BackupIfDue(frequency) ? "Noto.Backup automatic written" : "Noto.Backup automatic not-due");
+            string folder = preferences.BackupFolder;
+            bool written = await portability.BackupIfDue(frequency, folder);
+
+            // A chosen folder that was gone or refused it (#233) is said apart: the backup is in the data folder instead.
+            Trace.WriteLine(!written ? "Noto.Backup automatic not-due"
+                : portability.UnavailableBackupFolder is null ? "Noto.Backup automatic written"
+                : "Noto.Backup automatic written fell-back=default");
             newest = portability.NewestAutomaticBackup;
         }
         catch (Exception ex) when (ex is PortabilityException or IOException or UnauthorizedAccessException or OperationCanceledException)

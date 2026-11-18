@@ -1,9 +1,10 @@
 using Noto.Core.Portability;
+using Noto.Core.Settings;
 using Xunit;
 
 namespace Noto.Core.Tests.Portability;
 
-/// <summary>F15 (#15), #199: when an automatic backup is due at each frequency, how long the timer waits for it, what it is called, and which ones are kept.</summary>
+/// <summary>F15 (#15), #199: when an automatic backup is due at each frequency, how long the timer waits for it, what it is called, and which ones are kept; #233: which folders they may go to.</summary>
 public sealed class AutomaticBackupsTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 11, 9, 30, 0, TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 11, 11, 9, 30, 0)));
@@ -99,5 +100,74 @@ public sealed class AutomaticBackupsTests
 
         Assert.Equal([AutomaticBackups.FileName(Now.AddDays(-9)), AutomaticBackups.FileName(Now.AddDays(-8)), AutomaticBackups.FileName(Now.AddDays(-7))], expired);
         Assert.Empty(AutomaticBackups.Expired(names.Take(AutomaticBackups.Keep)));
+    }
+
+    private const string DataRoot = @"C:\Users\someone\AppData\Local\Noto";
+    private const string DefaultBackups = DataRoot + @"\backups";
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(@"D:\Backups\Noto")]
+    [InlineData(@"C:\Users\someone\OneDrive\Noto backups")]
+    [InlineData(@"D:\")]
+    [InlineData(@"\\server\share\Noto")]
+    public void A_stored_backup_folder_is_the_default_or_an_absolute_path_in_its_normal_form(string folder)
+    {
+        Assert.True(AutomaticBackups.IsFolder(folder));
+        Assert.True(SettingKeys.BackupFolder.IsValid(folder));
+    }
+
+    [Theory]
+    [InlineData("Backups")]                 // relative
+    [InlineData(@"D:Backups")]              // relative to a drive's current folder
+    [InlineData(@"\Backups")]               // relative to the current drive
+    [InlineData(@"D:\Backups\")]            // a trailing separator: one folder is stored one way only
+    [InlineData(@"D:\Backups\..\Other")]    // not in its normal form
+    [InlineData(@"D:\Backups\.\Noto")]
+    [InlineData(" ")]
+    public void Any_other_stored_backup_folder_is_refused(string folder)
+    {
+        Assert.False(AutomaticBackups.IsFolder(folder));
+        Assert.False(SettingKeys.BackupFolder.IsValid(folder));
+    }
+
+    [Fact]
+    public void The_default_backup_folder_is_empty_and_is_the_settings_default()
+    {
+        Assert.Empty(AutomaticBackups.DefaultFolder);
+        Assert.Equal(AutomaticBackups.DefaultFolder, SettingKeys.BackupFolder.Default);
+        Assert.Contains(SettingKeys.BackupFolder, SettingKeys.All);
+    }
+
+    [Theory]
+    [InlineData(@"D:\Backups\Noto", @"D:\Backups\Noto")]
+    [InlineData(@"D:\Backups\Noto\", @"D:\Backups\Noto")]                  // stored in its normal form
+    [InlineData(@"D:\Backups\x\..\Noto", @"D:\Backups\Noto")]
+    [InlineData(@"D:\", @"D:\")]                                           // a drive's root
+    [InlineData(@"C:\Users\someone\AppData\Local", @"C:\Users\someone\AppData\Local")]                          // holds the data root
+    [InlineData(@"C:\Users\someone\AppData\Local\Noto backups", @"C:\Users\someone\AppData\Local\Noto backups")]  // a sibling named alike
+    [InlineData(DefaultBackups, "")]                                       // the data root's own backups is the default
+    [InlineData(@"c:\users\SOMEONE\appdata\local\noto\BACKUPS\", "")]
+    public void A_picked_folder_outside_the_data_root_is_stored_in_its_normal_form(string picked, string stored)
+    {
+        string? folder = AutomaticBackups.FolderFor(picked, DataRoot, DefaultBackups);
+
+        Assert.Equal(stored, folder);
+        Assert.True(AutomaticBackups.IsFolder(folder!));
+    }
+
+    [Theory]
+    [InlineData(DataRoot)]
+    [InlineData(DataRoot + @"\")]
+    [InlineData(DataRoot + @"\attachments")]
+    [InlineData(DataRoot + @"\backups\replaced-2026-11-11 093000")]   // a restore moves the workspace aside here
+    [InlineData(DataRoot + @"\restore-staging")]
+    [InlineData(DataRoot + @"\logs")]
+    [InlineData(@"c:\users\someone\appdata\local\noto\attachments")]
+    [InlineData("relative")]
+    [InlineData("")]
+    public void A_picked_folder_inside_the_data_root_or_not_absolute_is_refused(string picked)
+    {
+        Assert.Null(AutomaticBackups.FolderFor(picked, DataRoot, DefaultBackups));
     }
 }

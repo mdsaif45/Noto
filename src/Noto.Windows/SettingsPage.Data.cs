@@ -33,7 +33,7 @@ public sealed partial class SettingsPage
 
     private async void OnRestoreClick(object sender, RoutedEventArgs e) => await Work(async (data, progress, cancellation) =>
     {
-        if (await data.PickBackup() is not { } file)
+        if (await data.PickBackup(_context!.Preferences.BackupFolder) is not { } file)
         {
             return null;
         }

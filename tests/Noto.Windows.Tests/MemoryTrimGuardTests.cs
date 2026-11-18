@@ -46,17 +46,17 @@ public sealed class MemoryTrimGuardTests
         // #199: the timer and a changed setting check through one path; the check passes the chosen frequency, and the
         // wait it returns is Core's (AutomaticBackups.UntilNextCheck, unit tested): until the next is due, an hour at most.
         Assert.Contains("_backupTimer.Tick += async (_, _) => await CheckAutomaticBackup();", App, StringComparison.Ordinal);
-        Assert.Matches(@"key == SettingKeys\.BackupAutomatic \|\| key == SettingKeys\.BackupFrequency\)\s*\{\s*_ = CheckAutomaticBackup\(\);", App);
+        Assert.Matches(@"key == SettingKeys\.BackupAutomatic \|\| key == SettingKeys\.BackupFrequency \|\| key == SettingKeys\.BackupFolder\)\s*\{\s*_ = CheckAutomaticBackup\(\);", App);
 
         string check = Regex.Match(App, @"private static async Task<TimeSpan> BackupIfDue\([\s\S]*?\n    }\n").Value;
         Assert.Contains("return AutomaticBackups.LongestWait;", check, StringComparison.Ordinal);
-        Assert.Contains("await portability.BackupIfDue(frequency)", check, StringComparison.Ordinal);
+        Assert.Contains("await portability.BackupIfDue(frequency, folder)", check, StringComparison.Ordinal);
         Assert.Contains("return AutomaticBackups.UntilNextCheck(newest, TimeProvider.System.GetLocalNow(), frequency);", check, StringComparison.Ordinal);
 
         // Nothing due is a comparison with the clock, before any work is started.
         string portability = File.ReadAllText(SourcePath("src", "Noto.Windows", "DataPortability.cs"));
-        string due = Regex.Match(portability, @"public async Task<bool> BackupIfDue\(BackupFrequency frequency\)[\s\S]*?\n    }\n").Value;
-        int fast = due.IndexOf("NewestAutomaticBackup is { } known && !AutomaticBackups.IsDue(", StringComparison.Ordinal);
+        string due = Regex.Match(portability, @"public async Task<bool> BackupIfDue\(BackupFrequency frequency, string folder\)[\s\S]*?\n    }\n").Value;
+        int fast = due.IndexOf("_newestFor == folder && NewestAutomaticBackup is { } known && !AutomaticBackups.IsDue(", StringComparison.Ordinal);
         Assert.True(fast > 0 && fast < due.IndexOf("await Run(", StringComparison.Ordinal), "A check with nothing due starts work.");
     }
 
