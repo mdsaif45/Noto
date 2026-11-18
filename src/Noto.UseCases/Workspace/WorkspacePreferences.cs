@@ -107,6 +107,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>How often the automatic backup is taken (#199).</summary>
     public BackupFrequency BackupFrequency => _settings.Read(SettingKeys.BackupFrequency);
 
+    /// <summary>The folder automatic backups go to (#233): empty for the data root's backups.</summary>
+    public string BackupFolder => _settings.Read(SettingKeys.BackupFolder);
+
     /// <summary>Where a new note goes in its folder (parity B5, J8).</summary>
     public NewNotePlacement NewNotePlacement => _settings.Read(SettingKeys.NotesNewPlacement);
 
@@ -258,6 +261,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets how often the automatic backup is taken (#199).</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetBackupFrequency(BackupFrequency frequency) => TryWrite(SettingKeys.BackupFrequency, frequency);
+
+    /// <summary>Sets the folder automatic backups go to (#233): empty for the data root's backups.</summary>
+    /// <returns>Whether it was kept: a path not in its normal form is refused.</returns>
+    public bool SetBackupFolder(string folder) => TryWrite(SettingKeys.BackupFolder, folder);
 
     /// <summary>Sets the family notes are shown in.</summary>
     /// <returns>Whether it was kept: a family outside <see cref="NoteText.Fonts"/> is refused.</returns>

@@ -2,7 +2,8 @@
 <#
 .SYNOPSIS
   F15 (#15): Noto backs itself up once a day into the data root's backups, keeping the last seven automatic backups,
-  and never touches any other backup there; #199: or every 45, 30 or 15 minutes, as chosen.
+  and never touches any other backup there; #199: or every 45, 30 or 15 minutes, as chosen; #233: or into a folder
+  the user chose.
 
 .DESCRIPTION
   One isolated data root on a temporary virtual desktop; Noto started by the shell; the real data folders checked
@@ -16,6 +17,8 @@
     3  with "Back up automatically" off: a start writes none
     4  with it on again at every 15 minutes and the newest automatic backup 20 minutes old: a start writes one, and the
        older one is kept (#199)
+    5  with a backup folder chosen (the stored setting, a folder under the run root): a start writes one automatic
+       backup there, the data root's backups get none, and another file in the folder is untouched (#233)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-AutoBackup.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -100,6 +103,22 @@ try {
         $written = Until { (Trace-Since $m) -match 'Noto\.Backup automatic (written|failed)' } 60
         $new = @(Autos | Where-Object { $_ -ne $recent })
         Add-Result $run '4  at every 15 minutes, a start with the newest automatic backup 20 minutes old writes one' ($written -and (Trace-Since $m) -match 'automatic written' -and $new.Count -eq 1 -and (Autos) -contains $recent) "autos=$((Autos) -join ' | '); trace: $(Trace-Since $m)"
+        if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+
+        # 5 - a chosen backup folder (#233): the stored setting, a folder under the run root in its normal form; it has
+        #     no automatic backup, so one is due there, and the data root's backups get none
+        $chosen = [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath((Join-Path $run.Root 'chosen-backups')))
+        New-Item -ItemType Directory $chosen | Out-Null
+        Set-Content -LiteralPath (Join-Path $chosen 'not-noto.txt') -Value 'the user''s own file'
+        Set-NotoSetting $run -Exe $NotoExe -DataRoot $data -Key 'backup.folder' -Value $chosen
+        Autos | ForEach-Object { Remove-Item -LiteralPath (Join-Path $script:backups $_) }
+        $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
+        $m = Trace-Mark
+        $written = Until { (Trace-Since $m) -match 'Noto\.Backup automatic (written|failed)' } 60
+        $inChosen = @(Get-ChildItem -LiteralPath $chosen -File -Filter 'auto-*.notobackup' | ForEach-Object Name)
+        $entries = if ($inChosen.Count -eq 1) { Entries (Join-Path $chosen $inChosen[0]) } else { @() }
+        Add-Result $run '5  with a backup folder chosen, a start writes one automatic backup there, a whole Noto backup' ($written -and (Trace-Since $m) -match 'automatic written' -and (Trace-Since $m) -notmatch 'fell-back' -and $inChosen.Count -eq 1 -and $entries -contains 'manifest.json' -and $entries -contains 'noto.db') "chosen=$($inChosen -join ' | ') entries=$($entries.Count); trace: $(Trace-Since $m)"
+        Add-Result $run '5  the data root''s backups get none, and the user''s own file there is untouched' ((Autos).Count -eq 0 -and (Get-Content -LiteralPath (Join-Path $chosen 'not-noto.txt') -Raw).Trim() -eq "the user's own file") "default autos=$((Autos) -join ' | ')"
         Add-Result $run 'teardown: Noto exited cleanly' (Stop-Noto $script:noto) ''
     }
 }

@@ -56,6 +56,9 @@ public sealed partial class SettingsPage : UserControl
 {
     private const string NotSaved = "That setting could not be saved, so it is unchanged.";
 
+    private const string BackupFolderUnavailable =
+        "The last automatic backup couldn't be saved in the backup folder, so it was saved in Noto's data folder. Check that the folder is there and can be written to, or choose another.";
+
     private SettingsContext? _context;
 
     // True while the page shows stored values, so the change events that raises are not taken as the user's.
@@ -95,7 +98,9 @@ public sealed partial class SettingsPage : UserControl
             ShowHotkeyMessage(action, hotkeyMessages.GetValueOrDefault(action));
         }
 
-        ShowNotice(null);
+        // #233: the last automatic backup could not go to the chosen folder, which is still the one chosen.
+        string folder = context.Preferences.BackupFolder;
+        ShowNotice(folder.Length > 0 && context.Portability.UnavailableBackupFolder == folder ? BackupFolderUnavailable : null);
     }
 
     /// <summary>Puts keyboard focus on the page's first control, in visual order.</summary>
@@ -183,6 +188,7 @@ public sealed partial class SettingsPage : UserControl
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
             BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
+            ShowBackupFolder(preferences.BackupFolder);
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
             Select(FileLinksSetting, preferences.FileLinks.ToString());
             Select(PictureDropSetting, preferences.PictureDrop.ToString());
@@ -315,6 +321,45 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnBackupFrequencyChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => BackupFrequencySetting.SelectedItem is not null && p.SetBackupFrequency(Selected<BackupFrequency>(BackupFrequencySetting)));
+
+    // #233: the folder's path, or the default in words; Use the default only while a folder is chosen.
+    private void ShowBackupFolder(string folder)
+    {
+        bool chosen = folder.Length > 0;
+        BackupFolderText.Text = chosen ? folder : "In Noto's data folder";
+        DefaultBackupFolderButton.Visibility = chosen ? Visibility.Visible : Visibility.Collapsed;
+        AutomationProperties.SetName(BackupFolderButton, $"Change the backup folder, {BackupFolderText.Text}");
+    }
+
+    // A folder inside the data folder is refused (what is there is Noto's own); its own backups folder is the default.
+    private async void OnBackupFolderClick(object sender, RoutedEventArgs e)
+    {
+        if (_context is null || await _context.Portability.PickFolder() is not { } picked)
+        {
+            return;
+        }
+
+        if (_context.Portability.BackupFolderFor(picked) is not { } folder)
+        {
+            ShowNotice("Automatic backups can't go inside Noto's data folder. Choose a folder outside it.");
+            return;
+        }
+
+        Write(p => p.SetBackupFolder(folder));
+        ShowBackupFolder(_context.Preferences.BackupFolder);
+    }
+
+    // Use the default collapses once used, so focus moves to Change… rather than being lost.
+    private void OnDefaultBackupFolderClick(object sender, RoutedEventArgs e)
+    {
+        Write(p => p.SetBackupFolder(AutomaticBackups.DefaultFolder));
+
+        if (_context is not null)
+        {
+            ShowBackupFolder(_context.Preferences.BackupFolder);
+            _ = BackupFolderButton.Focus(FocusState.Programmatic);
+        }
+    }
 
     private void OnHideOnDeactivationToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetHideOnDeactivation(HideOnDeactivationSetting.IsOn));

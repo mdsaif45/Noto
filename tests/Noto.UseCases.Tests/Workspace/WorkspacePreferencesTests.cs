@@ -292,6 +292,7 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(WorkspaceEdge.Right, preferences.Edge);
         Assert.Equal(EscapeBehavior.LeaveFolderOrHide, preferences.Escape);
         Assert.Equal(NoteMode.Markdown, preferences.NewNoteMode);
+        Assert.Equal(string.Empty, preferences.BackupFolder);
     }
 
     [Theory]
@@ -348,6 +349,7 @@ public sealed class WorkspacePreferencesTests
         { "SetNewNoteMode", SettingKeys.NotesNewMode.Name, NoteMode.Code },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
+        { "SetBackupFolder", SettingKeys.BackupFolder.Name, @"D:\Backups\Noto" },
     };
 
     [Theory]
@@ -403,6 +405,23 @@ public sealed class WorkspacePreferencesTests
 
         Assert.False(Set(new WorkspacePreferences(store), setter, value));
         Assert.Null(store.Raw(key));
+    }
+
+    [Theory]
+    [InlineData("Backups")]
+    [InlineData(@"D:\Backups\")]
+    [InlineData(@"D:\Backups\..\Noto")]
+    public void A_backup_folder_not_absolute_and_normal_is_refused_and_a_stored_one_reads_as_the_default(string folder)
+    {
+        // #233: one folder is stored one way, absolute; a row written otherwise (by hand, say) means the default.
+        var store = new FakeSettings();
+        var preferences = new WorkspacePreferences(store);
+
+        Assert.False(preferences.SetBackupFolder(folder));
+        Assert.Empty(store.Writes);
+
+        store.Seed(SettingKeys.BackupFolder.Name, folder);
+        Assert.Equal(string.Empty, preferences.BackupFolder);
     }
 
     [Fact]
@@ -489,6 +508,7 @@ public sealed class WorkspacePreferencesTests
         "SetNewNoteMode" => preferences.SetNewNoteMode((NoteMode)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
+        "SetBackupFolder" => preferences.SetBackupFolder((string)value),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 
@@ -509,6 +529,7 @@ public sealed class WorkspacePreferencesTests
         "SetNewNoteMode" => preferences.NewNoteMode,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
+        "SetBackupFolder" => preferences.BackupFolder,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 }

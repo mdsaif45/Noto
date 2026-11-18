@@ -20,6 +20,10 @@ namespace Noto.Core.Portability;
 /// <para>
 /// The time is in the name, so the schedule does not depend on file times, which a copy or a sync tool may change.
 /// </para>
+/// <para>
+/// <b>Into the data root's backups, or a folder the user chose</b> (#233; parity I11, J39), OneDrive's say. Only these
+/// names are ever removed there, so a folder the user also keeps other files in is safe to choose.
+/// </para>
 /// </remarks>
 public static class AutomaticBackups
 {
@@ -84,6 +88,57 @@ public static class AutomaticBackups
     {
         TimeSpan until = IsDue(newest, now, frequency) ? TimeSpan.Zero : newest!.Value + IntervalOf(frequency) - now + Margin;
         return until < ShortestWait ? ShortestWait : until > LongestWait ? LongestWait : until;
+    }
+
+    /// <summary>The stored backup folder that means the data root's own backups (#233).</summary>
+    public const string DefaultFolder = "";
+
+    /// <summary>
+    /// Whether <paramref name="folder"/> may be stored as the backup folder (#233): <see cref="DefaultFolder"/>, or an
+    /// absolute path already in its normal form (full, no trailing separator but a drive's own), so one folder is only
+    /// ever stored one way.
+    /// </summary>
+    public static bool IsFolder(string folder) =>
+        folder is not null && (folder.Length == 0 || (Path.IsPathFullyQualified(folder) && Normal(folder) == folder));
+
+    /// <summary>
+    /// What to store for a folder the user picked as the backup folder (#233); <see langword="null"/> when it may not be
+    /// one. The data root's own backups folder is the default, stored as <see cref="DefaultFolder"/>. Anything else
+    /// inside <paramref name="dataRoot"/> is refused: what is there is Noto's own, swept, replaced by a restore or moved
+    /// aside by one. A folder outside it, a drive's root or one that holds the data root included, is stored in its
+    /// normal form.
+    /// </summary>
+    public static string? FolderFor(string picked, string dataRoot, string defaultFolder)
+    {
+        ArgumentNullException.ThrowIfNull(dataRoot);
+        ArgumentNullException.ThrowIfNull(defaultFolder);
+
+        if (string.IsNullOrWhiteSpace(picked) || !Path.IsPathFullyQualified(picked) || Normal(picked) is not { } folder)
+        {
+            return null;
+        }
+
+        if (string.Equals(folder, Normal(defaultFolder), StringComparison.OrdinalIgnoreCase))
+        {
+            return DefaultFolder;
+        }
+
+        string relative = Path.GetRelativePath(Normal(dataRoot) ?? dataRoot, folder);
+        bool outside = Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        return outside ? folder : null;
+    }
+
+    /// <summary>A path in its normal form; <see langword="null"/> when it is not a path at all.</summary>
+    private static string? Normal(string path)
+    {
+        try
+        {
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 
     /// <summary>The backups to remove so that only the <see cref="Keep"/> newest remain, oldest first.</summary>
