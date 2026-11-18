@@ -69,6 +69,13 @@ public interface IFolderRepository
     void Add(Folder folder);
 
     /// <summary>
+    /// Inserts a folder at <paramref name="placement"/> together with <paramref name="notes"/>, in one transaction: a
+    /// duplicated folder (C12, #232) is made whole or not at all. The folder's own <c>SortOrder</c> is ignored; each
+    /// note keeps its own, in the new folder's scope. An anchor that is no longer an active folder places it last.
+    /// </summary>
+    void AddWithNotes(Folder folder, FolderPlacement placement, IReadOnlyList<Notes.Note> notes);
+
+    /// <summary>
     /// Replaces a folder's name and stamps <c>UpdatedAt</c>.
     /// </summary>
     /// <remarks>

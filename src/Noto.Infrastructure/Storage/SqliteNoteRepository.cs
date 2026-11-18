@@ -109,31 +109,7 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                 ? (SortOrderEngine.MaxSortOrder(connection, scope, transaction) is { } max ? max + 1 : 0)
                 : SortOrderEngine.ResolvePosition(connection, transaction, scope, ToEnginePlacement(placement), note.Id.Value, note.UpdatedAt);
 
-            using (var command = connection.CreateCommand())
-            {
-                command.Transaction = transaction;
-                command.CommandText =
-                    """
-                    INSERT INTO Notes
-                        (Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
-                         SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode)
-                    VALUES
-                        ($id, $folderId, $content, $colorKey, $isPinned, $isFolded,
-                         $sortOrder, $createdAt, $updatedAt, NULL, $mode);
-                    """;
-                command.Parameters.AddWithValue("$id", note.Id.Value);
-                command.Parameters.AddWithValue("$folderId", note.FolderId is { } folder ? folder.Value : DBNull.Value);
-                command.Parameters.AddWithValue("$content", note.Content);
-                command.Parameters.AddWithValue("$colorKey", (object?)note.ColorKey ?? DBNull.Value);
-                command.Parameters.AddWithValue("$isPinned", note.IsPinned ? 1 : 0);
-                command.Parameters.AddWithValue("$isFolded", note.IsFolded ? 1 : 0);
-                command.Parameters.AddWithValue("$sortOrder", sortOrder);
-                command.Parameters.AddWithValue("$createdAt", Format(note.CreatedAt));
-                command.Parameters.AddWithValue("$updatedAt", Format(note.UpdatedAt));
-                command.Parameters.AddWithValue("$mode", note.Mode.ToString());
-                command.ExecuteNonQuery();
-            }
-
+            Insert(connection, transaction, note, sortOrder);
             transaction.Commit();
         }
         catch (SqliteException ex)
@@ -143,6 +119,36 @@ public sealed class SqliteNoteRepository(NotoDatabase database) : INoteRepositor
                 $"Could not create note '{note.Id}'.",
                 ex);
         }
+    }
+
+    /// <summary>
+    /// Writes one active note at <paramref name="sortOrder"/> inside the caller's transaction: <see cref="AddAt"/>'s
+    /// insert, and a duplicated folder's notes (#232), which commit with their folder.
+    /// </summary>
+    internal static void Insert(SqliteConnection connection, SqliteTransaction transaction, Note note, double sortOrder)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO Notes
+                (Id, FolderId, Content, ColorKey, IsPinned, IsFolded,
+                 SortOrder, CreatedAt, UpdatedAt, DeletedAt, Mode)
+            VALUES
+                ($id, $folderId, $content, $colorKey, $isPinned, $isFolded,
+                 $sortOrder, $createdAt, $updatedAt, NULL, $mode);
+            """;
+        command.Parameters.AddWithValue("$id", note.Id.Value);
+        command.Parameters.AddWithValue("$folderId", note.FolderId is { } folder ? folder.Value : DBNull.Value);
+        command.Parameters.AddWithValue("$content", note.Content);
+        command.Parameters.AddWithValue("$colorKey", (object?)note.ColorKey ?? DBNull.Value);
+        command.Parameters.AddWithValue("$isPinned", note.IsPinned ? 1 : 0);
+        command.Parameters.AddWithValue("$isFolded", note.IsFolded ? 1 : 0);
+        command.Parameters.AddWithValue("$sortOrder", sortOrder);
+        command.Parameters.AddWithValue("$createdAt", Timestamps.Format(note.CreatedAt));
+        command.Parameters.AddWithValue("$updatedAt", Timestamps.Format(note.UpdatedAt));
+        command.Parameters.AddWithValue("$mode", note.Mode.ToString());
+        command.ExecuteNonQuery();
     }
 
     private static bool IsActiveSibling(SqliteConnection connection, SqliteTransaction transaction, NoteId id, FolderId? folderId)

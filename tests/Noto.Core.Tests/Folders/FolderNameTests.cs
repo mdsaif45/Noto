@@ -45,4 +45,12 @@ public sealed class FolderNameTests
 
         Assert.Equal(long_, FolderName.Normalise(long_));
     }
+
+    [Theory]
+    [InlineData(new string[] { "Work" }, "Work copy")]
+    [InlineData(new string[] { "Work", "Work copy" }, "Work copy 2")]
+    [InlineData(new string[] { "Work", "work COPY", "Work copy 2" }, "Work copy 3")]
+    [InlineData(new string[] { "Work", "Work copy 2" }, "Work copy")]
+    public void A_copys_name_is_the_first_free_of_copy_copy_2_copy_3(string[] taken, string expected) =>
+        Assert.Equal(expected, FolderName.CopyOf("Work", taken));
 }

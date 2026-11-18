@@ -46,6 +46,25 @@ public static class FolderName
         return normalised.Length == 0 ? null : normalised;
     }
 
+    /// <summary>
+    /// A duplicated folder's name (C12, #232): "<paramref name="name"/> copy", or "copy 2", "copy 3"… when that is
+    /// already one of <paramref name="taken"/>, compared ignoring case, so the copy is told apart from every folder the
+    /// list shows.
+    /// </summary>
+    public static string CopyOf(string name, IEnumerable<string> taken)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var names = new HashSet<string>(taken, StringComparer.OrdinalIgnoreCase);
+
+        string copy = $"{name} copy";
+        for (int n = 2; names.Contains(copy); n++)
+        {
+            copy = $"{name} copy {n}";
+        }
+
+        return copy;
+    }
+
     // Control characters (tab, CR, LF and the rest) and the Unicode line and paragraph separators.
     private static bool IsBreak(char c) =>
         char.IsControl(c)
