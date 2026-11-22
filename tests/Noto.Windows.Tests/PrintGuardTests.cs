@@ -6,7 +6,7 @@ namespace Noto.Windows.Tests;
 
 /// <summary>
 /// Printing's wiring (#248; B21, G25, I6), checked in source as images' and links' are. Where the text goes on a page is
-/// Core's (<c>PrintPageTests</c>); that Ctrl+P opens Windows' dialog with Noto still shown, Invoke-Editor.ps1's case 26.
+/// Core's (<c>PrintPageTests</c>); that Ctrl+P opens Windows' dialog with Noto still shown, Invoke-Editor.ps1's case 28.
 /// What a printout looks like needs a person at the dialog (docs/research/printing.md).
 /// </summary>
 public sealed class PrintGuardTests

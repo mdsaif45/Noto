@@ -28,6 +28,8 @@ format or behavior. Breaking changes are always called out explicitly.
   open tasks in its list, and unchecking moves it back. The check and the move are one undo step (#244).
 - Settings › Appearance › *New note colour*: every new note can start in one of the six colours. *Show colour chips*
   hides the colour square shown after a hex colour code in a card (#245).
+- Ctrl+P, or *Print…* on a note's menu, prints the note through Windows' print dialog, with a preview: dark ink on
+  white, laid out like the card, pictures included, while the drawer stays open (#248).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Duplicate a note from its card menu or with Ctrl+Shift+D: the copy appears directly below it with the same text,
