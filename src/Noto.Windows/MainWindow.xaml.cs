@@ -1621,6 +1621,12 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public bool SingleClickOpen { get; set; }
 
+    /// <summary>
+    /// Whether Ctrl+Enter hides Noto (#255; parity A11, G13). Set by the composition root from the stored setting, at
+    /// launch and whenever it changes. Off, Ctrl+Enter does what it did before the setting existed.
+    /// </summary>
+    internal bool CtrlEnterHides { get; set; }
+
     /// <summary>The workspace content's motion (Slice 1.3): the drawer's enter and exit, and a surface entering.</summary>
     internal ContentMotion Motion { get; }
 
@@ -1894,6 +1900,37 @@ public sealed partial class MainWindow : Window
     {
         args.Handled = true;
         DismissRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Ctrl+Enter hides Noto from any surface when the setting is on (#255; parity A11, G13), through the one dismissal
+    /// Ctrl+W takes, which saves the note being edited first.
+    /// </summary>
+    /// <remarks>
+    /// <b>The root's PreviewKeyDown, and not an accelerator.</b> It runs on the way down, before any control: the stack
+    /// takes Enter on a card to edit it, a list or a button acts on Enter in its own KeyDown, and the edit control keeps
+    /// what it consumes from the root's accelerators, so an accelerator would hide from some surfaces and not others.
+    /// The few that own Ctrl+Enter keep it: the editor on a link (ADR-019 §2), Search with a result selected (#197), a
+    /// listening shortcut recorder, and the folder name boxes, where Enter commits. Exactly Ctrl: Ctrl+Alt is AltGr.
+    /// </remarks>
+    private void OnWorkspacePreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (!CtrlEnterHides || e.Key != VirtualKey.Enter || !IsControlDown() || IsAltDown() || IsShiftDown())
+        {
+            return;
+        }
+
+        bool owned = _editor?.KeepsCtrlEnter() == true
+            || SearchSurface?.KeepsCtrlEnter == true
+            || SettingsSurface?.IsRecording == true
+            || ReferenceEquals(e.OriginalSource, FolderNameInput)
+            || ReferenceEquals(e.OriginalSource, RenameEditor);
+
+        if (!owned)
+        {
+            e.Handled = true;
+            DismissRequested?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>

@@ -868,6 +868,7 @@ public partial class App : Application
         {
             Escape = preferences.Escape,
             SingleClickOpen = preferences.SingleClickOpen,
+            CtrlEnterHides = preferences.CtrlEnterHides,
             NewNotePlacement = preferences.NewNotePlacement,
             NewNoteMode = preferences.NewNoteMode,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
@@ -1546,6 +1547,10 @@ public partial class App : Application
         else if (key == SettingKeys.WorkspaceSingleClickOpen && _main is not null)
         {
             _main.SingleClickOpen = preferences.SingleClickOpen;
+        }
+        else if (key == SettingKeys.WorkspaceCtrlEnterHides && _main is not null)
+        {
+            _main.CtrlEnterHides = preferences.CtrlEnterHides;
         }
         else if (key == SettingKeys.NotesNewMode && _main is not null)
         {

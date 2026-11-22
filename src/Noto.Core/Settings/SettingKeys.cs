@@ -274,6 +274,16 @@ public static class SettingKeys
         new("workspace.escape", EscapeBehavior.LeaveFolderOrHide, Enum.IsDefined);
 
     /// <summary>
+    /// Whether Ctrl+Enter hides Noto from any surface, the editor included (#255; parity A11, G13).
+    /// </summary>
+    /// <remarks>
+    /// Default off: Ctrl+Enter already opens the link at the editor's caret (ADR-019 §2) and enters a search result's
+    /// folder (#197), and both keep it either way; the user turns the rest on. Taken on the next press.
+    /// </remarks>
+    public static readonly SettingKey<bool> WorkspaceCtrlEnterHides =
+        new("workspace.ctrl-enter-hides", false);
+
+    /// <summary>
     /// Whether the shown workspace hides when activation moves to another
     /// application — parity A13 and J5, "close on outside click".
     /// </summary>
@@ -522,6 +532,7 @@ public static class SettingKeys
         WorkspaceEdge,
         WorkspaceWidth,
         WorkspaceEscape,
+        WorkspaceCtrlEnterHides,
         WorkspaceHideOnDeactivation,
         WorkspaceSingleClickOpen,
         WorkspaceOpenLastFolder,
