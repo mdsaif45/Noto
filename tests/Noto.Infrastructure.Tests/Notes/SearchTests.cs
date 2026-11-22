@@ -186,13 +186,13 @@ public sealed class SearchTests : IDisposable
         FolderId folder = _db.SeedFolder();
         NoteId note = _db.SeedNote(folder, "written before search existed");
 
-        // Back to schema 3, as a database from before this release: no index, no triggers, and no note mode (#195, 5).
+        // Back to schema 3, as a database from before this release: no index, no triggers, no note mode (#195, 5) and no note sort (#242, 6).
         using (SqliteConnection connection = _db.Database.OpenConnection())
         {
             foreach (string sql in new[]
             {
                 "DROP TRIGGER Notes_Fts_Insert;", "DROP TRIGGER Notes_Fts_Delete;", "DROP TRIGGER Notes_Fts_Update;",
-                "DROP TABLE NotesFts;", "ALTER TABLE Notes DROP COLUMN Mode;", "PRAGMA user_version = 3;",
+                "DROP TABLE NotesFts;", "ALTER TABLE Notes DROP COLUMN Mode;", "ALTER TABLE Folders DROP COLUMN NoteSort;", "PRAGMA user_version = 3;",
             })
             {
                 using var command = connection.CreateCommand();

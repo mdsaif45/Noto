@@ -3,6 +3,7 @@ using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Core.Ordering;
 using Noto.UseCases.Commands;
+using Noto.UseCases.Folders;
 using Noto.UseCases.Notes;
 
 namespace Noto.UseCases.Workspace;
@@ -31,8 +32,17 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
 
     private List<Note> _notes = [];
 
-    /// <summary>The open folder's notes as last read, in display order (O2), with every save since applied.</summary>
+    /// <summary>
+    /// The open folder's notes as last read, in display order (O2, or the folder's <see cref="Sort"/>), with every save
+    /// since applied. A save never moves a card: a sorted folder places an edited note when it is next read (#242).
+    /// </summary>
     public IReadOnlyList<Note> Notes => _notes;
+
+    /// <summary>How the open folder orders its notes (#242); <see cref="NoteSort.Manual"/> when none is open.</summary>
+    public NoteSort Sort { get; private set; }
+
+    /// <summary>Whether the user's own order is shown, so notes may be moved by hand (#242).</summary>
+    public bool IsManual => Sort == NoteSort.Manual;
 
     /// <summary>The card being edited; <see langword="null"/> when none is.</summary>
     public NoteId? Editing { get; private set; }
@@ -49,10 +59,14 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     /// </summary>
     public bool IsDirty => !string.Equals(Draft, Baseline, StringComparison.Ordinal);
 
-    /// <summary>Opens <paramref name="folder"/>: nothing is edited until a card is chosen.</summary>
-    public void Open(FolderId folder)
+    /// <summary>
+    /// Opens <paramref name="folder"/>, ordered by its stored <paramref name="sort"/> (#242): nothing is edited until a
+    /// card is chosen.
+    /// </summary>
+    public void Open(FolderId folder, NoteSort sort = NoteSort.Manual)
     {
         Folder = folder;
+        Sort = sort;
         _notes = [];
         StopEditing();
     }
@@ -61,6 +75,7 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     public void Close()
     {
         Folder = null;
+        Sort = NoteSort.Manual;
         _notes = [];
         StopEditing();
     }
@@ -68,7 +83,7 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     /// <summary>Reads the open folder's notes. An editing card that is no longer there stops editing.</summary>
     public IReadOnlyList<Note> Read()
     {
-        _notes = Folder is { } folder ? [.. _list.Execute(folder)] : [];
+        _notes = Folder is { } folder ? [.. NoteSorts.Apply(_list.Execute(folder), Sort)] : [];
 
         if (Editing is { } editing && IndexOf(editing) < 0)
         {
@@ -385,11 +400,39 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     }
 
     /// <summary>
+    /// Orders the open folder's notes by <paramref name="sort"/> (#242), stored on the folder, and reads them again. No
+    /// note is written: Manual shows the user's order as they left it. The card being edited keeps editing with its text.
+    /// </summary>
+    public CommandResult SetSort(NoteSort sort)
+    {
+        if (Folder is not { } folder)
+        {
+            return CommandResult.Failed(CommandFailure.InvalidState("No folder is open."));
+        }
+
+        CommandResult result = _commands.Dispatch(new SetFolderNoteSort(folder, sort));
+
+        if (result.IsSuccess)
+        {
+            Sort = sort;
+            Read();
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Moves <paramref name="note"/> up, down, to the top or bottom of its pin group (B8, B9), through the engine's one
-    /// order. At that edge already, nothing is written. The card being edited keeps editing with its text.
+    /// order. At that edge already, nothing is written. The card being edited keeps editing with its text. Refused
+    /// (InvalidState) in a sorted folder, writing nothing: the sort, not the user, places its notes (#242).
     /// </summary>
     public CommandResult Reorder(NoteId note, RepositionDirection direction)
     {
+        if (!IsManual)
+        {
+            return CommandResult.Failed(CommandFailure.InvalidState(NoteSorts.ManualOnly(Sort)));
+        }
+
         RepositionTarget<NoteId> target = Target(note, direction);
 
         if (!target.Moves)
@@ -410,10 +453,16 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
     /// <summary>
     /// A card was dropped at <paramref name="landedAt"/>, its index in the stack after the drop (B10). A drop into the
     /// other pin group is refused (InvalidInput) and writes nothing; a drop where it was writes nothing; any other is
-    /// B3's reorder. The card being edited keeps editing with its text.
+    /// B3's reorder. The card being edited keeps editing with its text. Refused (InvalidState) in a sorted folder, as
+    /// <see cref="Reorder"/> is (#242).
     /// </summary>
     public CommandResult Drop(NoteId note, int landedAt)
     {
+        if (!IsManual)
+        {
+            return CommandResult.Failed(CommandFailure.InvalidState(NoteSorts.ManualOnly(Sort)));
+        }
+
         RepositionDrop<NoteId> drop = Reposition.Drop(Notes, note, landedAt, n => n.Id, n => n.IsPinned, n => n.SortOrder);
 
         if (!drop.Allowed)
@@ -436,8 +485,11 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
         return result;
     }
 
-    /// <summary>Whether moving <paramref name="note"/> in <paramref name="direction"/> would move it at all.</summary>
-    public bool CanReorder(NoteId note, RepositionDirection direction) => Target(note, direction).Moves;
+    /// <summary>
+    /// Whether moving <paramref name="note"/> in <paramref name="direction"/> would move it at all: never in a sorted
+    /// folder (#242).
+    /// </summary>
+    public bool CanReorder(NoteId note, RepositionDirection direction) => IsManual && Target(note, direction).Moves;
 
     /// <summary>
     /// Whether folding (or unfolding) every card would change one (B13, #190): the list's menu disables an item that

@@ -85,6 +85,11 @@
     53  #232: the card menu's Duplicate puts a copy with the same text directly below the card, not pinned, nothing
         editing, focus on a card of that name; Ctrl+Shift+D copies the focused card again; back on the folder list,
         the folder menu's Duplicate makes "Stack copy" right after Stack, holding the same notes in the same order
+    54  #242 (C10): with one card pinned, the More menu's Sort by (Manual, Name, Date created, Date modified; Manual
+        checked) › Name: the cards are in title order, culture-aware and case-insensitive, the pinned one first, and the
+        folder stores Name; no note's SortOrder changes. Ctrl+Alt+Shift+Up is refused with "Sorted by name: choose
+        Manual to arrange notes yourself" and writes nothing; the card menu's Move to top is disabled. Sort by › Manual:
+        the cards are in the order they were before, stored Manual
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -924,6 +929,43 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $rows = Folder-Rows
     Add-Result $run '53 the folder menu''s Duplicate: "Stack copy" right after Stack, the same notes in the same order, focus on it' ($made -ne '' -and (Folders-Named 'Stack copy') -eq 1 -and $copiedNotes -eq $originalNotes -and $rows.IndexOf('Stack copy') -eq $rows.IndexOf('Stack') + 1 -and (Focused-Name) -eq 'Stack copy') "made=$made rows=$($rows -join ',') same notes=$($copiedNotes -eq $originalNotes) count=$(@(Sql-Rows $contents @{ '$f' = $made }).Count) focus=$(Focused-Name)"
     Enter-Folder
+    # 54 - #242 (C10): Sort by Name, the pinned first; moves refused with the reason; Manual restores the order
+    (Card 'Saved by Back').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Pin'
+    $manual = @(Cards | Select-Object -First 10 | ForEach-Object { Get-RowTitle $_.Current.Name })
+    $ordersBefore = Orders
+    $menuButton = Find-ById 'NoteListMenuButton'
+    $menuButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    Expand 'Sort by'
+    $sortItems = @(Menu-Items | Where-Object { $_ -in 'Manual', 'Name', 'Date created', 'Date modified' })
+    $manualChecked = (Menu-Item 'Manual').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On'
+    Pick 'Name'
+    $shown = @(Cards | Select-Object -First 10 | ForEach-Object { [pscustomobject]@{ Title = Get-RowTitle $_.Current.Name; Pinned = $_.Current.HelpText -match '\bPinned\b' } })
+    $pinnedTitles = @($shown | Where-Object Pinned | ForEach-Object Title)
+    $rest = [string[]]@($shown | Where-Object { -not $_.Pinned } | ForEach-Object Title)
+    $expected = [string[]]$rest.Clone(); [Array]::Sort($expected, [StringComparer]::CurrentCultureIgnoreCase)
+    $pinnedFirst = ($shown | Select-Object -First $pinnedTitles.Count | Where-Object { -not $_.Pinned }).Count -eq 0
+    $storedSort = [string](Sql $script:data 'SELECT NoteSort FROM Folders WHERE Id = $f' @{ '$f' = $FolderId } -Scalar)
+    Add-Result $run '54 Sort by › Name: the cards in title order, the pinned one first; stored on the folder; no note written' (($sortItems -join ',') -eq 'Manual,Name,Date created,Date modified' -and $manualChecked -and ($pinnedTitles -contains 'Saved by Back') -and $pinnedFirst -and ($rest -join '|') -eq ($expected -join '|') -and $storedSort -eq 'Name' -and (Orders) -eq $ordersBefore) "items=$($sortItems -join ',') manual checked=$manualChecked shown=$(($shown | ForEach-Object Title) -join '|') pinned first=$pinnedFirst stored=$storedSort orders kept=$((Orders) -eq $ordersBefore)"
+
+    (Card 'Saved by Back').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11, 0x12, 0x10) 0x26   # Ctrl+Alt+Shift+Up
+    $refused = Notice
+    Send-ToNoto @(0x10) 0x79
+    $topOffered = Menu-Enabled 'Move to top'
+    Send-ToNoto @() 0x1B
+    Add-Result $run '54 sorted, Ctrl+Alt+Shift+Up is refused with the reason and writes nothing; Move to top is disabled' ($refused -eq 'Sorted by name: choose Manual to arrange notes yourself' -and (Orders) -eq $ordersBefore -and -not $topOffered) "notice='$refused' orders kept=$((Orders) -eq $ordersBefore) top offered=$topOffered"
+
+    $menuButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 600
+    Expand 'Sort by'
+    Pick 'Manual'
+    $back = @(Cards | Select-Object -First 10 | ForEach-Object { Get-RowTitle $_.Current.Name })
+    $storedSort = [string](Sql $script:data 'SELECT NoteSort FROM Folders WHERE Id = $f' @{ '$f' = $FolderId } -Scalar)
+    Add-Result $run '54 Sort by › Manual: the cards in the order they were before; stored Manual' (($back -join '|') -eq ($manual -join '|') -and $storedSort -eq 'Manual' -and (Orders) -eq $ordersBefore -and (Notice) -eq '') "before=$($manual -join '|') after=$($back -join '|') stored=$storedSort notice='$(Notice)'"
+    (Card 'Saved by Back').SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x10) 0x79
+    Choose 'Unpin'
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'

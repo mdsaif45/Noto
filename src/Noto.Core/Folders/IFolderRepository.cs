@@ -102,6 +102,14 @@ public interface IFolderRepository
     void SetPinned(FolderId id, bool isPinned, DateTimeOffset updatedAt);
 
     /// <summary>
+    /// Sets how a folder orders its notes (#242) and stamps <c>UpdatedAt</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Touches <c>NoteSort</c> and nothing else</b>: no note's <c>SortOrder</c>, so Manual shows the user's order again.
+    /// </remarks>
+    void SetNoteSort(FolderId id, NoteSort sort, DateTimeOffset updatedAt);
+
+    /// <summary>
     /// Repositions a folder within the folder collection, in <b>one
     /// transaction</b>.
     /// </summary>

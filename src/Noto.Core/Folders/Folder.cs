@@ -39,6 +39,10 @@ public sealed record Folder
     /// <summary>Explicit order among folders; the folder list is one scope.</summary>
     public double SortOrder { get; init; }
 
+    /// <summary>How the folder orders its notes (#242); <see cref="NoteSort.Manual"/> unless the user chose another.</summary>
+    /// <remarks>On the folder, as <see cref="IsCollapsed"/> is: user-authored, and the same in every surface.</remarks>
+    public NoteSort NoteSort { get; init; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }

@@ -104,6 +104,7 @@ public sealed class MigrationRunner
         new(4, "Full-text search: the NotesFts index and the triggers that keep it exact (ADR-018)", SchemaV4.Sql),
         new(5, "A note's mode (#195): Notes.Mode, Markdown for every note already there",
             SchemaV5.Sql, TransformsUserData: true),
+        new(6, "A folder's note sort (#242): Folders.NoteSort, Manual for every folder already there", SchemaV6.Sql),
     ];
 
     /// <summary>The version a fully migrated database reports.</summary>
