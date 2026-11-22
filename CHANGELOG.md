@@ -24,6 +24,8 @@ format or behavior. Breaking changes are always called out explicitly.
   *More* menu. Pinned notes stay first, and Manual brings back the order you made (#242).
 - Settings › General › *Ask which folder for a note from a shortcut*: the global new-note and clipboard shortcuts
   first ask where the note goes. Recent folders come first; type to filter, Enter to choose, Escape to cancel (#243).
+- Settings › *Move checked tasks to the bottom*: when on, checking a task moves it, with its nested items, below the
+  open tasks in its list, and unchecking moves it back. The check and the move are one undo step (#244).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Duplicate a note from its card menu or with Ctrl+Shift+D: the copy appears directly below it with the same text,
