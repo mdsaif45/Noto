@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17), batch 5 in progress. **Planned:** 2026-11-16.
+**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17); batches 5 and 6 built, awaiting their harness runs. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -106,6 +106,19 @@ The MUST rows within reach close with the Open Bar. The SHOULD rows begin in a n
 | 25 | Clear formatting, and save a picture | #235 | D21, D33 | Inline marks only (block structure and pictures untouched), one undo step. Save picture as… copies the kept file byte for byte |
 
 **Not yet:** Print (B21, G25, I6). WinUI 3 printing for an unpackaged app needs a spike first.
+
+## Batch 6: more SHOULD rows, and a print spike (v0.4)
+
+| # | Item | Issue | Rows | Decision taken |
+|---|---|---|---|---|
+| 26 | Sort a folder's notes | #242 | C10 | Manual (default), Name, Created or Modified, per folder (schema v6). Pinned first. Sorting is a view, so Manual restores the user's order |
+| 27 | Ask which folder for a shortcut note | #243 | B6, J9 | Off by default. A keyboard-first chooser for the global shortcuts only; Ctrl+N and + never ask |
+| 28 | Move a checked task to the bottom | #244 | D23 | Off by default. Within its own list at its own level, nested items with it, one undo step |
+| 29 | A default colour for new notes, and chips off | #245 | J24, F14, J18 | Every creation path uses the default colour; duplicates and imports keep their own |
+| 30 | Printing: research | #246 | B21, G25, I6 | `PrintManagerInterop` + `PrintDocument` from the read view's renderer, at 0 bytes. The feature is #248 |
+
+**Merging, batches 5 and 6:** every PR is waiting for its runtime harness. The desktop preflight is blocked while a
+`cua-driver` process runs. When it is clear, each PR is rebased, its harness run, and merged, one at a time.
 
 ## Later in v0.3, or v0.4: the edge and the platform
 
