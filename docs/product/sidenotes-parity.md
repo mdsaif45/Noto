@@ -870,7 +870,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J14 | Text → Line height | Tight / Normal / Relaxed | Same | SHOULD | — | = D49 |
 | `[ ]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 |
 | `[x]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › File links: Standard (the default) or Compact, applied at once (#196). |
-| `[ ]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | |
+| `[x]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | **v0.4 score (2026-11-22):** Settings › Appearance › Colour copy format: as written (default), #RRGGBB, rgb() or hsl(); a card's swatch is a button that copies its colour in that format and says so (#257; `Invoke-Links` case 11). |
 | `[ ]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 |
 | `[ ]` | J19 | Text → No auto-spaces on paste | on / off | Same | SHOULD | — | = D41 **v0.3 score (2026-11-16):** = D41: nothing adds spaces, so no switch (#187). |
 | `[x]` | J20 | Text → Code detection on paste | code block / code note | Same | SHOULD | — | = D39 **v0.3 score (2026-11-16):** = D39: the code-block half; a code note is not offered (#187). |
