@@ -44,6 +44,7 @@ public sealed class SettingsSurfaceGuardTests
             ("BackupFolder", @"_ = CheckAutomaticBackup\(\)"),
             ("EditorFormatToolbar", @"NoteEditorHost\.ShowsFormatToolbar = preferences\.FormatToolbar"),
             ("EditorPasteCodeBlock", @"NoteEditorHost\.PastesCodeBlock = preferences\.PasteCodeBlock"),
+            ("EditorCheckedTasksToBottom", @"NoteEditorHost\.MovesCheckedTasks = preferences\.CheckedTasksToBottom"),
             ("EditorFileLinks", @"_main\.ApplyFileLinks\(preferences\.FileLinks\)"),
             ("ImportingPicture", @"NoteEditorHost\.PictureDrops = preferences\.PictureDrop"),
             ("ImportingTextFile", @"NoteEditorHost\.TextFileDrops = preferences\.TextFileDrop"),
@@ -113,7 +114,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(34, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(35, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -423,8 +424,9 @@ public sealed class SettingsSurfaceGuardTests
         // Data group's Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour
         // (ADR-021), opening the last folder at start (#193), and file links and the two Importing choices (#196), Hot
         // Side and drag to reveal (#185), the Open Bar and its drop (#185 part 2), the backup folder (#233), moving
-        // imported files to the Windows Recycle Bin (#267), and asking which folder for a note from a shortcut (#243).
-        Assert.Equal(47, rows.Count);
+        // imported files to the Windows Recycle Bin (#267), asking which folder for a note from a shortcut (#243), and
+        // moving a checked task to the bottom (#244).
+        Assert.Equal(48, rows.Count);
 
         foreach (XElement row in rows)
         {

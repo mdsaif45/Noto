@@ -101,6 +101,18 @@ public sealed class EditorHostGuardTests
     }
 
     [Fact]
+    public void Every_way_to_check_a_task_follows_Move_checked_tasks_to_the_bottom()
+    {
+        // D23 (#244): Ctrl+., the Format menu's Check or uncheck (both run EditorCommand.TaskDone) and a click on a box all
+        // pass the setting to Core, which makes the check and the move one edit; the app sets it at start and on change.
+        Assert.Contains("internal static bool MovesCheckedTasks { get; set; }", Host, StringComparison.Ordinal);
+        Assert.Contains("EditorCommand.TaskDone => (text, selection) => MarkdownCommands.ToggleTaskDone(text, selection, MovesCheckedTasks),", Host, StringComparison.Ordinal);
+        Assert.Matches(@"MarkdownCommands\.ToggleTaskAt\(_text, box\.Start, _selection, MovesCheckedTasks\) is \{ \} toggled\)\s*\{\s*Apply\(toggled, record: true\);", Body(Host, "OnPointerReleased"));
+        Assert.Equal(2, Regex.Count(Host, @"MarkdownCommands\.ToggleTask(Done|At)\("));
+        Assert.Contains("NoteEditorHost.MovesCheckedTasks = preferences.CheckedTasksToBottom;", Code(Path.Join(Windows, "App.xaml.cs")), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Code_is_fenced_by_Core_only_on_a_formatted_paste_the_setting_asks_for_after_a_link()
     {
         // D39 (#187): off unless Settings turns it on (the app sets it at start and on change); Ctrl+Shift+V stays plain;
@@ -134,7 +146,7 @@ public sealed class EditorHostGuardTests
         string click = Body(Host, "OnPointerReleased");
         Assert.Contains("if (!_selection.IsCaret)", click, StringComparison.Ordinal);
         Assert.Contains("point.X - NoteEditor.BorderThickness.Left - NoteEditor.Padding.Left", click, StringComparison.Ordinal);
-        Assert.Contains("at >= from && at <= box.End && MarkdownCommands.ToggleTaskDone(", click, StringComparison.Ordinal);
+        Assert.Contains("at >= from && at <= box.End && MarkdownCommands.ToggleTaskAt(", click, StringComparison.Ordinal);
         Assert.Contains("NoteEditor.BorderThickness.Left + NoteEditor.Padding.Left", Body(Host, "PlaceTaskMarks"), StringComparison.Ordinal);
     }
 

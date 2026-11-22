@@ -198,6 +198,7 @@ public sealed partial class SettingsPage : UserControl
             Select(TextFileDropSetting, preferences.TextFileDrop.ToString());
             RecycleImportedFilesSetting.IsOn = preferences.RecycleImportedFiles;
             PasteCodeBlockSetting.IsOn = preferences.PasteCodeBlock;
+            CheckedTasksToBottomSetting.IsOn = preferences.CheckedTasksToBottom;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
             ClipboardNoteHotkeySetting.IsOn = preferences.ClipboardNoteHotkeyEnabled;
@@ -324,6 +325,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnPasteCodeBlockToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetPasteCodeBlock(PasteCodeBlockSetting.IsOn));
+
+    private void OnCheckedTasksToBottomToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetCheckedTasksToBottom(CheckedTasksToBottomSetting.IsOn));
 
     // How often (#199) is off while automatic backup is, as a shortcut's recorder is while its shortcut is.
     private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e)

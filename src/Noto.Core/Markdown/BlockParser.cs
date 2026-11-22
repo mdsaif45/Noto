@@ -250,7 +250,7 @@ internal static class BlockParser
     }
 
     /// <summary>Leading whitespace in columns; a tab reaches the next multiple of four.</summary>
-    private static int Columns(string source, int start, int end)
+    internal static int Columns(string source, int start, int end)
     {
         int columns = 0;
 
