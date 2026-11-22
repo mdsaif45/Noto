@@ -7,7 +7,7 @@ namespace Noto.Windows.Tests;
 /// #242 (parity C10) in the source: a folder's note sort is chosen from the list bar's More menu, its current one
 /// checked, through the one session path, and kept on the folder; the stack opens in the folder's sort; in a sort, the
 /// move keys and drag are refused with the reason and the menu's moves are disabled; a sorted folder places the note
-/// it left on Escape. That the cards really reorder is the note stack harness's case 53.
+/// it left on Escape. That the cards really reorder is the note stack harness's case 54.
 /// </summary>
 public sealed class FolderSortGuardTests
 {

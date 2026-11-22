@@ -18,6 +18,8 @@ format or behavior. Breaking changes are always called out explicitly.
 - The Open Bar: a small handle at the screen edge, shown while Noto is hidden, that shows Noto when clicked and imports
   files dropped on it. Settings › Sidebar chooses Off, Always shown or Hide when the mouse is idle; it is off by default,
   and dropping files on it has its own switch (#185).
+- Each folder can sort its notes by name, date created or date modified, or keep your own order, from the note list's
+  *More* menu. Pinned notes stay first, and Manual brings back the order you made (#242).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Duplicate a note from its card menu or with Ctrl+Shift+D: the copy appears directly below it with the same text,
