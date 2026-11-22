@@ -92,6 +92,12 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>How a coloured card shows its colour: tinted with a bar, or the bar only (#191, F10).</summary>
     public NoteColorStyle NoteColorStyle => _settings.Read(SettingKeys.AppearanceNoteColorStyle);
 
+    /// <summary>The colour a new note starts with, or <see langword="null"/> for none (#245, J24).</summary>
+    public string? NewNoteColor => _settings.Read(SettingKeys.AppearanceNewNoteColor) is { Length: > 0 } key ? key : null;
+
+    /// <summary>Whether a <c>#rrggbb</c> code shows a chip of its colour on the card (#245, F14).</summary>
+    public bool ColorChips => _settings.Read(SettingKeys.AppearanceColorChips);
+
     /// <summary>Whether the formatting toolbar shows above selected text (F8).</summary>
     public bool FormatToolbar => _settings.Read(SettingKeys.EditorFormatToolbar);
 
@@ -312,6 +318,14 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets how a coloured card shows its colour (#191).</summary>
     /// <returns>Whether it was kept: a value that is not a style is refused.</returns>
     public bool SetNoteColorStyle(NoteColorStyle style) => TryWrite(SettingKeys.AppearanceNoteColorStyle, style);
+
+    /// <summary>Sets the colour a new note starts with (#245), <see langword="null"/> for none. Notes already written keep their own.</summary>
+    /// <returns>Whether it was kept: a key that is not one of the six is refused.</returns>
+    public bool SetNewNoteColor(string? colorKey) => TryWrite(SettingKeys.AppearanceNewNoteColor, colorKey ?? string.Empty);
+
+    /// <summary>Sets whether a <c>#rrggbb</c> code shows a chip of its colour on the card (#245).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetColorChips(bool shown) => TryWrite(SettingKeys.AppearanceColorChips, shown);
 
     /// <summary>
     /// Stores the show/hide chord (parity G50). Only the rebind calls this, and only once the chord is registered: the

@@ -176,6 +176,8 @@ public sealed partial class SettingsPage : UserControl
             Select(ThemeSetting, preferences.Theme.ToString());
             Select(NewNoteModeSetting, preferences.NewNoteMode.ToString());
             Select(NoteColorStyleSetting, preferences.NoteColorStyle.ToString());
+            NewNoteColorSetting.SelectedItem = NewNoteColorSetting.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag as string == preferences.NewNoteColor);
+            ColorChipsSetting.IsOn = preferences.ColorChips;
             NoteFontSetting.SelectedItem = NoteFontSetting.Items.OfType<ComboBoxItem>().FirstOrDefault(i => FontOf(i) == preferences.NoteFont);
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
             Select(LineHeightSetting, preferences.LineHeight.ToString());
@@ -285,6 +287,13 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnNoteColorStyleChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => NoteColorStyleSetting.SelectedItem is not null && p.SetNoteColorStyle(Selected<NoteColorStyle>(NoteColorStyleSetting)));
+
+    // None has no tag, so it writes no colour (#245).
+    private void OnNewNoteColorChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => NewNoteColorSetting.SelectedItem is ComboBoxItem item && p.SetNewNoteColor(item.Tag as string));
+
+    private void OnColorChipsToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetColorChips(ColorChipsSetting.IsOn));
 
     private void OnNoteFontChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => NoteFontSetting.SelectedItem is ComboBoxItem item && p.SetNoteFont(FontOf(item)));

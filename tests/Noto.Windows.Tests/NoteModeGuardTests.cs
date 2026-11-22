@@ -158,7 +158,7 @@ public sealed class NoteModeGuardTests
         // From the first frame, and again when it changes; Ctrl+N, the new-note shortcuts and the clipboard's all create
         // through CreateNoteInOpenFolder.
         Assert.Contains("NewNoteMode = preferences.NewNoteMode,", App, StringComparison.Ordinal);
-        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode)", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode, NewNoteColor)", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Equal(1, Regex.Count(Main, @"_stack\.Create\("));
     }
 
