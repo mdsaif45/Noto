@@ -62,10 +62,10 @@ public sealed class ColorSwatchGuardTests
         Assert.Contains("ColorChipsSetting.IsOn = preferences.ColorChips;", code, StringComparison.Ordinal);
         Assert.Contains("Write(p => p.SetColorChips(ColorChipsSetting.IsOn));", code, StringComparison.Ordinal);
 
-        // What it draws, live, and the new note colour with it: the visual harness's case 18.
+        // What it draws, live, and the new note colour with it: the visual harness's case 19.
         string harness = File.ReadAllText(SourcePath("tools", "validation", "Invoke-Visual.ps1"));
-        Assert.Contains("Add-Result $run \"18 ${theme}: New note colour Blue makes Ctrl+N's note blue;", harness, StringComparison.Ordinal);
-        Assert.Contains("Set-ColourStyle 'Blue' 'NewNoteColorSetting'", harness, StringComparison.Ordinal);
+        Assert.Contains("Add-Result $run \"19 ${theme}: New note colour Blue makes Ctrl+N's note blue;", harness, StringComparison.Ordinal);
+        Assert.Contains("Set-Choice 'NewNoteColorSetting' 'Blue'", harness, StringComparison.Ordinal);
         Assert.Contains("(Find-ById 'ColorChipsSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()", harness, StringComparison.Ordinal);
     }
 
