@@ -44,6 +44,10 @@ public sealed class SettingsSurfaceGuardTests
             ("EditorFileLinks", @"_main\.ApplyFileLinks\(preferences\.FileLinks\)"),
             ("ImportingPicture", @"NoteEditorHost\.PictureDrops = preferences\.PictureDrop"),
             ("ImportingTextFile", @"NoteEditorHost\.TextFileDrops = preferences\.TextFileDrop"),
+            ("ExportingPictureBackground", @"_main\.PictureExport = preferences\.PictureExport"),
+            ("ExportingPictureMargins", @"_main\.PictureExport = preferences\.PictureExport"),
+            ("ExportingPictureShape", @"_main\.PictureExport = preferences\.PictureExport"),
+            ("ExportingPictureFooter", @"_main\.PictureExport = preferences\.PictureExport"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
@@ -106,7 +110,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(26, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(30, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -361,12 +365,12 @@ public sealed class SettingsSurfaceGuardTests
     // ---------------------------------------------------------------- structure and accessibility
 
     [Fact]
-    public void The_page_has_the_approved_ids_one_title_and_the_seven_sections_in_order()
+    public void The_page_has_the_approved_ids_one_title_and_the_eight_sections_in_order()
     {
         string[] ids =
         [
             "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "OpenLastFolderSetting", "NewNotePlacementSetting", "NewNoteModeSetting", "SideSetting",
-            "EscapeSetting", "HotSideSetting", "DragRevealSetting", "ThemeSetting", "NoteColorStyleSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
+            "EscapeSetting", "HotSideSetting", "DragRevealSetting", "ThemeSetting", "NoteColorStyleSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "PictureBackgroundSetting", "PictureMarginsSetting", "PictureShapeSetting", "PictureFooterSetting", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
 
@@ -376,7 +380,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var headings = PageXaml.Descendants().Where(e => e.Attribute("AutomationProperties.HeadingLevel") is not null).ToList();
         Assert.Equal(["Settings"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level1").Select(h => (string?)h.Attribute("Text")));
-        Assert.Equal(["General", "Sidebar", "Appearance", "Importing", "Shortcuts", "Data", "Help"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2").Select(h => (string?)h.Attribute("Text")));
+        Assert.Equal(["General", "Sidebar", "Appearance", "Importing", "Shortcuts", "Data", "Export pictures", "Help"], headings.Where(h => (string?)h.Attribute("AutomationProperties.HeadingLevel") == "Level2").Select(h => (string?)h.Attribute("Text")));
 
         // Messages announce themselves; the text is the name.
         foreach (string message in new[] { "HotkeyMessage", "SettingsNoticeText" })
@@ -401,7 +405,7 @@ public sealed class SettingsSurfaceGuardTests
         var rows = scroll.Descendants().Where(e => e.Name.LocalName == "Grid").ToList();
         var failures = new List<string>();
 
-        Assert.Equal(7, groups.Count);
+        Assert.Equal(8, groups.Count);
 
         foreach (XElement panel in groups.Select(group => Assert.Single(group.Elements())))
         {
@@ -414,8 +418,8 @@ public sealed class SettingsSurfaceGuardTests
         // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188, and what it is, #195; change
         // side's and keep open's, #198), the Data group's Back up, Restore, Export, Import and their progress line
         // (ADR-020), Help's Welcome tour (ADR-021), opening the last folder at start (#193), and file links and the two
-        // Importing choices (#196), and Hot Side and drag to reveal (#185).
-        Assert.Equal(40, rows.Count);
+        // Importing choices (#196), Hot Side and drag to reveal (#185), and Export pictures' four (#254).
+        Assert.Equal(44, rows.Count);
 
         foreach (XElement row in rows)
         {
@@ -492,6 +496,42 @@ public sealed class SettingsSurfaceGuardTests
         Assert.Contains("BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;", shown, StringComparison.Ordinal);
         Assert.Contains("BackupFrequencySetting.IsEnabled = _context.Preferences.AutomaticBackups;", Body(Page, "OnAutomaticBackupToggled"), StringComparison.Ordinal);
         Assert.Contains("p.SetBackupFrequency(Selected<BackupFrequency>(BackupFrequencySetting))", Page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Export_pictures_offers_background_margins_shape_and_footer_each_read_at_the_next_export()
+    {
+        // #254 (I4, J31-J34): its own group after Data, one row per setting, a choice per member in member order, named
+        // for what it sets; shown as stored and written through its one setter. The owner hands all four to the window,
+        // which reads them when it makes the next picture (the owners test above).
+        XElement heading = PageXaml.Descendants().Single(e => (string?)e.Attribute("Text") == "Export pictures" && e.Attribute("AutomationProperties.HeadingLevel") is not null);
+        var settings = heading.Parent!.Descendants().Where(e => e.Name.LocalName is "ComboBox" or "ToggleSwitch").Select(e => (string?)e.Attribute(X + "Name")).ToList();
+        Assert.Equal(["PictureBackgroundSetting", "PictureMarginsSetting", "PictureShapeSetting", "PictureFooterSetting"], settings);
+
+        (string Box, string[] Tags, string[] Shown, string Name, Type Members)[] choices =
+        [
+            ("PictureBackgroundSetting", ["NoteColor", "Transparent"], ["The note's colour", "Transparent"], "Picture background", typeof(Noto.Core.Images.PictureBackground)),
+            ("PictureMarginsSetting", ["None", "Small", "Large"], ["None", "Small", "Large"], "Picture margins", typeof(Noto.Core.Images.PictureMargins)),
+            ("PictureShapeSetting", ["Fit", "Square", "FourByThree", "SixteenByNine"], ["Fit the note", "Square", "4:3", "16:9"], "Picture shape", typeof(Noto.Core.Images.PictureShape)),
+        ];
+
+        string shown = Body(Page, "ShowStored");
+        foreach (var (box, tags, labels, name, members) in choices)
+        {
+            XElement choice = Named(PageXaml, box);
+            Assert.Equal(tags, choice.Elements().Select(i => (string)i.Attribute("Tag")!));
+            Assert.Equal(Enum.GetNames(members), tags);
+            Assert.Equal(labels, choice.Elements().Select(i => (string)i.Attribute("Content")!));
+            Assert.Equal(name, (string?)choice.Attribute("AutomationProperties.Name"));
+            string member = box.Replace("Setting", string.Empty, StringComparison.Ordinal).Replace("Picture", string.Empty, StringComparison.Ordinal);
+            Assert.Contains($"Select({box}, export.{member}.ToString());", shown, StringComparison.Ordinal);
+            Assert.Contains($"p.SetPicture{member}(Selected<Picture{member}>({box}))", Page, StringComparison.Ordinal);
+        }
+
+        Assert.Equal("Show a footer on pictures", (string?)Named(PageXaml, "PictureFooterSetting").Attribute("AutomationProperties.Name"));
+        Assert.Contains("PictureFooterSetting.IsOn = export.Footer;", shown, StringComparison.Ordinal);
+        Assert.Contains("p.SetPictureFooter(PictureFooterSetting.IsOn)", Page, StringComparison.Ordinal);
+        Assert.Contains("main.PictureExport = preferences.PictureExport;", App, StringComparison.Ordinal);
     }
 
     [Fact]

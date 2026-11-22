@@ -1040,6 +1040,98 @@
                     </Border>
                 </StackPanel>
 
+                <!-- EXPORT PICTURES (#254; I4, J31-J34): how a card's Save as picture and Copy as picture make the next picture. -->
+                <StackPanel Spacing="{StaticResource SpaceS}">
+                    <TextBlock Text="Export pictures" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource SettingsGroupStyle}">
+                        <StackPanel Spacing="{StaticResource SpaceM}">
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Background" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Behind a note saved or copied as a picture." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="PictureBackgroundSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnPictureBackgroundChanged"
+                                    AutomationProperties.Name="Picture background"
+                                    AutomationProperties.HelpText="Behind a note saved or copied as a picture.">
+                                    <ComboBoxItem Content="The note's colour" Tag="NoteColor" />
+                                    <ComboBoxItem Content="Transparent" Tag="Transparent" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Margins" Style="{StaticResource SettingLabelStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="PictureMarginsSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnPictureMarginsChanged"
+                                    AutomationProperties.Name="Picture margins">
+                                    <ComboBoxItem Content="None" Tag="None" />
+                                    <ComboBoxItem Content="Small" Tag="Small" />
+                                    <ComboBoxItem Content="Large" Tag="Large" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Shape" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Space is added to reach it; nothing is cut off." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="PictureShapeSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnPictureShapeChanged"
+                                    AutomationProperties.Name="Picture shape"
+                                    AutomationProperties.HelpText="Space is added to reach it; nothing is cut off.">
+                                    <ComboBoxItem Content="Fit the note" Tag="Fit" />
+                                    <ComboBoxItem Content="Square" Tag="Square" />
+                                    <ComboBoxItem Content="4:3" Tag="FourByThree" />
+                                    <ComboBoxItem Content="16:9" Tag="SixteenByNine" />
+                                </ComboBox>
+                            </Grid>
+
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Show a footer" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="The date the note was changed, and Noto." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="PictureFooterSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnPictureFooterToggled"
+                                    AutomationProperties.Name="Show a footer on pictures"
+                                    AutomationProperties.HelpText="The date the note was changed, and Noto." />
+                            </Grid>
+
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
                 <!-- HELP -->
                 <StackPanel Spacing="{StaticResource SpaceS}">
                     <TextBlock Text="Help" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />

@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
+using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;
@@ -186,6 +187,11 @@ public sealed partial class SettingsPage : UserControl
             Select(PictureDropSetting, preferences.PictureDrop.ToString());
             Select(TextFileDropSetting, preferences.TextFileDrop.ToString());
             PasteCodeBlockSetting.IsOn = preferences.PasteCodeBlock;
+            PictureExport export = preferences.PictureExport;
+            Select(PictureBackgroundSetting, export.Background.ToString());
+            Select(PictureMarginsSetting, export.Margins.ToString());
+            Select(PictureShapeSetting, export.Shape.ToString());
+            PictureFooterSetting.IsOn = export.Footer;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
             ClipboardNoteHotkeySetting.IsOn = preferences.ClipboardNoteHotkeyEnabled;
@@ -299,6 +305,19 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnPasteCodeBlockToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetPasteCodeBlock(PasteCodeBlockSetting.IsOn));
+
+    // Export pictures (#254): each applies to the next picture.
+    private void OnPictureBackgroundChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => PictureBackgroundSetting.SelectedItem is not null && p.SetPictureBackground(Selected<PictureBackground>(PictureBackgroundSetting)));
+
+    private void OnPictureMarginsChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => PictureMarginsSetting.SelectedItem is not null && p.SetPictureMargins(Selected<PictureMargins>(PictureMarginsSetting)));
+
+    private void OnPictureShapeChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => PictureShapeSetting.SelectedItem is not null && p.SetPictureShape(Selected<PictureShape>(PictureShapeSetting)));
+
+    private void OnPictureFooterToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetPictureFooter(PictureFooterSetting.IsOn));
 
     // How often (#199) is off while automatic backup is, as a shortcut's recorder is while its shortcut is.
     private void OnAutomaticBackupToggled(object sender, RoutedEventArgs e)

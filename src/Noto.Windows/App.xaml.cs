@@ -925,6 +925,9 @@ public partial class App : Application
         NoteEditorHost.PictureDrops = preferences.PictureDrop;
         NoteEditorHost.TextFileDrops = preferences.TextFileDrop;
         NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
+
+        // How a note is saved or copied as a picture (#254), as Settings › Export pictures has it.
+        main.PictureExport = preferences.PictureExport;
         main.StepNoteSize = direction =>
         {
             double next = NoteText.Step(preferences.NoteSize, direction);
@@ -1513,6 +1516,10 @@ public partial class App : Application
         else if (key == SettingKeys.EditorPasteCodeBlock)
         {
             NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
+        }
+        else if ((key == SettingKeys.ExportingPictureBackground || key == SettingKeys.ExportingPictureMargins || key == SettingKeys.ExportingPictureShape || key == SettingKeys.ExportingPictureFooter) && _main is not null)
+        {
+            _main.PictureExport = preferences.PictureExport;
         }
         else if (key == SettingKeys.BackupAutomatic || key == SettingKeys.BackupFrequency)
         {

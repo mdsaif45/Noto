@@ -2135,6 +2135,8 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Bottom), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Bottom)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Export as Markdown…", string.Empty, () => ExportFromMenu(new Infrastructure.Portability.ExportScope.Note(card.Id), fromStack: true), Portability is { Busy: false }));
+        menu.Items.Add(MenuItem("Save as picture…", string.Empty, () => SaveCardPicture(card.Id)));
+        menu.Items.Add(MenuItem("Copy as picture", string.Empty, () => CopyCardPicture(card.Id)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 

@@ -119,9 +119,10 @@ internal sealed class DataPortability(
 
     /// <summary>
     /// Windows' save dialog creates the file it returns (measured: a cancelled backup left an empty one). A backup that
-    /// did not finish removes it, and only while it is empty: a file the user chose to replace is never deleted.
+    /// did not finish removes it, and only while it is empty: a file the user chose to replace is never deleted. A note
+    /// picture that could not be saved does the same (#254).
     /// </summary>
-    private static void RemoveEmpty(string file)
+    internal static void RemoveEmpty(string file)
     {
         try
         {

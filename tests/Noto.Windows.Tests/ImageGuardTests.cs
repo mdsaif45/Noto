@@ -120,7 +120,7 @@ public sealed class ImageGuardTests
         string picture = Body(ReadView, "Picture");
         Assert.Contains("AutomationProperties.SetAccessibilityView(image, AccessibilityView.Raw);", picture, StringComparison.Ordinal);
         Assert.Contains("ImageSize.Fit(size.Width, size.Height, room, ImageMaxHeight)", picture, StringComparison.Ordinal);
-        Assert.Contains("bitmap.ImageFailed += (_, _) => holder.Child = Notice(\"This image can't be shown\", markup);", picture, StringComparison.Ordinal);
+        Assert.Matches(@"bitmap\.ImageFailed \+= \(_, _\) =>\s*\{\s*holder\.Child = Notice\(""This image can't be shown"", markup\);", picture);
         Assert.Contains("holder.Child = Notice(path is null ? \"Image not found\" : \"This image can't be shown\", markup);", picture, StringComparison.Ordinal);
     }
 

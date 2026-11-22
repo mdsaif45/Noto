@@ -50,6 +50,40 @@
 
         <Grid x:Name="WorkspaceContent" Background="{ThemeResource SurfaceSidebarBrush}">
 
+            <!--
+                #254 (I4, J31-J34): a note saved or copied as a picture, made from this only while one is rendered
+                (MainWindow.Picture.cs). Its brushes are theme resources, so under the drawer it takes the user's theme.
+                Children, in order: the card's fill, the six note colours' tints (one shown), and the note with its
+                footer. Seen only in the picture: raw to assistive technology.
+            -->
+            <Grid.Resources>
+                <DataTemplate x:Key="NotePictureTemplate">
+                    <Grid AutomationProperties.AccessibilityView="Raw">
+                        <Border Background="{ThemeResource SurfaceCardBrush}" />
+                        <Grid>
+                            <Border Background="{ThemeResource Note1TintBrush}" Visibility="Collapsed" />
+                            <Border Background="{ThemeResource Note2TintBrush}" Visibility="Collapsed" />
+                            <Border Background="{ThemeResource Note3TintBrush}" Visibility="Collapsed" />
+                            <Border Background="{ThemeResource Note4TintBrush}" Visibility="Collapsed" />
+                            <Border Background="{ThemeResource Note5TintBrush}" Visibility="Collapsed" />
+                            <Border Background="{ThemeResource Note6TintBrush}" Visibility="Collapsed" />
+                        </Grid>
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Spacing="{StaticResource SpaceM}">
+                            <local:MarkdownReadView
+                                Foreground="{ThemeResource TextPrimaryBrush}"
+                                MarkupBrush="{ThemeResource TextSecondaryBrush}"
+                                LinkBrush="{ThemeResource TextLinkBrush}"
+                                MarkBrush="{ThemeResource MarkBrush}"
+                                MarkTextBrush="{ThemeResource MarkTextBrush}" />
+                            <Grid Visibility="Collapsed">
+                                <TextBlock Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeCaption}" />
+                                <TextBlock Text="Noto" HorizontalAlignment="Right" Foreground="{ThemeResource TextSecondaryBrush}" FontSize="{StaticResource FontSizeCaption}" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </Grid.Resources>
+
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
