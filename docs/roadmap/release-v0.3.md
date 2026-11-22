@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17); batches 5 and 6 built, awaiting their harness runs. **Planned:** 2026-11-16.
+**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17); batches 5–7 built, awaiting their harness runs. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -119,6 +119,19 @@ The MUST rows within reach close with the Open Bar. The SHOULD rows begin in a n
 
 **Merging, batches 5 and 6:** every PR is waiting for its runtime harness. The desktop preflight is blocked while a
 `cua-driver` process runs. When it is clear, each PR is rebased, its harness run, and merged, one at a time.
+
+## Batch 7: printing, a picture of a note, and three small SHOULD rows (v0.4)
+
+| # | Item | Issue | Rows | Decision taken |
+|---|---|---|---|---|
+| 31 | Print a note | #248 | B21, G25, I6 | Ctrl+P and the card menu. Windows' print dialog through `PrintManagerInterop` + `PrintDocument`, pages from the read view, ink-friendly colours, the drawer held open until printing ends (#246) |
+| 32 | Save or copy a note as a picture | #254 | I4, J31–J34 | PNG through the Save dialog, or the clipboard. Background, margins, shape and an optional footer in Settings; a long note exports whole |
+| 33 | Ctrl+Enter hides Noto | #255 | A11, G13 | Off by default. On a link in a note, Ctrl+Enter still opens the link (ADR-019 §2) |
+| 34 | Placeholder in an empty note | #256 | B26 | Mode-aware hint while editing, never saved or searched; an empty card reads "Empty note" |
+| 35 | Copy a colour from its swatch | #257 | J17 | The swatch becomes a button. Format: as written (default), `#RRGGBB`, `rgb()` or `hsl()` |
+
+Left for later batches: in-app picture preview on Space (D35, G44), moving imported files to the Recycle Bin (J29),
+themes (F2–F7, J22), and rebinding in-app shortcuts (G52).
 
 ## Later in v0.3, or v0.4: the edge and the platform
 

@@ -864,7 +864,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[x]` | J8 | Creating Notes → Placement | top / bottom / over / under current | Same four | MUST | #188 | = B5 **v0.2 score (2026-11-13):** No Settings row; the value is stored only. **v0.3 score (2026-11-16):** = B5: the Settings row, stored in `notes.new-placement` (#188). |
 | `[ ]` | J9 | Creating Notes → Ask for folder | on / off | Same | SHOULD | — | = B6 |
 | `[x]` | J10 | Creating Notes → Open last folder on restart | on / off | Same | SHOULD | — | = C14 **v0.3 score (2026-11-16):** = C14 (#193). |
-| `[ ]` | J11 | Text → Default text formatting | Markdown / Code (/ plain) | Same | SHOULD | — | = D28 |
+| `[x]` | J11 | Text → Default text formatting | Markdown / Code (/ plain) | Same | SHOULD | — | = D28 **v0.4 score (2026-11-22):** = D28: Settings › New notes › default mode, Markdown, Code or Plain text (#195). Left unchecked by mistake when D28 was scored. |
 | `[x]` | J12 | Text → Font family | any installed font | Same | MUST | — | = D47 **v0.2 score (2026-11-13):** Settings › Font (F13, #154). |
 | `[x]` | J13 | Text → Font size | adjustable | Same | MUST | — | = D48 **v0.2 score (2026-11-13):** Settings › Text size (F13, #154). |
 | `[ ]` | J14 | Text → Line height | Tight / Normal / Relaxed | Same | SHOULD | — | = D49 |
