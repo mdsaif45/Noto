@@ -12,6 +12,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- *Save as picture…* and *Copy as picture* on a note's menu make a PNG of the note as its card draws it. Settings ›
+  *Export pictures* chooses the background, margins, shape and an optional footer (#254).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
