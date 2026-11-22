@@ -125,6 +125,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The mode a new note starts in: "New notes are" (#195, D28).</summary>
     public NoteMode NewNoteMode => _settings.Read(SettingKeys.NotesNewMode);
 
+    /// <summary>Whether a note from a global shortcut asks which folder it goes into (#243; B6, J9).</summary>
+    public bool AskFolder => _settings.Read(SettingKeys.NotesAskFolder);
+
     /// <summary>Whether the global show/hide hotkey is registered (parity A7).</summary>
     public bool HotkeyEnabled => _settings.Read(SettingKeys.HotkeyEnabled);
 
@@ -230,6 +233,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the mode a new note starts in (#195, D28). Notes already written keep their own.</summary>
     /// <returns>Whether it was kept: a value that is not a mode is refused.</returns>
     public bool SetNewNoteMode(NoteMode mode) => TryWrite(SettingKeys.NotesNewMode, mode);
+
+    /// <summary>Sets whether a note from a global shortcut asks which folder it goes into (#243; B6, J9).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetAskFolder(bool ask) => TryWrite(SettingKeys.NotesAskFolder, ask);
 
     /// <summary>Sets whether Noto starts in the folder last opened (#193); it takes effect at the next start.</summary>
     /// <returns>Whether it was kept.</returns>

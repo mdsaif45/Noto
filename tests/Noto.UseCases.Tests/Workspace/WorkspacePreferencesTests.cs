@@ -296,6 +296,7 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(NoteMode.Markdown, preferences.NewNoteMode);
         Assert.Equal(string.Empty, preferences.BackupFolder);
         Assert.False(preferences.RecycleImportedFiles);
+        Assert.False(preferences.AskFolder);
     }
 
     [Theory]
@@ -352,6 +353,7 @@ public sealed class WorkspacePreferencesTests
         { "SetLineHeight", SettingKeys.AppearanceLineHeight.Name, TextSpacing.Relaxed },
         { "SetParagraphSpacing", SettingKeys.AppearanceParagraphSpacing.Name, TextSpacing.Compact },
         { "SetNewNoteMode", SettingKeys.NotesNewMode.Name, NoteMode.Code },
+        { "SetAskFolder", SettingKeys.NotesAskFolder.Name, true },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
         { "SetBackupFolder", SettingKeys.BackupFolder.Name, @"D:\Backups\Noto" },
@@ -517,6 +519,7 @@ public sealed class WorkspacePreferencesTests
         "SetLineHeight" => preferences.SetLineHeight((TextSpacing)value),
         "SetParagraphSpacing" => preferences.SetParagraphSpacing((TextSpacing)value),
         "SetNewNoteMode" => preferences.SetNewNoteMode((NoteMode)value),
+        "SetAskFolder" => preferences.SetAskFolder((bool)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         "SetBackupFolder" => preferences.SetBackupFolder((string)value),
@@ -541,6 +544,7 @@ public sealed class WorkspacePreferencesTests
         "SetLineHeight" => preferences.LineHeight,
         "SetParagraphSpacing" => preferences.ParagraphSpacing,
         "SetNewNoteMode" => preferences.NewNoteMode,
+        "SetAskFolder" => preferences.AskFolder,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
         "SetBackupFolder" => preferences.BackupFolder,

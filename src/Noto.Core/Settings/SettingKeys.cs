@@ -528,6 +528,17 @@ public static class SettingKeys
         new("notes.new-mode", NoteMode.Markdown, Enum.IsDefined);
 
     /// <summary>
+    /// Whether a note made from a global shortcut asks which folder it goes into (#243; parity B6, J9).
+    /// </summary>
+    /// <remarks>
+    /// Default <see langword="false"/>: the note goes where it always has, the open folder, else the selected one, else
+    /// the first. On, the new-note and clipboard-note shortcuts and the tray's New note from clipboard show a folder
+    /// chooser first; Ctrl+N, the + button and a <c>noto://</c> link never ask. Read at each press.
+    /// </remarks>
+    public static readonly SettingKey<bool> NotesAskFolder =
+        new("notes.ask-folder", false);
+
+    /// <summary>
     /// The folders notes were most recently moved to (B11): the move menu's first choices.
     /// </summary>
     /// <remarks>
@@ -613,6 +624,7 @@ public static class SettingKeys
         BackupFolder,
         NotesNewPlacement,
         NotesNewMode,
+        NotesAskFolder,
         NotesRecentMoveFolders,
         OnboardingWelcome,
         DiagnosticsLogLevel,

@@ -353,7 +353,7 @@ public partial class App : Application
         }
 
         // The new-note shortcuts (F17, F18) show Noto, never hide it, and have the window make a note ready to type in,
-        // holding the clipboard for F18's.
+        // holding the clipboard for F18's; with Ask which folder on, once a folder is chosen (#243).
         // The search shortcut (F21) shows Noto, never hides it, with Search open.
         if (action == GlobalAction.Search)
         {
@@ -382,7 +382,7 @@ public partial class App : Application
                 _ = WindowActivation.BringToForeground(_windowHandle);
             }
 
-            _main?.NewNoteFromShortcut(fromClipboard: action == GlobalAction.NoteFromClipboard);
+            _main?.NewNoteFromGlobalShortcut(fromClipboard: action == GlobalAction.NoteFromClipboard);
             Trace.WriteLine($"Noto.Hotkey pressed action={action}");
             return;
         }
@@ -880,6 +880,7 @@ public partial class App : Application
             RecyclesImportedFiles = preferences.RecycleImportedFiles,
             NewNotePlacement = preferences.NewNotePlacement,
             NewNoteMode = preferences.NewNoteMode,
+            AskFolder = preferences.AskFolder,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
 
             // Folder history (#193): its own list, not the move list's; a failed write never stops a folder opening.
@@ -1419,9 +1420,10 @@ public partial class App : Application
                 break;
 
             case TrayCommand.NoteFromClipboard:
-                // F18 (#157): shown as a launch would (never hidden), then a new note holding the clipboard.
+                // F18 (#157): shown as a launch would (never hidden), then a new note holding the clipboard, asking
+                // which folder first when Settings says to (#243): the shortcut's own path.
                 ActivateFromTray(Environment.TickCount, "clipboard note");
-                _main?.NewNoteFromShortcut(fromClipboard: true);
+                _main?.NewNoteFromGlobalShortcut(fromClipboard: true);
                 break;
 
             case TrayCommand.Settings:
@@ -1585,6 +1587,10 @@ public partial class App : Application
         else if (key == SettingKeys.NotesNewPlacement && _main is not null)
         {
             _main.NewNotePlacement = preferences.NewNotePlacement;
+        }
+        else if (key == SettingKeys.NotesAskFolder && _main is not null)
+        {
+            _main.AskFolder = preferences.AskFolder;
         }
         else if (key == SettingKeys.HotkeyEnabled)
         {

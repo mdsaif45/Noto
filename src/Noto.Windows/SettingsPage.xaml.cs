@@ -187,6 +187,7 @@ public sealed partial class SettingsPage : UserControl
             Select(OpenBarSetting, preferences.OpenBar.ToString());
             OpenBarDropSetting.IsOn = preferences.OpenBarDrop;
             OpenLastFolderSetting.IsOn = preferences.OpenLastFolder;
+            AskFolderSetting.IsOn = preferences.AskFolder;
             AutomaticBackupSetting.IsOn = preferences.AutomaticBackups;
             Select(BackupFrequencySetting, preferences.BackupFrequency.ToString());
             BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
@@ -277,6 +278,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnNewNoteModeChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => NewNoteModeSetting.SelectedItem is not null && p.SetNewNoteMode(Selected<NoteMode>(NewNoteModeSetting)));
+
+    private void OnAskFolderToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetAskFolder(AskFolderSetting.IsOn));
 
     private void OnNoteColorStyleChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => NoteColorStyleSetting.SelectedItem is not null && p.SetNoteColorStyle(Selected<NoteColorStyle>(NoteColorStyleSetting)));
