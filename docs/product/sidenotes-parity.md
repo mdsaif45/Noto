@@ -271,7 +271,7 @@ never as the only path to anything (principle 7).
 | `[x]` | B23 | Trash / restore | **None.** Recovery is backups only | Soft delete + recycle bin + restore | BETTER | — | ADR-002; M1 **v0.2 score (2026-11-13):** The Recycle Bin restores and permanently deletes notes and folders (`Invoke-RecycleBin`); B7 makes the pair whole. |
 | `[ ]` | B24 | Note templates | Not documented | **Not a parity requirement** | DROP | — | No evidence it exists. Do not build speculatively |
 | `[ ]` | B25 | Per-note width | Notes fill panel width; no per-note size | Notes fill panel width | MUST | — | ⚠ provisional — INFERRED. Met by construction today (the editor fills the panel); scored when the row stops being provisional |
-| `[ ]` | B26 | Empty note placeholder | Placeholder UI for empty notes | Placeholder text in an empty note | SHOULD | — | |
+| `[x]` | B26 | Empty note placeholder | Placeholder UI for empty notes | Placeholder text in an empty note | SHOULD | — | **v0.4 score (2026-11-22):** The editor's own placeholder, by mode, in secondary text, shown only while the note is empty and heard as help text, never saved; an empty card and its row name read "Empty note" (#256; `Invoke-NoteStack` case 53). |
 
 **B7 and B23 are one decision, not two.** SideNotes deletes immediately behind
 a confirmation popover, and has no trash — the inventory is explicit that

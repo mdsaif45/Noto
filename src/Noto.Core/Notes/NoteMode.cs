@@ -49,6 +49,14 @@ public static class NoteModes
         _ => NoteMode.Markdown,
     };
 
+    /// <summary>
+    /// The hint an empty note shows while it is edited (#256; parity B26): a Markdown note suggests its two most used
+    /// marks, Code and plain text, where a <c>#</c> is only text, do not. Shown by the editor, never written into the
+    /// note, and heard as help text, never as the value.
+    /// </summary>
+    public static string Placeholder(NoteMode mode) =>
+        mode == NoteMode.Markdown ? "Write something… # for a heading, - for a list" : "Write something…";
+
     /// <summary>Tab in a Code note: <see cref="CodeIndent"/> over the selection, the caret after it.</summary>
     public static TextEdit? IndentCode(string text, TextSelection selection)
     {

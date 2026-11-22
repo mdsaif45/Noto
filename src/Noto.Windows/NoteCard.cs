@@ -24,6 +24,12 @@ public sealed class NoteCard : INotifyPropertyChanged
     /// <summary>What a note with no title is called: a card that showed nothing would be invisible and silent.</summary>
     public const string UntitledLabel = "Untitled note";
 
+    /// <summary>
+    /// What a note with nothing in it is called (#256; parity B26): its card, quiet in the secondary colour (the read
+    /// view), and its row's name. Not <see cref="UntitledLabel"/>, which is for a note that holds something but no title.
+    /// </summary>
+    public const string EmptyLabel = "Empty note";
+
     private string _content = string.Empty;
     private bool _isEditing;
     private bool _isFolded;
@@ -155,14 +161,19 @@ public sealed class NoteCard : INotifyPropertyChanged
     /// <summary>The read view shows while the card is not being edited.</summary>
     public bool IsReading => !IsEditing;
 
-    /// <summary>The title (B16), computed by the domain as the note's mode reads it (#195), or <see cref="UntitledLabel"/>.</summary>
-    public string DisplayTitle => NoteTitle.From(Content, Mode) is { Length: > 0 } title ? title : UntitledLabel;
+    /// <summary>
+    /// The title (B16), computed by the domain as the note's mode reads it (#195); <see cref="EmptyLabel"/> for a note
+    /// with nothing in it (#256), or <see cref="UntitledLabel"/>.
+    /// </summary>
+    public string DisplayTitle =>
+        string.IsNullOrWhiteSpace(Content) ? EmptyLabel : NoteTitle.From(Content, Mode) is { Length: > 0 } title ? title : UntitledLabel;
 
     /// <summary>
     /// The read view (ADR-016 §3): the whole source, or only the title when folded. P2 replaces this with the
-    /// rendered note; the seam is this one property.
+    /// rendered note; the seam is this one property. Empty for a note with nothing in it, which the read view shows as
+    /// <see cref="EmptyLabel"/> in the secondary colour (#256).
     /// </summary>
-    public string ReadText => IsFolded || string.IsNullOrWhiteSpace(Content) ? DisplayTitle : Content;
+    public string ReadText => string.IsNullOrWhiteSpace(Content) ? string.Empty : IsFolded ? DisplayTitle : Content;
 
     /// <summary>
     /// The card's states, for assistive technology (ADR-016 §8): in its help text, item status and full description,
