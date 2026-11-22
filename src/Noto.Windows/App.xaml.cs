@@ -975,6 +975,14 @@ public partial class App : Application
                 _coordinator.Pinned = pinned;
             }
         };
+        // #248: the print dialog holds the drawer open until its task completes; the user's pin is left alone.
+        main.HoldOpenChanged += (_, held) =>
+        {
+            if (_coordinator is not null)
+            {
+                _coordinator.HeldOpen = held;
+            }
+        };
         _window = main;
         _main = main;
 

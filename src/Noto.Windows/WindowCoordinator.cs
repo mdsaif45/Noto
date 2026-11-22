@@ -60,6 +60,7 @@ internal sealed class WindowCoordinator(
     private bool _transitioning;
     private bool _shuttingDown;
     private bool _pinned;
+    private bool _heldOpen;
     private readonly ActivationGeneration _activation = new();
 
     // Slice 1.3: a hide whose content is still leaving. Its state is HideTransition's; WorkspaceToggle reads it.
@@ -91,6 +92,21 @@ internal sealed class WindowCoordinator(
     /// launch and whenever the setting changes (Slice 1); read at each deactivation, so a change governs the next one.
     /// </summary>
     public bool HideOnDeactivation { get; set; } = true;
+
+    /// <summary>
+    /// Held open while Windows' print dialog is up (#248): the dialog may take activation out of Noto, and the drawer
+    /// must not hide behind the dialog it owns. Losing activation then hides nothing, as when pinned, without touching
+    /// the user's pin. Released when the print task completes, however it ends.
+    /// </summary>
+    public bool HeldOpen
+    {
+        get => _heldOpen;
+        set
+        {
+            _heldOpen = value;
+            Trace.WriteLine($"Noto.Workspace held={value}");
+        }
+    }
 
     /// <summary>
     /// Docks to <paramref name="edge"/> from now on (Slice 1: the side, changed in settings). A shown or behind
@@ -214,7 +230,7 @@ internal sealed class WindowCoordinator(
                 requestTime,
                 _readyTime,
                 _lastTransitionEnd,
-                HideOnDeactivation: HideOnDeactivation && !_pinned,
+                HideOnDeactivation: HideOnDeactivation && !_pinned && !_heldOpen,
                 GenerationCurrent: generationCurrent,
                 ActivationLanded: activationLanded,
                 Hiding: _hide.Hiding));
