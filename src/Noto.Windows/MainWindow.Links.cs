@@ -1,13 +1,40 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml.Controls;
 using Noto.Core.Links;
 using Noto.Platform.Windows;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Noto;
 
-/// <summary>Opening a note's links (ADR-019 §2): checked, asked about when it must be, reported when it cannot be.</summary>
+/// <summary>
+/// Opening a note's links (ADR-019 §2): checked, asked about when it must be, reported when it cannot be. And a card's
+/// colour swatch, which copies its code (#257).
+/// </summary>
 public sealed partial class MainWindow
 {
     private void OnEditorLinkOpenRequested(object? sender, string destination) => QueueOpenLink(destination);
+
+    /// <summary>
+    /// A card's swatch was pressed (#257; parity J17): its colour, already in the chosen format, goes to the clipboard and
+    /// the stack's status line says what was copied, politely, as Copy link does. A clipboard another app holds open
+    /// copies nothing, and says so.
+    /// </summary>
+    private void CopyColor(string value)
+    {
+        try
+        {
+            var package = new DataPackage();
+            package.SetText(value);
+            Clipboard.SetContent(package);
+        }
+        catch (COMException)
+        {
+            ShowNoteNotice("Nothing was copied: another app is using the clipboard. Try again.");
+            return;
+        }
+
+        ShowNoteStatus($"Copied {value}");
+    }
 
     /// <summary>How file links are drawn (J16, #196): every editor from now, and the one open now at once.</summary>
     internal void ApplyFileLinks(FileLinkStyle style)

@@ -42,6 +42,7 @@ public sealed class SettingsSurfaceGuardTests
             ("EditorFormatToolbar", @"NoteEditorHost\.ShowsFormatToolbar = preferences\.FormatToolbar"),
             ("EditorPasteCodeBlock", @"NoteEditorHost\.PastesCodeBlock = preferences\.PasteCodeBlock"),
             ("EditorFileLinks", @"_main\.ApplyFileLinks\(preferences\.FileLinks\)"),
+            ("EditorColorCopyFormat", @"MarkdownReadView\.ColorCopyFormat = preferences\.ColorCopyFormat"),
             ("ImportingPicture", @"NoteEditorHost\.PictureDrops = preferences\.PictureDrop"),
             ("ImportingTextFile", @"NoteEditorHost\.TextFileDrops = preferences\.TextFileDrop"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
@@ -106,7 +107,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(26, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(27, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -414,8 +415,8 @@ public sealed class SettingsSurfaceGuardTests
         // recorder, F17; the clipboard's, F18; Search's, F21; where a new note goes, #188, and what it is, #195; change
         // side's and keep open's, #198), the Data group's Back up, Restore, Export, Import and their progress line
         // (ADR-020), Help's Welcome tour (ADR-021), opening the last folder at start (#193), and file links and the two
-        // Importing choices (#196), and Hot Side and drag to reveal (#185).
-        Assert.Equal(40, rows.Count);
+        // Importing choices (#196), Hot Side and drag to reveal (#185), and the colour copy format (#257).
+        Assert.Equal(41, rows.Count);
 
         foreach (XElement row in rows)
         {

@@ -12,6 +12,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Click a colour swatch on a note, or press Enter or Space on it, to copy its colour. Settings › Appearance ›
+  *Colour copy format* copies it as written, as `#RRGGBB`, as `rgb()` or as `hsl()` (#257).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,

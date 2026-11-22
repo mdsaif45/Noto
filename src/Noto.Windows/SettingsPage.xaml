@@ -436,6 +436,30 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- #257: what a card's colour swatch copies (J17). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Colour copy format" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="What a colour swatch on a note copies when you click it." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="ColorCopyFormatSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnColorCopyFormatChanged"
+                                    AutomationProperties.Name="Colour copy format"
+                                    AutomationProperties.HelpText="What a colour swatch on a note copies when you click it.">
+                                    <ComboBoxItem Content="As written" Tag="AsWritten" />
+                                    <ComboBoxItem Content="#RRGGBB" Tag="Hex" />
+                                    <ComboBoxItem Content="rgb(r, g, b)" Tag="Rgb" />
+                                    <ComboBoxItem Content="hsl(h, s%, l%)" Tag="Hsl" />
+                                </ComboBox>
+                            </Grid>
+
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

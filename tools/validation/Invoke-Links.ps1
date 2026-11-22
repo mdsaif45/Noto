@@ -3,13 +3,13 @@
 .SYNOPSIS
   Links (ADR-019 §1-§3): a card's link opens on a click; in the editor Ctrl+Enter and Ctrl+Click open the link there;
   a program asks first; a target that is gone or a refused link says so; bare addresses are links; a web address
-  pasted over a selection links it; copied files and folders paste as links.
+  pasted over a selection links it; copied files and folders paste as links. A card's colour swatch copies its colour.
 
 .DESCRIPTION
   A fresh isolated data root with one folder holding one note of links. Every local target lives under the run's own
   directory: a folder (opened in Explorer, whose window is closed again), a script (never run: the case cancels its
   confirmation) and a path that does not exist. No web address is ever opened: no browser is started. Keys and clicks
-  reach Noto only while it is verifiably the foreground window. The clipboard is used for cases 8 and 9 and restored.
+  reach Noto only while it is verifiably the foreground window. The clipboard is used for cases 8, 9 and 11 and restored.
 
      1  a card's link is a hyperlink; invoking it opens its folder (Noto's own trace; the Explorer window appears)
      2  in the editor, Ctrl+Enter with the caret in the link opens it
@@ -22,6 +22,8 @@
      9  a copied folder and file paste as links to them
     10  a double-click on a file shortcut opens it, once, through the same checked path; one to a folder that is gone
         says so and opens nothing (#196)
+    11  with Colour copy format set to rgb (#257), a card's swatch is a button named "Copy colour #1e90ff"; invoking it
+        copies rgb(30, 144, 255), the status says so, and the card is not edited
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Links.ps1 -NotoExe <path>\Noto.exe
@@ -165,13 +167,15 @@ exit (Invoke-IsolatedRun $run -Title 'Links (ADR-019)' -Body {
     $paper = Join-Path $run.Root 'paper.txt'; Set-Content $paper 'a document'
     $gone = Join-Path $run.Root 'gone'
     $uri = { param($p) ([Uri]$p).AbsoluteUri }
-    $text = "Links`n`n[Project folder]($(& $uri $linked))`n[Gone]($(& $uri $gone))`n[Script]($(& $uri $scriptFile))`n[Bad](javascript:alert(1))`nSee https://example.com/spec here`nread the spec today"
+    $text = "Links`n`n[Project folder]($(& $uri $linked))`n[Gone]($(& $uri $gone))`n[Script]($(& $uri $scriptFile))`n[Bad](javascript:alert(1))`nBrand blue #1e90ff`nSee https://example.com/spec here`nread the spec today"
 
     $first = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
     if (-not (Stop-Noto $first)) { throw 'the seeding start did not exit cleanly' }
     $now = [DateTimeOffset]::UtcNow.ToString('O')
     $null = Sql $script:data "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Links', 1, `$t, `$t)" @{ '$f' = $FolderId; '$t' = $now }
     $null = Sql $script:data "INSERT INTO Notes (Id, FolderId, Content, SortOrder, CreatedAt, UpdatedAt) VALUES (`$n, `$f, `$c, 1, `$t, `$t)" @{ '$n' = $NoteId; '$f' = $FolderId; '$c' = $text; '$t' = $now }
+    # Case 11 (#257): a swatch copies rgb().
+    Set-NotoSetting $run -Exe $NotoExe -DataRoot $script:data -Key 'editor.color-copy-format' -Value 'Rgb'
 
     $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
     Bring-Forward
@@ -187,6 +191,22 @@ exit (Invoke-IsolatedRun $run -Title 'Links (ADR-019)' -Body {
     $closed = Close-Explorer $linked
     Bring-Forward
     Add-Result $run '1  a card''s link is a hyperlink; invoking it opens its folder' ($null -ne $hyperlink -and $opened.Count -eq 1 -and $opened[0] -match 'kind=Local folder=True outcome=Opened' -and $closed -ge 1) "trace='$($opened -join ' | ')' explorer windows closed=$closed"
+
+    # 11 - #257: the card's swatch, invoked through UI Automation, copies its colour as rgb() and the card stays read
+    $savedSwatchClip = Get-Clipboard -Raw
+    try {
+        Set-Clipboard -Value 'nothing copied yet'; Start-Sleep -Milliseconds 300
+        $swatch = (Find-ById 'NoteList').FindFirst($Scope::Descendants, [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::Button),
+                [System.Windows.Automation.PropertyCondition]::new($AE::NameProperty, 'Copy colour #1e90ff')))
+        if ($swatch) { $swatch.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Milliseconds 900 }
+        $copied = Get-Clipboard -Raw
+        $status = By-Id 'NoteStatusText'
+        $said = if ($status -and -not $status.Current.IsOffscreen) { $status.Current.Name } else { '' }
+        $editing = $null -ne (By-Id 'NoteEditor')
+        Add-Result $run '11 a swatch is a button named for its colour; invoked, it copies rgb(30, 144, 255), says so, and the card is not edited' ($null -ne $swatch -and $copied -eq 'rgb(30, 144, 255)' -and $said -eq 'Copied rgb(30, 144, 255)' -and -not $editing) "swatch=$($null -ne $swatch) clipboard='$copied' status='$said' editing=$editing"
+    }
+    finally { if ($null -ne $savedSwatchClip) { Set-Clipboard -Value $savedSwatchClip } else { Set-Clipboard -Value $null } }
 
     # 2 - Ctrl+Enter in the editor
     Edit-Note

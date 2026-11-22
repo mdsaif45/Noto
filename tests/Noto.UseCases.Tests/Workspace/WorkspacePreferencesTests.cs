@@ -1,4 +1,5 @@
 using Noto.Core.Activation;
+using Noto.Core.Editing;
 using Noto.Core.Folders;
 using Noto.Core.Notes;
 using Noto.Core.Settings;
@@ -282,6 +283,7 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(WorkspaceEdge.Right, preferences.Edge);
         Assert.Equal(EscapeBehavior.LeaveFolderOrHide, preferences.Escape);
         Assert.Equal(NoteMode.Markdown, preferences.NewNoteMode);
+        Assert.Equal(ColorCopyFormat.AsWritten, preferences.ColorCopyFormat);
     }
 
     [Theory]
@@ -334,6 +336,7 @@ public sealed class WorkspacePreferencesTests
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
         { "SetNoteColorStyle", SettingKeys.AppearanceNoteColorStyle.Name, NoteColorStyle.Bar },
         { "SetNewNoteMode", SettingKeys.NotesNewMode.Name, NoteMode.Code },
+        { "SetColorCopyFormat", SettingKeys.EditorColorCopyFormat.Name, ColorCopyFormat.Rgb },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
     };
@@ -363,6 +366,7 @@ public sealed class WorkspacePreferencesTests
     [InlineData("SetNewNotePlacement", 4)]
     [InlineData("SetNoteColorStyle", 2)]
     [InlineData("SetNewNoteMode", 3)]
+    [InlineData("SetColorCopyFormat", 4)]
     public void A_value_that_is_not_a_member_is_refused_and_nothing_is_written(string setter, int undefined)
     {
         var store = new FakeSettings();
@@ -374,6 +378,7 @@ public sealed class WorkspacePreferencesTests
             "SetNewNotePlacement" => (NewNotePlacement)undefined,
             "SetNoteColorStyle" => (NoteColorStyle)undefined,
             "SetNewNoteMode" => (NoteMode)undefined,
+            "SetColorCopyFormat" => (ColorCopyFormat)undefined,
             _ => (WorkspaceTheme)undefined,
         };
 
@@ -471,6 +476,7 @@ public sealed class WorkspacePreferencesTests
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
         "SetNoteColorStyle" => preferences.SetNoteColorStyle((NoteColorStyle)value),
         "SetNewNoteMode" => preferences.SetNewNoteMode((NoteMode)value),
+        "SetColorCopyFormat" => preferences.SetColorCopyFormat((ColorCopyFormat)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
@@ -489,6 +495,7 @@ public sealed class WorkspacePreferencesTests
         "SetTheme" => preferences.Theme,
         "SetNoteColorStyle" => preferences.NoteColorStyle,
         "SetNewNoteMode" => preferences.NewNoteMode,
+        "SetColorCopyFormat" => preferences.ColorCopyFormat,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
