@@ -12,6 +12,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Settings › Shortcuts › *Ctrl+Enter hides Noto* (off by default): Ctrl+Enter hides Noto from the note list,
+  Search, Settings or a note you are writing, saving the note first. On a link, Ctrl+Enter still opens it (#255).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Settings › General › *Where new notes go*: at the bottom, at the top, or above or below the selected note. Ctrl+N,
