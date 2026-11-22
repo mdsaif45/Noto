@@ -8,7 +8,7 @@
 .DESCRIPTION
   A fresh isolated data root with one folder of seeded notes and image files drawn by this script in pure red, so the
   pictures are found in screenshots by colour (cards.png, editor.png and pasted.png are kept in the run). The clipboard
-  is used for cases 9-11 and 16 and restored. A file drop (case 12) is a real OLE drag (helpers/drop-files.ps1): the button is
+  is used for cases 9-11, 16 and 18 and restored. A file drop (case 12) is a real OLE drag (helpers/drop-files.ps1): the button is
   pressed on a small window of the helper's own, shown over Noto without taking the foreground, and released over the
   editor's line. Both points are checked to be Noto's window first, and Noto is checked to be still in front after.
   Keys reach Noto only while it is verifiably the foreground window.
@@ -35,6 +35,10 @@
     17  a text file dropped on the editor (#196, J30): by default a shortcut on a line of its own, its type and size drawn
         below its name (Standard); with Settings' "When you drop a text file into a note" set to "Insert its text"
         (stored), its text where it was dropped; one undo each
+    18  #254 (I4): Shift+F10 on the Red card offers Copy as picture, which puts a picture of the note on the clipboard (its
+        red picture drawn in it, so pictures are decoded before rendering) and says "Picture copied."; read back by
+        Windows PowerShell's Get-Clipboard -Format Image. Save as picture… is offered beside it; its dialog is not
+        driven (NotePictureGuardTests holds its wiring)
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Images.ps1 -NotoExe <path>\Noto.exe
@@ -565,6 +569,34 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
     $undoneText = (Editor-Value) -eq $original
     Leave-Editor
     Add-Result $run '17 a dropped text file is a shortcut by default, drawn with its type and size; set to insert its text, its text; one undo each' ($linked -and $null -ne $details -and $undoneLink -and $stored -eq 'InsertText' -and $asText -and $undoneText) "$effect linked=$linked details='$(if ($details) { $details.Current.Name })' undone=$undoneLink stored=$stored inserted='$($inserted -replace "`n", ' | ')' undone=$undoneText"
+
+    # 18 - #254 (I4): Copy as picture from the card's menu
+    $savedClip = Get-Clipboard -Raw
+    try {
+        # The picture's size, and whether its red picture is in it (sampled every 2 px): pictures decoded before rendering.
+        $GetPicture = 'Add-Type -AssemblyName System.Drawing; $i = Get-Clipboard -Format Image; if (-not $i) { "image=none"; return }; $b = New-Object System.Drawing.Bitmap $i; $red = 0; for ($y = 0; $y -lt $b.Height; $y += 2) { for ($x = 0; $x -lt $b.Width; $x += 2) { $c = $b.GetPixel($x, $y); if ($c.R -gt 220 -and $c.G -lt 40 -and $c.B -lt 40) { $red++ } } }; "image=$($b.Width)x$($b.Height)"; "red=$red"'
+        Set-Clipboard -Value 'before case 18'; Start-Sleep -Milliseconds 500
+        $card = Card 'Red'
+        $card.SetFocus(); Start-Sleep -Milliseconds 300
+        $mark = @(Traces 'Noto\.Picture').Count
+        Send-ToNoto @(0x10) 0x79 900       # Shift+F10: the card's menu
+        $saveOffered = $null -ne (Offered 'Save as picture…')
+        $item = Offered 'Copy as picture'
+        if ($item) { $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() } else { Send-ToNoto @() 0x1B 600 }
+        $deadline = (Get-Date).AddSeconds(8)
+        while ((Get-Date) -lt $deadline -and -not @(Traces 'Noto\.Picture' | Select-Object -Skip $mark | Where-Object { $_ -match 'Noto\.Picture (copied|failed)' }).Count) { Start-Sleep -Milliseconds 200 }
+        Start-Sleep -Milliseconds 500
+        $copied = @(Invoke-Sta 'get-clipboard-picture' $GetPicture @())
+        $status = By-Id 'NoteStatusText'; $said = if ($status -and -not $status.Current.IsOffscreen) { $status.Current.Name } else { '' }
+        $since = @(Traces 'Noto\.Picture' | Select-Object -Skip $mark)
+        $rendered = @($since | Where-Object { $_ -match 'Noto\.Picture rendered' })
+        $size = [string]@($copied | Where-Object { $_ -like 'image=*' })[0]
+        $red = [int](@($copied | Where-Object { $_ -match '^red=(\d+)$' } | ForEach-Object { $Matches[1] })[0])
+        Shot 'picture-copied'
+        Add-Result $run '18 Copy as picture from the card menu puts the note on the clipboard as a picture, its own picture drawn, and says so' ($saveOffered -and $null -ne $item -and $size -match '^image=[1-9]' -and $red -gt 0 -and $said -eq 'Picture copied.' -and $rendered.Count -eq 1) "save offered=$saveOffered copy offered=$($null -ne $item) clipboard='$($copied -join ' | ')' status='$said' trace='$($since -join ' | ')'"
+    }
+    finally { if ($null -ne $savedClip) { Set-Clipboard -Value $savedClip } else { Set-Clipboard -Value $null } }
+
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
 
 

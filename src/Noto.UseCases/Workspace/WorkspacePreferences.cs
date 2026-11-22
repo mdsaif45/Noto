@@ -1,5 +1,6 @@
 using Noto.Core.Activation;
 using Noto.Core.Folders;
+using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;
@@ -91,6 +92,16 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
 
     /// <summary>What a text file dropped into a note becomes (J30, #196).</summary>
     public TextFileDrop TextFileDrop => _settings.Read(SettingKeys.ImportingTextFile);
+
+    /// <summary>
+    /// How a note is saved or copied as a picture (#254; I4, J31 to J34): its background, margins, shape and footer,
+    /// read together at each export.
+    /// </summary>
+    public PictureExport PictureExport => new(
+        _settings.Read(SettingKeys.ExportingPictureBackground),
+        _settings.Read(SettingKeys.ExportingPictureMargins),
+        _settings.Read(SettingKeys.ExportingPictureShape),
+        _settings.Read(SettingKeys.ExportingPictureFooter));
 
     /// <summary>Whether plain text that reads as code is pasted in a fenced code block (D39).</summary>
     public bool PasteCodeBlock => _settings.Read(SettingKeys.EditorPasteCodeBlock);
@@ -232,6 +243,22 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets what a text file dropped into a note becomes.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTextFileDrop(TextFileDrop drop) => TryWrite(SettingKeys.ImportingTextFile, drop);
+
+    /// <summary>Sets what is behind a note picture (#254, J31).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetPictureBackground(PictureBackground background) => TryWrite(SettingKeys.ExportingPictureBackground, background);
+
+    /// <summary>Sets the space around a note in its picture (#254, J32).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetPictureMargins(PictureMargins margins) => TryWrite(SettingKeys.ExportingPictureMargins, margins);
+
+    /// <summary>Sets a note picture's shape (#254, J33).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetPictureShape(PictureShape shape) => TryWrite(SettingKeys.ExportingPictureShape, shape);
+
+    /// <summary>Sets whether a note picture ends with its date and "Noto" (#254, J34).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetPictureFooter(bool shown) => TryWrite(SettingKeys.ExportingPictureFooter, shown);
 
     /// <summary>Sets whether plain text that reads as code is pasted in a fenced code block.</summary>
     /// <returns>Whether it was kept.</returns>

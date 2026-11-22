@@ -1,6 +1,7 @@
 using Noto.Core.Activation;
 using Noto.Core.Diagnostics;
 using Noto.Core.Folders;
+using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Notes;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
@@ -412,6 +413,32 @@ public static class SettingKeys
         new("importing.text-file", TextFileDrop.Shortcut, Enum.IsDefined);
 
     /// <summary>
+    /// What is behind a note saved or copied as a picture (#254; parity I4, J31): its colour, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="PictureBackground.NoteColor"/>, the note as the stack draws it. Read at each export, so a change
+    /// applies to the next one. Stored by member name; a value that is not a member is refused when written and reads as
+    /// the default.
+    /// </remarks>
+    public static readonly SettingKey<PictureBackground> ExportingPictureBackground =
+        new("exporting.picture-background", PictureBackground.NoteColor, Enum.IsDefined);
+
+    /// <summary>The space around a note in its picture (#254; parity J32): none, small or large.</summary>
+    /// <remarks>Default <see cref="PictureMargins.Small"/>. Stored by member name, as <see cref="ExportingPictureBackground"/>.</remarks>
+    public static readonly SettingKey<PictureMargins> ExportingPictureMargins =
+        new("exporting.picture-margins", PictureMargins.Small, Enum.IsDefined);
+
+    /// <summary>A note picture's shape (#254; parity J33): the note's own, square, 4:3 or 16:9, padded, never cropped.</summary>
+    /// <remarks>Default <see cref="PictureShape.Fit"/>. Stored by member name, as <see cref="ExportingPictureBackground"/>.</remarks>
+    public static readonly SettingKey<PictureShape> ExportingPictureShape =
+        new("exporting.picture-shape", PictureShape.Fit, Enum.IsDefined);
+
+    /// <summary>Whether a note picture ends with a footer: the note's modified date and "Noto" (#254; parity J34).</summary>
+    /// <remarks>Default off: the picture is the note, and only the note, unless the user asks for more.</remarks>
+    public static readonly SettingKey<bool> ExportingPictureFooter =
+        new("exporting.picture-footer", false);
+
+    /// <summary>
     /// Whether plain text that reads as code is pasted in a fenced code block (D39, J20, #187; <c>PastedCode</c>).
     /// </summary>
     /// <remarks>Default off: a paste the user did not ask to reformat stays exactly what they copied.</remarks>
@@ -534,6 +561,10 @@ public static class SettingKeys
         EditorFileLinks,
         ImportingPicture,
         ImportingTextFile,
+        ExportingPictureBackground,
+        ExportingPictureMargins,
+        ExportingPictureShape,
+        ExportingPictureFooter,
         EditorPasteCodeBlock,
         BackupAutomatic,
         BackupFrequency,

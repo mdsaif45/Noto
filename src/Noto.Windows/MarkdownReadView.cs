@@ -46,6 +46,9 @@ internal sealed partial class MarkdownReadView : UserControl
     // The runs of this render inside a ::highlight:: (F8, #151), marked once they are laid in the view.
     private readonly List<Run> _marked = [];
 
+    // This render's pictures, each done once it is drawn or its notice shown.
+    private readonly List<Task> _pictures = [];
+
     public MarkdownReadView()
     {
         Content = _view;
@@ -127,6 +130,7 @@ internal sealed partial class MarkdownReadView : UserControl
         view.Blocks.Clear();
         view.TextHighlighters.Clear();
         _marked.Clear();
+        _pictures.Clear();
         string source = Source ?? string.Empty;
 
         // A Code or plain text note is its text as typed (#195), as a very long note is.
@@ -173,7 +177,7 @@ internal sealed partial class MarkdownReadView : UserControl
                 var holder = new Border();
                 paragraph.Inlines.Add(new LineBreak());
                 paragraph.Inlines.Add(new InlineUIContainer { Child = holder });
-                _ = Picture(holder, ReferenceOf(document, block, image), room, markup);
+                _pictures.Add(Picture(holder, ReferenceOf(document, block, image), room, markup));
             }
 
             view.Blocks.Add(paragraph);
@@ -193,6 +197,12 @@ internal sealed partial class MarkdownReadView : UserControl
         }
     }
 
+    /// <summary>
+    /// Done once every picture of the last render is decoded and drawn, or its notice shown: a note saved as a picture
+    /// (#254) waits for it, since a picture still loading would come out blank.
+    /// </summary>
+    internal Task Drawn => Task.WhenAll(_pictures);
+
     /// <summary>The image's source as written, if it has one.</summary>
     private static string? ReferenceOf(MarkdownDocument document, MarkdownBlock block, MarkdownSpan image) =>
         block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start > image.Start && s.End < image.End)
@@ -202,6 +212,7 @@ internal sealed partial class MarkdownReadView : UserControl
     /// <summary>
     /// Draws the image in <paramref name="holder"/> once its size is read: no wider than the card or taller than
     /// <see cref="ImageMaxHeight"/>, never enlarged; a one-line notice when its file is not there or cannot be read.
+    /// Done once the picture is decoded, or the notice shown (<see cref="Drawn"/>).
     /// </summary>
     private static async Task Picture(Border holder, string? reference, double room, Brush? markup)
     {
@@ -216,8 +227,15 @@ internal sealed partial class MarkdownReadView : UserControl
             Border picture = ImageFiles.Picture(bitmap, width, height);
             var image = new Viewbox { Child = picture, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(0, gap, 0, gap) };
             AutomationProperties.SetAccessibilityView(image, AccessibilityView.Raw);
-            bitmap.ImageFailed += (_, _) => holder.Child = Notice("This image can't be shown", markup);
+            var decoded = new TaskCompletionSource();
+            bitmap.ImageOpened += (_, _) => decoded.TrySetResult();
+            bitmap.ImageFailed += (_, _) =>
+            {
+                holder.Child = Notice("This image can't be shown", markup);
+                decoded.TrySetResult();
+            };
             holder.Child = image;
+            await decoded.Task;
             return;
         }
 

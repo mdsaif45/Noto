@@ -809,7 +809,7 @@ the documented use cases (D38, I4) without pretending to be a share sheet.
 | `[x]` | I1 | Import text files | Drop text files, or whole folders, to create notes | Same, incl. bulk folder import | MUST | — | **v0.2 score (2026-11-13):** Settings › Import brings in a folder of Markdown; dropped `.md` / `.txt` files become notes (ADR-020; F9, #152). |
 | `[x]` | I2 | Import images | Dropped images embedded; behavior configurable | Same | MUST | — | **v0.2 score (2026-11-13):** A dropped picture becomes a note holding it; an imported folder brings the pictures its notes use (F9, #152; ADR-020). |
 | `[x]` | I3 | Import as shortcuts | Files become previewed shortcuts, not content | Same; standard / compact styles | MUST | #196 | = D34 **v0.2 score (2026-11-13):** A file dropped into a note becomes a link to it. No preview styles. **v0.3 score (2026-11-16):** Files dropped into a note become shortcuts with icon previews, in both styles; text files can insert their text instead (J30) (#196). |
-| `[ ]` | I4 | Export note to image | Share → save/copy image; background, margins, ratio, bottom bar | Same, with the same four export settings | SHOULD | — | |
+| `[x]` | I4 | Export note to image | Share → save/copy image; background, margins, ratio, bottom bar | Same, with the same four export settings | SHOULD | — | **v0.4 score (2026-11-22):** The card menu's Save as picture… (a PNG through the Save dialog, written atomically) and Copy as picture (the clipboard), the note as its card draws it, whole even when folded (#254; `Invoke-Images` case 18). |
 | `[ ]` | I5 | Export via Shortcuts | Shortcuts action wrapping image export | Image export via CLI | ADAPT | — | |
 | `[ ]` | I6 | Print | `⌘P` | `Ctrl+P` | SHOULD | — | = B21 |
 | `[x]` | I7 | Text / markdown export | **None.** Image export and print only | **Bulk export to markdown files** | BETTER | — | ADR-002; ships in M1 **v0.2 score (2026-11-13):** Export as Markdown: everything, a folder or a note, with pictures and an index (ADR-020; `Invoke-Portability`). |
@@ -884,10 +884,10 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[x]` | J28 | Importing → Show while dragging | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › Sidebar › Show Noto when you drag something to the screen edge (#185). |
 | `[ ]` | J29 | Importing → Move imported files to Trash | on / off | Move to **Recycle Bin**, off by default | ADAPT | — | Destructive — never default on |
 | `[x]` | J30 | Importing → Import behavior | images and text files | Same | MUST | #196 | = I1, I2 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › Importing: When you drop a picture (keep a copy, the default; or add a shortcut) and When you drop a text file into a note (add a shortcut, the default; or insert its text) (#196). |
-| `[ ]` | J31 | Exporting → Image background | color or transparent | Same | SHOULD | — | = I4 |
-| `[ ]` | J32 | Exporting → Image margins | adjustable | Same | SHOULD | — | = I4 |
-| `[ ]` | J33 | Exporting → Image ratio | selectable | Same | SHOULD | — | = I4 |
-| `[ ]` | J34 | Exporting → Bottom bar in image | on / off | Same | SHOULD | — | = I4 |
+| `[x]` | J31 | Exporting → Image background | color or transparent | Same | SHOULD | — | = I4 **v0.4 score (2026-11-22):** Settings › Export pictures › Background: the note's colour (default) or transparent (#254). |
+| `[x]` | J32 | Exporting → Image margins | adjustable | Same | SHOULD | — | = I4 **v0.4 score (2026-11-22):** Settings › Export pictures › Margins: none, small (default) or large (#254). |
+| `[x]` | J33 | Exporting → Image ratio | selectable | Same | SHOULD | — | = I4 **v0.4 score (2026-11-22):** Settings › Export pictures › Shape: fit the note (default), square, 4:3 or 16:9, padded, never cropped (#254). |
+| `[x]` | J34 | Exporting → Bottom bar in image | on / off | Same | SHOULD | — | = I4 **v0.4 score (2026-11-22):** Settings › Export pictures › Show a footer: the note's modified date and "Noto", off by default (#254). |
 | `[ ]` | J35 | Data → iCloud sync | enable / disable | **Absent** — no sync in v1 | DROP | — | = I12, ADR-002 |
 | `[x]` | J36 | Data → Data locations | reveal data folders | Reveal data folder in Explorer | MUST | — | One location, not two **v0.2 score (2026-11-13):** Settings › Open data folder in Explorer (`Invoke-Settings` case 10). |
 | `[x]` | J37 | Backups → Automatic backups | enable / disable | Same, **on by default** | MUST | — | = I8 **v0.2 score (2026-11-13):** Settings › Back up automatically, on by default (F15, #15). |
