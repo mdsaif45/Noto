@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
+using Noto.Core.Folders;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace Noto;
@@ -38,13 +39,14 @@ public sealed partial class MainWindow
     /// <summary>
     /// A new note in the open folder, edited; on the folder list, in the selected folder, else the first. Settings,
     /// Search and the Recycle Bin are left first; the welcome tour is left alone, being the user's first steps. A
-    /// <c>noto://</c> link's note (#192) comes this way too, holding <paramref name="content"/>.
+    /// <c>noto://</c> link's note (#192) comes this way too, holding <paramref name="content"/>; and the note of a global
+    /// shortcut whose folder was asked for (#243), in <paramref name="into"/>, entered first.
     /// </summary>
     /// <remarks>
     /// The note is made once the surfaces it leaves have given their focus back, and once a folder entered here has
     /// loaded its notes: queued behind both, at low priority, so the new note's editor has the keyboard last.
     /// </remarks>
-    internal void NewNoteFromShortcut(bool fromClipboard = false, string content = "")
+    internal void NewNoteFromShortcut(bool fromClipboard = false, string content = "", FolderId? into = null)
     {
         if (WelcomeSurface is not null)
         {
@@ -64,6 +66,22 @@ public sealed partial class MainWindow
         if (RecycleBinSurface is not null)
         {
             CloseRecycleBin();
+        }
+
+        // The chosen folder is entered as Back's menu enters one: the open folder is left first, saving the card being
+        // edited; a failed save stays, having said why. A folder gone since it was chosen makes nothing.
+        if (into is { } chosen && _openFolderId != chosen)
+        {
+            OpenFolder(chosen);
+            if (_openFolderId != chosen)
+            {
+                if (_openFolderId is null && _state == PaneState.Loaded)
+                {
+                    ShowStatus("That folder no longer exists.");
+                }
+
+                return;
+            }
         }
 
         if (_openFolderId is null)

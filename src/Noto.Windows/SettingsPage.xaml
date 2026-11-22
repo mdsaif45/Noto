@@ -198,6 +198,25 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!-- #243 (B6, J9): the global shortcuts' note asks for its folder; Ctrl+N and + never do. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Ask which folder for a note from a shortcut" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="The global new-note and clipboard shortcuts. Ctrl+N and the + button use the open folder." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="AskFolderSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnAskFolderToggled"
+                                    AutomationProperties.Name="Ask which folder for a note from a shortcut"
+                                    AutomationProperties.HelpText="The global new-note and clipboard shortcuts. Ctrl+N and the + button use the open folder." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

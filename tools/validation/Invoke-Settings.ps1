@@ -85,6 +85,10 @@
        (only once the window under the pointer is the bar) shows Noto docked, through a launch, and the bar goes;
        Off destroys the window at once and none appears with Noto hidden. Whether the click's show took the
        foreground is recorded, not asserted
+    25 ask which folder (#243, B6, J9): off by default; turned on (with the new-note shortcut), the shortcut pressed
+       from another app brings Noto in front with the folder chooser focused, every folder listed, the recently opened
+       first and the count said; typing "ask" leaves the one folder it matches; Enter makes the note there, edited;
+       pressed again, Escape closes the chooser and makes nothing, Noto still shown and in front; both set back off
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -113,9 +117,10 @@ $AE = [System.Windows.Automation.AutomationElement]
 $Scope = [System.Windows.Automation.TreeScope]
 $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
+$AskFolderId = '01J0000000000000000000F0S2'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'appearance.line-height', 'appearance.paragraph-spacing', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'importing.recycle-files', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'backup.folder', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled', 'activation.open-bar.mode', 'activation.open-bar-drop.enabled')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'appearance.line-height', 'appearance.paragraph-spacing', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'importing.recycle-files', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'backup.folder', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled', 'notes.ask-folder', 'activation.open-bar.mode', 'activation.open-bar-drop.enabled')
 
 # ---------------------------------------------------------------- helpers
 
@@ -164,7 +169,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'OpenBarSetting', 'OpenBarDropSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'LineHeightSetting', 'ParagraphSpacingSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'RecycleImportedFilesSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'AskFolderSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'OpenBarSetting', 'OpenBarDropSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'LineHeightSetting', 'ParagraphSpacingSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'RecycleImportedFilesSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -395,6 +400,22 @@ function Click-Bar([IntPtr] $Bar) {
     [NotoVal.Win32]::mouse_event(2, 0, 0, 0, [IntPtr]::Zero); [NotoVal.Win32]::mouse_event(4, 0, 0, 0, [IntPtr]::Zero)
     $pt
 }
+# Case 25 (#243): the folder chooser is a flyout, searched from the desktop, since a popup need not sit under Noto's window.
+function Mine-ById([string] $Id, [int] $Seconds = 5) {
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    do {
+        $e = @($AE::RootElement.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) | Where-Object { $_.Current.ProcessId -eq $script:noto.Pid -and -not $_.Current.IsOffscreen }) | Select-Object -First 1
+        if ($e) { return $e }
+        Start-Sleep -Milliseconds 200
+    } while ((Get-Date) -lt $deadline)
+    $null
+}
+function Chooser-Names {
+    $list = Mine-ById 'AskFolderList'
+    if (-not $list) { return @() }
+    @($list.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)) | ForEach-Object { Get-RowTitle $_.Current.Name })
+}
+function Chooser-Status { $e = Mine-ById 'AskFolderStatus'; if ($e) { $e.Current.Name } else { '' } }
 
 function Restart-Noto {
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly before a restart' }
@@ -806,6 +827,71 @@ try {
             Noto-Front '24 end'
         }
 
+        # ------------------------------------------------ 25 ask which folder (#243, B6, J9)
+        if (Want 25) {
+            # The new-note shortcut's chord as case 17 left it: J when it ran (rebound, then turned off), else the default N.
+            $askKey = if ((Stored 'activation.new-note.binding') -eq 'Ctrl+Shift+Win+J') { $VkJ } else { $VkN }
+            if (-not (Note-Chord-Free $askKey)) { Add-Invalid $run '25 the new-note chord is already held on this machine'; return }
+            # A second folder to choose, written while Noto is stopped, as case 22 writes its setting.
+            if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+            $null = Invoke-NotoSql $run -Exe $NotoExe -DataRoot $data -Sql "INSERT INTO Folders (Id, Name, SortOrder, CreatedAt, UpdatedAt) VALUES (`$f, 'Ask target', 2, `$t, `$t)" -Parameters @{ '$f' = $AskFolderId; '$t' = [DateTimeOffset]::UtcNow.ToString('O') }
+            $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $data
+            Noto-Front '25'
+            To-FolderList; Open-Settings-ByButton
+            $offByDefault = -not (Is-On 'AskFolderSetting')
+            Set-Toggle 'AskFolderSetting' $true
+            $m = Trace-Mark; Set-Toggle 'NewNoteHotkeySetting' $true
+            $on = (Stored 'notes.ask-folder') -eq 'True' -and (Wait-Trace $m 'Noto\.Hotkey enabled=True registered=True action=NewNote')
+            Add-Result $run '25 off by default; turned on, it is stored' ($offByDefault -and $on) "off by default=$offByDefault stored=$(Stored 'notes.ask-folder') trace: $(Trace-Since $m)"
+            Close-Settings-ByBack
+
+            # From another app: the chooser, focused, every folder listed, the recently opened first, the count said.
+            $null = Set-ForegroundByKeyboard $target
+            Ctrl '25 chooser before' $noto.Hwnd
+            $folders = [int](Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT COUNT(*) FROM Folders WHERE DeletedAt IS NULL' -Parameters @{})
+            $recentId = "$(Stored 'workspace.recent-folders')".Split(',')[0]
+            $recent = if ($recentId) { [string](Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT Name FROM Folders WHERE Id = $f AND DeletedAt IS NULL' -Parameters @{ '$f' = $recentId }) } else { '' }
+            $m = Trace-Mark
+            Send-NoteChord $target.Hwnd $askKey
+            $asked = (Until { (Fg) -eq $noto.Hwnd -and (Focused-Id) -eq 'AskFolderBox' } 5) -and (Wait-Trace $m 'Noto\.AskFolder shown folders=')
+            $listed = @(Chooser-Names)
+            $box = Mine-ById 'AskFolderBox'; $boxName = if ($box) { $box.Current.Name } else { '' }
+            $first = -not $recent -or $listed[0] -eq $recent
+            Add-Result $run '25 the new-note shortcut from another app: Noto in front with the chooser focused, every folder listed, the recent first, the count said' ($asked -and $boxName -eq 'Folder for the new note' -and $listed.Count -eq $folders -and $listed -contains 'Validation' -and $listed -contains 'Ask target' -and $first -and (Chooser-Status) -eq "$folders folders") "asked=$asked box='$boxName' listed=$($listed -join '|') folders=$folders recent='$recent' status='$(Chooser-Status)' focus=$(Focused) trace: $(Trace-Since $m)"
+
+            # Typing filters by name, case aside; Enter makes the note in that folder, edited, through the shortcut's path.
+            Send-ToNoto @() 0x41; Send-ToNoto @() 0x53; Send-ToNoto @() 0x4B   # a, s, k
+            $filtered = @(Chooser-Names)
+            $status = Chooser-Status
+            $inTarget = [int](Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL' -Parameters @{ '$f' = $AskFolderId })
+            $before = Note-Count
+            $m = Trace-Mark
+            Send-ToNoto @() 0x0D
+            $made = Until { (Focused-Id) -eq 'NoteEditor' } 5
+            $title = if (Visible-Id 'NoteFolderTitle') { (Element 'NoteFolderTitle').Current.Name } else { '' }
+            $after = [int](Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL' -Parameters @{ '$f' = $AskFolderId })
+            Add-Result $run '25 typing "ask" leaves Ask target (1 folder); Enter makes the note there, its editor focused' (($filtered -join '|') -eq 'Ask target' -and $status -eq '1 folder' -and $made -and $title -eq 'Ask target' -and $after -eq $inTarget + 1 -and (Note-Count) -eq $before + 1 -and (Wait-Trace $m 'Noto\.AskFolder outcome=Chosen')) "filtered=$($filtered -join '|') status='$status' editing=$made title='$title' in Ask target=$inTarget->$after notes=$before->$(Note-Count) trace: $(Trace-Since $m)"
+
+            # Escape makes nothing, and Noto stays shown and in front.
+            $null = Set-ForegroundByKeyboard $target
+            Ctrl '25 escape before' $noto.Hwnd
+            Start-Sleep -Milliseconds 500
+            $before = Note-Count
+            $m = Trace-Mark
+            Send-NoteChord $target.Hwnd $askKey
+            $asked = Until { (Fg) -eq $noto.Hwnd -and (Focused-Id) -eq 'AskFolderBox' } 5
+            Send-ToNoto @() 0x1B
+            $closed = Until { -not (Mine-ById 'AskFolderBox' 1) } 3
+            Start-Sleep -Milliseconds 800
+            Add-Result $run '25 Escape closes the chooser and makes no note; Noto stays shown and in front' ($asked -and $closed -and (Note-Count) -eq $before -and (Ev).WsVisible -and (Fg) -eq $noto.Hwnd -and (Wait-Trace $m 'Noto\.AskFolder outcome=Cancelled')) "asked=$asked closed=$closed notes=$before->$(Note-Count) shown=$((Ev).WsVisible) front=$((Fg) -eq $noto.Hwnd) trace: $(Trace-Since $m)"
+
+            Noto-Front '25 end'
+            To-FolderList; Open-Settings-ByButton
+            Set-Toggle 'AskFolderSetting' $false
+            Set-Toggle 'NewNoteHotkeySetting' $false
+            Close-Settings-ByBack
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -884,7 +970,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'OpenBarSetting', 'OpenBarDropSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'LineHeightSetting', 'ParagraphSpacingSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'RecycleImportedFilesSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'BackupFolderButton', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'AskFolderSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'OpenBarSetting', 'OpenBarDropSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'LineHeightSetting', 'ParagraphSpacingSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'RecycleImportedFilesSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'BackupFolderButton', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)
