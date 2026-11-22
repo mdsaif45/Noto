@@ -34,7 +34,7 @@ public sealed partial class OpenBarGuardTests
 
         for (int i = 0; i < 3; i++)
         {
-            OpenBarWindow bar = OpenBarWindow.Create(workspace, static (_, _) => { });
+            using OpenBarWindow bar = OpenBarWindow.Create(workspace, static (_, _) => { });
             nint hwnd = bar.Hwnd;
             uint ex = (uint)Native.GetWindowLong(hwnd, ExStyle);
 
