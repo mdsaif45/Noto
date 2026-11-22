@@ -825,6 +825,7 @@ public partial class App : Application
             .Register<UnpinFolder, CommandResult, FolderPinChanged>(
                 new UnpinFolderHandler(folders, clock).Handle,
                 static (command, _) => new FolderPinChanged(command.FolderId, false))
+            .Register<SetFolderNoteSort, CommandResult>(new SetFolderNoteSortHandler(folders, clock).Handle)
             .Register<ReorderNote, CommandResult, NoteReordered>(
                 new ReorderNoteHandler(notes, clock).Handle,
                 static (command, _) => new NoteReordered(command.NoteId))

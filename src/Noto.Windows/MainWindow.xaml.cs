@@ -338,7 +338,7 @@ public sealed partial class MainWindow : Window
             Folders.Clear();
             foreach (Folder folder in folders)
             {
-                Folders.Add(new FolderListItem(folder.Id.Value, folder.Name, folder.IsPinned, counts.GetValueOrDefault(folder.Id)));
+                Folders.Add(new FolderListItem(folder.Id.Value, folder.Name, folder.IsPinned, counts.GetValueOrDefault(folder.Id)) { NoteSort = folder.NoteSort });
             }
 
             _state = PaneState.Loaded;
@@ -753,7 +753,7 @@ public sealed partial class MainWindow : Window
         // The id is captured now: the list is rebuilt on return, and an index
         // or a name would not survive that. Names are not unique (Case G).
         _openFolderId = FolderId.From(item.Id);
-        _stack.Open(_openFolderId.Value);
+        _stack.Open(_openFolderId.Value, item.NoteSort);
         ForgetUndo();
 
         // Every route into a folder comes through here, so each is recorded as the folder last opened (#193).
@@ -1545,6 +1545,14 @@ public sealed partial class MainWindow : Window
 
         if (editing is not null && TryEndEdit())
         {
+            // A sorted folder places the note it left (#242): its title or modified time may have changed. Here, not on
+            // each save, so a card never moves while it is typed in, and not on every way out of editing, so a card
+            // never moves under a click or Ctrl+Alt+Up/Down on the way to another; the next read places it then.
+            if (!_stack.IsManual)
+            {
+                RefreshNotes();
+            }
+
             FocusNoteRow(editing);
             TraceShown("Noto.Editor left", string.Create(CultureInfo.InvariantCulture, $"chars={chars}"), started);
         }
@@ -2687,15 +2695,81 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The list bar's menu (B13, B18, #190): Fold all and Unfold all, the same commands as Ctrl+Alt+Shift+Left and Right.
-    /// Built when opened, so an item that would change no card is disabled.
+    /// The list bar's menu (B13, B18, #190): Fold all and Unfold all, the same commands as Ctrl+Alt+Shift+Left and Right,
+    /// and Sort by (#242, C10), the folder's own order checked. Built when opened, so an item that would change no card
+    /// is disabled.
     /// </summary>
     private void OnNoteListMenuClick(object sender, RoutedEventArgs e)
     {
         var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.TopEdgeAlignedRight };
         menu.Items.Add(MenuItem("Fold all", "Ctrl+Alt+Shift+Left", () => FoldAll(folded: true), _stack.CanFoldAll(folded: true)));
         menu.Items.Add(MenuItem("Unfold all", "Ctrl+Alt+Shift+Right", () => FoldAll(folded: false), _stack.CanFoldAll(folded: false)));
+        menu.Items.Add(new MenuFlyoutSeparator());
+
+        var sortBy = new MenuFlyoutSubItem { Text = "Sort by" };
+        foreach (NoteSort sort in Enum.GetValues<NoteSort>())
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = NoteSorts.NameOf(sort),
+                GroupName = "NoteSort",
+                IsChecked = _stack.Sort == sort,
+            };
+            item.Click += (_, _) => SortNotes(sort);
+            sortBy.Items.Add(item);
+        }
+
+        menu.Items.Add(sortBy);
         menu.ShowAt((FrameworkElement)sender);
+    }
+
+    /// <summary>
+    /// Orders the open folder's notes by <paramref name="sort"/> (#242), kept on the folder; Manual shows the user's own
+    /// order again. Focus stays on the current card, and the card being edited keeps editing with its text.
+    /// </summary>
+    private void SortNotes(NoteSort sort)
+    {
+        if (_noteState != NoteState.Loaded || _openFolderId is not { } folder)
+        {
+            return;
+        }
+
+        string? current = CurrentCard();
+
+        try
+        {
+            CommandResult result = _stack.SetSort(sort);
+
+            if (!result.IsSuccess)
+            {
+                ShowNoteNotice(Describe(result.Failure!));
+                return;
+            }
+
+            // The folder's row carries its sort into the next visit, before the folder list is read again.
+            if (Folders.FirstOrDefault(f => f.Id == folder.Value) is { } row)
+            {
+                row.NoteSort = sort;
+            }
+
+            HideNoteNotice();
+            ShowCards(_stack.Notes);
+            ApplyNoteState();
+            Announce(sort == NoteSort.Manual ? "Manual order" : $"Sorted by {NoteSorts.NameOf(sort).ToLowerInvariant()}");
+
+            if (current is not null && _stack.Editing?.Value == current)
+            {
+                StartEditor(current, CaretPlacement.End);
+            }
+            else if (current is not null)
+            {
+                FocusNoteRow(current);
+            }
+        }
+        catch (StorageException ex)
+        {
+            ShowNoteNotice($"Could not sort the notes: {ex.Message}");
+        }
     }
 
     /// <summary>The card bar's Colour button: the palette, above the button.</summary>
@@ -2874,6 +2948,13 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void ReorderCard(string id, RepositionDirection direction)
     {
+        // A sorted folder places its own notes (#242): the keys are refused with the reason, not silently.
+        if (_noteState == NoteState.Loaded && !_stack.IsManual)
+        {
+            ShowNoteNotice(NoteSorts.ManualOnly(_stack.Sort));
+            return;
+        }
+
         if (_noteState != NoteState.Loaded || !_stack.CanReorder(NoteId.From(id), direction))
         {
             return;
@@ -2923,6 +3004,14 @@ public sealed partial class MainWindow : Window
         if (_noteState != NoteState.Loaded || e.Items.Count != 1 || e.Items[0] is not NoteCard card)
         {
             e.Cancel = true;
+            return;
+        }
+
+        // A sorted folder places its own notes (#242): no drag begins, and the notice says why and what to choose.
+        if (!_stack.IsManual)
+        {
+            e.Cancel = true;
+            ShowNoteNotice(NoteSorts.ManualOnly(_stack.Sort));
             return;
         }
 

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Noto.Core.Folders;
 using Noto.Core.Workspace;
 
 namespace Noto;
@@ -111,6 +112,9 @@ public sealed class FolderListItem
     /// </remarks>
     public Visibility PinnedMarkerVisibility =>
         IsPinned ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>How the folder orders its notes (#242): the note stack opens in it. Not shown on the row.</summary>
+    public NoteSort NoteSort { get; set; }
 
     /// <summary>How many active notes the folder holds (#147); the recycle bin's are not counted.</summary>
     public int NoteCount { get; set; }

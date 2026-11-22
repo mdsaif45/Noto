@@ -236,13 +236,13 @@ public sealed class BackupRestoreTests : IDisposable
 
     [Theory]
     [InlineData("\"formatVersion\": 1", "\"formatVersion\": 2", BackupProblem.NewerFormat)]
-    [InlineData("\"schemaVersion\": 5", "\"schemaVersion\": 99", BackupProblem.NewerSchema)]
-    [InlineData("\"schemaVersion\": 5", "\"schemaVersion\": 4", BackupProblem.Corrupted)]
+    [InlineData("\"schemaVersion\": 6", "\"schemaVersion\": 99", BackupProblem.NewerSchema)]
+    [InlineData("\"schemaVersion\": 6", "\"schemaVersion\": 5", BackupProblem.Corrupted)]
     [InlineData("\"format\": \"noto-backup\"", "\"format\": \"someone-else\"", BackupProblem.NotABackup)]
     [InlineData("\"path\": \"noto.db\"", "\"path\": \"../noto.db\"", BackupProblem.Corrupted)]
     public void A_manifest_that_does_not_fit_is_refused(string find, string replace, BackupProblem problem)
     {
-        Assert.Equal(5, MigrationRunner.LatestVersion);
+        Assert.Equal(6, MigrationRunner.LatestVersion);
         string archive = Rewrite(Backup(_source), (name, bytes) =>
             name == BackupManifest.ManifestEntry ? Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(bytes).Replace(find, replace, StringComparison.Ordinal)) : bytes);
 

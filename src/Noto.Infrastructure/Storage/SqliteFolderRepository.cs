@@ -68,7 +68,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
             command.CommandText =
                 """
                 SELECT Id, Name, ColorKey, IsPinned, IsCollapsed,
-                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt, NoteSort
                 FROM Folders
                 WHERE Id = $id AND DeletedAt IS NULL;
                 """;
@@ -150,10 +150,10 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
             """
             INSERT INTO Folders
                 (Id, Name, ColorKey, IsPinned, IsCollapsed,
-                 SortOrder, CreatedAt, UpdatedAt, DeletedAt)
+                 SortOrder, CreatedAt, UpdatedAt, DeletedAt, NoteSort)
             VALUES
                 ($id, $name, $colorKey, $isPinned, $isCollapsed,
-                 $sortOrder, $createdAt, $updatedAt, $deletedAt);
+                 $sortOrder, $createdAt, $updatedAt, $deletedAt, $noteSort);
             """;
 
         command.Parameters.AddWithValue("$id", folder.Id.Value);
@@ -162,6 +162,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         command.Parameters.AddWithValue("$isPinned", folder.IsPinned ? 1 : 0);
         command.Parameters.AddWithValue("$isCollapsed", folder.IsCollapsed ? 1 : 0);
         command.Parameters.AddWithValue("$sortOrder", sortOrder);
+        command.Parameters.AddWithValue("$noteSort", folder.NoteSort.ToString());
         command.Parameters.AddWithValue("$createdAt", Timestamps.Format(folder.CreatedAt));
         command.Parameters.AddWithValue("$updatedAt", Timestamps.Format(folder.UpdatedAt));
         command.Parameters.AddWithValue(
@@ -207,6 +208,16 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
             command => command.Parameters.AddWithValue("$isPinned", isPinned ? 1 : 0),
             $"Could not set the pinned flag on folder '{id}'.");
     }
+
+    public void SetNoteSort(FolderId id, NoteSort sort, DateTimeOffset updatedAt) =>
+        // By the member's name, as NoteSorts.Parse reads it back (migration 6). NoteSort only: no note is touched.
+        ExecuteSingleRowUpdate(
+            "UPDATE Folders SET NoteSort = $noteSort, UpdatedAt = $updatedAt "
+            + "WHERE Id = $id AND DeletedAt IS NULL;",
+            id,
+            updatedAt,
+            command => command.Parameters.AddWithValue("$noteSort", sort.ToString()),
+            $"Could not set the note sort of folder '{id}'.");
 
     public bool Reorder(FolderId id, FolderPlacement placement, DateTimeOffset updatedAt)
     {
@@ -542,7 +553,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
             command.CommandText =
                 """
                 SELECT Id, Name, ColorKey, IsPinned, IsCollapsed,
-                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt, NoteSort
                 FROM Folders
                 WHERE DeletedAt IS NOT NULL
                 ORDER BY DeletedAt DESC, Id ASC;
@@ -579,7 +590,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
             command.CommandText =
                 """
                 SELECT Id, Name, ColorKey, IsPinned, IsCollapsed,
-                       SortOrder, CreatedAt, UpdatedAt, DeletedAt
+                       SortOrder, CreatedAt, UpdatedAt, DeletedAt, NoteSort
                 FROM Folders
                 WHERE DeletedAt IS NULL
                 ORDER BY IsPinned DESC, SortOrder ASC, Id ASC;
@@ -622,6 +633,7 @@ public sealed class SqliteFolderRepository(NotoDatabase database) : IFolderRepos
         CreatedAt = Timestamps.Parse(reader.GetString(6)),
         UpdatedAt = Timestamps.Parse(reader.GetString(7)),
         DeletedAt = reader.IsDBNull(8) ? null : Timestamps.Parse(reader.GetString(8)),
+        NoteSort = NoteSorts.Parse(reader.GetString(9)),
     };
 
     /// <summary>
