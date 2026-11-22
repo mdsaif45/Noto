@@ -939,6 +939,7 @@ public partial class App : Application
         NoteEditorHost.PictureDrops = preferences.PictureDrop;
         NoteEditorHost.TextFileDrops = preferences.TextFileDrop;
         NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
+        NoteEditorHost.MovesCheckedTasks = preferences.CheckedTasksToBottom;
         main.StepNoteSize = direction =>
         {
             double next = NoteText.Step(preferences.NoteSize, direction);
@@ -1537,6 +1538,10 @@ public partial class App : Application
         else if (key == SettingKeys.EditorPasteCodeBlock)
         {
             NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
+        }
+        else if (key == SettingKeys.EditorCheckedTasksToBottom)
+        {
+            NoteEditorHost.MovesCheckedTasks = preferences.CheckedTasksToBottom;
         }
         else if (key == SettingKeys.BackupAutomatic || key == SettingKeys.BackupFrequency || key == SettingKeys.BackupFolder)
         {

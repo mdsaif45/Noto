@@ -559,6 +559,25 @@
                                     AutomationProperties.HelpText="Lines of code you paste go in a code block. Ctrl+Shift+V always pastes plain text." />
                             </Grid>
 
+                            <!-- #244 (D23): a checked task moves to the bottom of its list. -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Move checked tasks to the bottom" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A task you check moves below the open ones in its list. Unchecking moves it back." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="CheckedTasksToBottomSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnCheckedTasksToBottomToggled"
+                                    AutomationProperties.Name="Move checked tasks to the bottom"
+                                    AutomationProperties.HelpText="A task you check moves below the open ones in its list. Unchecking moves it back." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -475,6 +475,17 @@ public static class SettingKeys
         new("editor.paste-code-block", false);
 
     /// <summary>
+    /// Whether checking a task moves it, with its nested lines, to the bottom of its list, and unchecking moves it back
+    /// above the checked ones (D23, #244).
+    /// </summary>
+    /// <remarks>
+    /// Default off: a list stays in the order it was written unless the user asks otherwise. Turning it on moves nothing
+    /// by itself; only a task checked or unchecked from then on moves.
+    /// </remarks>
+    public static readonly SettingKey<bool> EditorCheckedTasksToBottom =
+        new("editor.checked-tasks-to-bottom", false);
+
+    /// <summary>
     /// Whether Noto backs itself up into the data root's backups, keeping the last seven (F15, #15), as often as
     /// <see cref="BackupFrequency"/> says.
     /// </summary>
@@ -619,6 +630,7 @@ public static class SettingKeys
         ImportingTextFile,
         ImportingRecycleFiles,
         EditorPasteCodeBlock,
+        EditorCheckedTasksToBottom,
         BackupAutomatic,
         BackupFrequency,
         BackupFolder,

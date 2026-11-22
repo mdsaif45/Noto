@@ -131,11 +131,32 @@ public static class MarkdownCommands
         });
 
     /// <summary>Checks the unchecked tasks among the lines, or unchecks them all when every one is checked.</summary>
-    public static TextEdit? ToggleTaskDone(string text, TextSelection selection)
+    public static TextEdit? ToggleTaskDone(string text, TextSelection selection) =>
+        ToggleTaskDone(text, selection, selection, checkedToBottom: false);
+
+    /// <summary>
+    /// <see cref="ToggleTaskDone(string, TextSelection)"/>, and with <paramref name="checkedToBottom"/> (the setting Move
+    /// checked tasks to the bottom, D23, #244) each task it checks moves, with its nested lines, to the end of its own
+    /// list; each it unchecks moves back to just after the list's last open item. One edit, so one undo step with the
+    /// check, and the selection follows the lines it was on.
+    /// </summary>
+    public static TextEdit? ToggleTaskDone(string text, TextSelection selection, bool checkedToBottom) =>
+        ToggleTaskDone(text, selection, selection, checkedToBottom);
+
+    /// <summary>
+    /// A click on a task's box (#244): the task whose box starts at <paramref name="box"/> is checked or unchecked as
+    /// <see cref="ToggleTaskDone(string, TextSelection, bool)"/> does, and the caret stays where the click put it,
+    /// following its line when the task moves.
+    /// </summary>
+    public static TextEdit? ToggleTaskAt(string text, int box, TextSelection selection, bool checkedToBottom) =>
+        ToggleTaskDone(text, TextSelection.Caret(box), selection, checkedToBottom);
+
+    /// <summary>The tasks <paramref name="at"/> touches toggled, <paramref name="keep"/> the selection carried along.</summary>
+    private static TextEdit? ToggleTaskDone(string text, TextSelection at, TextSelection keep, bool checkedToBottom)
     {
         ArgumentNullException.ThrowIfNull(text);
         MarkdownDocument doc = MarkdownDocument.Parse(text);
-        var tasks = BlocksIn(doc, selection).Where(b => b.Kind == MarkdownBlockKind.TaskItem).ToList();
+        var tasks = BlocksIn(doc, at).Where(b => b.Kind == MarkdownBlockKind.TaskItem).ToList();
 
         if (tasks.Count == 0)
         {
@@ -153,8 +174,186 @@ public static class MarkdownCommands
 
         int first = tasks[0].Start;
         int last = tasks[^1].End;
-        return new TextEdit(first, last - first, new string(result, first, last - first), selection);
+        var toggled = new TextEdit(first, last - first, new string(result, first, last - first), keep);
+        return checkedToBottom ? MoveToggledTasks(text, new string(result), doc, tasks, check, keep) ?? toggled : toggled;
     }
+
+    /// <summary>One line as moving a checked task reads it (#244).</summary>
+    /// <param name="Wall">A line no list goes past: blank, a heading, a separator or a code fence's.</param>
+    /// <param name="Item">A list item's line.</param>
+    /// <param name="Indent">Its leading whitespace in columns.</param>
+    /// <param name="List">Which list an item belongs to, as CommonMark tells lists apart: its bullet, or its number's <c>.</c> or <c>)</c>.</param>
+    /// <param name="Done">A checked task, after the toggle.</param>
+    /// <param name="Number">Where a numbered item's number starts in its line.</param>
+    /// <param name="Digits">How long that number is; 0 for a bullet.</param>
+    private readonly record struct ListLine(bool Wall, bool Item, int Indent, char List, bool Done, int Number, int Digits);
+
+    /// <summary>
+    /// The toggle of <paramref name="tasks"/> (<paramref name="toggled"/> is <paramref name="before"/> with it made) with
+    /// each task moved within its own list (#244): its siblings are the items at its indent in the same list, each with
+    /// the more-indented lines under it, up to the first line that is a wall, less indented, or another list. A checked
+    /// task goes after its last sibling; an unchecked one just after the last sibling that is not a checked task. Nested
+    /// tasks move first, within their parent, which then moves whole. A numbered list keeps its numbers in their places:
+    /// the lines move, the numbers stay, so it still counts as it did. <see langword="null"/> when nothing moves.
+    /// </summary>
+    private static TextEdit? MoveToggledTasks(string before, string toggled, MarkdownDocument doc, List<MarkdownBlock> tasks, bool check, TextSelection keep)
+    {
+        string[] lines = toggled.Split('\n');
+        var info = new ListLine[lines.Length];
+        var toggledStarts = tasks.Select(t => t.Start).ToHashSet();
+        var taskLines = new List<int>();
+        int line = 0;
+        int at = 0;
+
+        foreach (MarkdownBlock block in doc.Blocks)
+        {
+            line += before.AsSpan(at, block.Start - at).Count('\n');
+            at = block.Start;
+            bool mine = toggledStarts.Contains(block.Start);
+            ListLine read = Read(before, block, mine ? check : block.IsChecked);
+
+            for (int i = line; i <= line + before.AsSpan(block.Start, block.Length).Count('\n'); i++)
+            {
+                info[i] = read;
+            }
+
+            if (mine)
+            {
+                taskLines.Add(line);
+            }
+        }
+
+        // order[k] is the line that is k-th now; the selection's ends are kept as (line, column) while lines move.
+        int[] order = Enumerable.Range(0, lines.Length).ToArray();
+        var ends = new[] { Locate(before, keep.Anchor), Locate(before, keep.Active) };
+        bool moved = false;
+
+        foreach (int task in taskLines.OrderByDescending(l => info[l].Indent).ThenBy(l => l))
+        {
+            moved |= MoveTask(task, order, info, lines, ends);
+        }
+
+        if (!moved)
+        {
+            return null;
+        }
+
+        int Offset((int Line, int Column) end)
+        {
+            int offset = 0;
+            for (int k = 0; order[k] != end.Line; k++)
+            {
+                offset += lines[order[k]].Length + 1;
+            }
+
+            return offset + end.Column;
+        }
+
+        return TextDiff.Between(before, string.Join('\n', order.Select(i => lines[i])), new TextSelection(Offset(ends[0]), Offset(ends[1])));
+    }
+
+    private static ListLine Read(string text, MarkdownBlock block, bool done)
+    {
+        if (block.Kind is MarkdownBlockKind.Blank or MarkdownBlockKind.Heading or MarkdownBlockKind.Separator or MarkdownBlockKind.CodeFence)
+        {
+            return new ListLine(Wall: true, Item: false, 0, default, false, 0, 0);
+        }
+
+        if (block.Kind is MarkdownBlockKind.BulletItem or MarkdownBlockKind.OrderedItem or MarkdownBlockKind.TaskItem)
+        {
+            MarkdownSpan marker = block.Spans.First(s => s.Kind == MarkdownSpanKind.ListMarker);
+            int digits = 0;
+            while (char.IsAsciiDigit(text[marker.Start + digits]))
+            {
+                digits++;
+            }
+
+            bool task = block.Kind == MarkdownBlockKind.TaskItem;
+            return new ListLine(Wall: false, Item: true, block.Indent, text[marker.Start + digits], task && done, marker.Start - block.Start, digits);
+        }
+
+        int lead = block.Start;
+        while (lead < block.End && text[lead] is ' ' or '\t')
+        {
+            lead++;
+        }
+
+        return new ListLine(Wall: false, Item: false, BlockParser.Columns(text, block.Start, lead), default, false, 0, 0);
+    }
+
+    /// <summary>Moves the task on <paramref name="task"/> within its list, as <see cref="MoveToggledTasks"/> says. Whether it moved.</summary>
+    private static bool MoveTask(int task, int[] order, ListLine[] info, string[] lines, (int Line, int Column)[] ends)
+    {
+        ListLine head = info[task];
+        bool Sibling(int k) => info[order[k]] is { Wall: false, Item: true } l && l.Indent == head.Indent && l.List == head.List;
+        bool Child(int k) => info[order[k]] is { Wall: false } l && l.Indent > head.Indent;
+
+        int position = Array.IndexOf(order, task);
+        int start = position;
+        for (int k = position - 1; k >= 0 && (Sibling(k) || Child(k)); k--)
+        {
+            start = Sibling(k) ? k : start;
+        }
+
+        int end = position + 1;
+        while (end < order.Length && (Sibling(end) || Child(end)))
+        {
+            end++;
+        }
+
+        var units = new List<List<int>>();
+        for (int k = start; k < end; k++)
+        {
+            if (Sibling(k))
+            {
+                units.Add([]);
+            }
+
+            units[^1].Add(order[k]);
+        }
+
+        string[] numbers = [.. units.Select(u => lines[u[0]].Substring(info[u[0]].Number, info[u[0]].Digits))];
+        int from = units.FindIndex(u => u[0] == task);
+        List<int> unit = units[from];
+        units.RemoveAt(from);
+        int to = head.Done ? units.Count : units.FindLastIndex(u => !info[u[0]].Done) + 1;
+        units.Insert(to, unit);
+
+        if (to == from)
+        {
+            return false;
+        }
+
+        int next = start;
+        foreach (int moved in units.SelectMany(u => u))
+        {
+            order[next++] = moved;
+        }
+
+        // The k-th item takes the k-th number, so the list's numbering is where it was.
+        for (int k = 0; k < units.Count && head.Digits > 0; k++)
+        {
+            int first = units[k][0];
+            ListLine item = info[first];
+            lines[first] = string.Concat(lines[first].AsSpan(0, item.Number), numbers[k], lines[first].AsSpan(item.Number + item.Digits));
+            info[first] = item with { Digits = numbers[k].Length };
+
+            for (int e = 0; e < ends.Length; e++)
+            {
+                if (ends[e].Line == first && ends[e].Column > item.Number)
+                {
+                    int column = ends[e].Column >= item.Number + item.Digits ? ends[e].Column + numbers[k].Length - item.Digits : Math.Min(ends[e].Column, item.Number + numbers[k].Length);
+                    ends[e] = (first, column);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The line holding <paramref name="offset"/>, and its column there.</summary>
+    private static (int Line, int Column) Locate(string text, int offset) =>
+        (text.AsSpan(0, offset).Count('\n'), offset - LineStart(text, offset));
 
     /// <summary>
     /// Removes every checked task in the note, each with its line break (F19, #158; parity D22, G34): one edit, so one

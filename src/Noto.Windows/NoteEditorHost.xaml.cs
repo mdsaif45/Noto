@@ -364,7 +364,7 @@ public sealed partial class NoteEditorHost : UserControl
             EditorCommand.Bullets => MarkdownCommands.ToggleBullets,
             EditorCommand.Numbers => MarkdownCommands.ToggleNumbers,
             EditorCommand.Tasks => MarkdownCommands.ToggleTasks,
-            EditorCommand.TaskDone => MarkdownCommands.ToggleTaskDone,
+            EditorCommand.TaskDone => (text, selection) => MarkdownCommands.ToggleTaskDone(text, selection, MovesCheckedTasks),
             EditorCommand.ClearCheckedTasks => MarkdownCommands.ClearCheckedTasks,
             EditorCommand.CodeBlock => MarkdownCommands.WrapInCodeBlock,
             EditorCommand.Indent => MarkdownCommands.IndentListItems,
@@ -741,6 +741,13 @@ public sealed partial class NoteEditorHost : UserControl
     /// <summary>Whether Ctrl+V puts code in a fenced code block (the setting <c>editor.paste-code-block</c>, D39, #187); set by the app.</summary>
     internal static bool PastesCodeBlock { get; set; }
 
+    /// <summary>
+    /// Whether checking a task moves it to the bottom of its list, and unchecking moves it back (the setting
+    /// <c>editor.checked-tasks-to-bottom</c>, D23, #244); set by the app. Ctrl+., the Format menu and a click on a box
+    /// all follow it.
+    /// </summary>
+    internal static bool MovesCheckedTasks { get; set; }
+
     /// <summary>Pastes the clipboard as Ctrl+V does (F18, #157: a new note from the clipboard is a new note and this paste).</summary>
     internal void PasteClipboard() => PasteAsync(formatted: true);
 
@@ -1006,9 +1013,9 @@ public sealed partial class NoteEditorHost : UserControl
         MarkdownSpan box = task.Spans.First(s => s.Kind == MarkdownSpanKind.TaskBox);
         int from = task.Spans.Where(s => s.Kind == MarkdownSpanKind.ListMarker).Select(s => s.Start).DefaultIfEmpty(box.Start).First();
 
-        if (at >= from && at <= box.End && MarkdownCommands.ToggleTaskDone(_text, TextSelection.Caret(box.Start)) is { } toggled)
+        if (at >= from && at <= box.End && MarkdownCommands.ToggleTaskAt(_text, box.Start, _selection, MovesCheckedTasks) is { } toggled)
         {
-            Apply(toggled with { After = _selection }, record: true);
+            Apply(toggled, record: true);
         }
     }
 

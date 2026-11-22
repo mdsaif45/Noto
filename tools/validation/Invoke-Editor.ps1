@@ -51,6 +51,10 @@
         formatting clears that span alone. (Save picture as is covered by ImageGuardTests only: a real picker can't be
         driven.)
 
+    27  D23 (#244): with Settings' "Move checked tasks to the bottom" turned on (stored, applied live), Ctrl+. on the
+        first of three tasks checks it and moves it below the other two, the selection still on its text; one Ctrl+Z
+        brings the list back as it was. The setting is turned off again (stored) for the cases after it
+
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
 #>
@@ -624,6 +628,30 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     Add-Result $run '26 Ctrl+\ clears every mark in the selection to its text, a link to its text, one undo step; the menu''s Clear formatting clears only the selected span' ($typed -eq $formatted -and $plainAgain -eq 'Plan: bold it old under mark code link end' -and $restored -eq $formatted -and $boldCleared -eq ($formatted -replace '\*\*bold\*\*', 'bold') -and $AE::FocusedElement.Current.AutomationId -eq 'NoteEditor') "typed same=$($typed -eq $formatted) cleared='$plainAgain' undone same=$($restored -eq $formatted) menu='$boldCleared'"
     Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
     Send-ToNoto @() 0x1B 900
+
+    # 27 - D23 (#244): Move checked tasks to the bottom, turned on in Settings: Ctrl+. checks the first task and moves it
+    # last, the selection with it; one Ctrl+Z undoes the check and the move together
+    Send-ToNoto @(0x11) 0xBC 1200   # Ctrl+, : Settings
+    (Find-ById 'CheckedTasksToBottomSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 500
+    $bottomOn = Stored-Setting 'editor.checked-tasks-to-bottom'
+    Send-ToNoto @() 0x1B 1200
+    Edit-Card 'A plain note with no markup at all.'
+    $three = "Today`n- [ ] alpha`n- [ ] beta`n- [ ] gamma"
+    Set-EditorText $three
+    (Range-Of 'alpha').Select(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @(0x11) 0xBE 600   # Ctrl+. (VK_OEM_PERIOD): check or uncheck
+    $moved26 = Editor-Value
+    $selected26 = @((Editor).GetCurrentPattern($TP::Pattern).GetSelection())[0].GetText(-1)
+    Send-ToNoto @(0x11) 0x5A 600   # Ctrl+Z: one step
+    $restored26 = Editor-Value
+    Set-EditorText 'A plain note with no markup at all.'   # as the cases after this one expect it
+    Send-ToNoto @() 0x1B 900
+    Send-ToNoto @(0x11) 0xBC 1200
+    (Find-ById 'CheckedTasksToBottomSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 500
+    $bottomOff = Stored-Setting 'editor.checked-tasks-to-bottom'
+    Send-ToNoto @() 0x1B 1200
+    $want26 = "Today`n- [ ] beta`n- [ ] gamma`n- [x] alpha"
+    Add-Result $run '27 Move checked tasks to the bottom on (stored): Ctrl+. on the first of three tasks moves it last, selection with it; one Ctrl+Z restores the list' ($bottomOn -eq 'true' -and $moved26 -eq $want26 -and $selected26 -eq 'alpha' -and $restored26 -eq $three -and $bottomOff -eq 'false') "stored=$bottomOn moved='$($moved26 -replace "`n", ' | ')' selected='$selected26' restored same=$($restored26 -eq $three) off=$bottomOff"
 
     # 13 - cost on realistic notes
     # The long notes follow the three short ones; Ctrl+Alt+Down (G12) edits the next card, scrolling it into view, so
