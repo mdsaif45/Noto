@@ -20,6 +20,8 @@ format or behavior. Breaking changes are always called out explicitly.
   and dropping files on it has its own switch (#185).
 - Each folder can sort its notes by name, date created or date modified, or keep your own order, from the note list's
   *More* menu. Pinned notes stay first, and Manual brings back the order you made (#242).
+- Settings › General › *Ask which folder for a note from a shortcut*: the global new-note and clipboard shortcuts
+  first ask where the note goes. Recent folders come first; type to filter, Enter to choose, Escape to cancel (#243).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Duplicate a note from its card menu or with Ctrl+Shift+D: the copy appears directly below it with the same text,
