@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
+using Noto.Core.Editing;
 using Noto.Core.Links;
 using Noto.Core.Notes;
 using Noto.Core.Portability;
@@ -183,6 +184,7 @@ public sealed partial class SettingsPage : UserControl
             BackupFrequencySetting.IsEnabled = preferences.AutomaticBackups;
             FormatToolbarSetting.IsOn = preferences.FormatToolbar;
             Select(FileLinksSetting, preferences.FileLinks.ToString());
+            Select(ColorCopyFormatSetting, preferences.ColorCopyFormat.ToString());
             Select(PictureDropSetting, preferences.PictureDrop.ToString());
             Select(TextFileDropSetting, preferences.TextFileDrop.ToString());
             PasteCodeBlockSetting.IsOn = preferences.PasteCodeBlock;
@@ -290,6 +292,9 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnFileLinksChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => FileLinksSetting.SelectedItem is not null && p.SetFileLinks(Selected<FileLinkStyle>(FileLinksSetting)));
+
+    private void OnColorCopyFormatChanged(object sender, SelectionChangedEventArgs e) =>
+        Write(p => ColorCopyFormatSetting.SelectedItem is not null && p.SetColorCopyFormat(Selected<ColorCopyFormat>(ColorCopyFormatSetting)));
 
     private void OnPictureDropChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => PictureDropSetting.SelectedItem is not null && p.SetPictureDrop(Selected<PictureDrop>(PictureDropSetting)));

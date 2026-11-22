@@ -159,6 +159,9 @@ public sealed partial class MainWindow : Window
         // A card's links open through the same checks as the editor's (ADR-019 §2).
         MarkdownReadView.OpenLink = QueueOpenLink;
 
+        // A card's swatch copies its colour (#257), said on the stack's status line.
+        MarkdownReadView.CopyColor = CopyColor;
+
         // F2: the window is see-through, so the drawer can slide in with its own background (TransparentBackdrop).
         SystemBackdrop = new TransparentBackdrop();
 

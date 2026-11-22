@@ -76,6 +76,15 @@ internal sealed partial class MarkdownReadView : UserControl
     /// <summary>The file of an image's reference when Noto keeps it and it is there (ADR-019 §4); set once by the window.</summary>
     internal static Func<string?, string?>? ResolveImage { get; set; }
 
+    /// <summary>
+    /// Copies the value a swatch was pressed for and says what was copied (#257): set once by the window, which owns the
+    /// clipboard and the status line.
+    /// </summary>
+    internal static Action<string>? CopyColor { get; set; }
+
+    /// <summary>How a swatch copies its code (#257; parity J17): the Colour copy format setting, set by the composition root.</summary>
+    internal static ColorCopyFormat ColorCopyFormat { get; set; }
+
     public string? Source
     {
         get => (string?)GetValue(SourceProperty);
@@ -366,7 +375,7 @@ internal sealed partial class MarkdownReadView : UserControl
             var piece = new Run { Text = text[at..after] };
             Format(piece);
             paragraph.Inlines.Add(piece);
-            paragraph.Inlines.Add(Swatch(colour, markup));
+            paragraph.Inlines.Add(Swatch(colour, text, markup));
             at = after;
         }
 
@@ -384,10 +393,11 @@ internal sealed partial class MarkdownReadView : UserControl
 
     /// <summary>
     /// A small square of a code's colour (F14, #155), sized to the note text and edged in the markup colour, or the
-    /// row's own in high contrast, so a colour near the card's still shows. Seen, never read: assistive technology
-    /// reads the code itself, so the swatch is hidden from it.
+    /// row's own in high contrast, so a colour near the card's still shows. It is a button (#257): a click, Enter or
+    /// Space copies the colour in the chosen format. The square itself is never read; the button is, by its name.
     /// </summary>
-    private InlineUIContainer Swatch(ColorCode colour, Brush? edge)
+    /// <param name="text">The text the code was found in, which As written copies from.</param>
+    private InlineUIContainer Swatch(ColorCode colour, string text, Brush? edge)
     {
         var resources = Application.Current.Resources;
         double size = Math.Round(FontSize * 0.75);
@@ -402,7 +412,23 @@ internal sealed partial class MarkdownReadView : UserControl
             Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, colour.R, colour.G, colour.B)),
         };
         AutomationProperties.SetAccessibilityView(swatch, AccessibilityView.Raw);
-        return new InlineUIContainer { Child = swatch };
+
+        // The subtle button's states and focus ring, with no padding: the square stays the size it was in the line.
+        var button = new Button
+        {
+            Content = swatch,
+            Style = (Style)resources["SubtleButtonStyle"],
+            Padding = new Thickness(0),
+            CornerRadius = (CornerRadius)resources["RadiusSmall"],
+        };
+        string written = text.Substring(colour.Index, colour.Length);
+        AutomationProperties.SetName(button, $"Copy colour {written}");
+        ToolTipService.SetToolTip(button, "Copy colour");
+        button.Click += (_, _) => CopyColor?.Invoke(colour.Format(ColorCopyFormat, text));
+
+        // A click on the swatch copies; it must not also reach the card, where a tap starts editing (ADR-016 §6).
+        button.Tapped += (_, e) => e.Handled = true;
+        return new InlineUIContainer { Child = button };
     }
 
     /// <summary>Colours the run, or leaves it the row's colour when there is no brush (high contrast).</summary>

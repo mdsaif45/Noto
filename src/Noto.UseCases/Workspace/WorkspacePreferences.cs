@@ -1,4 +1,5 @@
 using Noto.Core.Activation;
+using Noto.Core.Editing;
 using Noto.Core.Folders;
 using Noto.Core.Links;
 using Noto.Core.Notes;
@@ -85,6 +86,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
 
     /// <summary>How a file or folder link is drawn in the editor (J16, #196).</summary>
     public FileLinkStyle FileLinks => _settings.Read(SettingKeys.EditorFileLinks);
+
+    /// <summary>How a card's swatch copies its colour code (#257, J17).</summary>
+    public ColorCopyFormat ColorCopyFormat => _settings.Read(SettingKeys.EditorColorCopyFormat);
 
     /// <summary>What a picture dropped into a note becomes (J30, #196).</summary>
     public PictureDrop PictureDrop => _settings.Read(SettingKeys.ImportingPicture);
@@ -224,6 +228,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets how a file or folder link is drawn in the editor.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetFileLinks(FileLinkStyle style) => TryWrite(SettingKeys.EditorFileLinks, style);
+
+    /// <summary>Sets how a card's swatch copies its colour code.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetColorCopyFormat(ColorCopyFormat format) => TryWrite(SettingKeys.EditorColorCopyFormat, format);
 
     /// <summary>Sets what a picture dropped into a note becomes.</summary>
     /// <returns>Whether it was kept.</returns>

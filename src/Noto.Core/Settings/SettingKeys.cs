@@ -1,5 +1,6 @@
 using Noto.Core.Activation;
 using Noto.Core.Diagnostics;
+using Noto.Core.Editing;
 using Noto.Core.Folders;
 using Noto.Core.Links;
 using Noto.Core.Notes;
@@ -391,6 +392,17 @@ public static class SettingKeys
         new("editor.file-links", FileLinkStyle.Standard, Enum.IsDefined);
 
     /// <summary>
+    /// How a card's swatch copies its <c>#rrggbb</c> code (#257; parity J17): as written, <c>#RRGGBB</c>,
+    /// <c>rgb(r, g, b)</c> or <c>hsl(h, s%, l%)</c>.
+    /// </summary>
+    /// <remarks>
+    /// Default <see cref="ColorCopyFormat.AsWritten"/>: the code exactly as typed in the note. Stored by member name; a
+    /// value that is not a member is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<ColorCopyFormat> EditorColorCopyFormat =
+        new("editor.color-copy-format", ColorCopyFormat.AsWritten, Enum.IsDefined);
+
+    /// <summary>
     /// What a picture dropped or pasted into a note becomes (J30, #196): a copy kept in the note, or a shortcut.
     /// </summary>
     /// <remarks>
@@ -532,6 +544,7 @@ public static class SettingKeys
         AppearanceNoteColorStyle,
         EditorFormatToolbar,
         EditorFileLinks,
+        EditorColorCopyFormat,
         ImportingPicture,
         ImportingTextFile,
         EditorPasteCodeBlock,

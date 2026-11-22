@@ -925,6 +925,9 @@ public partial class App : Application
         NoteEditorHost.PictureDrops = preferences.PictureDrop;
         NoteEditorHost.TextFileDrops = preferences.TextFileDrop;
         NoteEditorHost.PastesCodeBlock = preferences.PasteCodeBlock;
+
+        // What a card's colour swatch copies (#257).
+        MarkdownReadView.ColorCopyFormat = preferences.ColorCopyFormat;
         main.StepNoteSize = direction =>
         {
             double next = NoteText.Step(preferences.NoteSize, direction);
@@ -1501,6 +1504,10 @@ public partial class App : Application
         else if (key == SettingKeys.EditorFileLinks && _main is not null)
         {
             _main.ApplyFileLinks(preferences.FileLinks);
+        }
+        else if (key == SettingKeys.EditorColorCopyFormat)
+        {
+            MarkdownReadView.ColorCopyFormat = preferences.ColorCopyFormat;
         }
         else if (key == SettingKeys.ImportingPicture)
         {
