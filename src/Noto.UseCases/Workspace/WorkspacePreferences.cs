@@ -50,6 +50,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>What Escape does (parity A12).</summary>
     public EscapeBehavior Escape => _settings.Read(SettingKeys.WorkspaceEscape);
 
+    /// <summary>Whether Ctrl+Enter hides Noto (#255; parity A11, G13).</summary>
+    public bool CtrlEnterHides => _settings.Read(SettingKeys.WorkspaceCtrlEnterHides);
+
     /// <summary>
     /// Whether the shown workspace hides when activation moves to another
     /// application (parity A13, "close on outside click").
@@ -184,6 +187,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets what Escape does.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetEscape(EscapeBehavior escape) => TryWrite(SettingKeys.WorkspaceEscape, escape);
+
+    /// <summary>Sets whether Ctrl+Enter hides Noto (#255).</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetCtrlEnterHides(bool on) => TryWrite(SettingKeys.WorkspaceCtrlEnterHides, on);
 
     /// <summary>Sets whether the workspace hides when another application is activated.</summary>
     /// <returns>Whether it was kept.</returns>

@@ -854,6 +854,28 @@
                                     AutomationProperties.HelpText="Select, then press the new shortcut. It needs Ctrl, Alt or Win, and a letter, digit, F1 to F24 or Space. Escape cancels." />
                             </Grid>
 
+                            <!--
+                                #255 (parity A11, G13): Ctrl+Enter hides Noto, inside Noto only, off by default. A link in
+                                a note and a search result keep their own Ctrl+Enter.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Ctrl+Enter hides Noto" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Also while you write. On a link, Ctrl+Enter still opens it." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="CtrlEnterHidesSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnCtrlEnterHidesToggled"
+                                    AutomationProperties.Name="Ctrl+Enter hides Noto"
+                                    AutomationProperties.HelpText="Also while you write. On a link, Ctrl+Enter still opens it." />
+                            </Grid>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -125,6 +125,12 @@ public sealed partial class SearchPage : UserControl
 
     private SearchResultItem? Selected => ResultList.SelectedItem as SearchResultItem;
 
+    /// <summary>
+    /// Whether Ctrl+Enter is Search's own: with a result selected it opens it, a note's folder (#197), so the window's
+    /// Ctrl+Enter to hide (#255) leaves it alone.
+    /// </summary>
+    internal bool KeepsCtrlEnter => Selected is not null;
+
     private void OnBackClick(object sender, RoutedEventArgs e) => BackRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnQueryChanged(object sender, TextChangedEventArgs e) => Run();

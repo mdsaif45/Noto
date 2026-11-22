@@ -79,6 +79,9 @@
        SetCursorPos does not) brought to the docked edge's middle and left resting shows Noto, docked (whether it
        also took the foreground is recorded, not asserted); turned off, the hook is removed at once and the same rest
        leaves Noto hidden. The pointer is never clicked, and only moved on the display Noto docks to
+    24 Ctrl+Enter hides Noto (#255, A11, G13): off by default, and off Ctrl+Enter on a card does what it always did
+       (edits it; Noto stays shown); turned on, it is stored, Ctrl+Enter on a card hides Noto through the one dismissal,
+       and Ctrl+Enter in a note, the caret on plain text after typing, hides Noto with the typed text saved; set back off
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Settings.ps1 -NotoExe <frozen Release>\Noto.exe
@@ -109,7 +112,7 @@ $FolderId = '01J0000000000000000000F0S1'
 $NoteId = '01J0000000000000000000N0S1'
 $RunPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $ApprovedPath = 'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
-$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled')
+$Declared = @('activation.hotkey.enabled', 'activation.hotkey.binding', 'workspace.edge', 'workspace.width', 'workspace.escape', 'workspace.hide-on-deactivation', 'workspace.single-click-open', 'workspace.open-last-folder', 'workspace.recent-folders', 'appearance.theme', 'appearance.note-font', 'appearance.note-size', 'editor.format-toolbar', 'editor.file-links', 'importing.picture', 'importing.text-file', 'editor.paste-code-block', 'backup.automatic', 'backup.frequency', 'onboarding.welcome', 'activation.new-note.enabled', 'activation.new-note.binding', 'activation.clipboard-note.enabled', 'activation.clipboard-note.binding', 'activation.search.enabled', 'activation.search.binding', 'activation.change-side.enabled', 'activation.change-side.binding', 'activation.keep-open.enabled', 'activation.keep-open.binding', 'notes.new-placement', 'activation.hot-side.enabled', 'activation.drag-reveal.enabled', 'workspace.ctrl-enter-hides')
 
 # ---------------------------------------------------------------- helpers
 
@@ -153,7 +156,7 @@ function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
 }
 function Count-In($Under, [string] $Id) { @($Under.FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id))).Count }
-$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton')
+$SettingsControls = @('SettingsBackButton', 'LaunchAtLoginSetting', 'HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'CtrlEnterHidesSetting', 'RevealDataFolderButton')
 function Settings-Wrong {
     <# What is wrong with the open page as UI Automation has it: one SettingsRoot named Settings, each control exactly once in the window and inside it. Empty when nothing. #>
     $window = $AE::FromHandle($noto.Hwnd)
@@ -730,6 +733,60 @@ try {
             Noto-Front '23 end'
         }
 
+        # ------------------------------------------------ 24 Ctrl+Enter hides Noto (#255, A11, G13)
+        if (Want 24) {
+            Noto-Front '24'
+            To-FolderList; Open-Settings-ByButton
+            $offByDefault = -not (Is-On 'CtrlEnterHidesSetting')
+            Close-Settings-ByBack
+            function To-Card {
+                <# Into the folder by Ctrl+Down, focus on its first card, nothing being edited. #>
+                To-FolderList
+                $row = (Items 'FolderList')[0]; $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $row.SetFocus(); Start-Sleep -Milliseconds 200
+                Send-ToNoto @(0x11) 0x28
+                $card = (Items 'NoteList')[0]; $card.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select(); $card.SetFocus(); Start-Sleep -Milliseconds 300
+            }
+
+            # Off: Ctrl+Enter on a card edits it, as Enter does; Noto stays shown and nothing is dismissed.
+            To-Card
+            $m = Trace-Mark; Send-ToNoto @(0x11) 0x0D
+            $edits = Until { (Focused-Id) -eq 'NoteEditor' }
+            $stayed = (Ev).WsVisible -and (Trace-Since $m) -notmatch 'request=Dismiss'
+            Add-Result $run '24 off by default; off, Ctrl+Enter on a card edits it as before and Noto stays shown' ($offByDefault -and $edits -and $stayed) "off by default=$offByDefault edits=$edits focus=$(Focused) trace: $(Trace-Since $m)"
+            if ($edits) { Send-ToNoto @() 0x1B }   # Escape leaves the editor
+
+            # On: stored, and Ctrl+Enter on a card hides Noto through the dismissal Ctrl+W takes.
+            To-FolderList; Open-Settings-ByButton
+            Set-Toggle 'CtrlEnterHidesSetting' $true
+            $stored = (Stored 'workspace.ctrl-enter-hides') -eq 'True'
+            Close-Settings-ByBack
+            To-Card
+            $onCard = (Focused) -match 'ListItem'
+            $m = Trace-Mark; Send-ToNoto @(0x11) 0x0D
+            $hid = Until { -not (Ev).WsVisible }
+            Add-Result $run '24 on (stored): Ctrl+Enter on a card hides Noto' ($stored -and $onCard -and $hid -and (Trace-Since $m) -match 'Noto\.Workspace request=Dismiss action=Hide') "stored=$stored onCard=$onCard hid=$hid trace: $(Trace-Since $m)"
+            Noto-Front '24 after the card'
+
+            # In a note: typed keys, the caret at the end on plain text, then Ctrl+Enter hides with the text saved.
+            To-Card
+            Send-ToNoto @() 0x0D       # Enter: edit the card
+            $editor = Find-ById 'NoteEditor'; $null = Until { (Focused-Id) -eq 'NoteEditor' }
+            $before = $editor.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+            Send-ToNoto @(0x11) 0x23; Send-ToNoto @() 0x20; Send-ToNoto @() 0x51; Send-ToNoto @() 0x5A   # Ctrl+End, then " qz"
+            $typed = (Find-ById 'NoteEditor').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+            $m = Trace-Mark; Send-ToNoto @(0x11) 0x0D
+            $hid = Until { -not (Ev).WsVisible }
+            $saved = Get-NotoScalar $run -Exe $NotoExe -DataRoot $data -Sql 'SELECT Content FROM Notes WHERE Id = $n' -Parameters @{ '$n' = $NoteId }
+            $ok = $typed -eq "$before qz" -and $hid -and $saved -eq "$before qz" -and (Trace-Since $m) -match 'Noto\.Workspace request=Dismiss action=Hide'
+            Add-Result $run '24 on: Ctrl+Enter in a note on plain text hides Noto, the typed text saved' $ok "typed=[$typed] hid=$hid saved=[$saved] trace: $(Trace-Since $m)"
+
+            # Set back off.
+            Noto-Front '24 end'
+            To-FolderList; Open-Settings-ByButton
+            Set-Toggle 'CtrlEnterHidesSetting' $false
+            Close-Settings-ByBack
+        }
+
         # ------------------------------------------------ 1 entry, back, focus restored
         if (Want 1) {
             To-FolderList
@@ -808,7 +865,7 @@ try {
             $null = Until { (Focused-Id) -ne '' }
             $login = Login-Expected
             $expected = @('SettingsBackButton') + $(if ($login -ne 'WindowsDisabled') { @('LaunchAtLoginSetting') } else { @('OpenStartupAppsButton') }) +
-                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
+                @('HideOnDeactivationSetting', 'SingleClickSetting', 'OpenLastFolderSetting', 'NewNotePlacementSetting', 'NewNoteModeSetting', 'SideSetting', 'EscapeSetting', 'HotSideSetting', 'DragRevealSetting', 'ThemeSetting', 'NoteColorStyleSetting', 'NoteFontSetting', 'NoteSizeSetting', 'FormatToolbarSetting', 'FileLinksSetting', 'PasteCodeBlockSetting', 'PictureDropSetting', 'TextFileDropSetting', 'HotkeyEnabledSetting', 'HotkeyRecorder', 'NewNoteHotkeySetting', 'ClipboardNoteHotkeySetting', 'SearchHotkeySetting', 'ChangeSideHotkeySetting', 'KeepOpenHotkeySetting', 'CtrlEnterHidesSetting', 'RevealDataFolderButton', 'BackupButton', 'AutomaticBackupSetting', 'BackupFrequencySetting', 'RestoreButton', 'ExportButton', 'ImportButton', 'ShowWelcomeButton', 'SearchButton', 'SettingsButton', 'PinToggle', 'SettingsBackButton')
             # The sequence must name every keyboard-reachable control on the page, so a control added to the page without
             # being added here fails by name instead of as a sequence that merely ends early.
             $page = @($expected | Where-Object { $_ -notin 'SearchButton', 'SettingsButton', 'PinToggle' } | Sort-Object -Unique)

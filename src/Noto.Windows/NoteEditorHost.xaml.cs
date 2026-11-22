@@ -203,6 +203,21 @@ public sealed partial class NoteEditorHost : UserControl
     internal event EventHandler<string>? LinkOpenRequested;
 
     /// <summary>
+    /// Whether Ctrl+Enter is the editor's: it has focus and its caret is on a link, which Ctrl+Enter opens (ADR-019 §2).
+    /// Asked by the window before its Ctrl+Enter hides Noto (#255), so a link still opens.
+    /// </summary>
+    internal bool KeepsCtrlEnter()
+    {
+        if (NoteEditor.FocusState == FocusState.Unfocused)
+        {
+            return false;
+        }
+
+        Flush();
+        return LinkTarget.At(_document, _selection.Active) is not null;
+    }
+
+    /// <summary>
     /// Shows <paramref name="markdown"/> as <paramref name="note"/>'s source, read in <paramref name="mode"/> (#195), with
     /// nothing to undo.
     /// </summary>

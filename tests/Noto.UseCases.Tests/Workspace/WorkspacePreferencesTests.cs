@@ -100,6 +100,13 @@ public sealed class WorkspacePreferencesTests
         Assert.False(preferences.DragReveal);
     }
 
+    [Fact]
+    public void With_nothing_stored_Ctrl_Enter_does_not_hide()
+    {
+        // #255: Ctrl+Enter keeps today's meaning until the user turns hiding on.
+        Assert.False(new WorkspacePreferences(new FakeSettings()).CtrlEnterHides);
+    }
+
     // ------------------------------------------------ width resolution
 
     public static TheoryData<Stored, Stored, double> Chain()
@@ -325,6 +332,7 @@ public sealed class WorkspacePreferencesTests
     {
         { "SetEdge", SettingKeys.WorkspaceEdge.Name, WorkspaceEdge.Left },
         { "SetEscape", SettingKeys.WorkspaceEscape.Name, EscapeBehavior.None },
+        { "SetCtrlEnterHides", SettingKeys.WorkspaceCtrlEnterHides.Name, true },
         { "SetHideOnDeactivation", SettingKeys.WorkspaceHideOnDeactivation.Name, false },
         { "SetSingleClickOpen", SettingKeys.WorkspaceSingleClickOpen.Name, true },
         { "SetHotSide", SettingKeys.HotSideEnabled.Name, true },
@@ -462,6 +470,7 @@ public sealed class WorkspacePreferencesTests
     {
         "SetEdge" => preferences.SetEdge((WorkspaceEdge)value),
         "SetEscape" => preferences.SetEscape((EscapeBehavior)value),
+        "SetCtrlEnterHides" => preferences.SetCtrlEnterHides((bool)value),
         "SetHideOnDeactivation" => preferences.SetHideOnDeactivation((bool)value),
         "SetSingleClickOpen" => preferences.SetSingleClickOpen((bool)value),
         "SetHotSide" => preferences.SetHotSide((bool)value),
@@ -480,6 +489,7 @@ public sealed class WorkspacePreferencesTests
     {
         "SetEdge" => preferences.Edge,
         "SetEscape" => preferences.Escape,
+        "SetCtrlEnterHides" => preferences.CtrlEnterHides,
         "SetHideOnDeactivation" => preferences.HideOnDeactivation,
         "SetSingleClickOpen" => preferences.SingleClickOpen,
         "SetHotSide" => preferences.HotSide,

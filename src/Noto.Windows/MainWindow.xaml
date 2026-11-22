@@ -37,7 +37,7 @@
         otherwise pop an automatic key-tip tooltip ("Ctrl+N") when a modifier is held. Each button's own tooltip
         already names its key.
     -->
-    <Grid x:Name="WorkspaceRoot" RequestedTheme="Dark" KeyboardAcceleratorPlacementMode="Hidden">
+    <Grid x:Name="WorkspaceRoot" RequestedTheme="Dark" KeyboardAcceleratorPlacementMode="Hidden" PreviewKeyDown="OnWorkspacePreviewKeyDown">
 
         <!--
             Ctrl+W hides the workspace from any surface (parity A10, G7). On

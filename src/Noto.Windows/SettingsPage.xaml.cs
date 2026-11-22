@@ -175,6 +175,7 @@ public sealed partial class SettingsPage : UserControl
             Select(NoteSizeSetting, preferences.NoteSize.ToString(CultureInfo.InvariantCulture));
             HideOnDeactivationSetting.IsOn = preferences.HideOnDeactivation;
             SingleClickSetting.IsOn = preferences.SingleClickOpen;
+            CtrlEnterHidesSetting.IsOn = preferences.CtrlEnterHides;
             HotSideSetting.IsOn = preferences.HotSide;
             DragRevealSetting.IsOn = preferences.DragReveal;
             OpenLastFolderSetting.IsOn = preferences.OpenLastFolder;
@@ -317,6 +318,9 @@ public sealed partial class SettingsPage : UserControl
     private void OnHideOnDeactivationToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetHideOnDeactivation(HideOnDeactivationSetting.IsOn));
 
+    private void OnCtrlEnterHidesToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetCtrlEnterHides(CtrlEnterHidesSetting.IsOn));
+
     private void OnSingleClickToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetSingleClickOpen(SingleClickSetting.IsOn));
 
@@ -438,6 +442,9 @@ public sealed partial class SettingsPage : UserControl
         KeepOpenHotkeyRecorder.IsEnabled = preferences.KeepOpenHotkeyEnabled;
         AutomationProperties.SetName(KeepOpenHotkeyRecorder, $"Keep Noto open shortcut, {keep}. Select to change it.");
     }
+
+    /// <summary>Whether a recorder is listening: it owns the keyboard, Ctrl+Enter included (#255).</summary>
+    internal bool IsRecording => _recording;
 
     /// <summary>Stops the recorder if it is listening, as if Escape were pressed: the window lost activation, or Settings closed.</summary>
     internal void CancelRecording()
