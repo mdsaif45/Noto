@@ -99,7 +99,7 @@ public sealed class NoteModeGuardTests
     public void The_card_reads_its_mode_titles_raw_and_names_a_mode_that_is_not_markdown()
     {
         Assert.Contains("_mode = note.Mode;", Card, StringComparison.Ordinal);
-        Assert.Contains("public string DisplayTitle => NoteTitle.From(Content, Mode) is { Length: > 0 } title ? title : UntitledLabel;", Card, StringComparison.Ordinal);
+        Assert.Contains("string.IsNullOrWhiteSpace(Content) ? EmptyLabel : NoteTitle.From(Content, Mode) is { Length: > 0 } title ? title : UntitledLabel;", Card, StringComparison.Ordinal);
         Assert.Contains("Mode == NoteMode.Markdown ? string.Empty : NameOf(Mode)", Card, StringComparison.Ordinal);
         foreach (string changed in new[] { "Mode", "DisplayTitle", "ReadText", "HelpText", "FormatVisibility" })
         {

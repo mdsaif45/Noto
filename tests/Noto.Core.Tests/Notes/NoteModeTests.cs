@@ -45,6 +45,16 @@ public sealed class NoteModeTests
         }
     }
 
+    [Theory]
+    [InlineData(NoteMode.Markdown, "Write something… # for a heading, - for a list")]
+    [InlineData(NoteMode.Code, "Write something…")]
+    [InlineData(NoteMode.PlainText, "Write something…")]
+    public void An_empty_notes_placeholder_suggests_markdown_only_in_markdown(NoteMode mode, string expected)
+    {
+        // #256 (B26): Code and plain text show their # as text, so they are not told it makes a heading.
+        Assert.Equal(expected, NoteModes.Placeholder(mode));
+    }
+
     [Fact]
     public void Tab_in_code_types_four_spaces_over_the_selection()
     {

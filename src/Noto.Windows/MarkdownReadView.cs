@@ -129,6 +129,18 @@ internal sealed partial class MarkdownReadView : UserControl
         _marked.Clear();
         string source = Source ?? string.Empty;
 
+        // A note with nothing in it reads "Empty note" (#256), quiet in the secondary colour, not a blank row; in high
+        // contrast, the row's own colour, as the markup below.
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            var empty = new Run { Text = NoteCard.EmptyLabel };
+            Tint(empty, new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast ? null : MarkupBrush);
+            var line = new Paragraph();
+            line.Inlines.Add(empty);
+            view.Blocks.Add(line);
+            return;
+        }
+
         // A Code or plain text note is its text as typed (#195), as a very long note is.
         if (source.Length > RenderedLimit || Mode != NoteMode.Markdown)
         {

@@ -5,6 +5,7 @@ using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -156,6 +157,7 @@ public sealed partial class NoteEditorHost : UserControl
             _composingSelection = _selection;
         };
         NoteEditor.TextCompositionEnded += (_, _) => OnCompositionEnded();
+        ContentChanged += (_, _) => ShowPlaceholder();
         NoteEditor.PaletteChanged += (_, _) => RestyleAll();
         ActualThemeChanged += (_, _) => RestyleAll();
 
@@ -213,6 +215,7 @@ public sealed partial class NoteEditorHost : UserControl
         UseMode(mode);
         _text = Normalize(markdown);
         _document = MarkdownDocument.Parse(_text, _mode);
+        ShowPlaceholder();
 
         long started = Stopwatch.GetTimestamp();
         Set(() => NoteEditor.Document.SetText(TextSetOptions.FormatRtf, MarkdownStyling.Rtf(_document, Palette())));
@@ -247,6 +250,23 @@ public sealed partial class NoteEditorHost : UserControl
         _document = MarkdownDocument.Parse(_text, _mode);
         HideToolbar();
         RestyleAll();
+        ShowPlaceholder();
+    }
+
+    /// <summary>
+    /// An empty note shows its mode's hint (#256; parity B26), in the theme's secondary text colour (the text controls'
+    /// placeholder brushes, Colors.xaml), and only while it holds nothing: RichEditBox draws it outside the document, so
+    /// it is never saved, copied, searched, counted or undone back, and the Value pattern reads the source. A screen
+    /// reader hears it as the editor's help text, never as its value. Set only when it changes, not on every key.
+    /// </summary>
+    private void ShowPlaceholder()
+    {
+        string hint = _text.Length == 0 ? NoteModes.Placeholder(_mode) : string.Empty;
+        if (NoteEditor.PlaceholderText != hint)
+        {
+            NoteEditor.PlaceholderText = hint;
+            AutomationProperties.SetHelpText(NoteEditor, hint);
+        }
     }
 
     /// <summary>

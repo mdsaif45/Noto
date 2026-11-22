@@ -82,6 +82,9 @@
     52  #193: entering Elsewhere, then Ctrl+Shift+O three times: Stack, Elsewhere, Stack (the history stored, most
         recent first); Shift+F10 on Back lists only Elsewhere and choosing it enters it; the chevron, named "Recent
         folders", lists only Stack; Ctrl+Shift+O from the editor with unsaved text saves it first, then switches
+    53  #256 (B26): Ctrl+N makes a note whose editor has the Markdown placeholder as its help text and an empty value;
+        text set in it takes the help text away, emptied it comes back; left empty, the card's row is named "Empty
+        note" and the note is stored empty, the placeholder never in it
 
   Autosave (P2.1) writes typed text after a second without a change. Every "saves first" case leaves the card within
   that second of setting its text, so the save it checks is the leave's own, not autosave's.
@@ -340,7 +343,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $before = ActiveCount
     Send-ToNoto @(0x11) 0x4E
     $selected = (Find-ById 'NoteList').GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() | ForEach-Object { Get-RowTitle $_.Current.Name }
-    Add-Result $run '7  Ctrl+N saves the card exactly, then edits one new note' ((Stored $B) -eq 'Beta before new · exact' -and (ActiveCount) -eq $before + 1 -and (Editors).Count -eq 1 -and (Editor-Value) -eq '' -and (Focused) -match 'id=NoteEditor' -and $selected -eq 'Untitled note') "db=$(Stored $B) notes=$before->$(ActiveCount) value='$(Editor-Value)' selected=$selected focus=$(Focused)"
+    Add-Result $run '7  Ctrl+N saves the card exactly, then edits one new note' ((Stored $B) -eq 'Beta before new · exact' -and (ActiveCount) -eq $before + 1 -and (Editors).Count -eq 1 -and (Editor-Value) -eq '' -and (Focused) -match 'id=NoteEditor' -and $selected -eq 'Empty note') "db=$(Stored $B) notes=$before->$(ActiveCount) value='$(Editor-Value)' selected=$selected focus=$(Focused)"
     Send-ToNoto @() 0x1B
 
     # 8 - scroll away and back while editing
@@ -894,6 +897,22 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Edit-Card 'Saved by switching'
     Set-EditorText 'Saved by Back'
     Send-ToNoto @() 0x1B
+
+    # 53 - #256 (B26): an empty note's placeholder is the editor's help text, never its value, and only while empty
+    (Card 'Saved by Back').SetFocus(); Start-Sleep -Milliseconds 300
+    $emptyBefore = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND Content = ''''' @{ '$f' = $FolderId } -Scalar)
+    Send-ToNoto @(0x11) 0x4E   # Ctrl+N
+    $hint = (Editors | Select-Object -First 1).Current.HelpText; $value = Editor-Value
+    Set-EditorText 'x'
+    $typedHint = (Editors | Select-Object -First 1).Current.HelpText
+    Set-EditorText ''
+    $backHint = (Editors | Select-Object -First 1).Current.HelpText; $emptied = Editor-Value
+    Send-ToNoto @() 0x1B
+    $row = $AE::FocusedElement.Current.Name
+    $emptyAfter = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE FolderId = $f AND DeletedAt IS NULL AND Content = ''''' @{ '$f' = $FolderId } -Scalar)
+    $leaked = [int](Sql $script:data 'SELECT COUNT(*) FROM Notes WHERE Content LIKE ''%Write something%''' @{} -Scalar)
+    $markdownHint = 'Write something… # for a heading, - for a list'
+    Add-Result $run '53 a new note''s placeholder is its editor''s help text, not its value; text takes it away, emptying brings it back; left empty, its row is "Empty note"' ($hint -eq $markdownHint -and $value -eq '' -and $typedHint -eq '' -and $backHint -eq $markdownHint -and $emptied -eq '' -and $row -like 'Empty note*' -and $emptyAfter -eq $emptyBefore + 1 -and $leaked -eq 0) "help='$hint' value='$value' typed help='$typedHint' emptied help='$backHint' value='$emptied' row='$row' empty notes=$emptyBefore->$emptyAfter leaked=$leaked"
 
     # 18 - closing while editing saves, then exits cleanly
     Edit-Card 'Saved by Back'
