@@ -92,6 +92,17 @@ public sealed class DuplicateFolderTests : IDisposable
     }
 
     [Fact]
+    public void The_copy_keeps_the_note_sort()
+    {
+        FolderId home = Folder("Home");
+        Sql($"UPDATE Folders SET NoteSort = 'Name' WHERE Id = '{home.Value}';");
+
+        FolderId copy = Duplicate(home).Value;
+
+        Assert.Equal("Name", _db.ReadFolderColumn(copy, "NoteSort"));
+    }
+
+    [Fact]
     public void An_empty_folder_is_copied_empty()
     {
         FolderId empty = Folder("Empty");
