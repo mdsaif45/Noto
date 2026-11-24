@@ -85,6 +85,18 @@ public sealed class NoteSortTests
     }
 
     [Fact]
+    public void Name_puts_a_note_with_no_title_after_the_named_ones_in_their_manual_order()
+    {
+        Note empty = N(""), hashOnly = N("#"), blank = N("   \n");
+        Note[] notes = [empty, N("zebra"), hashOnly, N("apple"), blank];
+
+        IReadOnlyList<Note> sorted = NoteSorts.Apply(notes, NoteSort.Name);
+
+        Assert.Equal(["apple", "zebra"], Titles(sorted.Take(2).ToList()));
+        Assert.Equal([empty, hashOnly, blank], sorted.Skip(2));
+    }
+
+    [Fact]
     public void Created_and_modified_are_newest_first_with_the_pinned_first()
     {
         Note[] notes =

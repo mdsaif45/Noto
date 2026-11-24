@@ -944,7 +944,10 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $shown = @(Cards | Select-Object -First 10 | ForEach-Object { [pscustomobject]@{ Title = Get-RowTitle $_.Current.Name; Pinned = $_.Current.HelpText -match '\bPinned\b' } })
     $pinnedTitles = @($shown | Where-Object Pinned | ForEach-Object Title)
     $rest = [string[]]@($shown | Where-Object { -not $_.Pinned } | ForEach-Object Title)
-    $expected = [string[]]$rest.Clone(); [Array]::Sort($expected, [StringComparer]::CurrentCultureIgnoreCase)
+    # A note with no title has no name to sort by: after the named ones, in their manual order (NoteSorts.Apply).
+    $untitled = @('Untitled note', 'Empty note')
+    $named = [string[]]@($rest | Where-Object { $_ -notin $untitled }); [Array]::Sort($named, [StringComparer]::CurrentCultureIgnoreCase)
+    $expected = [string[]]@(@($named) + @($rest | Where-Object { $_ -in $untitled }))
     $pinnedFirst = ($shown | Select-Object -First $pinnedTitles.Count | Where-Object { -not $_.Pinned }).Count -eq 0
     $storedSort = [string](Sql $script:data 'SELECT NoteSort FROM Folders WHERE Id = $f' @{ '$f' = $FolderId } -Scalar)
     Add-Result $run '54 Sort by › Name: the cards in title order, the pinned one first; stored on the folder; no note written' (($sortItems -join ',') -eq 'Manual,Name,Date created,Date modified' -and $manualChecked -and ($pinnedTitles -contains 'Saved by Back') -and $pinnedFirst -and ($rest -join '|') -eq ($expected -join '|') -and $storedSort -eq 'Name' -and (Orders) -eq $ordersBefore) "items=$($sortItems -join ',') manual checked=$manualChecked shown=$(($shown | ForEach-Object Title) -join '|') pinned first=$pinnedFirst stored=$storedSort orders kept=$((Orders) -eq $ordersBefore)"

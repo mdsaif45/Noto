@@ -87,9 +87,9 @@ public sealed class FolderSortGuardTests
     public void The_note_stack_harness_proves_the_sort_at_run_time()
     {
         string harness = File.ReadAllText(SourcePath("tools", "validation", "Invoke-NoteStack.ps1"));
-        Assert.Contains("Add-Result $run '53 Sort by › Name: the cards in title order, the pinned one first", harness, StringComparison.Ordinal);
-        Assert.Contains("Add-Result $run '53 sorted, Ctrl+Alt+Shift+Up is refused with the reason", harness, StringComparison.Ordinal);
-        Assert.Contains("Add-Result $run '53 Sort by › Manual: the cards in the order they were before", harness, StringComparison.Ordinal);
+        Assert.Contains("Add-Result $run '54 Sort by › Name: the cards in title order, the pinned one first", harness, StringComparison.Ordinal);
+        Assert.Contains("Add-Result $run '54 sorted, Ctrl+Alt+Shift+Up is refused with the reason", harness, StringComparison.Ordinal);
+        Assert.Contains("Add-Result $run '54 Sort by › Manual: the cards in the order they were before", harness, StringComparison.Ordinal);
     }
 
     // ---------------------------------------------------------------- helpers

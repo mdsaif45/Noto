@@ -67,7 +67,9 @@ public static class NoteSorts
     /// <summary>
     /// <paramref name="notes"/>, given in O2 order (pinned first, then <c>SortOrder</c>, then <c>Id</c>), in
     /// <paramref name="sort"/>'s order. Pinned notes stay first in every order; notes that tie keep their manual order,
-    /// so the result is deterministic. <see cref="NoteSort.Manual"/> returns them as given.
+    /// so the result is deterministic. <see cref="NoteSort.Manual"/> returns them as given. In Name, a note with no title
+    /// has no name to sort by: it goes after the named ones, not first under an empty string, where its card would read
+    /// "Untitled note" at the top of an A to Z list.
     /// </summary>
     public static IReadOnlyList<Note> Apply(IReadOnlyList<Note> notes, NoteSort sort)
     {
@@ -78,7 +80,7 @@ public static class NoteSorts
 
         return sort switch
         {
-            NoteSort.Name => [.. pinnedFirst.ThenBy(n => n.Title, StringComparer.CurrentCultureIgnoreCase)],
+            NoteSort.Name => [.. pinnedFirst.ThenBy(n => string.IsNullOrWhiteSpace(n.Title)).ThenBy(n => n.Title, StringComparer.CurrentCultureIgnoreCase)],
             NoteSort.Created => [.. pinnedFirst.ThenByDescending(n => n.CreatedAt)],
             NoteSort.Modified => [.. pinnedFirst.ThenByDescending(n => n.UpdatedAt)],
             _ => notes,
