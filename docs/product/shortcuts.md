@@ -38,7 +38,8 @@ A key goes to the narrowest scope that owns it. The scopes nest like this:
          │    └─ NoteEditorHost     editor        only the card being edited
          ├─ SearchPage              Search
          ├─ SettingsPage            Settings      (the recorders)
-         └─ RecycleBinPage, WelcomePage
+         ├─ RecycleBinPage, WelcomePage
+         └─ PicturePreview          preview       over the whole drawer while open; every key is its own (#268)
 ```
 
 Key handling uses five mechanisms. The order they run in is what keeps the map conflict-free, and it matters again in
@@ -110,6 +111,7 @@ another application holds, and refuses another of these six by name.
 | `Ctrl+Alt+Shift+Left` / `Right` | Fold or unfold every card | G21, G22 | `OnNoteListPreviewKeyDown` |
 | `Ctrl+Alt+Backspace` | Move the note to the Recycle Bin | G15 | `OnNoteRootKeyDown` |
 | `Enter`, `F2` (on a card, not in the editor) | Edit the card | — | `OnNoteListPreviewKeyDown` |
+| `Space` (on a card with pictures, not in the editor) | Preview the note's pictures, from the first. On a card without, Space stays the list's own: it selects the focused card, which focus has already selected | D35, G44 | `OnNoteListPreviewKeyDown` |
 | `Shift+F10`, Menu key | The card's menu | — | `ShowMenu` |
 
 Pin and unpin are on the card's menu and the folder's menu today, with no chord. Their key column is empty
@@ -142,10 +144,19 @@ Pin and unpin are on the card's menu and the folder's menu today, with no chord.
 | `Enter` | New line, continuing a list | — | `OnPreviewKeyDown` |
 | `Shift+Enter` | Line break | — | `OnPreviewKeyDown` |
 | `Tab`, `Shift+Tab` | Nest or un-nest a list item; otherwise move focus. In Code, `Tab` indents | G36, G37, #195 | `OnPreviewKeyDown` |
+| `Space` on a picture | Preview it. Only with the picture selected alone (as `Ctrl+C` copies it) or the caret inside its hidden markup; anywhere else, with any modifier, or while an IME composes, a space is typed | D35, G44 | `OnPreviewKeyDown`, `NotePictures.At` |
 
 `Ctrl+C`, `Ctrl+X` and `Ctrl+A` are the edit control's own. None of RichEdit's formatting chords act
 (`DisabledFormattingAccelerators="All"`), so `Ctrl+1`, `Ctrl+E`, `Ctrl+R`, `Ctrl+J` and the rest mean only what this map
 says. The stack's chords above work in the editor too.
+
+### Picture preview (while open)
+
+| Chord | Command | Row | Source |
+| ----- | ------- | --- | ------ |
+| `Esc`, `Space` | Close it, focus back on the card or the editor's caret (on the key's release, so its character is never typed) | D35, G44 | `OnPictureKeyDown`, `OnPictureKeyUp` |
+| `Left` / `Right` | The note's previous or next picture; stops at the first and the last | D35, G44 | `OnPictureKeyDown` |
+| any other key | Nothing: `Tab` stays in the preview, and none of Noto's chords act behind it | — | `OnPictureKeyDown`, `OnPictureAccelerators` |
 
 ### Search
 
@@ -174,7 +185,7 @@ says. The stack's chords above work in the editor too.
 
 ### Inside the map: none
 
-**Each chord has one meaning in each scope.** Four chords are used in more than one scope. Each time it is on purpose,
+**Each chord has one meaning in each scope.** Five chords are used in more than one scope. Each time it is on purpose,
 and the scope decides:
 
 | Chord | Meanings | Why it is safe |
@@ -183,6 +194,7 @@ and the scope decides:
 | `Ctrl+Shift+O` | The last folder, from either list | The same command in both |
 | `Ctrl+Enter` | Open a link (editor); open the folder (Search); hide (#261, opt-in) | #261 asks the editor and Search first (`KeepsCtrlEnter`), so a link still opens |
 | `Ctrl+C` | Copy text; copy a search result | Search copies the note only when no text is selected in its box |
+| `Space` | Type a space; preview pictures (#268); press a button or a check box | The stack takes it only on a card with pictures, the editor only on a picture; buttons, check boxes, toggles, Search and Settings keep theirs. Plain `Space` is no IME chord (`Ctrl+Space` is), and a composing IME gets it first |
 
 The three PRs add no conflict either:
 

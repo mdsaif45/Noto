@@ -42,6 +42,9 @@
                               selected or edited card. In Light and Dark a selected card keeps
                               its fill and takes the accent edge and pill; in high contrast it
                               is Highlight under HighlightText, as a selected row is.
+          SurfaceScrim        What dims the drawer behind the picture preview (#268): black,
+                              translucent, so the picture stands out on Light and Dark alike.
+                              In high contrast, the Window colour, opaque: the user's palette.
           SelectionIndicator  The pill on a selected row: the user's accent, as Windows'
                               own lists draw it (SystemAccentColorDark1 on light,
                               SystemAccentColorLight2 on dark). In high contrast,
@@ -100,6 +103,7 @@
             <StaticResource x:Key="SurfaceCardColor" ResourceKey="SurfaceInputColor" />
             <Color x:Key="SurfaceCardHoverColor">#F9F9F9</Color>
             <StaticResource x:Key="SurfaceCardSelectedColor" ResourceKey="SurfaceCardColor" />
+            <Color x:Key="SurfaceScrimColor">#99000000</Color>
 
             <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{StaticResource SurfaceWindowColor}" />
             <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{StaticResource SurfaceSidebarColor}" />
@@ -120,6 +124,7 @@
             <SolidColorBrush x:Key="SurfaceCardBrush" Color="{StaticResource SurfaceCardColor}" />
             <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="{StaticResource SurfaceCardHoverColor}" />
             <SolidColorBrush x:Key="SurfaceCardSelectedBrush" Color="{StaticResource SurfaceCardSelectedColor}" />
+            <SolidColorBrush x:Key="SurfaceScrimBrush" Color="{StaticResource SurfaceScrimColor}" />
 
             <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
             <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
@@ -264,6 +269,7 @@
             <StaticResource x:Key="SurfaceCardColor" ResourceKey="SurfaceInputColor" />
             <Color x:Key="SurfaceCardHoverColor">#323232</Color>
             <StaticResource x:Key="SurfaceCardSelectedColor" ResourceKey="SurfaceCardColor" />
+            <Color x:Key="SurfaceScrimColor">#CC000000</Color>
 
             <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{StaticResource SurfaceWindowColor}" />
             <SolidColorBrush x:Key="SurfaceSidebarBrush" Color="{StaticResource SurfaceSidebarColor}" />
@@ -284,6 +290,7 @@
             <SolidColorBrush x:Key="SurfaceCardBrush" Color="{StaticResource SurfaceCardColor}" />
             <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="{StaticResource SurfaceCardHoverColor}" />
             <SolidColorBrush x:Key="SurfaceCardSelectedBrush" Color="{StaticResource SurfaceCardSelectedColor}" />
+            <SolidColorBrush x:Key="SurfaceScrimBrush" Color="{StaticResource SurfaceScrimColor}" />
 
             <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />
             <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SurfaceInputBrush" />
@@ -424,6 +431,7 @@
             <StaticResource x:Key="SurfaceCardColor" ResourceKey="SystemColorWindowColor" />
             <StaticResource x:Key="SurfaceCardHoverColor" ResourceKey="SystemColorHighlightColor" />
             <StaticResource x:Key="SurfaceCardSelectedColor" ResourceKey="SystemColorHighlightColor" />
+            <StaticResource x:Key="SurfaceScrimColor" ResourceKey="SystemColorWindowColor" />
             <StaticResource x:Key="TextDisabledColor" ResourceKey="SystemColorGrayTextColor" />
 
             <SolidColorBrush x:Key="SurfaceWindowBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -444,6 +452,7 @@
             <SolidColorBrush x:Key="SurfaceCardBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="SurfaceCardSelectedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="SurfaceScrimBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="TextDisabledBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
 
             <StaticResource x:Key="TextControlBackground" ResourceKey="SurfaceInputBrush" />

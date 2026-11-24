@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Noto.Core.Editing;
+using Noto.Core.Images;
 using Noto.Core.Links;
 using Noto.Core.Markdown;
 using Noto.Core.Notes;
@@ -211,6 +212,9 @@ public sealed partial class NoteEditorHost : UserControl
 
     /// <summary>The user asked to open the link at the caret or the pointer (Ctrl+Enter, Ctrl+Click): its destination.</summary>
     internal event EventHandler<string>? LinkOpenRequested;
+
+    /// <summary>The user asked to preview the picture under the selection (Space, #268): the note's pictures, that one shown.</summary>
+    internal event EventHandler<NotePictures>? PictureRequested;
 
     /// <summary>
     /// Shows <paramref name="markdown"/> as <paramref name="note"/>'s source, read in <paramref name="mode"/> (#195), with
@@ -858,6 +862,21 @@ public sealed partial class NoteEditorHost : UserControl
         {
             e.Handled = true;
             LeaveRequested?.Invoke(this, request);
+            return;
+        }
+
+        // Space previews a picture (D35, G44, #268), but only on one: the picture selected alone, as Ctrl+C copies it, or
+        // the caret inside its hidden markup (NotePictures.At). Anywhere else, with any modifier, or while an IME is
+        // composing, Space is typed as always: typing is never taken.
+        if (e.Key == VirtualKey.Space && !ctrl && !alt && !shift && _composingFrom is null)
+        {
+            Flush();
+            if (NotePictures.At(_document, _selection.Start, _selection.End) is { } pictures)
+            {
+                e.Handled = true;
+                PictureRequested?.Invoke(this, pictures);
+            }
+
             return;
         }
 
