@@ -21,9 +21,9 @@ public sealed record DuplicateFolder(FolderId FolderId) : ICommand<CommandResult
 /// failure leaves no half-made folder. Binned notes are not copied: the copy is of what the folder shows.
 /// </para>
 /// <para>
-/// The copy keeps the folder's colour and is not pinned, as a duplicated note is not (B22): pinned folders sort first
-/// (O2), so the copy of a pinned folder goes to the top of the unpinned ones. Each note keeps its text, colour, mode,
-/// pin, fold and order. Pictures are shared, not copied (ADR-019 §4); tags are not copied, as no surface shows them.
+/// The copy keeps the folder's colour and its note sort (#242), and is not pinned, as a duplicated note is not (B22):
+/// pinned folders sort first (O2), so the copy of a pinned folder goes to the top of the unpinned ones. Each note keeps
+/// its text, colour, mode, pin, fold and order. Pictures are shared, not copied (ADR-019 §4); tags are not copied, as no surface shows them.
 /// </para>
 /// </remarks>
 public sealed class DuplicateFolderHandler(IFolderRepository folders, INoteRepository notes, IClock clock)
@@ -47,6 +47,7 @@ public sealed class DuplicateFolderHandler(IFolderRepository folders, INoteRepos
             Id = FolderId.New(),
             Name = FolderName.CopyOf(original.Name, _folders.ListActive().Select(f => f.Name)),
             ColorKey = original.ColorKey,
+            NoteSort = original.NoteSort,
             CreatedAt = now,
             UpdatedAt = now,
         };
