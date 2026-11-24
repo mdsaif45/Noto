@@ -390,6 +390,18 @@ value is a token; nothing here adds a literal.
 
   It also captures every surface for review.
 
+**2026-11-24 — theme files (ADR-023, #265).**
+
+- A theme file may set only the colour properties ADR-023 lists, each mapped to
+  tokens here; never high contrast, focus or the search-match pair. Two tokens
+  join the text group, `TextQuote` and `TaskMark` (Light and Dark: the
+  `TextSecondary` values; high contrast: GrayText).
+- A theme is applied by setting the colour of the Light and Dark brushes Noto
+  already has, so *brushes per theme* and the Light/Dark switch are unchanged.
+  An alias of a token a theme can change names the brush, never the colour.
+- The contrast pairs move to one table in Core, used by the theme loader and by
+  `DesignSystemGuardTests`.
+
 ---
 
 ## Alternatives rejected

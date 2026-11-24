@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/mdsaif45/Noto/main/docs/themes/noto-theme.schema.json",
+  "version": 1,
+  "name": "Harbour",
+  "author": "Noto",
+  "any": {
+    "danger": "#c4314b",
+    "note6": { "name": "Slate" }
+  },
+  "light": {
+    "background": "#eef2f5",
+    "card": "#ffffff",
+    "code": "#e6ecf1",
+    "text": "#1c2630",
+    "textSecondary": "#4f5d6b",
+    "textDisabled": "#8b97a3",
+    "link": "#174f87",
+    "quote": "#3f5f7a",
+    "checkmark": "#2f6f5e",
+    "accent": "#2b6cb0",
+    "border": "#d5dde4",
+    "highlight": "#fde68a",
+    "highlightText": "#1c2630",
+    "note1": { "tint": "#f5c40040", "marker": "#a6780a" },
+    "note2": { "tint": "#3fb95040", "marker": "#2d8a3e" },
+    "note3": { "tint": "#3a96f540", "marker": "#1f6fd1" },
+    "note4": { "tint": "#a371f740", "marker": "#8250df" },
+    "note5": { "tint": "#ec6cb040", "marker": "#c2387f" },
+    "note6": { "tint": "#64748b40", "marker": "#5b6b80" }
+  },
+  "dark": {
+    "background": "#1b2229",
+    "card": "#242d36",
+    "code": "#ffffff14",
+    "text": "#e6edf3",
+    "textSecondary": "#a9b6c2",
+    "textDisabled": "#6b7885",
+    "link": "#8cc2ff",
+    "quote": "#9fc0dd",
+    "checkmark": "#7cc4a8",
+    "danger": "#ff99a4",
+    "accent": "#6aa8e8",
+    "border": "#ffffff1f",
+    "highlight": "#5a4b00",
+    "highlightText": "#fff",
+    "note1": { "tint": "#f5c40014", "marker": "#f5c400" },
+    "note2": { "tint": "#3fb9501c", "marker": "#3fb950" },
+    "note3": { "tint": "#3a96f521", "marker": "#3a96f5" },
+    "note4": { "tint": "#a371f721", "marker": "#a371f7" },
+    "note5": { "tint": "#ec6cb01f", "marker": "#ec6cb0" },
+    "note6": { "tint": "#94a3b81f", "marker": "#94a3b8" }
+  }
+}

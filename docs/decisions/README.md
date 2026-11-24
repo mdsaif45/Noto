@@ -37,6 +37,7 @@ These records are the defense against that.
 | [ADR-020](ADR-020-data-portability.md) | Data portability: backup, restore, export and import | Accepted |
 | [ADR-021](ADR-021-welcome.md) | The welcome: a four-step tour for a new workspace | Accepted |
 | [ADR-022](ADR-022-uri-and-command-line.md) | The `noto://` link and the command line | Accepted |
+| [ADR-023](ADR-023-theme-files.md) | Theme files: their format, and the tokens a theme may change | Accepted |
 
 ### Why two are Proposed
 
