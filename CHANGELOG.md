@@ -12,6 +12,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Space shows a picture full size inside Noto: on a card it opens the note's first picture, and in a note being
+  edited the selected picture. Left and Right move between the note's pictures; Escape or Space closes it (#268).
 - Settings › Importing › *Move imported files to the Windows Recycle Bin* (off by default): files dropped on Noto
   go to Windows' Recycle Bin once their notes are saved. Files on a network or removable drive, read-only files and
   files in use stay where they are, and the status says how many moved and how many stayed (#267).
