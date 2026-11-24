@@ -87,7 +87,7 @@ public static partial class ImageReference
         }
 
         string text = document.Source;
-        string caption = text[(found.Image.Start + 2)..(found.Source.Start - 2)].Replace("\\[", "[", StringComparison.Ordinal).Replace("\\]", "]", StringComparison.Ordinal);
+        string caption = CaptionOf(text, found.Image, found.Source);
         if (TypeOf(caption) is not null)
         {
             caption = Path.GetFileNameWithoutExtension(caption);
@@ -123,7 +123,11 @@ public static partial class ImageReference
     /// selection lies inside one <c>![caption](source)</c> and holds its whole caption, the only part of it shown (D32,
     /// #187: Ctrl+C on a selected picture copies the picture). <see langword="null"/> otherwise.
     /// </summary>
-    public static string? Selected(MarkdownDocument document, int start, int end)
+    public static string? Selected(MarkdownDocument document, int start, int end) =>
+        SelectedPicture(document, start, end) is { } found ? document.Source.Substring(found.Source.Start, found.Source.Length) : null;
+
+    /// <summary>The picture <see cref="Selected"/> finds, and its source: the one Space previews from a selection (#268).</summary>
+    internal static (MarkdownSpan Image, MarkdownSpan Source)? SelectedPicture(MarkdownDocument document, int start, int end)
     {
         ArgumentNullException.ThrowIfNull(document);
         string text = document.Source;
@@ -150,15 +154,19 @@ public static partial class ImageReference
             // The caption is between "![" and "](".
             if (SourceOf(block, image) is { } s && start <= image.Start + 2 && end >= s.Start - 2)
             {
-                return text.Substring(s.Start, s.Length);
+                return (image, s);
             }
         }
 
         return null;
     }
 
+    /// <summary>A picture's caption as shown: what is between <c>![</c> and <c>](</c>, its escaped brackets unescaped.</summary>
+    internal static string CaptionOf(string text, MarkdownSpan image, MarkdownSpan source) =>
+        text[(image.Start + 2)..(source.Start - 2)].Replace("\\[", "[", StringComparison.Ordinal).Replace("\\]", "]", StringComparison.Ordinal);
+
     /// <summary>The span of an image's source, inside its <c>(…)</c>.</summary>
-    private static MarkdownSpan? SourceOf(MarkdownBlock block, MarkdownSpan image) =>
+    internal static MarkdownSpan? SourceOf(MarkdownBlock block, MarkdownSpan image) =>
         block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start > image.Start && s.End < image.End).Cast<MarkdownSpan?>().LastOrDefault();
 
     [GeneratedRegex(@"^attachments/(?<name>[0-9A-HJKMNP-TV-Z]{26}\.(?:png|jpg|jpeg|gif|webp|bmp))$", RegexOptions.CultureInvariant)]

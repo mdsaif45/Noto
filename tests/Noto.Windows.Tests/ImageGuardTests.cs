@@ -18,6 +18,8 @@ public sealed class ImageGuardTests
     private static readonly string Main = Code(Path.Join(Windows, "MainWindow.xaml.cs"));
     private static readonly string MainImages = Code(Path.Join(Windows, "MainWindow.Images.cs"));
     private static readonly string ReadView = Code(Path.Join(Windows, "MarkdownReadView.cs"));
+    private static readonly string Preview = Code(Path.Join(Windows, "MainWindow.Preview.cs"));
+    private static readonly XDocument MainXaml = XDocument.Load(Path.Join(Windows, "MainWindow.xaml"));
     private static readonly XDocument HostXaml = XDocument.Load(Path.Join(Windows, "NoteEditorHost.xaml"));
 
     [Fact]
@@ -189,6 +191,91 @@ public sealed class ImageGuardTests
         Assert.Matches(@"if \(await picker\.PickSaveFileAsync\(\) is \{ \} destination\)\s*\{\s*StorageFile picture = await StorageFile\.GetFileFromPathAsync\(path\);\s*await picture\.CopyAndReplaceAsync\(destination\);", save);
         Assert.DoesNotContain("BitmapEncoder", save, StringComparison.Ordinal);
         Assert.Contains("ImageNotice?.Invoke(this, \"The picture couldn't be saved.\");", save, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Space_in_the_editor_previews_only_on_a_picture_and_is_typed_everywhere_else()
+    {
+        // #268 (D35, G44): which selection is "on a picture" is Core's (NotePictures.At, its tests); the editor hands Space
+        // over only then. Elsewhere, with a modifier, or mid-composition it is not handled, so RichEdit types it.
+        string keys = Body(Host, "OnPreviewKeyDown");
+        Assert.Matches(@"if \(e\.Key == VirtualKey\.Space && !ctrl && !alt && !shift && _composingFrom is null\)\s*\{\s*Flush\(\);\s*if \(NotePictures\.At\(_document, _selection\.Start, _selection\.End\) is \{ \} pictures\)\s*\{\s*e\.Handled = true;\s*PictureRequested\?\.Invoke\(this, pictures\);\s*\}\s*return;\s*\}", keys);
+
+        Assert.Contains("host.PictureRequested += OnEditorPictureRequested;", Main, StringComparison.Ordinal);
+        Assert.Contains("host.PictureRequested -= OnEditorPictureRequested;", Main, StringComparison.Ordinal);
+        Assert.Contains("private void OnEditorPictureRequested(object? sender, NotePictures pictures) => OpenPreview(pictures);", Preview, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Space_on_a_card_previews_only_a_card_with_pictures()
+    {
+        // A card without pictures, or Space from the editor inside a card, is left to the list and the editor.
+        string keys = Body(Main, "OnNoteListPreviewKeyDown");
+        Assert.Matches(@"if \(e\.Key == VirtualKey\.Space && !IsControlDown\(\) && !IsAltDown\(\) && !IsShiftDown\(\)\s*&& e\.OriginalSource is ListViewItem \{ Content: NoteCard pictured \}\s*&& NotePictures\.Of\(MarkdownDocument\.Parse\(pictured\.Content, pictured\.Mode\)\) is \{ \} pictures\)\s*\{\s*e\.Handled = true;\s*OpenPreview\(pictures\);\s*return;", keys);
+    }
+
+    [Fact]
+    public void The_preview_is_a_dialog_that_keeps_the_keyboard_and_gives_focus_back()
+    {
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+        XElement surface = MainXaml.Descendants().Single(e => (string?)e.Attribute(x + "Name") == "PreviewSurface");
+        Assert.Equal("PicturePreview", surface.Name.LocalName);
+        Assert.Equal("2", (string?)surface.Attribute("Grid.RowSpan"));   // over the whole drawer, the header too
+        Assert.Equal("True", (string?)surface.Attribute("IsTabStop"));
+        Assert.Equal("PicturePreview", (string?)surface.Attribute("AutomationProperties.AutomationId"));
+        Assert.Equal("OnPictureKeyDown", (string?)surface.Attribute("KeyDown"));
+        Assert.Equal("OnPictureKeyUp", (string?)surface.Attribute("KeyUp"));
+        Assert.Equal("OnPictureAccelerators", (string?)surface.Attribute("ProcessKeyboardAccelerators"));
+        Assert.Equal("{ThemeResource SurfaceScrimBrush}", (string?)surface.Elements().First().Attribute("Background"));
+        XElement status = surface.Descendants().Single(e => (string?)e.Attribute(x + "Name") == "PreviewStatus");
+        Assert.Equal("PicturePreviewStatus", (string?)status.Attribute("AutomationProperties.AutomationId"));
+        Assert.Equal("Polite", (string?)status.Attribute("AutomationProperties.LiveSetting"));
+        Assert.Contains("protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);", Preview, StringComparison.Ordinal);
+
+        // Named for its picture, the position with it; Left and Right step through Core's list, which stops at the ends.
+        string show = Body(Preview, "ShowPicture");
+        Assert.Contains("AutomationProperties.SetName(PreviewSurface, picture.Name);", show, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetHelpText(PreviewSurface, pictures.Position);", show, StringComparison.Ordinal);
+        Assert.Contains("PreviewStatus.Text = pictures.Position;", show, StringComparison.Ordinal);
+        string down = Body(Preview, "OnPictureKeyDown");
+        Assert.Matches(@"^\{\s*e\.Handled = true;", down);   // every key is the preview's: Tab never leaves it
+        Assert.Contains("NotePictures next = pictures.Step(e.Key == VirtualKey.Left ? -1 : 1);", down, StringComparison.Ordinal);
+        Assert.Contains("args.Handled = _previewed is not null;", Preview, StringComparison.Ordinal);
+
+        // Focus goes in once laid out, and back to exactly what had it: the card, or the editor with its caret. Closing
+        // waits for Escape or Space to come up, so the key's character never types into the editor it returns to.
+        string open = Body(Preview, "OpenPreview");
+        Assert.Contains("_previewReturnFocus = Content?.XamlRoot is { } root ? FocusManager.GetFocusedElement(root) as Control : null;", open, StringComparison.Ordinal);
+        Assert.Contains("_ = PreviewSurface.Focus(FocusState.Programmatic);", open, StringComparison.Ordinal);
+        Assert.Matches(@"_previewClosing && e\.Key is VirtualKey\.Escape or VirtualKey\.Space\)\s*\{\s*ClosePreview\(\);", Body(Preview, "OnPictureKeyUp"));
+        string close = Body(Preview, "ClosePreview");
+        Assert.Matches(@"!back\.Focus\(FocusState\.Programmatic\)\)\s*\{\s*MoveFocusToNotes\(\);\s*\}\s*PreviewSurface\.Visibility = Visibility\.Collapsed;\s*PreviewImage\.Source = null;", close);
+        Assert.Matches(@"SettingsSurface\?\.CancelRecording\(\);\s*ClosePreview\(\);", Main);
+    }
+
+    [Fact]
+    public void The_preview_decodes_off_the_ui_thread_at_a_capped_size_and_never_fetches_or_logs_a_picture()
+    {
+        Assert.Contains("internal const int PreviewDecodeCap = 4096;", Preview, StringComparison.Ordinal);
+        string width = Body(Preview, "PreviewWidth");
+        Assert.Contains("ImageSize.Fit(width, height, WorkspaceContent.ActualWidth, WorkspaceContent.ActualHeight)", width, StringComparison.Ordinal);
+        Assert.Contains("return Math.Min(fitted, PreviewDecodeCap / scale);", width, StringComparison.Ordinal);
+
+        // Only a file Noto keeps: a web picture never resolves, so it is never fetched; it and an unreadable one say so.
+        string show = Body(Preview, "ShowPicture");
+        Assert.Contains("string? path = Images?.PathOf(picture.Source);", show, StringComparison.Ordinal);
+        Assert.Contains("await ImageFiles.SizeOf(path)", show, StringComparison.Ordinal);
+        Assert.Contains("BitmapImage bitmap = ImageFiles.Bitmap(path, PreviewWidth(pixels.Width, pixels.Height));", show, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Count(show, @"ShowPictureNotice\(\);"));
+        Assert.Contains("PreviewNoticeText.Text = \"This picture can't be shown\";", Preview, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"Http|WebRequest|Uri\(", Preview);
+
+        // Where, never what: no path and no caption in a trace.
+        var traces = Regex.Matches(Preview, @"Trace\.WriteLine\(.*\);").Select(m => m.Value).ToList();
+        Assert.Equal(2, traces.Count);
+        Assert.Contains(traces, t => t.Contains("Noto.Preview shown index={pictures.Index + 1} count={pictures.All.Count}", StringComparison.Ordinal));
+        Assert.Contains(traces, t => t.Contains("\"Noto.Preview closed\"", StringComparison.Ordinal));
+        Assert.All(traces, t => Assert.DoesNotMatch("path|Name|Caption|Source", t));
     }
 
     private static string Code(string path) => Regex.Replace(File.ReadAllText(path), @"^\s*//.*$", string.Empty, RegexOptions.Multiline);

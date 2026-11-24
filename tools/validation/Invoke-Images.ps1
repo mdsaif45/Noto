@@ -35,6 +35,10 @@
     17  a text file dropped on the editor (#196, J30): by default a shortcut on a line of its own, its type and size drawn
         below its name (Standard); with Settings' "When you drop a text file into a note" set to "Insert its text"
         (stored), its text where it was dropped; one undo each
+    18  #268 (D35, G44): Space on a focused card with two pictures opens the preview (AutomationId PicturePreview, named
+        for the first picture's caption, focus in it) saying "Picture 1 of 2"; Right says "Picture 2 of 2"; Escape closes
+        it and focus is back on the card; Noto.Preview traces say where, never what. In the card's editor, Space with the
+        caret on plain text types a space: the stored text gains it, and no preview opens
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Images.ps1 -NotoExe <path>\Noto.exe
@@ -84,6 +88,7 @@ $Notes = [ordered]@{
     '01J00000000000000000000N64' = "Gone`n![gone](attachments/$Gone.png)"
     '01J00000000000000000000N65' = "Broken`n![broken](attachments/$Broken.png)"
     '01J00000000000000000000N66' = "Five`n" + (($Five | ForEach-Object { "![photo](attachments/$_.png)" }) -join "`n")
+    '01J00000000000000000000N69' = "Pair`n![first red](attachments/$Red.png)`n![second dot](attachments/$Small.png)"
     '01J00000000000000000000N68' = "Scrolled`n" + ((1..300 | ForEach-Object { "line $_ of a note taller than the stack" }) -join "`n") + "`n![far red square](attachments/$Red.png)`nafter the far picture`n- [ ] far task"
 }
 
@@ -565,6 +570,39 @@ exit (Invoke-IsolatedRun $run -Title 'Images (ADR-019)' -Body {
     $undoneText = (Editor-Value) -eq $original
     Leave-Editor
     Add-Result $run '17 a dropped text file is a shortcut by default, drawn with its type and size; set to insert its text, its text; one undo each' ($linked -and $null -ne $details -and $undoneLink -and $stored -eq 'InsertText' -and $asText -and $undoneText) "$effect linked=$linked details='$(if ($details) { $details.Current.Name })' undone=$undoneLink stored=$stored inserted='$($inserted -replace "`n", ' | ')' undone=$undoneText"
+
+    # 18 - #268 (D35, G44): Space on a card with two pictures previews the first; Right moves to the second; Escape
+    #      closes, focus back on the card; in the editor, Space with the caret on plain text types a space, no preview
+    $pairId = '01J00000000000000000000N69'
+    function Showing { $p = By-Id 'PicturePreview'; if ($p -and -not $p.Current.IsOffscreen) { $p } else { $null } }
+    function Focused-Row { $f = $AE::FocusedElement; if ($f -and $f.Current.ControlType -eq $CT::ListItem) { Get-RowTitle $f.Current.Name } else { "$($f.Current.ControlType.ProgrammaticName)|$($f.Current.AutomationId)" } }
+    $mark = (Traces 'Noto\.Preview').Count
+    $pair = Card 'Pair'
+    $pair.SetFocus(); Start-Sleep -Milliseconds 300
+    Send-ToNoto @() 0x20 1200          # Space
+    $preview = Showing
+    $first = if ($preview) { (Find-ById 'PicturePreviewStatus').Current.Name } else { '' }
+    $named = if ($preview) { $preview.Current.Name } else { '' }
+    $focusIn = $preview -and $AE::FocusedElement.Current.AutomationId -eq 'PicturePreview'
+    Shot 'preview'
+    Send-ToNoto @() 0x27 900           # Right
+    $second = if (Showing) { (Find-ById 'PicturePreviewStatus').Current.Name } else { '' }
+    Send-ToNoto @() 0x1B 900           # Escape
+    $closed = $null -eq (Showing)
+    $back = Focused-Row
+    $traced = @(Traces 'Noto\.Preview' | Select-Object -Skip $mark | ForEach-Object { ($_ -split 'Noto\.Preview ')[-1] })
+
+    $original = $Notes[$pairId]
+    Edit-Note 'Pair'
+    Send-ToNoto @(0x11) 0x24 300       # Ctrl+Home: the caret before "Pair", on plain text
+    Send-ToNoto @() 0x20 900           # Space
+    $noPreview = $null -eq (Showing)
+    $typed = (Editor-Value) -eq " $original"
+    Leave-Editor
+    $stored = [string](Sql $script:data 'SELECT Content FROM Notes WHERE Id = $n' @{ '$n' = $pairId } -Scalar)
+    $ok = $null -ne $preview -and $first -eq 'Picture 1 of 2' -and $named -eq 'first red' -and $focusIn -and $second -eq 'Picture 2 of 2' -and $closed -and $back -eq 'Pair' `
+        -and ($traced -join ' | ') -eq 'shown index=1 count=2 | shown index=2 count=2 | closed' -and $noPreview -and $typed -and $stored -eq " $original"
+    Add-Result $run '18 Space previews a card''s pictures (1 of 2, Right 2 of 2), Escape closes with focus back on the card; Space on plain text in the editor types' $ok "opened=$($null -ne $preview) first='$first' name='$named' focus-in=$focusIn second='$second' closed=$closed back='$back' traces='$($traced -join ' | ')' editor: no-preview=$noPreview typed=$typed stored-gained-space=$($stored -eq " $original")"
     if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
 
 

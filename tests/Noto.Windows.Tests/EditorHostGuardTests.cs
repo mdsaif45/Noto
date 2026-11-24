@@ -231,7 +231,9 @@ public sealed class EditorHostGuardTests
     {
         // #235 (D21): one Core edit applied through Run's one recorded step, Markdown notes only, as every format command.
         Assert.Contains("EditorCommand.ClearFormatting => MarkdownCommands.ClearFormatting,", Host, StringComparison.Ordinal);
-        Assert.DoesNotContain("VirtualKey.Space", Host, StringComparison.Ordinal);
+        // No Space chord (Ctrl+Space is the IME's): the editor's one Space is plain Space on a picture (#268, ImageGuardTests).
+        Assert.Single(Regex.Matches(Host, @"VirtualKey\.Space"));
+        Assert.Contains("e.Key == VirtualKey.Space && !ctrl && !alt && !shift", Host, StringComparison.Ordinal);
 
         XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
         XElement item = XDocument.Load(Path.Join(Windows, "MainWindow.xaml")).Descendants(xaml + "MenuFlyoutItem")

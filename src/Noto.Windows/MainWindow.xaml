@@ -714,6 +714,64 @@
             -->
 
             <!--
+                The picture preview (D35, G44, #268): Space on a card with pictures, or on a picture in the editor,
+                shows it over the whole drawer on a dimmed background, fitted and never enlarged. A dialog-like
+                surface: focus moves into it and stays there, the keyboard is its own, and Escape or Space closes it
+                with focus back where it was (MainWindow.Preview.cs). Its name is the picture's caption.
+            -->
+            <local:PicturePreview
+                x:Name="PreviewSurface"
+                Grid.RowSpan="2"
+                Visibility="Collapsed"
+                IsTabStop="True"
+                UseSystemFocusVisuals="False"
+                KeyDown="OnPictureKeyDown"
+                KeyUp="OnPictureKeyUp"
+                ProcessKeyboardAccelerators="OnPictureAccelerators"
+                AutomationProperties.AutomationId="PicturePreview">
+                <Grid Background="{ThemeResource SurfaceScrimBrush}" Padding="{StaticResource PanePadding}" RowSpacing="{StaticResource SpaceS}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <!-- Decoded at the size it fits (MainWindow.PreviewWidth); shrunk again if the drawer narrows, never enlarged. -->
+                    <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+                        <Image
+                            x:Name="PreviewImage"
+                            Stretch="None"
+                            AutomationProperties.AutomationId="PicturePreviewImage" />
+                    </Viewbox>
+                    <Border
+                        x:Name="PreviewNotice"
+                        Visibility="Collapsed"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource SurfaceCardBrush}"
+                        CornerRadius="{StaticResource RadiusSmall}"
+                        Padding="{StaticResource PillPadding}">
+                        <TextBlock
+                            x:Name="PreviewNoticeText"
+                            Foreground="{ThemeResource TextPrimaryBrush}"
+                            local:Accessible.Announces="True"
+                            AutomationProperties.LiveSetting="Polite" />
+                    </Border>
+                    <Border
+                        Grid.Row="1"
+                        HorizontalAlignment="Center"
+                        Background="{ThemeResource SurfaceCardBrush}"
+                        CornerRadius="{StaticResource RadiusPill}"
+                        Padding="{StaticResource PillPadding}">
+                        <TextBlock
+                            x:Name="PreviewStatus"
+                            Foreground="{ThemeResource TextPrimaryBrush}"
+                            local:Accessible.Announces="True"
+                            AutomationProperties.LiveSetting="Polite"
+                            AutomationProperties.AutomationId="PicturePreviewStatus" />
+                    </Border>
+                </Grid>
+            </local:PicturePreview>
+
+            <!--
                 F2 (#145): the drawer's own edge, drawn on the drawer so it slides with it: a 1 px border on the inner
                 edge, the top and the bottom, round the inner corners (MainWindow.ShapeDrawer sets the side). The
                 window has no frame of its own, which would show where the drawer is going before it arrives.

@@ -14,6 +14,8 @@ using Microsoft.UI.Xaml.Input;
 using Noto.Core.Activation;
 using Noto.Core.Commands;
 using Noto.Core.Folders;
+using Noto.Core.Images;
+using Noto.Core.Markdown;
 using Noto.Core.Notes;
 using Noto.Core.Ordering;
 using Noto.Core.Storage;
@@ -202,6 +204,9 @@ public sealed partial class MainWindow : Window
             if (e.WindowActivationState == WindowActivationState.Deactivated)
             {
                 SettingsSurface?.CancelRecording();
+
+                // Nor does the picture preview stay open over a drawer the user has left (#268).
+                ClosePreview();
             }
         };
 
@@ -1049,6 +1054,19 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // Space on a card with pictures previews its first (D35, G44, #268); Left and Right then move through the rest.
+        // On a card without, Space stays the list's own: it selects the card focus is on, which focus has already
+        // selected (single selection), so nothing changes. Only from a card itself: in the editor Space is typed, or
+        // previews only on a picture (NoteEditorHost).
+        if (e.Key == VirtualKey.Space && !IsControlDown() && !IsAltDown() && !IsShiftDown()
+            && e.OriginalSource is ListViewItem { Content: NoteCard pictured }
+            && NotePictures.Of(MarkdownDocument.Parse(pictured.Content, pictured.Mode)) is { } pictures)
+        {
+            e.Handled = true;
+            OpenPreview(pictures);
+            return;
+        }
+
         if (e.Key is VirtualKey.Enter or VirtualKey.F2 && e.OriginalSource is ListViewItem { Content: NoteCard card })
         {
             e.Handled = true;
@@ -1408,10 +1426,12 @@ public sealed partial class MainWindow : Window
         host.LeaveRequested -= OnEditorLeaveRequested;
         host.LinkOpenRequested -= OnEditorLinkOpenRequested;
         host.ImageNotice -= OnEditorImageNotice;
+        host.PictureRequested -= OnEditorPictureRequested;
         host.ContentChanged += OnEditorContentChanged;
         host.LeaveRequested += OnEditorLeaveRequested;
         host.LinkOpenRequested += OnEditorLinkOpenRequested;
         host.ImageNotice += OnEditorImageNotice;
+        host.PictureRequested += OnEditorPictureRequested;
 
         if (_pendingCaret is { } caret)
         {
@@ -1441,6 +1461,7 @@ public sealed partial class MainWindow : Window
             host.LeaveRequested -= OnEditorLeaveRequested;
             host.LinkOpenRequested -= OnEditorLinkOpenRequested;
             host.ImageNotice -= OnEditorImageNotice;
+            host.PictureRequested -= OnEditorPictureRequested;
 
             if (_editor == host)
             {
