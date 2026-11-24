@@ -84,8 +84,26 @@ function Sql($Data, [string] $Text, [hashtable] $Parameters = @{}) {
 }
 function By-Id([string] $Id) { $AE::FromHandle($script:noto.Hwnd).FindFirst($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::AutomationIdProperty, $Id)) }
 function Find-ById([string] $Id, [int] $Seconds = 10) {
+    <#
+      Visible, or brought into view: a Settings control that is there but scrolled out of view (each new Settings row
+      pushes the middle sections further down) is scrolled to by the page's own scroll pattern, in steps from the top,
+      as Invoke-Settings' Show-Id does. Never by focus.
+    #>
     $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline) { $e = By-Id $Id; if ($e -and -not $e.Current.IsOffscreen) { return $e }; Start-Sleep -Milliseconds 200 }
+    while ((Get-Date) -lt $deadline) {
+        $e = By-Id $Id
+        if ($e -and -not $e.Current.IsOffscreen) { return $e }
+        $scroll = if ($e) { By-Id 'SettingsScroll' }
+        if ($scroll) {
+            foreach ($percent in 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100) {
+                $scroll.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, $percent)
+                Start-Sleep -Milliseconds 300
+                $e = By-Id $Id
+                if ($e -and -not $e.Current.IsOffscreen) { return $e }
+            }
+        }
+        Start-Sleep -Milliseconds 200
+    }
     throw "no visible element '$Id' within ${Seconds}s"
 }
 function Items($List) { @($List.FindAll($Scope::Children, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | Where-Object { -not $_.Current.IsOffscreen }) }
