@@ -593,16 +593,16 @@ neither is required by a principle.
 | Status | ID | Feature | SideNotes behavior | Noto requirement | Level | Issue | Notes |
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | F1 | Light / dark / system | Follow system, or set manually | Same three states; follows Windows theme | MUST | — | **Partial** — Light, Dark and High Contrast follow the Windows theme (`Noto.UI` ThemeDictionaries, #22). No manual choice (needs the settings UI); Light and High Contrast not yet visually reviewed **v0.2 score (2026-11-13):** Settings › Theme: System, Light, Dark; System follows Windows live (F2, #145; `Invoke-Settings` case 3). |
-| `[ ]` | F2 | UI themes | Installable color themes | Installable color themes | SHOULD | — | Built on ADR-011 tokens |
-| `[ ]` | F3 | Custom theme files | `.sntheme` = JSON, schema-documented, editable in any editor | JSON theme file + published schema | SHOULD | — | Format is Noto's own |
-| `[ ]` | F4 | Theme structure | `light` / `dark` / `any`; sections incl. notes.clean + 6 colors | Equivalent structure; must cover the six note colors | SHOULD | — | Structure follows ADR-011, not SideNotes' |
-| `[ ]` | F5 | Theme color properties | background, text ×3, link, button, quote, mark, code, checkmark, preview | Token set covering the same surfaces | SHOULD | — | |
-| `[ ]` | F6 | Theme color formats | `#rgb`, `#rrggbb`, `#rrggbbaa` | Same three | SHOULD | — | |
-| `[ ]` | F7 | Theme installation | Double-click a theme file to install; manage + reveal in Finder | Double-click to install; manage + reveal in Explorer | SHOULD | — | File association needs the package (ADR-008) |
+| `[ ]` | F2 | UI themes | Installable color themes | Installable color themes | SHOULD | — | Built on ADR-011 tokens **v0.4 decision (2026-11-24):** ADR-023 (#265); built in #269. |
+| `[ ]` | F3 | Custom theme files | `.sntheme` = JSON, schema-documented, editable in any editor | JSON theme file + published schema | SHOULD | — | Format is Noto's own **v0.4 decision (2026-11-24):** format and tokens in ADR-023 (#265). |
+| `[ ]` | F4 | Theme structure | `light` / `dark` / `any`; sections incl. notes.clean + 6 colors | Equivalent structure; must cover the six note colors | SHOULD | — | Structure follows ADR-011, not SideNotes' **v0.4 decision (2026-11-24):** format and tokens in ADR-023 (#265). |
+| `[ ]` | F5 | Theme color properties | background, text ×3, link, button, quote, mark, code, checkmark, preview | Token set covering the same surfaces | SHOULD | — | **v0.4 decision (2026-11-24):** format and tokens in ADR-023 (#265). |
+| `[ ]` | F6 | Theme color formats | `#rgb`, `#rrggbb`, `#rrggbbaa` | Same three | SHOULD | — | **v0.4 decision (2026-11-24):** format and tokens in ADR-023 (#265). |
+| `[ ]` | F7 | Theme installation | Double-click a theme file to install; manage + reveal in Finder | Double-click to install; manage + reveal in Explorer | SHOULD | — | File association needs the package (ADR-008) **v0.4 decision (2026-11-24):** install, list, reveal and remove from Settings in ADR-023 (#265), built in #269; double-click install (a file association) deferred, see ADR-023 §8. |
 | `[ ]` | F8 | Theme gallery | Vendor-hosted downloadable gallery | **Not in M3** | DROP | — | A website, not an app feature |
 | `[ ]` | F9 | Theme via automation | AppleScript / Shortcuts set theme | Set theme via CLI | ADAPT | — | |
 | `[x]` | F10 | Note color display style | Background (default) / Bar | Same two styles | MUST | #191 | **v0.2 score (2026-11-13):** Not built: one style only (#150). **v0.3 score (2026-11-16):** Background (the default) or Bar, applied live to every card; High Contrast unchanged in both (#191; `Invoke-Visual` case 17). |
-| `[ ]` | F11 | Transparency | Open Bar semi-transparent; theme alpha supported | Alpha in themes; edge handle translucent | SHOULD | — | ⚠ provisional — UNKNOWN whether a window opacity setting exists |
+| `[ ]` | F11 | Transparency | Open Bar semi-transparent; theme alpha supported | Alpha in themes; edge handle translucent | SHOULD | — | ⚠ provisional — UNKNOWN whether a window opacity setting exists **v0.4 decision (2026-11-24):** theme alpha in ADR-023 §5 (#265): kept on note tints and borders, flattened over the card for code and highlight, opaque elsewhere; window translucency stays ADR-007's root `Opacity`. |
 | `[ ]` | F12 | Density | No global density setting; line height + compact file links only | Same — no global density setting | DROP | — | ⚠ provisional — INFERRED. Do not invent one |
 | `[ ]` | F13 | Icon refresh | Icons refreshed across releases | **Not applicable** | DROP | — | Noto has its own icon set (ADR-011) |
 | `[ ]` | F14 | Disable color swatches | Setting to hide `#rrggbb` swatches | Same setting | SHOULD | — | Pairs with D15 |
@@ -875,7 +875,7 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[ ]` | J19 | Text → No auto-spaces on paste | on / off | Same | SHOULD | — | = D41 **v0.3 score (2026-11-16):** = D41: nothing adds spaces, so no switch (#187). |
 | `[x]` | J20 | Text → Code detection on paste | code block / code note | Same | SHOULD | — | = D39 **v0.3 score (2026-11-16):** = D39: the code-block half; a code note is not offered (#187). |
 | `[x]` | J21 | Appearance → Light / Dark / System | manual or follow system | Same | MUST | — | = F1 **v0.2 score (2026-11-13):** Settings › Theme. |
-| `[ ]` | J22 | Appearance → Themes → Manage | install, list, reveal | Install, list, reveal in Explorer | SHOULD | — | = F2, F7 |
+| `[ ]` | J22 | Appearance → Themes → Manage | install, list, reveal | Install, list, reveal in Explorer | SHOULD | — | = F2, F7 **v0.4 decision (2026-11-24):** Settings › Appearance › Theme in ADR-023 §8 (#265); built in #269. |
 | `[x]` | J23 | Appearance → Note colors | Background / Bar | Same | MUST | #191 | = F10 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › Appearance › Note colour style, Background or Bar (#191). |
 | `[ ]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 |
 | `[x]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | #198 | = G50 **v0.2 score (2026-11-13):** As G50: four of the six are recorded in Settings. **v0.3 score (2026-11-16):** = G50: all six global chords recorded in Settings (#198). |

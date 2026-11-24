@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/mdsaif45/Noto/main/docs/themes/noto-theme.schema.json",
+  "title": "Noto theme",
+  "description": "A Noto colour theme (.nototheme), format version 1. ADR-023 is the contract: it lists the same properties, says which ADR-011 tokens each one sets, and gives the alpha and contrast rules Noto checks. Properties this schema does not name are ignored by Noto with a warning, so a file written for a newer Noto still loads.",
+  "type": "object",
+  "required": ["version", "name"],
+  "anyOf": [
+    { "required": ["light"] },
+    { "required": ["dark"] },
+    { "required": ["any"] }
+  ],
+  "properties": {
+    "$schema": {
+      "description": "Where an editor finds this schema. Noto never fetches it.",
+      "type": "string"
+    },
+    "version": {
+      "description": "The format version. Noto refuses a version newer than the one it reads.",
+      "const": 1
+    },
+    "name": {
+      "description": "The theme's name in Settings. Unique among installed themes, ignoring case; \"Default\" is Noto's own.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "author": {
+      "description": "Who made the theme. Shown in Settings.",
+      "type": "string",
+      "maxLength": 64
+    },
+    "light": {
+      "description": "Colours used when Noto is light. Overrides \"any\", property by property.",
+      "$ref": "#/$defs/section"
+    },
+    "dark": {
+      "description": "Colours used when Noto is dark. Overrides \"any\", property by property.",
+      "$ref": "#/$defs/section"
+    },
+    "any": {
+      "description": "Colours used in both light and dark, unless the light or dark section sets the same property.",
+      "$ref": "#/$defs/section"
+    }
+  },
+  "$defs": {
+    "colour": {
+      "description": "#rgb, #rrggbb or #rrggbbaa (CSS order: alpha last). Hex digits in either case.",
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
+    "note": {
+      "description": "One of the six note colours. Each part is optional; a part not set keeps Noto's own.",
+      "type": "object",
+      "properties": {
+        "tint": {
+          "description": "Laid over a coloured note's card. Alpha is kept: a tint is meant to be translucent.",
+          "$ref": "#/$defs/colour"
+        },
+        "marker": {
+          "description": "The note's colour mark, and its only colour in the Bar style. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "name": {
+          "description": "What the colour is called in menus and read by a screen reader.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "description": "The drawer, the folder list and every surface's header. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "card": {
+          "description": "A note's card, the editor and text inputs. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "code": {
+          "description": "Behind inline code and code blocks. Alpha is flattened over the card.",
+          "$ref": "#/$defs/colour"
+        },
+        "text": {
+          "description": "Primary text. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "textSecondary": {
+          "description": "Secondary text and Markdown markers. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "textDisabled": {
+          "description": "Text of a command that is not available. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "link": {
+          "description": "A link's text. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "quote": {
+          "description": "A quote's text. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "checkmark": {
+          "description": "A task's checkbox, ticked or not. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "danger": {
+          "description": "A warning or a failure in the notice line. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "accent": {
+          "description": "Selection: the selected row's pill and the edited card's edge. Opaque. Not set, it is the Windows accent.",
+          "$ref": "#/$defs/colour"
+        },
+        "border": {
+          "description": "Card and input edges. Alpha is kept.",
+          "$ref": "#/$defs/colour"
+        },
+        "highlight": {
+          "description": "Behind ::highlighted:: text. Alpha is flattened over the card.",
+          "$ref": "#/$defs/colour"
+        },
+        "highlightText": {
+          "description": "Highlighted text. Opaque.",
+          "$ref": "#/$defs/colour"
+        },
+        "note1": { "$ref": "#/$defs/note", "description": "Ctrl+1. Noto's own: Yellow." },
+        "note2": { "$ref": "#/$defs/note", "description": "Ctrl+2. Noto's own: Green." },
+        "note3": { "$ref": "#/$defs/note", "description": "Ctrl+3. Noto's own: Blue." },
+        "note4": { "$ref": "#/$defs/note", "description": "Ctrl+4. Noto's own: Purple." },
+        "note5": { "$ref": "#/$defs/note", "description": "Ctrl+5. Noto's own: Pink." },
+        "note6": { "$ref": "#/$defs/note", "description": "Ctrl+6. Noto's own: Grey." }
+      }
+    }
+  }
+}
