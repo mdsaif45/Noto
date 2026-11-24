@@ -119,9 +119,10 @@ public sealed class MigrationV6Tests : IDisposable
         command.CommandText = sql;
         using SqliteDataReader reader = command.ExecuteReader();
         var rows = new List<string>();
+        var row = new StringBuilder();
         while (reader.Read())
         {
-            var row = new StringBuilder();
+            row.Clear();
             for (int i = 0; i < reader.FieldCount; i++)
             {
                 row.Append(reader.IsDBNull(i) ? "<null>" : Convert.ToString(reader.GetValue(i), CultureInfo.InvariantCulture)).Append('|');
