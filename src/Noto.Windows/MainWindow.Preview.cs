@@ -175,24 +175,28 @@ public sealed partial class MainWindow
 
     /// <summary>
     /// The preview has the keyboard while it is open: every key is its own, so nothing behind it acts and Tab never
-    /// leaves it. Left and Right move through the pictures; Escape and Space close it when they come up.
+    /// leaves it. Its keys are acted on in <see cref="OnPictureAccelerators"/>, which runs first for every key: handling
+    /// it there is what keeps Noto's chords off, and WinUI then raises no KeyDown. This only marks anything that does
+    /// arrive as handled.
     /// </summary>
-    private void OnPictureKeyDown(object sender, KeyRoutedEventArgs e)
+    private void OnPictureKeyDown(object sender, KeyRoutedEventArgs e) => e.Handled = true;
+
+    /// <summary>Left and Right move through the pictures and stop at the ends; Escape and Space close it when they come up.</summary>
+    private void PreviewKey(VirtualKey key)
     {
-        e.Handled = true;
         if (_previewed is not { } pictures)
         {
             return;
         }
 
-        switch (e.Key)
+        switch (key)
         {
             case VirtualKey.Escape or VirtualKey.Space:
                 _previewClosing = true;
                 break;
 
             case VirtualKey.Left or VirtualKey.Right:
-                NotePictures next = pictures.Step(e.Key == VirtualKey.Left ? -1 : 1);
+                NotePictures next = pictures.Step(key == VirtualKey.Left ? -1 : 1);
                 if (next.Index != pictures.Index)
                 {
                     _previewed = next;
@@ -217,8 +221,24 @@ public sealed partial class MainWindow
         }
     }
 
-    // Noto's own chords (Ctrl+W, Ctrl+N, Ctrl+F…) would act on what is behind the preview: while it is open, none does.
-    private void OnPictureAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args) => args.Handled = _previewed is not null;
+    /// <summary>
+    /// Runs before any accelerator, for every key pressed while focus is in the preview. Noto's own chords (Ctrl+W,
+    /// Ctrl+N, Ctrl+F…) would act on what is behind it, so every key is handled here, and a key without modifiers is
+    /// the preview's own (<see cref="PreviewKey"/>).
+    /// </summary>
+    private void OnPictureAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
+    {
+        if (_previewed is null)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        if (args.Modifiers == VirtualKeyModifiers.None)
+        {
+            PreviewKey(args.Key);
+        }
+    }
 
     private void OnEditorPictureRequested(object? sender, NotePictures pictures) => OpenPreview(pictures);
 }

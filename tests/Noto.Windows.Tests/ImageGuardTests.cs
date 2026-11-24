@@ -237,10 +237,12 @@ public sealed class ImageGuardTests
         Assert.Contains("AutomationProperties.SetName(PreviewSurface, picture.Name);", show, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.SetHelpText(PreviewSurface, pictures.Position);", show, StringComparison.Ordinal);
         Assert.Contains("PreviewStatus.Text = pictures.Position;", show, StringComparison.Ordinal);
-        string down = Body(Preview, "OnPictureKeyDown");
-        Assert.Matches(@"^\{\s*e\.Handled = true;", down);   // every key is the preview's: Tab never leaves it
-        Assert.Contains("NotePictures next = pictures.Step(e.Key == VirtualKey.Left ? -1 : 1);", down, StringComparison.Ordinal);
-        Assert.Contains("args.Handled = _previewed is not null;", Preview, StringComparison.Ordinal);
+        // Every key is the preview's, so Tab never leaves it and no chord acts behind it. The keys are acted on where
+        // they are first seen: a handled ProcessKeyboardAccelerators means WinUI raises no KeyDown (Invoke-Images case
+        // 18's first run: Right and Escape reached only the accelerator handler).
+        Assert.Contains("private void OnPictureKeyDown(object sender, KeyRoutedEventArgs e) => e.Handled = true;", Preview, StringComparison.Ordinal);
+        Assert.Contains("NotePictures next = pictures.Step(key == VirtualKey.Left ? -1 : 1);", Body(Preview, "PreviewKey"), StringComparison.Ordinal);
+        Assert.Matches(@"args\.Handled = true;\s*if \(args\.Modifiers == VirtualKeyModifiers\.None\)\s*\{\s*PreviewKey\(args\.Key\);", Body(Preview, "OnPictureAccelerators"));
 
         // Focus goes in once laid out, and back to exactly what had it: the card, or the editor with its caret. Closing
         // waits for Escape or Space to come up, so the key's character never types into the editor it returns to.
