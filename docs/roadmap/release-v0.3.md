@@ -1,6 +1,6 @@
 # v0.3 plan
 
-**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17); batches 5–7 built, awaiting their harness runs. **Planned:** 2026-11-16.
+**Status:** batches 1–4 merged (PRs #208–#231, 2026-11-17); batches 5–7 built, awaiting their harness runs; batch 8 runs one item at a time. **Planned:** 2026-11-16.
 **GitHub:** the [v0.3 milestone](https://github.com/mdsaif45/Noto/milestone/12).
 **Related:** [release-v0.2.md](release-v0.2.md) (the last release), [release-v0.2-checklist.md](release-v0.2-checklist.md),
 [sidenotes-parity.md](../product/sidenotes-parity.md), [roadmap.md](roadmap.md)
@@ -132,6 +132,21 @@ The MUST rows within reach close with the Open Bar. The SHOULD rows begin in a n
 
 Left for later batches: in-app picture preview on Space (D35, G44), moving imported files to the Recycle Bin (J29),
 themes (F2–F7, J22), and rebinding in-app shortcuts (G52).
+
+## Batch 8: themes, shortcuts, and two ADAPT rows (v0.4), one at a time
+
+Batches 5–7 left fourteen PRs waiting together for their harness runs. From batch 8, each item is built, tested,
+merged, and only then is the next one started.
+
+| # | Item | Issue | Rows | Decision taken |
+|---|---|---|---|---|
+| 36 | Theme files: the ADR | #265 | F2–F7, F11, J22 | JSON theme files over ADR-011's tokens, with a published schema; never in high contrast; installed from Settings, not by double-click yet. Documentation only |
+| 37 | Rebinding in-app shortcuts, and a chord for pinning | #266 | G52, G26 | A product decision before any building. Documentation only |
+| 38 | Move imported files to the Windows Recycle Bin | #267 | J29 | Off by default. Only files whose note was stored, only by a drop, and never deleted outright |
+| 39 | Preview a picture with Space | #268 | D35, G44 | An in-app full-size preview; Space keeps every meaning it already has |
+| 40 | Theme files: install, choose and manage | #269 | F2–F7, J22 | Built from #265's ADR; blocked until it merges |
+
+The two documentation items come first, because they can merge while the desktop is unavailable for harness runs.
 
 ## Later in v0.3, or v0.4: the edge and the platform
 
