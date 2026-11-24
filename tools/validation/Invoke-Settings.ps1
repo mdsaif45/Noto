@@ -153,7 +153,12 @@ function Show-Id([string] $Id) {
 }
 function Find-ById([string] $Id, [int] $Seconds = 10) {
     if (-not (Until { Visible-Id $Id } $Seconds) -and -not (Show-Id $Id)) { throw "no visible element '$Id' within ${Seconds}s" }
-    Element $Id
+    # Seen as visible, then a moment later not found: the page's automation tree can be rebuilt under a lookup right
+    # after Settings opens (seen after case 22's restarts). One short wait for it to come back, never a silent null.
+    $e = Element $Id
+    if (-not $e -and (Until { Visible-Id $Id } 3)) { $e = Element $Id }
+    if (-not $e) { throw "'$Id' was visible, then gone" }
+    $e
 }
 function Items([string] $ListId) {
     @((Find-ById $ListId).FindAll($Scope::Descendants, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)))
