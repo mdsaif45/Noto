@@ -161,6 +161,7 @@ Two choices worth explaining, because both depart from the obvious answer:
 | [Principles](docs/product/principles.md) | The rules that decide what gets built |
 | [First release](docs/product/first-release.md) | SideNotes parity — what ships first |
 | [SideNotes parity](docs/product/sidenotes-parity.md) | The objective definition of done |
+| [Shortcuts](docs/product/shortcuts.md) | Every chord Noto has, and why in-app chords are fixed |
 | [Strategy audit](docs/product/strategy-audit-2026-09.md) | Why the plan is shaped this way |
 | [Roadmap](docs/roadmap/roadmap.md) | Milestones as capabilities |
 | [Architecture](docs/architecture/architecture-overview.md) | How it is put together |
