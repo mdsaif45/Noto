@@ -668,6 +668,35 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll")]
     internal static partial int ReleaseDC(nint hWnd, nint hDC);
 
+    // Imported files moved to Windows' Recycle Bin (#267): the shell's own delete, to the bin, with no UI of its own
+    // but the warning that a file would be deleted outright instead.
+    internal const uint FO_DELETE = 0x0003;
+    internal const ushort FOF_SILENT = 0x0004;
+    internal const ushort FOF_NOCONFIRMATION = 0x0010;
+    internal const ushort FOF_ALLOWUNDO = 0x0040;
+    internal const ushort FOF_NOERRORUI = 0x0400;
+    internal const ushort FOF_WANTNUKEWARNING = 0x4000;
+
+    /// <summary>
+    /// <c>SHFILEOPSTRUCTW</c>, at natural alignment: shellapi.h packs it to 1 only on 32-bit Windows, which Noto does not
+    /// build for (win-x64, win-arm64).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct SHFILEOPSTRUCTW
+    {
+        public nint hwnd;
+        public uint wFunc;
+        public char* pFrom;
+        public char* pTo;
+        public ushort fFlags;
+        public int fAnyOperationsAborted;
+        public nint hNameMappings;
+        public char* lpszProgressTitle;
+    }
+
+    [LibraryImport("shell32.dll", EntryPoint = "SHFileOperationW")]
+    internal static partial int SHFileOperation(SHFILEOPSTRUCTW* lpFileOp);
+
     // Hot Side and drag to reveal (#185, ADR-007 §9): a low-level mouse hook on its own thread, one timer, and the
     // reads made once when a dwell elapses.
     internal const int WH_MOUSE_LL = 14;

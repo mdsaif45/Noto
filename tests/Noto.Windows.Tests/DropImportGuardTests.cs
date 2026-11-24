@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Noto.Platform.Windows;
 using Xunit;
 
 namespace Noto.Windows.Tests;
@@ -48,6 +49,82 @@ public sealed class DropImportGuardTests
         // Anything else said on the line takes the Undo away, as leaving or entering a folder does.
         string status = File.ReadAllText(SourcePath("src", "Noto.Windows", "MainWindow.Portability.cs"));
         Assert.Equal(2, Regex.Count(status, @"Status\(string message\)\s*\{\s*ForgetUndo\(\);"));
+    }
+
+    [Fact]
+    public void Imported_files_go_to_the_windows_recycle_bin_only_after_the_stored_import_and_only_when_the_setting_is_on()
+    {
+        // #267 (J29): both drops recycle what the import stored, once it has returned (its write committed), before the
+        // result is said, so the status can count them; the Open Bar's files have no copies of Noto's own.
+        foreach (string import in new[] { "ImportOnStack", "ImportOnRow" })
+        {
+            string body = Regex.Match(Drop, $@"private async Task {import}\([\s\S]*?\n    }}\n").Value;
+            int stored = body.IndexOf("await Import(files, ", StringComparison.Ordinal);
+            int recycled = body.IndexOf("(int Recycled, int Kept)? moved = RecycleImported(import, copies);", StringComparison.Ordinal);
+            int said = body.IndexOf("Said(import, ", StringComparison.Ordinal);
+            Assert.True(stored > 0 && stored < recycled && recycled < said, $"{import}: stored {stored}, recycled {recycled}, said {said}");
+            Assert.Contains(", moved, ", body[said..], StringComparison.Ordinal);
+        }
+
+        Assert.Contains("await ImportOnStack(dropped.Paths, folder, dropped.Copies);", Drop, StringComparison.Ordinal);
+        Assert.Contains("await ImportOnRow(dropped.Paths, row, dropped.Copies);", Drop, StringComparison.Ordinal);
+
+        // Off, nothing is touched; on, only the stored notes' sources, Noto's own copies left out, and the trace counts.
+        string recycle = Regex.Match(Drop, @"private \(int Recycled, int Kept\)\? RecycleImported\([\s\S]*?\n    }\n").Value;
+        Assert.Matches(@"\{\s*if \(!RecyclesImportedFiles \|\| ImportedFiles\.ToRecycle\(import\.Sources, copies\) is not \{ Count: > 0 \} files\)\s*\{\s*return null;", recycle);
+        Assert.Contains("ShellRecycleBin.Recycle(files, ", recycle, StringComparison.Ordinal);
+        Assert.Contains("Trace.WriteLine($\"Noto.Import recycled={moved.Recycled} kept={moved.Kept}\");", recycle, StringComparison.Ordinal);
+        Assert.Equal(1, Regex.Count(recycle, @"Trace\."));
+
+        // The drop is the only caller: never a picture dropped into a note, the data import, a paste, or Undo.
+        string windows = Path.GetDirectoryName(SourcePath("src", "Noto.Windows", "MainWindow.Drop.cs"))!;
+        var callers = Directory.EnumerateFiles(windows, "*.cs").Where(f => File.ReadAllText(f).Contains("ShellRecycleBin", StringComparison.Ordinal)).Select(Path.GetFileName);
+        Assert.Equal(["MainWindow.Drop.cs"], callers);
+        Assert.DoesNotContain("ShellRecycleBin", Regex.Match(Drop, @"private void OnUndoImportClick\([\s\S]*?\n    }\n").Value, StringComparison.Ordinal);
+
+        // The importer gives each stored note's source, only from the files it read into notes.
+        string importer = File.ReadAllText(SourcePath("src", "Noto.Infrastructure", "Portability", "MarkdownImporter.cs"));
+        Assert.Equal(2, Regex.Count(importer, @"sources\.Add\(file\);"));
+        Assert.Contains("SaveFirst(database, folder, notes, time.GetUtcNow()), copied.Count, skipped, imageIssues, sources);", importer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_recycle_checks_each_files_drive_type_and_asks_the_shell_to_recycle_never_to_delete()
+    {
+        // #267: where there is no Recycle Bin the shell deletes outright, silently, so every file is checked first: the
+        // drive's type through DriveInfo, judged by Core's rule (a local fixed drive only), before the shell is called.
+        string bin = File.ReadAllText(SourcePath("src", "Noto.Platform.Windows", "ShellRecycleBin.cs"));
+        Assert.Contains("new DriveInfo(root).DriveType", bin, StringComparison.Ordinal);
+        Assert.Contains("ImportedFiles.MayRecycle(file, AttributesOf(file), DriveOf(file)) && ToBin(file, owner)", bin, StringComparison.Ordinal);
+        Assert.Contains("fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI | FOF_WANTNUKEWARNING,", bin, StringComparison.Ordinal);
+        Assert.Contains("wFunc = FO_DELETE,", bin, StringComparison.Ordinal);
+        Assert.Contains("&& !Path.Exists(file);", bin, StringComparison.Ordinal);
+        Assert.DoesNotMatch(@"File\.Delete|Directory\.Delete|Trace\.|Log", bin);
+
+        string rule = File.ReadAllText(SourcePath("src", "Noto.Core", "Portability", "ImportedFiles.cs"));
+        Assert.Contains("&& drive == DriveType.Fixed", rule, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_read_only_file_a_folder_and_a_missing_file_are_kept_where_they_are_and_never_given_to_the_shell()
+    {
+        string folder = Directory.CreateTempSubdirectory("noto-recycle-").FullName;
+        string locked = Path.Join(folder, "read-only.md");
+        File.WriteAllText(locked, "kept");
+        File.SetAttributes(locked, FileAttributes.ReadOnly);
+        try
+        {
+            (int recycled, int kept) = ShellRecycleBin.Recycle([locked, folder, Path.Join(folder, "gone.md")], owner: null);
+
+            Assert.Equal((0, 3), (recycled, kept));
+            Assert.True(File.Exists(locked));
+            Assert.True(Directory.Exists(folder));
+        }
+        finally
+        {
+            File.SetAttributes(locked, FileAttributes.Normal);
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     /// <summary>Walks up to the repository root; a guard that silently skips is worse than none.</summary>

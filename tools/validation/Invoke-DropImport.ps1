@@ -17,6 +17,12 @@
     2  Undo: the three notes are in the Recycle Bin, "Import undone: 3 notes moved to the Recycle Bin.", no Undo
     3  on the folder list, a file dropped on Home's row: a note in Home, "Imported 1 note into Home.", Undo offered
     4  only report.docx on the stack: "Nothing was imported.", the notice says why, no Undo
+    5  #267: with Move imported files to the Windows Recycle Bin off (the default), case 3's file stayed in its folder
+       and is not in Windows' Recycle Bin; seeded on and Noto restarted, a uniquely named .md from a folder of its own
+       dropped on Home's row: its note in Home, "Imported 1 note into Home; moved 1 file to the Windows Recycle Bin.",
+       the file gone from its folder and exactly that file in Windows' Recycle Bin (its original folder and name, read
+       through Shell.Application in a child process, helpers/recycle-bin.ps1). That one item, the harness's own, is
+       then removed from the bin for good; no other item is touched
 
   Explorer, the desktop and a browser as the drag's source are the owner's check (#31): a harness cannot drive their
   windows without input outside Noto.
@@ -103,6 +109,13 @@ function New-Png([string] $Path) {
     $b = New-Object System.Drawing.Bitmap 40, 20; $g = [System.Drawing.Graphics]::FromImage($b); $g.Clear([System.Drawing.Color]::Red); $g.Dispose()
     $b.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png); $b.Dispose()
 }
+function In-Bin([string] $File, [switch] $Remove) {
+    <# Items in Windows' Recycle Bin that were $File; with -Remove, that one item removed for good (helpers/recycle-bin.ps1, a child process). #>
+    Assert-UnderRun $run $File
+    $out = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'helpers/recycle-bin.ps1') -Folder (Split-Path $File) -Name (Split-Path $File -Leaf) @(if ($Remove) { '-Remove' })
+    if ($LASTEXITCODE -ne 0) { throw "recycle-bin.ps1 failed: $out" }
+    [int]"$out".Trim()
+}
 function Stamp([string[]] $Files) { ($Files | ForEach-Object { "$((Get-FileHash $_).Hash)@$((Get-Item $_).LastWriteTimeUtc.Ticks)" }) -join '|' }
 
 exit (Invoke-IsolatedRun $run -Title 'F9: drop files to import them' -Body {
@@ -161,6 +174,26 @@ exit (Invoke-IsolatedRun $run -Title 'F9: drop files to import them' -Body {
     $effect = Drop-On $homeRow @($homeFile)
     $status = Shown-Text 'StatusText'
     Add-Result $run '3  a file dropped on Home''s row: a note in Home, one result, Undo offered; Work unchanged' (((Contents $HomeFolder) -join ',') -eq 'Home note' -and (Contents $Work).Count -eq 1 -and $status -eq 'Imported 1 note into Home.' -and (Visible-Id 'UndoImportButton') -and (Stamp $all) -eq $stamped) "$effect home=$((Contents $HomeFolder) -join ',') status='$status' undo=$(Visible-Id 'UndoImportButton') unchanged=$((Stamp $all) -eq $stamped)"
+
+    # 5 - #267: off, a dropped file stays; on, it goes to Windows' Recycle Bin once its note is stored
+    Add-Result $run '5  off (the default): the file dropped in case 3 stayed in its folder, not in Windows'' Recycle Bin' ((Test-Path -LiteralPath $homeFile) -and (In-Bin $homeFile) -eq 0) "there=$(Test-Path -LiteralPath $homeFile) inBin=$(In-Bin $homeFile)"
+    if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly before the setting was seeded' }
+    Set-NotoSetting $run -Exe $NotoExe -DataRoot $script:data -Key 'importing.recycle-files' -Value 'True'
+    $binFrom = Join-Path $run.Root "recycle-$([guid]::NewGuid().ToString('N'))"; New-Item -ItemType Directory $binFrom | Out-Null
+    $binned = Join-Path $binFrom "noto-harness-$([guid]::NewGuid().ToString('N')).md"; [IO.File]::WriteAllText($binned, 'Recycled after import')
+    $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
+    Bring-Forward
+    $homeRow = @(Rows 'FolderList' | Where-Object { (Get-RowTitle $_.Current.Name) -eq 'Home' })[0]
+    $effect = Drop-On $homeRow @($binned)
+    $status = Shown-Text 'StatusText'
+    $there = Test-Path -LiteralPath $binned; $inBin = In-Bin $binned
+    Add-Result $run '5  on: the note is in Home, the file is gone from its folder and is that one item in Windows'' Recycle Bin, and the status says so' (
+        (Contents $HomeFolder) -contains 'Recycled after import' -and -not $there -and $inBin -eq 1 -and $status -eq 'Imported 1 note into Home; moved 1 file to the Windows Recycle Bin.'
+    ) "$effect home=$((Contents $HomeFolder) -join ',') there=$there inBin=$inBin status='$status'"
+    if ($inBin -eq 1) {
+        $null = In-Bin $binned -Remove
+        Add-Result $run '5  the harness''s own item is removed from Windows'' Recycle Bin, and only it' ((In-Bin $binned) -eq 0) "left=$(In-Bin $binned)"
+    }
 
     $null = Stop-Noto $script:noto
 })

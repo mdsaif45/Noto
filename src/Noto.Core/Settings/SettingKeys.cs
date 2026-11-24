@@ -458,6 +458,16 @@ public static class SettingKeys
         new("importing.text-file", TextFileDrop.Shortcut, Enum.IsDefined);
 
     /// <summary>
+    /// Whether a file dropped on the list is moved to Windows' Recycle Bin once its note is stored (J29, #267).
+    /// </summary>
+    /// <remarks>
+    /// Default off: it touches files Noto does not own, so it is never on unless chosen. Pictures dropped into a note,
+    /// Settings' data import and pastes are never affected; which files may go is <c>ImportedFiles</c>'.
+    /// </remarks>
+    public static readonly SettingKey<bool> ImportingRecycleFiles =
+        new("importing.recycle-files", false);
+
+    /// <summary>
     /// Whether plain text that reads as code is pasted in a fenced code block (D39, J20, #187; <c>PastedCode</c>).
     /// </summary>
     /// <remarks>Default off: a paste the user did not ask to reformat stays exactly what they copied.</remarks>
@@ -596,6 +606,7 @@ public static class SettingKeys
         EditorFileLinks,
         ImportingPicture,
         ImportingTextFile,
+        ImportingRecycleFiles,
         EditorPasteCodeBlock,
         BackupAutomatic,
         BackupFrequency,

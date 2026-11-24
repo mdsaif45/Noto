@@ -195,6 +195,7 @@ public sealed partial class SettingsPage : UserControl
             Select(FileLinksSetting, preferences.FileLinks.ToString());
             Select(PictureDropSetting, preferences.PictureDrop.ToString());
             Select(TextFileDropSetting, preferences.TextFileDrop.ToString());
+            RecycleImportedFilesSetting.IsOn = preferences.RecycleImportedFiles;
             PasteCodeBlockSetting.IsOn = preferences.PasteCodeBlock;
             HotkeyEnabledSetting.IsOn = preferences.HotkeyEnabled;
             NewNoteHotkeySetting.IsOn = preferences.NewNoteHotkeyEnabled;
@@ -312,6 +313,10 @@ public sealed partial class SettingsPage : UserControl
 
     private void OnTextFileDropChanged(object sender, SelectionChangedEventArgs e) =>
         Write(p => TextFileDropSetting.SelectedItem is not null && p.SetTextFileDrop(Selected<TextFileDrop>(TextFileDropSetting)));
+
+    // #267: the files a drop imports go to Windows' Recycle Bin; read by the drop at once (App.OnSettingChanged).
+    private void OnRecycleImportedFilesToggled(object sender, RoutedEventArgs e) =>
+        Write(p => p.SetRecycleImportedFiles(RecycleImportedFilesSetting.IsOn));
 
     private void OnPasteCodeBlockToggled(object sender, RoutedEventArgs e) =>
         Write(p => p.SetPasteCodeBlock(PasteCodeBlockSetting.IsOn));

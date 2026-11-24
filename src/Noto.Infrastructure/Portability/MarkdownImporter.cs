@@ -128,6 +128,7 @@ public static class MarkdownImporter
         var imageIssues = new List<ImportIssue>();
         var copied = new List<string>();
         var notes = new List<string>(files.Count);
+        var sources = new List<string>(files.Count);
         try
         {
             foreach (string file in files)
@@ -149,6 +150,7 @@ public static class MarkdownImporter
                     // Titled by its name, so the card and a screen reader name the picture, not its markup.
                     copied.Add(reference);
                     notes.Add(Path.GetFileNameWithoutExtension(file) + "\n" + MarkdownCommands.InsertImage(string.Empty, TextSelection.Caret(0), reference, name).Replacement);
+                    sources.Add(file);
                 }
                 else if (!NoteTypes.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                 {
@@ -163,10 +165,11 @@ public static class MarkdownImporter
                     // The pictures it refers to are those beside it or below it, as for a folder imported.
                     string directory = Path.GetDirectoryName(Path.GetFullPath(file))!;
                     notes.Add(ImageSources.Rewrite(content, s => Image(images, directory, directory, s, name, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), copied, imageIssues, new HashSet<string>(StringComparer.OrdinalIgnoreCase))));
+                    sources.Add(file);
                 }
             }
 
-            return new FilesImport(notes.Count == 0 ? [] : SaveFirst(database, folder, notes, time.GetUtcNow()), copied.Count, skipped, imageIssues);
+            return new FilesImport(notes.Count == 0 ? [] : SaveFirst(database, folder, notes, time.GetUtcNow()), copied.Count, skipped, imageIssues, sources);
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or PortabilityException)
         {
@@ -446,8 +449,12 @@ public static class MarkdownImporter
 /// <summary>What an import added, and what it did not and why.</summary>
 public sealed record ImportReport(int Folders, int Notes, int Images, IReadOnlyList<ImportIssue> Skipped, IReadOnlyList<ImportIssue> ImageIssues);
 
-/// <summary>What files dropped on a folder added (F9, #152): its new notes, in order, and what was not imported and why.</summary>
-public sealed record FilesImport(IReadOnlyList<NoteId> Notes, int Images, IReadOnlyList<ImportIssue> Skipped, IReadOnlyList<ImportIssue> ImageIssues);
+/// <summary>
+/// What files dropped on a folder added (F9, #152): its new notes, in order, and what was not imported and why; and
+/// <paramref name="Sources"/>, the file each note was read from, in the same order (#267), the files a drop may then move
+/// to Windows' Recycle Bin. Empty when nothing was stored.
+/// </summary>
+public sealed record FilesImport(IReadOnlyList<NoteId> Notes, int Images, IReadOnlyList<ImportIssue> Skipped, IReadOnlyList<ImportIssue> ImageIssues, IReadOnlyList<string> Sources);
 
 /// <summary>A file not imported, or an image a note refers to that was not; <paramref name="Source"/> is the image's source as written.</summary>
 public sealed record ImportIssue(string File, ImportIssueKind Kind, string? Source = null);

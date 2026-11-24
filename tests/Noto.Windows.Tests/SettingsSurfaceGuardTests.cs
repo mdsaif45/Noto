@@ -47,6 +47,7 @@ public sealed class SettingsSurfaceGuardTests
             ("EditorFileLinks", @"_main\.ApplyFileLinks\(preferences\.FileLinks\)"),
             ("ImportingPicture", @"NoteEditorHost\.PictureDrops = preferences\.PictureDrop"),
             ("ImportingTextFile", @"NoteEditorHost\.TextFileDrops = preferences\.TextFileDrop"),
+            ("ImportingRecycleFiles", @"_main\.RecyclesImportedFiles = preferences\.RecycleImportedFiles"),
             ("WorkspaceEdge", @"_coordinator\?\.ChangeEdge\(DockEdges\.From\(preferences\.Edge\)\)"),
             ("WorkspaceEscape", @"_main\.Escape = preferences\.Escape"),
             ("WorkspaceHideOnDeactivation", @"_coordinator\.HideOnDeactivation = preferences\.HideOnDeactivation"),
@@ -111,7 +112,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(32, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(33, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -420,8 +421,9 @@ public sealed class SettingsSurfaceGuardTests
         // Search's, F21; where a new note goes, #188, and what it is, #195; change side's and keep open's, #198), the
         // Data group's Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour
         // (ADR-021), opening the last folder at start (#193), and file links and the two Importing choices (#196), Hot
-        // Side and drag to reveal (#185), the Open Bar and its drop (#185 part 2), and the backup folder (#233).
-        Assert.Equal(45, rows.Count);
+        // Side and drag to reveal (#185), the Open Bar and its drop (#185 part 2), the backup folder (#233), and moving
+        // imported files to the Windows Recycle Bin (#267).
+        Assert.Equal(46, rows.Count);
 
         foreach (XElement row in rows)
         {
@@ -535,6 +537,28 @@ public sealed class SettingsSurfaceGuardTests
         string reverted = Body(Page, "OnDefaultBackupFolderClick");
         Assert.Contains("Write(p => p.SetBackupFolder(AutomaticBackups.DefaultFolder));", reverted, StringComparison.Ordinal);
         Assert.Contains("_ = BackupFolderButton.Focus(FocusState.Programmatic);", reverted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Moving_imported_files_to_the_windows_recycle_bin_is_a_switch_after_the_importing_choices_off_by_default()
+    {
+        // #267 (J29): the row follows When you drop a text file into a note, in Importing; it names Windows' Recycle Bin,
+        // never Noto's own; one setter writes it, the stored value is shown, and the drop reads it at once (the first test)
+        // and from the first frame.
+        XElement texts = Named(PageXaml, "TextFileDropSetting");
+        XElement toggle = Named(PageXaml, "RecycleImportedFilesSetting");
+        var rows = texts.Parent!.Parent!.Elements().ToList();
+
+        Assert.Equal(rows.IndexOf(texts.Parent!) + 1, rows.IndexOf(toggle.Parent!));
+        Assert.Equal("ToggleSwitch", toggle.Name.LocalName);
+        Assert.Equal("Move imported files to the Windows Recycle Bin", (string?)toggle.Attribute("AutomationProperties.Name"));
+        Assert.Equal("OnRecycleImportedFilesToggled", (string?)toggle.Attribute("Toggled"));
+        Assert.Contains("Windows Recycle Bin", toggle.Parent!.Descendants().Select(e => (string?)e.Attribute("Text")).OfType<string>().First(), StringComparison.Ordinal);
+
+        Assert.Contains("RecycleImportedFilesSetting.IsOn = preferences.RecycleImportedFiles;", Body(Page, "ShowStored"), StringComparison.Ordinal);
+        Assert.Contains("Write(p => p.SetRecycleImportedFiles(RecycleImportedFilesSetting.IsOn));", Page, StringComparison.Ordinal);
+        Assert.Contains("RecyclesImportedFiles = preferences.RecycleImportedFiles,", App, StringComparison.Ordinal);
+        Assert.Matches(@"ImportingRecycleFiles =\s*new\(""importing\.recycle-files"", false\);", Code(SourcePath("src", "Noto.Core", "Settings", "SettingKeys.cs")));
     }
 
     [Fact]

@@ -544,7 +544,7 @@
                     </Border>
                 </StackPanel>
 
-                <!-- IMPORTING (#196, J30): what a file dropped into a note becomes. Files dropped on the list are imported as notes either way. -->
+                <!-- IMPORTING (#196, J30): what a file dropped into a note becomes. Files dropped on the list are imported as notes either way, and then may go to Windows' Recycle Bin (#267, J29). -->
                 <StackPanel Spacing="{StaticResource SpaceS}">
                     <TextBlock Text="Importing" Style="{StaticResource SettingsSectionHeaderStyle}" AutomationProperties.HeadingLevel="Level2" />
                     <Border Style="{StaticResource SettingsGroupStyle}">
@@ -590,6 +590,29 @@
                                     <ComboBoxItem Content="Add a shortcut" Tag="Shortcut" />
                                     <ComboBoxItem Content="Insert its text" Tag="InsertText" />
                                 </ComboBox>
+                            </Grid>
+
+                            <!--
+                                #267 (J29): a file dropped on the list goes to Windows' Recycle Bin once its note is
+                                stored. Off by default: it touches files Noto does not own. "Windows" every time, so it
+                                is never taken for Noto's own Recycle Bin of notes.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Move imported files to the Windows Recycle Bin" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Once a file dropped on the list is a note. Files on a network or removable drive stay where they are." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="RecycleImportedFilesSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnRecycleImportedFilesToggled"
+                                    AutomationProperties.Name="Move imported files to the Windows Recycle Bin"
+                                    AutomationProperties.HelpText="Once a file dropped on the list is a note. Files on a network or removable drive stay where they are." />
                             </Grid>
 
                         </StackPanel>
