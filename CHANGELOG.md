@@ -12,6 +12,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Settings › Importing › *Move imported files to the Windows Recycle Bin* (off by default): files dropped on Noto
+  go to Windows' Recycle Bin once their notes are saved. Files on a network or removable drive, read-only files and
+  files in use stay where they are, and the status says how many moved and how many stayed (#267).
 - The Open Bar: a small handle at the screen edge, shown while Noto is hidden, that shows Noto when clicked and imports
   files dropped on it. Settings › Sidebar chooses Off, Always shown or Hide when the mouse is idle; it is off by default,
   and dropping files on it has its own switch (#185).
