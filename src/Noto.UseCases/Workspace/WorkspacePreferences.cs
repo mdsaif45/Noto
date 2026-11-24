@@ -104,6 +104,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>What a text file dropped into a note becomes (J30, #196).</summary>
     public TextFileDrop TextFileDrop => _settings.Read(SettingKeys.ImportingTextFile);
 
+    /// <summary>Whether files dropped on the list go to Windows' Recycle Bin once their notes are stored (J29, #267).</summary>
+    public bool RecycleImportedFiles => _settings.Read(SettingKeys.ImportingRecycleFiles);
+
     /// <summary>Whether plain text that reads as code is pasted in a fenced code block (D39).</summary>
     public bool PasteCodeBlock => _settings.Read(SettingKeys.EditorPasteCodeBlock);
 
@@ -255,6 +258,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets what a text file dropped into a note becomes.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTextFileDrop(TextFileDrop drop) => TryWrite(SettingKeys.ImportingTextFile, drop);
+
+    /// <summary>Sets whether files dropped on the list go to Windows' Recycle Bin once their notes are stored.</summary>
+    /// <returns>Whether it was kept.</returns>
+    public bool SetRecycleImportedFiles(bool recycle) => TryWrite(SettingKeys.ImportingRecycleFiles, recycle);
 
     /// <summary>Sets whether plain text that reads as code is pasted in a fenced code block.</summary>
     /// <returns>Whether it was kept.</returns>

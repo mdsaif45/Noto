@@ -155,11 +155,11 @@ public sealed partial class OpenBarGuardTests
 
         // One import path for a drop on the stack, on a folder row and on the bar.
         string drop = Code(Path.Join(Windows, "MainWindow.Drop.cs"));
-        Assert.Contains("await ImportOnStack(dropped.Paths, folder);", Body(drop, "OnNoteListDrop"), StringComparison.Ordinal);
-        Assert.Contains("await ImportOnRow(dropped.Paths, row);", Body(drop, "OnFolderListDrop"), StringComparison.Ordinal);
+        Assert.Contains("await ImportOnStack(dropped.Paths, folder, dropped.Copies);", Body(drop, "OnNoteListDrop"), StringComparison.Ordinal);
+        Assert.Contains("await ImportOnRow(dropped.Paths, row, dropped.Copies);", Body(drop, "OnFolderListDrop"), StringComparison.Ordinal);
         string bar = Body(drop, "ImportDroppedOnBar");
-        Assert.Contains("await ImportOnStack(files, folder);", bar, StringComparison.Ordinal);
-        Assert.Contains("await ImportOnRow(files, row);", bar, StringComparison.Ordinal);
+        Assert.Contains("await ImportOnStack(files, folder, copies: null);", bar, StringComparison.Ordinal);
+        Assert.Contains("await ImportOnRow(files, row, copies: null);", bar, StringComparison.Ordinal);
 
         // A drop is taken only while its setting is on.
         Assert.Matches(@"if \(self\._drops && files\.Count > 0\)\s*\{\s*self\.Open\(files\);", Bar);

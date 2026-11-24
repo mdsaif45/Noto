@@ -295,6 +295,7 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(EscapeBehavior.LeaveFolderOrHide, preferences.Escape);
         Assert.Equal(NoteMode.Markdown, preferences.NewNoteMode);
         Assert.Equal(string.Empty, preferences.BackupFolder);
+        Assert.False(preferences.RecycleImportedFiles);
     }
 
     [Theory]
@@ -354,6 +355,7 @@ public sealed class WorkspacePreferencesTests
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
         { "SetBackupFolder", SettingKeys.BackupFolder.Name, @"D:\Backups\Noto" },
+        { "SetRecycleImportedFiles", SettingKeys.ImportingRecycleFiles.Name, true },
     };
 
     [Theory]
@@ -518,6 +520,7 @@ public sealed class WorkspacePreferencesTests
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         "SetBackupFolder" => preferences.SetBackupFolder((string)value),
+        "SetRecycleImportedFiles" => preferences.SetRecycleImportedFiles((bool)value),
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 
@@ -541,6 +544,7 @@ public sealed class WorkspacePreferencesTests
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
         "SetBackupFolder" => preferences.BackupFolder,
+        "SetRecycleImportedFiles" => preferences.RecycleImportedFiles,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
 }

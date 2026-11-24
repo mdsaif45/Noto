@@ -876,6 +876,7 @@ public partial class App : Application
         {
             Escape = preferences.Escape,
             SingleClickOpen = preferences.SingleClickOpen,
+            RecyclesImportedFiles = preferences.RecycleImportedFiles,
             NewNotePlacement = preferences.NewNotePlacement,
             NewNoteMode = preferences.NewNoteMode,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
@@ -1525,6 +1526,10 @@ public partial class App : Application
         else if (key == SettingKeys.ImportingTextFile)
         {
             NoteEditorHost.TextFileDrops = preferences.TextFileDrop;
+        }
+        else if (key == SettingKeys.ImportingRecycleFiles && _main is not null)
+        {
+            _main.RecyclesImportedFiles = preferences.RecycleImportedFiles;
         }
         else if (key == SettingKeys.EditorPasteCodeBlock)
         {

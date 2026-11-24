@@ -34,6 +34,7 @@ public sealed class DropImportTests : IDisposable
         FilesImport import = MarkdownImporter.ImportFiles(_workspace.Database, _workspace.Images, [list, plain, photo], folder, Workspace.Time);
 
         Assert.Equal(3, import.Notes.Count);
+        Assert.Equal([list, plain, photo], import.Sources);
         Assert.Equal(2, import.Images);
         Assert.Empty(import.Skipped);
         Assert.Empty(import.ImageIssues);
@@ -67,6 +68,7 @@ public sealed class DropImportTests : IDisposable
         FilesImport import = MarkdownImporter.ImportFiles(_workspace.Database, _workspace.Images, [doc, latin1, from, fake, ok], folder, Workspace.Time);
 
         Assert.Single(import.Notes);
+        Assert.Equal([ok], import.Sources);
         Assert.Equal(
             [("report.docx", ImportIssueKind.NotANote), ("old.txt", ImportIssueKind.NotText), (Path.GetFileName(from), ImportIssueKind.NotANote), ("fake.png", ImportIssueKind.ImageNotAnImage)],
             import.Skipped.Select(s => (s.File, s.Kind)));
