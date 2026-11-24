@@ -1,7 +1,7 @@
 # SideNotes Parity Specification
 
 **Status:** Draft
-**Last updated:** 2026-11-17 — v0.3's rows scored as each slice merged, the counts recounted (see *Current status*)
+**Last updated:** 2026-11-24 — G26's chord and G52 decided ([shortcuts.md](shortcuts.md), #266); the counts unchanged (see *Current status*)
 **Milestone:** [M3 — SideNotes Parity](../roadmap/roadmap.md#m3--sidenotes-parity--the-first-product)
 **Source:** [sidenotes-feature-inventory.md](../research/_raw/sidenotes-feature-inventory.md) — SideNotes 1.6.5, macOS
 
@@ -136,7 +136,7 @@ debt:
 | Rows | Why they are Noto's |
 | ---- | ------------------- |
 | B7, B23, I7, I15, J2 | BETTER — §12. The inventory records no trash, no export and no keyboard-only activation in SideNotes |
-| G26 | SideNotes documents no pin-note chord; `Ctrl+Shift+P` is Noto's proposal |
+| G26 | SideNotes documents no pin-note chord; `Alt+P` is Noto's ([shortcuts.md](shortcuts.md)) |
 | B22, E8, A18, A19, G52 | The inventory marks the SideNotes behaviour UNKNOWN; each is kept on Noto's own merits (principle 3 for E8) |
 | D51 | A SideNotes defect turned into a Noto requirement |
 | Tags | No row at all: the engine has tags (contract §7); they are not parity |
@@ -636,6 +636,8 @@ deviations are marked **↯** and justified below the table.
 Global chords use `Ctrl+Alt+Win+<key>` where SideNotes uses `⌃⌥⌘<key>` —
 Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 
+Every chord Noto has, read from the code, and the rules for adding one: [shortcuts.md](shortcuts.md).
+
 ### 7.1 Global (work when Noto is hidden) — all configurable
 
 | Status | ID | Action | SideNotes | Noto (proposed) | Level | Issue | Notes |
@@ -675,7 +677,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | `[x]` | G23 | Set note color 1–6 | `⌘1`…`⌘6` | `Ctrl+1`…`Ctrl+6` | MUST | — | **v0.2 score (2026-11-13):** F7 (#150): Ctrl+1–Ctrl+6 (`Invoke-NoteStack` case 46). |
 | `[x]` | G24 | Clear note color | `⌘0` | `Ctrl+0` | MUST | — | ⚠ collides with "reset zoom" convention **v0.2 score (2026-11-13):** F7 (#150): Ctrl+0. |
 | `[ ]` | G25 | Print note | `⌘P` | `Ctrl+P` | SHOULD | — | |
-| `[ ]` | G26 | Pin note | none documented | `Ctrl+Shift+P` ↯ | SHOULD | — | Collides with D29 insert-picture — unresolved |
+| `[ ]` | G26 | Pin note | none documented | `Alt+P` | SHOULD | — | **v0.4 decision (2026-11-24):** Alt+P, see docs/product/shortcuts.md (#266). Pins or unpins the current card, from the card or its editor, and the focused folder on the folder list; not built yet, a feature issue follows |
 
 ### 7.4 Editing
 
@@ -716,7 +718,7 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
 | :----: | -- | ------- | ------------------ | ---------------- | :---: | :---: | ----- |
 | `[x]` | G50 | Rebind global shortcuts | Record-shortcut UI for the global set | Same, for the global set | MUST | #198 | **v0.2 score (2026-11-13):** Four global shortcuts are rebindable in Settings: show and hide, new note, note from clipboard, search. No global change-side shortcut. **v0.3 score (2026-11-16):** All six global shortcuts are rebindable in Settings with a recorder: show and hide, new note, note from clipboard, Search, change side, keep open (#198). |
 | `[x]` | G51 | Escape behavior setting | 4 options | Same 4 options | MUST | — | The four options exist and are stored (A12); no settings UI to choose one. Re-scored 2026-10-13 from `[~]`: this row is the setting, and no user can reach it **v0.2 score (2026-11-13):** Settings › Escape, four options (`Invoke-Settings` case 5). |
-| `[ ]` | G52 | Rebind in-app shortcuts | Undocumented whether possible | Rebindable, with conflict detection | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes |
+| `[ ]` | G52 | Rebind in-app shortcuts | Undocumented whether possible | Rebindable, with conflict detection | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes **v0.4 decision (2026-11-24):** Not now. In-app chords stay fixed, in one documented, conflict-free map (docs/product/shortcuts.md, #266); reopened only on the criteria there. A known gap at the M4 gate, not a DROP |
 
 ### Collisions with standard Windows shortcuts
 
@@ -726,26 +728,26 @@ Windows has no fourth modifier, and `Ctrl+Alt+Shift` collides with too much.
   Ctrl+Alt+Win+Space     IME / input-method switchers (varies)  configurable; test first
   Ctrl+0          (G24)  "reset zoom" in almost every app       keep; Noto has no zoom
   Ctrl+Shift+P    (G35)  command palette (VS Code, Explorer-ish) keep; in-app only
-  Ctrl+Shift+P    (G26)  ALSO G35 insert-picture — INTERNAL      UNRESOLVED — see below
+  Ctrl+Shift+P    (G26)  ALSO G35 insert-picture — INTERNAL      resolved: G26 is Alt+P
   Ctrl+Shift+R    (G40)  browser hard reload (muscle memory)     keep; in-app only
   Ctrl+[ / Ctrl+] (G36/7) Esc-equivalent in some terminals       keep; in-app only
   Ctrl+Alt+<key>         AltGr on many non-US layouts            MUST verify on DE/FR/PL
   Ctrl+W          (G7)   "close document" everywhere             correct — it closes the panel
 ```
 
-**One internal collision is unresolved and must be decided before G26/G35 are
-built.** Pin-note and insert-picture cannot both be `Ctrl+Shift+P`. Insert
-picture (G35) has the stronger claim — it maps literally from `⇧⌘P` and is
-CONFIRMED in SideNotes; pin-note has no documented chord at all. Provisional
-resolution: G35 keeps `Ctrl+Shift+P`, G26 takes an unbound-by-default slot.
-Recorded in section 13.
+**The one internal collision is resolved (2026-11-24, #266).** Pin-note and
+insert-picture cannot both be `Ctrl+Shift+P`. Insert picture (G35) has the
+stronger claim — it maps literally from `⇧⌘P` and is CONFIRMED in SideNotes;
+pin-note has no documented chord at all. G35 keeps `Ctrl+Shift+P`; G26 is
+`Alt+P` ([shortcuts.md](shortcuts.md)).
 
 **`Ctrl+Alt+<key>` is the systemic risk, not any individual chord.** On German,
 French, Polish and several other keyboard layouts, `AltGr` is delivered to
 applications as `Ctrl+Alt`, so every `Ctrl+Alt+<letter>` chord can swallow a
 character the user was trying to type. Eight rows use it (G10, G11, G12, G15,
-G17–G22, G34). This must be tested on non-US layouts during M3, and G52's
-rebinding is the mitigation of last resort. SideNotes does not have this
+G17–G22, G34). This must be tested on non-US layouts during M3. Since the implementation plan's §10
+chord map, no in-app chord is `Ctrl+Alt+<character key>`, so G52's rebinding is
+no longer needed as a mitigation ([shortcuts.md](shortcuts.md), #266). SideNotes does not have this
 problem because macOS has no AltGr.
 
 **The deviations (↯) are five, and each has one reason.** G15 reorders modifiers
@@ -1028,13 +1030,15 @@ must be re-mapped before implementation.
 
 1. **No default shortcut uses `Ctrl+Alt+<letter>`.** Prefer `Ctrl+Shift+<key>`,
    `Alt+<key>` or a chord.
-2. **Every shortcut is rebindable** — the mitigation of last resort, and
-   required anyway by principle 7.
+2. **Every global shortcut is rebindable** (G50). In-app chords are fixed and
+   documented instead, once rule 1 holds for all of them: decided 2026-11-24 in
+   [shortcuts.md](shortcuts.md) (#266, G52). Principle 7 asks for a keyboard
+   path, which the fixed map gives.
 3. **Test on a non-US layout** before shipping the shortcut set. This belongs in
    the M4 gate.
 
-One internal collision is also unresolved: **pin-note and insert-picture both
-map to `Ctrl+Shift+P`.** Resolve when G rows become issues.
+The internal collision between pin-note and insert-picture on `Ctrl+Shift+P`
+is resolved: G35 keeps it, G26 is `Alt+P` ([shortcuts.md](shortcuts.md), #266).
 
 ---
 
