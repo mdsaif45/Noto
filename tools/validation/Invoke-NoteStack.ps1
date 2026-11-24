@@ -397,7 +397,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     Send-ToNoto @(0x10) 0x79
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
-    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Move to,Pin,Fold,Colour,Mode,Move to top,Move to bottom,Export as Markdown…,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
+    Add-Result $run '12 Shift+F10 opens the card menu; Escape closes it' (($menu -join ',') -eq 'Edit,New note,Duplicate,Move to,Pin,Fold,Colour,Mode,Move to top,Move to bottom,Export as Markdown…,Move to the Recycle Bin' -and (Menu-Items).Count -eq 0 -and (Focused) -match 'ListItem') "menu=$($menu -join ',') after=$((Menu-Items).Count) focus=$(Focused)"
 
     # 13 - Settings and back while editing
     Send-ToNoto @() 0x0D
@@ -426,7 +426,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $menu = Menu-Items
     Send-ToNoto @() 0x1B
     Send-ToNoto @(0x11) 0x4E
-    Add-Result $run '16 folder menu (Open, Rename, Copy link, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,Copy link,New folder,Pin,Move to top,Move to bottom,Export as Markdown…,Delete' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
+    Add-Result $run '16 folder menu (Open, Rename, Copy link, New folder); Ctrl+N focuses the name box' (($menu -join ',') -eq 'Open,Rename,Copy link,Duplicate,New folder,Pin,Move to top,Move to bottom,Export as Markdown…,Delete' -and (Focused) -match 'id=FolderNameInput') "menu=$($menu -join ',') focus=$(Focused)"
 
     # 17 - named actions
     Enter-Folder
@@ -450,7 +450,7 @@ exit (Invoke-IsolatedRun $run -Title 'The note stack (ADR-016)' -Body {
     $card.SetFocus(); Start-Sleep -Milliseconds 300
     Send-ToNoto @(0x10) 0x79
     Expand 'Move to'
-    $sub = @(Menu-Items | Where-Object { $_ -notin 'Edit', 'New note', 'Move to', 'Move to the Recycle Bin' })
+    $sub = @(Menu-Items | Where-Object { $_ -notin 'Edit', 'New note', 'Duplicate', 'Move to', 'Move to the Recycle Bin' })
     Choose 'Elsewhere'
     $id5 = [string](Sql $script:data "SELECT Id FROM Notes WHERE Content = 'Filler 5'" -Scalar)
     Add-Result $run '20 the card menu''s Move to lists the recent folder first; choosing it moves the card' ($sub[0] -eq 'Elsewhere' -and (FolderOf $id5) -eq $Elsewhere -and -not (Card 'Filler 5')) "sub=$($sub -join ',') folder=$(FolderOf $id5) focus=$(Focused)"
