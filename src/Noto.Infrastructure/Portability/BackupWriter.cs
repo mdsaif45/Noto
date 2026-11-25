@@ -81,7 +81,7 @@ public static class BackupWriter
 
             cancellation.ThrowIfCancellationRequested();
             double archiveMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds - snapshotMs;
-            File.Move(partial, destination, overwrite: true);
+            TransientMove.Run(() => File.Move(partial, destination, overwrite: true));
 
             // Timing only, on the validation channel: counts and milliseconds, never a name or a path.
             Trace.WriteLine(string.Create(CultureInfo.InvariantCulture,

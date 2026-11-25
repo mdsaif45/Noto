@@ -113,7 +113,7 @@ public static class MarkdownExporter
 
             File.WriteAllText(Path.Join(work, ExportIndex.FileName), new ExportIndex { ExportedAt = now, Folders = indexed }.ToJson(), Utf8);
             cancellation.ThrowIfCancellationRequested();
-            Directory.Move(work, final);
+            TransientMove.Run(() => Directory.Move(work, final));
             return new ExportSummary(final, folders.Count, total, images, missing.Count);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
