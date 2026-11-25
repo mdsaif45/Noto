@@ -171,8 +171,11 @@ public sealed partial class NoteEditorHost : UserControl
         {
             NoteSpacing.Changed -= OnSpacingChanged;
             NoteSpacing.Changed += OnSpacingChanged;
+            ThemeColors.Changed -= OnThemeColorsChanged;
+            ThemeColors.Changed += OnThemeColorsChanged;
         };
         Unloaded += (_, _) => NoteSpacing.Changed -= OnSpacingChanged;
+        Unloaded += (_, _) => ThemeColors.Changed -= OnThemeColorsChanged;
         NoteEditor.PreviewKeyDown += OnPreviewKeyDown;
         NoteEditor.SizeChanged += (_, _) => QueueTaskMarks();
         NoteEditor.Loaded += (_, _) => FollowScrollOf(NoteEditor);
@@ -548,6 +551,12 @@ public sealed partial class NoteEditorHost : UserControl
             NoteEditor.Document.Selection.SetRange(keep.Start, keep.End);
         });
 
+    /// <summary>
+    /// A theme file's colours were set on the brushes (#269, ADR-023 §6): the RTF palette is a snapshot of them, so the
+    /// editor restyles, the same path a Light/Dark switch takes.
+    /// </summary>
+    private void OnThemeColorsChanged(object? sender, EventArgs e) => RestyleAll();
+
     private void OnSpacingChanged(object? sender, EventArgs e) => RestyleAll();
 
     /// <summary>A theme switch, Show markup, or the note text's look (F13, #234): the whole note again, the selection kept.</summary>
@@ -696,7 +705,7 @@ public sealed partial class NoteEditorHost : UserControl
             {
                 Glyph = ((char)(task.IsChecked ? 0xE73A : 0xE739)).ToString(), // Segoe Fluent Icons: CheckboxComposite, Checkbox
                 FontSize = size,
-                Foreground = NoteEditor.Foreground,
+                Foreground = NoteEditor.TaskBrush ?? NoteEditor.Foreground,
             };
             Windows.Foundation.Point at = toMarks.TransformPoint(new Windows.Foundation.Point(rect.X + left, rect.Y + top));
             Canvas.SetLeft(mark, at.X);
@@ -1066,6 +1075,7 @@ public sealed partial class NoteEditorHost : UserControl
         Text: ColorOf(NoteEditor.Foreground),
         Markup: ColorOf(NoteEditor.MarkupBrush),
         Link: ColorOf(NoteEditor.LinkBrush),
+        Quote: ColorOf(NoteEditor.QuoteBrush),
         CodeSurface: ColorOf(NoteEditor.CodeSurfaceBrush),
         Surface: ColorOf(NoteEditor.Background),
         Mark: ColorOf(NoteEditor.MarkBrush),

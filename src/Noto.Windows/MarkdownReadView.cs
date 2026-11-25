@@ -36,6 +36,8 @@ internal sealed partial class MarkdownReadView : UserControl
     public static readonly DependencyProperty SourceProperty = Property(nameof(Source), typeof(string));
     public static readonly DependencyProperty MarkupBrushProperty = Property(nameof(MarkupBrush), typeof(Brush));
     public static readonly DependencyProperty LinkBrushProperty = Property(nameof(LinkBrush), typeof(Brush));
+    public static readonly DependencyProperty QuoteBrushProperty = Property(nameof(QuoteBrush), typeof(Brush));
+    public static readonly DependencyProperty TaskBrushProperty = Property(nameof(TaskBrush), typeof(Brush));
     public static readonly DependencyProperty MarkBrushProperty = Property(nameof(MarkBrush), typeof(Brush));
     public static readonly DependencyProperty MarkTextBrushProperty = Property(nameof(MarkTextBrush), typeof(Brush));
 
@@ -62,9 +64,16 @@ internal sealed partial class MarkdownReadView : UserControl
             NoteSpacing.Changed -= OnSpacingChanged;
             NoteSpacing.Changed += OnSpacingChanged;
             OnSpacingChanged(null, EventArgs.Empty);
+
+            // A theme file's colours (#269, ADR-023 §6): rendered again, so every run and highlighter takes them.
+            ThemeColors.Changed -= OnThemeColorsChanged;
+            ThemeColors.Changed += OnThemeColorsChanged;
         };
         Unloaded += (_, _) => NoteSpacing.Changed -= OnSpacingChanged;
+        Unloaded += (_, _) => ThemeColors.Changed -= OnThemeColorsChanged;
     }
+
+    private void OnThemeColorsChanged(object? sender, EventArgs e) => Render();
 
     /// <summary>The line height and paragraph spacing this view was last rendered in (#234).</summary>
     private (TextSpacing LineHeight, TextSpacing Paragraphs) _spacing = (NoteSpacing.LineHeight, NoteSpacing.Paragraphs);
@@ -137,6 +146,20 @@ internal sealed partial class MarkdownReadView : UserControl
         set => SetValue(LinkBrushProperty, value);
     }
 
+    /// <summary>A quote's text (#269, ADR-023 §7).</summary>
+    public Brush? QuoteBrush
+    {
+        get => (Brush?)GetValue(QuoteBrushProperty);
+        set => SetValue(QuoteBrushProperty, value);
+    }
+
+    /// <summary>A task's checkbox (#269, ADR-023 §7).</summary>
+    public Brush? TaskBrush
+    {
+        get => (Brush?)GetValue(TaskBrushProperty);
+        set => SetValue(TaskBrushProperty, value);
+    }
+
     /// <summary>Behind a highlight (F8, #151).</summary>
     public Brush? MarkBrush
     {
@@ -203,6 +226,8 @@ internal sealed partial class MarkdownReadView : UserControl
         bool highContrast = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
         Brush? markup = highContrast ? null : MarkupBrush;
         Brush? link = highContrast ? null : LinkBrush;
+        Brush? quote = highContrast ? null : QuoteBrush;
+        Brush? task = highContrast ? null : TaskBrush;
         var code = (FontFamily)Application.Current.Resources["FontFamilyCode"];
 
         double room = ActualWidth > 0 ? ActualWidth : double.PositiveInfinity;
@@ -211,7 +236,7 @@ internal sealed partial class MarkdownReadView : UserControl
         foreach (MarkdownBlock block in document.Blocks)
         {
             var paragraph = new Paragraph();
-            Inlines(document, block, paragraph, markup, link, code);
+            Inlines(document, block, paragraph, new(markup, link, quote, task), code);
             bool pictures = false;
 
             // Each image below its caption, the caption being what a reader of the screen hears.
@@ -290,7 +315,7 @@ internal sealed partial class MarkdownReadView : UserControl
     }
 
     /// <summary>The block's text, cut where its spans start and end, each run styled by the spans over it.</summary>
-    private void Inlines(MarkdownDocument document, MarkdownBlock block, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
+    private void Inlines(MarkdownDocument document, MarkdownBlock block, Paragraph paragraph, Paint paint, FontFamily code)
     {
         var cuts = new SortedSet<int> { block.Start, block.End };
         foreach (MarkdownSpan span in block.Spans)
@@ -304,15 +329,16 @@ internal sealed partial class MarkdownReadView : UserControl
         {
             if (previous >= 0 && cut > previous)
             {
-                Piece(document, block, previous, cut, paragraph, markup, link, code);
+                Piece(document, block, previous, cut, paragraph, paint, code);
             }
 
             previous = cut;
         }
     }
 
-    private void Piece(MarkdownDocument document, MarkdownBlock block, int start, int end, Paragraph paragraph, Brush? markup, Brush? link, FontFamily code)
+    private void Piece(MarkdownDocument document, MarkdownBlock block, int start, int end, Paragraph paragraph, Paint paint, FontFamily code)
     {
+        (Brush? markup, Brush? link, Brush? quote, Brush? task) = paint;
         string source = document.Source;
         var over = block.Spans.Where(s => s.Start <= start && end <= s.End).ToList();
 
@@ -378,13 +404,16 @@ internal sealed partial class MarkdownReadView : UserControl
                         break;
                     case MarkdownSpanKind.Quote or MarkdownSpanKind.Image:
                         run.FontStyle = FontStyle.Italic;
-                        Tint(run, markup);
+                        Tint(run, span.Kind == MarkdownSpanKind.Quote ? quote : markup);
                         break;
                     case MarkdownSpanKind.TaskDone:
                         run.TextDecorations |= TextDecorations.Strikethrough;
                         Tint(run, markup);
                         break;
-                    case MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox or MarkdownSpanKind.Separator:
+                    case MarkdownSpanKind.TaskBox:
+                        Tint(run, task);
+                        break;
+                    case MarkdownSpanKind.ListMarker or MarkdownSpanKind.Separator:
                         Tint(run, markup);
                         break;
                 }
@@ -467,4 +496,7 @@ internal sealed partial class MarkdownReadView : UserControl
             run.Foreground = brush;
         }
     }
+
+    /// <summary>The brushes a render colours runs with; all <see langword="null"/> in high contrast.</summary>
+    private readonly record struct Paint(Brush? Markup, Brush? Link, Brush? Quote, Brush? Task);
 }

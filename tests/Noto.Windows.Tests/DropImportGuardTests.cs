@@ -76,10 +76,11 @@ public sealed class DropImportGuardTests
         Assert.Contains("Trace.WriteLine($\"Noto.Import recycled={moved.Recycled} kept={moved.Kept}\");", recycle, StringComparison.Ordinal);
         Assert.Equal(1, Regex.Count(recycle, @"Trace\."));
 
-        // The drop is the only caller: never a picture dropped into a note, the data import, a paste, or Undo.
+        // The drop is the only import caller: never a picture dropped into a note, the data import, a paste, or Undo. The
+        // other caller is removing an installed theme file (#269, ADR-023 §8), Noto's own copy, with the same safety.
         string windows = Path.GetDirectoryName(SourcePath("src", "Noto.Windows", "MainWindow.Drop.cs"))!;
         var callers = Directory.EnumerateFiles(windows, "*.cs").Where(f => File.ReadAllText(f).Contains("ShellRecycleBin", StringComparison.Ordinal)).Select(Path.GetFileName);
-        Assert.Equal(["MainWindow.Drop.cs"], callers);
+        Assert.Equal(["MainWindow.Drop.cs", "ThemeColors.cs"], callers.Order(StringComparer.Ordinal));
         Assert.DoesNotContain("ShellRecycleBin", Regex.Match(Drop, @"private void OnUndoImportClick\([\s\S]*?\n    }\n").Value, StringComparison.Ordinal);
 
         // The importer gives each stored note's source, only from the files it read into notes.

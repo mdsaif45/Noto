@@ -33,6 +33,16 @@ public sealed partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// A notice from this start, said on the folder list where Noto opens and said again once it has first loaded, as a
+    /// rolled-back restore is: a theme that couldn't be read, or whose colours fell back (#269, ADR-023 §8).
+    /// </summary>
+    internal void ShowStartNotice(string message)
+    {
+        _restoreNotice = message;
+        ShowNotice(message);
+    }
+
     /// <summary>After an import from Settings: the folder list again, so the new folders are there when Settings closes.</summary>
     private void OnSettingsImported(object? sender, EventArgs e) => Refresh();
 

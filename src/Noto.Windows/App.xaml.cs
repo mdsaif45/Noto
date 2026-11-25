@@ -542,6 +542,9 @@ public partial class App : Application
     /// <summary>The workspace window, for the session's end to save its unsaved text.</summary>
     private MainWindow? _main;
 
+    /// <summary>Theme files' colours on the design system's brushes (#269), applied when the chosen one changes.</summary>
+    private ThemeColors? _themes;
+
     /// <summary>
     /// This executable's registration to start at sign-in (#94, ADR-015), read
     /// from Windows each time; <see langword="null"/> when the executable's path
@@ -870,6 +873,10 @@ public partial class App : Application
             () => _main?.SaveBeforeHide(),
             Restart);
 
+        // Theme files (#269, ADR-023 §6): Noto's own colours recorded before any theme, so Default can be set back.
+        var themes = new ThemeColors(new ThemeStore(paths.ThemesDirectory), () => _window is null ? 0 : WindowNative.GetWindowHandle(_window));
+        _themes = themes;
+
         var main = new MainWindow(
             listFolders,
             new NoteStackSession(new ListNotesInFolderQuery(notes), dispatcher),
@@ -904,7 +911,8 @@ public partial class App : Application
                 ShellLaunch.OpenStartupAppsSettings,
                 (action, chord) => RebindHotkey(action, chord, preferences),
                 SuspendHotkey,
-                (action, pressed) => ObserveRecorderKeys(action, pressed, preferences)),
+                (action, pressed) => ObserveRecorderKeys(action, pressed, preferences),
+                themes),
         };
 
         main.Portability = portability;
@@ -923,7 +931,14 @@ public partial class App : Application
         // What the last start's restore did, said where the user is looking when Noto opens.
         main.ShowRestoreOutcome(restored);
 
-        // The theme before the first frame, so a chosen theme is never preceded by Windows' own.
+        // The theme file's colours (#269), then the mode, before the first frame, so neither is preceded by another. One
+        // that can't be read leaves Noto's own colours and says so once, where Noto opens.
+        themes.Apply(preferences.ThemeFile, main.Drawer);
+        if (themes.Notice is { } themeNotice)
+        {
+            main.ShowStartNotice(themeNotice);
+        }
+
         ApplyTheme(main, preferences.Theme);
 
         // The note text's font and size (F13, #154), from the first frame; the size shortcuts write the stored size,
@@ -1515,6 +1530,10 @@ public partial class App : Application
         {
             ApplyTheme(_main, preferences.Theme);
         }
+        else if (key == SettingKeys.AppearanceThemeFile && _main is not null && _themes is not null)
+        {
+            _themes.Apply(preferences.ThemeFile, _main.Drawer);
+        }
         else if (key == SettingKeys.EditorFormatToolbar)
         {
             NoteEditorHost.ShowsFormatToolbar = preferences.FormatToolbar;
@@ -1745,6 +1764,9 @@ public partial class App : Application
             WorkspaceTheme.Dark => ElementTheme.Dark,
             _ => SystemIsDark() ? ElementTheme.Dark : ElementTheme.Light,
         };
+
+        // A theme's note colour names are its light or dark ones, as the drawer is (#269).
+        NotePalette.Dark = drawer.ActualTheme == ElementTheme.Dark;
 
         Trace.WriteLine($"Noto.Settings theme={theme} actual={drawer.ActualTheme}");
     }

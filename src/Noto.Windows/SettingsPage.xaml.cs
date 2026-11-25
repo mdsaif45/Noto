@@ -26,6 +26,7 @@ namespace Noto;
 /// <param name="RebindHotkey">Rebinds a global hotkey through its owner, in the safe order; how it ended and what to announce.</param>
 /// <param name="SuspendHotkey">Has the hotkeys' owner ignore Noto's chords (true) or act on them again (false) while the recorder listens.</param>
 /// <param name="ObserveRecorderKeys">Reports, until disposed, each chord pressed while Noto is in front that another application holds, which never reaches the page; <see langword="null"/> when that is unavailable.</param>
+/// <param name="Themes">The installed theme files (#269): listed, installed, revealed and removed from Appearance's Theme row.</param>
 internal sealed record SettingsContext(
     DataPortability Portability,
     WorkspacePreferences Preferences,
@@ -35,7 +36,8 @@ internal sealed record SettingsContext(
     Func<bool> OpenStartupApps,
     Func<GlobalAction, HotkeyChord, (HotkeyRebindOutcome Outcome, string Message)> RebindHotkey,
     Action<bool> SuspendHotkey,
-    Func<GlobalAction, Action<int, HotkeyModifiers>, IDisposable?> ObserveRecorderKeys);
+    Func<GlobalAction, Action<int, HotkeyModifiers>, IDisposable?> ObserveRecorderKeys,
+    ThemeColors Themes);
 
 /// <summary>
 /// The settings surface (Slice 1): shows each preference as it is stored, and writes a change through its one path.
@@ -93,6 +95,7 @@ public sealed partial class SettingsPage : UserControl
         _context = context ?? throw new ArgumentNullException(nameof(context));
         ArgumentNullException.ThrowIfNull(hotkeyMessages);
         ShowStored();
+        _ = ShowThemes();
         foreach (GlobalAction action in Enum.GetValues<GlobalAction>())
         {
             ShowHotkeyMessage(action, hotkeyMessages.GetValueOrDefault(action));

@@ -287,3 +287,19 @@ Revisit if:
 - a surface needs a token §2 cannot reach, or a theme needs fonts or sizes (a non-goal today);
 - WinUI gains supported per-window translucency, which would change §5's answer for the background;
 - WCAG's contrast model is replaced (WCAG 3's APCA), which would change §4's numbers, not its structure.
+
+---
+
+## Amendment: as built (#269)
+
+Where #269 could not do exactly what this ADR says, or chose between options it allows:
+
+- **The six switch aliases stay colours** (§6, rule 6). `ToggleSwitchFillOffPointerOver`, `…FillOffPressed`, `…FillOffDisabled`, `…StrokeOffPointerOver`, `…StrokeOffPressed` and `…StrokeOffDisabled` are animated by WinUI's switch template as colours (a `ColorKeyFrame`); given a brush the switch draws no outline (measured, held by `DesignSystemGuardTests`). They stay colour aliases, and the theme's colour is written into those six entries of the Light and Dark dictionaries instead. A switch templated after a theme is applied (Settings is built each time it opens) takes it; one already on screen keeps the old colour until Settings is opened again. Every other alias a theme reaches names the brush.
+- **Colors.xaml is merged several times** (each style dictionary merges what it uses), so the brushes of *every* instance of it are recorded and set alike. Only brushes and entries a theme set are written back for Default, so a brush no theme reached (the Windows accent's) keeps its own `ThemeResource`.
+- **The shared-brush assumption** (*Consequences*) is checked at run time, not assumed: each apply traces `shared=True|False`, whether the drawer's own background is one of the very brushes set. `Invoke-Visual.ps1` case 19 asserts `shared=True`.
+- **The accent** reaches `SelectionIndicatorBrush` and an on switch (`ToggleSwitchFillOn`, and its pointer-over and pressed fills at WinUI's 0.9 and 0.8). **A focused input's underline is not mapped**: WinUI draws it with a gradient brush (`TextControlElevationBorderFocusedBrush`) whose stops cannot follow a brush; it stays the Windows accent.
+- **The accent is measured only when a theme sets it** (§4): otherwise it is the user's Windows accent, not a theme's or Noto's to measure, as `DesignSystemGuardTests` already treats it.
+- **A property that can't be read at load** (wrong type or format) counts as a fallback: the notice is the fallback one.
+- **Note colour names** follow the drawer's mode: a theme's light names in Light, its dark names in Dark.
+- **The editor's task checkbox** was drawn in the primary text; it now takes `TaskMark` (the secondary text under Default), as the read view's task boxes always did.
+- **The schema is read from `docs/themes` by the test** that holds it equal to the parser's property list, not embedded: nothing at run time reads it.

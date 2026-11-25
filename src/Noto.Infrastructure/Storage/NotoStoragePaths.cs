@@ -93,6 +93,12 @@ public sealed class NotoStoragePaths
     /// </summary>
     public string BackupsDirectory => Resolve("backups");
 
+    /// <summary>
+    /// Installed theme files (#269, ADR-023 §8), named by Noto. Created at the first install, not at start: Noto starts
+    /// without it.
+    /// </summary>
+    public string ThemesDirectory => Resolve("themes");
+
     /// <summary>Logs. Never contain note content or user file paths.</summary>
     public string LogsDirectory => Resolve("logs");
 

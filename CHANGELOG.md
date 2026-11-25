@@ -12,6 +12,9 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Added
 
+- Settings › Appearance › *Theme*: install a `.nototheme` colour theme file (checked for readable contrast first),
+  choose it, show it in Explorer, or remove it to the Windows Recycle Bin. The Light/Dark row is now called *Mode*
+  (#269, ADR-023).
 - Space shows a picture full size inside Noto: on a card it opens the note's first picture, and in a note being
   edited the selected picture. Left and Right move between the note's pictures; Escape or Space closes it (#268).
 - Settings › Importing › *Move imported files to the Windows Recycle Bin* (off by default): files dropped on Noto

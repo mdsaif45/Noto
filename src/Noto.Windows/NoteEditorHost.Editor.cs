@@ -15,11 +15,13 @@ internal sealed partial class EditorBox : RichEditBox
 {
     public static readonly DependencyProperty MarkupBrushProperty = Brush(nameof(MarkupBrush));
     public static readonly DependencyProperty LinkBrushProperty = Brush(nameof(LinkBrush));
+    public static readonly DependencyProperty QuoteBrushProperty = Brush(nameof(QuoteBrush));
+    public static readonly DependencyProperty TaskBrushProperty = Brush(nameof(TaskBrush));
     public static readonly DependencyProperty CodeSurfaceBrushProperty = Brush(nameof(CodeSurfaceBrush));
     public static readonly DependencyProperty MarkBrushProperty = Brush(nameof(MarkBrush));
     public static readonly DependencyProperty MarkTextBrushProperty = Brush(nameof(MarkTextBrush));
 
-    /// <summary>Markup when it is shown (Ctrl+Shift+R), list markers, task boxes, quotes, separators.</summary>
+    /// <summary>Markup when it is shown (Ctrl+Shift+R), list markers, task boxes with markup shown, separators.</summary>
     public Brush? MarkupBrush
     {
         get => (Brush?)GetValue(MarkupBrushProperty);
@@ -31,6 +33,20 @@ internal sealed partial class EditorBox : RichEditBox
     {
         get => (Brush?)GetValue(LinkBrushProperty);
         set => SetValue(LinkBrushProperty, value);
+    }
+
+    /// <summary>A quote's text (#269, ADR-023 §7: a theme's <c>quote</c>).</summary>
+    public Brush? QuoteBrush
+    {
+        get => (Brush?)GetValue(QuoteBrushProperty);
+        set => SetValue(QuoteBrushProperty, value);
+    }
+
+    /// <summary>The checkbox drawn over a task (#269, ADR-023 §7: a theme's <c>checkmark</c>).</summary>
+    public Brush? TaskBrush
+    {
+        get => (Brush?)GetValue(TaskBrushProperty);
+        set => SetValue(TaskBrushProperty, value);
     }
 
     /// <summary>Behind inline and fenced code.</summary>

@@ -34,6 +34,7 @@ public sealed class SettingsSurfaceGuardTests
         (string Key, string Owner)[] owners =
         [
             ("AppearanceTheme", @"ApplyTheme\(_main, preferences\.Theme\)"),
+            ("AppearanceThemeFile", @"_themes\.Apply\(preferences\.ThemeFile, _main\.Drawer\)"),
             ("AppearanceNoteFont", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("AppearanceNoteSize", @"_main\.ApplyNoteText\(preferences\.NoteFont, preferences\.NoteSize\)"),
             ("AppearanceLineHeight", @"NoteSpacing\.Apply\(preferences\.LineHeight, preferences\.ParagraphSpacing\)"),
@@ -424,9 +425,9 @@ public sealed class SettingsSurfaceGuardTests
         // Data group's Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour
         // (ADR-021), opening the last folder at start (#193), and file links and the two Importing choices (#196), Hot
         // Side and drag to reveal (#185), the Open Bar and its drop (#185 part 2), the backup folder (#233), moving
-        // imported files to the Windows Recycle Bin (#267), asking which folder for a note from a shortcut (#243), and
-        // moving a checked task to the bottom (#244).
-        Assert.Equal(48, rows.Count);
+        // imported files to the Windows Recycle Bin (#267), asking which folder for a note from a shortcut (#243), moving
+        // a checked task to the bottom (#244), and the theme file (#269).
+        Assert.Equal(49, rows.Count);
 
         foreach (XElement row in rows)
         {
