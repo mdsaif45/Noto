@@ -266,7 +266,7 @@ never as the only path to anything (principle 7).
 | `[x]` | B18 | List bottom bar | List-level **…** menu + note count | List-level menu + note count | SHOULD | #190 | **v0.2 score (2026-11-13):** The list's bar shows the note count and a New note button. No list-level menu. **v0.3 score (2026-11-16):** The list's bar has a list-level More menu beside the note count (#190). |
 | `[x]` | B19 | Auto-save | Continuous persistence; no save command | Continuous persistence; no save command | MUST | — | ⚠ provisional — INFERRED (no save cmd documented). **NOT satisfied by M2-3 (#63, merged)** — save-on-leave is an interim model; deferred to M3, see the note below **v0.2 score (2026-11-13):** Autosave a second after typing stops; every leave, hide and close saves (P2.1; `Invoke-Editor` case 10). |
 | `[x]` | B20 | Switch between notes | `⌘⌥↓` / `⌘⌥↑` | Same action, Windows chord | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Up/Down edit the previous or next card (G11, G12; `Invoke-Editor` case 18). |
-| `[ ]` | B21 | Print a note | `⌘P` | `Ctrl+P` | SHOULD | — | Top historic complaint; fixed in 1.6.3 |
+| `[x]` | B21 | Print a note | `⌘P` | `Ctrl+P` | SHOULD | — | Top historic complaint; fixed in 1.6.3 **v0.4 score (2026-11-22):** Ctrl+P on the edited or focused card, and Print… on the card menu, open Windows' print dialog; pages are the read view's renderer in ink, flowed over pages, pictures decoded first, the drawer held open until the job ends (#248; `Invoke-Editor` case 28). |
 | `[x]` | B22 | Duplicate note | Not documented (folder duplication is) | Duplicate note | SHOULD | — | ⚠ provisional — UNKNOWN in SideNotes **v0.3 score (2026-11-16):** Duplicate in the card menu and Ctrl+Shift+D: a copy directly below with the same text, colour and mode, not pinned, not edited; pictures shared, never swept while any note references them (#232; `Invoke-NoteStack` case 53). |
 | `[x]` | B23 | Trash / restore | **None.** Recovery is backups only | Soft delete + recycle bin + restore | BETTER | — | ADR-002; M1 **v0.2 score (2026-11-13):** The Recycle Bin restores and permanently deletes notes and folders (`Invoke-RecycleBin`); B7 makes the pair whole. |
 | `[ ]` | B24 | Note templates | Not documented | **Not a parity requirement** | DROP | — | No evidence it exists. Do not build speculatively |
@@ -605,7 +605,7 @@ neither is required by a principle.
 | `[ ]` | F11 | Transparency | Open Bar semi-transparent; theme alpha supported | Alpha in themes; edge handle translucent | SHOULD | — | ⚠ provisional — UNKNOWN whether a window opacity setting exists **v0.4 decision (2026-11-24):** theme alpha in ADR-023 §5 (#265): kept on note tints and borders, flattened over the card for code and highlight, opaque elsewhere; window translucency stays ADR-007's root `Opacity`. |
 | `[ ]` | F12 | Density | No global density setting; line height + compact file links only | Same — no global density setting | DROP | — | ⚠ provisional — INFERRED. Do not invent one |
 | `[ ]` | F13 | Icon refresh | Icons refreshed across releases | **Not applicable** | DROP | — | Noto has its own icon set (ADR-011) |
-| `[ ]` | F14 | Disable color swatches | Setting to hide `#rrggbb` swatches | Same setting | SHOULD | — | Pairs with D15 |
+| `[x]` | F14 | Disable color swatches | Setting to hide `#rrggbb` swatches | Same setting | SHOULD | — | Pairs with D15 **v0.3 score (2026-11-16):** Settings › Appearance › Show colour chips: off hides the hex colour chips on cards, live; the text is unchanged (#245; `Invoke-Visual` case 19). |
 
 **F1 and F10 are the only MUSTs here, and that is intentional.** Light/dark
 following the Windows theme is a principle-8 requirement, and the six note
@@ -676,7 +676,7 @@ Every chord Noto has, read from the code, and the rules for adding one: [shortcu
 | `[x]` | G22 | Unfold all | `⇧⌥⌘→` | `Ctrl+Alt+Shift+Right` | MUST | — | **v0.2 score (2026-11-13):** Ctrl+Alt+Shift+Right. |
 | `[x]` | G23 | Set note color 1–6 | `⌘1`…`⌘6` | `Ctrl+1`…`Ctrl+6` | MUST | — | **v0.2 score (2026-11-13):** F7 (#150): Ctrl+1–Ctrl+6 (`Invoke-NoteStack` case 46). |
 | `[x]` | G24 | Clear note color | `⌘0` | `Ctrl+0` | MUST | — | ⚠ collides with "reset zoom" convention **v0.2 score (2026-11-13):** F7 (#150): Ctrl+0. |
-| `[ ]` | G25 | Print note | `⌘P` | `Ctrl+P` | SHOULD | — | |
+| `[x]` | G25 | Print note | `⌘P` | `Ctrl+P` | SHOULD | — | **v0.4 score (2026-11-22):** Ctrl+P is a stack chord, from a card and from its editor; free, since the editor takes only Ctrl+Shift+P (#248). |
 | `[ ]` | G26 | Pin note | none documented | `Alt+P` | SHOULD | — | **v0.4 decision (2026-11-24):** Alt+P, see docs/product/shortcuts.md (#266). Pins or unpins the current card, from the card or its editor, and the focused folder on the folder list; not built yet, a feature issue follows |
 
 ### 7.4 Editing
@@ -813,7 +813,7 @@ the documented use cases (D38, I4) without pretending to be a share sheet.
 | `[x]` | I3 | Import as shortcuts | Files become previewed shortcuts, not content | Same; standard / compact styles | MUST | #196 | = D34 **v0.2 score (2026-11-13):** A file dropped into a note becomes a link to it. No preview styles. **v0.3 score (2026-11-16):** Files dropped into a note become shortcuts with icon previews, in both styles; text files can insert their text instead (J30) (#196). |
 | `[ ]` | I4 | Export note to image | Share → save/copy image; background, margins, ratio, bottom bar | Same, with the same four export settings | SHOULD | — | |
 | `[ ]` | I5 | Export via Shortcuts | Shortcuts action wrapping image export | Image export via CLI | ADAPT | — | |
-| `[ ]` | I6 | Print | `⌘P` | `Ctrl+P` | SHOULD | — | = B21 |
+| `[x]` | I6 | Print | `⌘P` | `Ctrl+P` | SHOULD | — | = B21 **v0.4 score (2026-11-22):** = B21 (#248). |
 | `[x]` | I7 | Text / markdown export | **None.** Image export and print only | **Bulk export to markdown files** | BETTER | — | ADR-002; ships in M1 **v0.2 score (2026-11-13):** Export as Markdown: everything, a folder or a note, with pictures and an index (ADR-020; `Invoke-Portability`). |
 | `[x]` | I8 | Automatic backups | Auto backup to the data folder; 15 / 30 / 45 min; auto-cleanup | Same, incl. the three intervals and cleanup | MUST | #199 | **v0.2 score (2026-11-13):** F15 (#15): once a day, the last seven kept. Not the three intervals. **v0.3 score (2026-11-16):** Settings › Data › How often: every day (the default), or every 45, 30 or 15 minutes; the cleanup is unchanged, the last seven automatic backups kept (#199; `Invoke-AutoBackup` case 4). |
 | `[x]` | I9 | Manual backup | Browse Backups → Make backup; manual backups locked from cleanup | Same, incl. the lock | MUST | — | **v0.2 score (2026-11-13):** Settings › Back up writes a whole backup where the user chooses; automatic cleanup only removes Noto's own `auto-` backups, so a manual one is never pruned (F15). |
@@ -873,13 +873,13 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[x]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 **v0.3 score (2026-11-16):** = D50 (#234). |
 | `[x]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › File links: Standard (the default) or Compact, applied at once (#196). |
 | `[ ]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | |
-| `[ ]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 |
+| `[x]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 **v0.3 score (2026-11-16):** = F14 (#245). |
 | `[ ]` | J19 | Text → No auto-spaces on paste | on / off | Same | SHOULD | — | = D41 **v0.3 score (2026-11-16):** = D41: nothing adds spaces, so no switch (#187). |
 | `[x]` | J20 | Text → Code detection on paste | code block / code note | Same | SHOULD | — | = D39 **v0.3 score (2026-11-16):** = D39: the code-block half; a code note is not offered (#187). |
 | `[x]` | J21 | Appearance → Light / Dark / System | manual or follow system | Same | MUST | — | = F1 **v0.2 score (2026-11-13):** Settings › Theme. |
 | `[ ]` | J22 | Appearance → Themes → Manage | install, list, reveal | Install, list, reveal in Explorer | SHOULD | — | = F2, F7 **v0.4 decision (2026-11-24):** Settings › Appearance › Theme in ADR-023 §8 (#265); built in #269. |
 | `[x]` | J23 | Appearance → Note colors | Background / Bar | Same | MUST | #191 | = F10 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › Appearance › Note colour style, Background or Bar (#191). |
-| `[ ]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 |
+| `[x]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 **v0.3 score (2026-11-16):** Settings › Appearance › New note colour, None (default) or one of the six, used by every way of making a note; duplicates and imports keep their own (#245; `Invoke-Visual` case 19). |
 | `[x]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | #198 | = G50 **v0.2 score (2026-11-13):** As G50: four of the six are recorded in Settings. **v0.3 score (2026-11-16):** = G50: all six global chords recorded in Settings (#198). |
 | `[x]` | J26 | Shortcuts → Escape behavior | 4 options | Same 4 | MUST | — | = A12 **v0.2 score (2026-11-13):** Settings › Escape. |
 | `[x]` | J27 | Importing → DnD on screen edge | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Drop files on the Open Bar, its own toggle: a drop shows Noto and imports them as a drop on Noto does (#185; ADR-007 §10). |

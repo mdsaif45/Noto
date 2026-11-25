@@ -370,6 +370,8 @@
                     <KeyboardAccelerator Key="D" Modifiers="Control,Shift" Invoked="OnDuplicateAccelerator" />
                     <!-- Switch to the folder open before this one (G10, C6, #193), from a card or its editor, saving first. -->
                     <KeyboardAccelerator Key="O" Modifiers="Control,Shift" Invoked="OnLastFolderAccelerator" />
+                    <!-- Print the current card (B21, G25, I6, #248) in Windows' print dialog, from a card or its editor. -->
+                    <KeyboardAccelerator Key="P" Modifiers="Control" Invoked="OnPrintAccelerator" />
                 </Grid.KeyboardAccelerators>
 
                 <Grid.RowDefinitions>

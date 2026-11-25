@@ -881,6 +881,7 @@ public partial class App : Application
             NewNotePlacement = preferences.NewNotePlacement,
             NewNoteMode = preferences.NewNoteMode,
             AskFolder = preferences.AskFolder,
+            NewNoteColor = preferences.NewNoteColor,
             RecentMoveFolders = () => preferences.RecentMoveFolders,
 
             // Folder history (#193): its own list, not the move list's; a failed write never stops a folder opening.
@@ -949,6 +950,9 @@ public partial class App : Application
         // How a coloured card shows its colour (#191), from the first frame.
         main.ApplyNoteColorStyle(preferences.NoteColorStyle);
 
+        // Whether a #rrggbb code shows its chip on the card (#245), from the first frame.
+        MarkdownReadView.ShowsColorChips = preferences.ColorChips;
+
         // "System" follows Windows when its app mode changes (F2). Raised off the UI thread.
         SystemColors.ColorValuesChanged += (_, _) => _ = main.DispatcherQueue.TryEnqueueGuarded(() => ApplyTheme(main, preferences.Theme));
 
@@ -969,6 +973,14 @@ public partial class App : Application
             if (_coordinator is not null)
             {
                 _coordinator.Pinned = pinned;
+            }
+        };
+        // #248: the print dialog holds the drawer open until its task completes; the user's pin is left alone.
+        main.HoldOpenChanged += (_, held) =>
+        {
+            if (_coordinator is not null)
+            {
+                _coordinator.HeldOpen = held;
             }
         };
         _window = main;
@@ -1558,6 +1570,14 @@ public partial class App : Application
         else if (key == SettingKeys.AppearanceNoteColorStyle && _main is not null)
         {
             _main.ApplyNoteColorStyle(preferences.NoteColorStyle);
+        }
+        else if (key == SettingKeys.AppearanceColorChips)
+        {
+            MarkdownReadView.ShowsColorChips = preferences.ColorChips;
+        }
+        else if (key == SettingKeys.AppearanceNewNoteColor && _main is not null)
+        {
+            _main.NewNoteColor = preferences.NewNoteColor;
         }
         else if (key == SettingKeys.WorkspaceEdge)
         {

@@ -2012,6 +2012,9 @@ public sealed partial class MainWindow : Window
     /// <summary>The mode a new note starts in (#195, D28): set by the composition root, and again when Settings changes it.</summary>
     internal NoteMode NewNoteMode { get; set; }
 
+    /// <summary>The colour a new note starts with, or none (#245, J24): set by the composition root, and again when Settings changes it.</summary>
+    internal string? NewNoteColor { get; set; }
+
     /// <summary>
     /// Creates a note at the configured placement beside the selected card and edits it (parity B1, B5). The card
     /// being edited is saved first; a failed save creates nothing. A link's note holds its text (#192).
@@ -2027,7 +2030,7 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content, NewNoteMode);
+            CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content, NewNoteMode, NewNoteColor);
 
             if (!result.IsSuccess)
             {
@@ -2165,6 +2168,7 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(MenuItem("Move to bottom", string.Empty, () => ReorderCard(card.Id, RepositionDirection.Bottom), _stack.CanReorder(NoteId.From(card.Id), RepositionDirection.Bottom)));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Export as Markdown…", string.Empty, () => ExportFromMenu(new Infrastructure.Portability.ExportScope.Note(card.Id), fromStack: true), Portability is { Busy: false }));
+        menu.Items.Add(MenuItem("Print…", "Ctrl+P", () => QueuePrint(card.Id), _printer is not { Busy: true }));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(MenuItem("Move to the Recycle Bin", "Ctrl+Alt+Backspace", () => DeleteCard(card.Id)));
 

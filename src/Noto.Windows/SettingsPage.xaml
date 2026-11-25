@@ -399,6 +399,55 @@
                                 </ComboBox>
                             </Grid>
 
+                            <!--
+                                #245 (J24): the colour a new note starts with, by the names the card's menu uses. None has
+                                no tag: it is stored as no colour.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="New note colour" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A note's own colour is in its menu, under Colour." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="NewNoteColorSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnNewNoteColorChanged"
+                                    AutomationProperties.Name="New note colour"
+                                    AutomationProperties.HelpText="A note's own colour is in its menu, under Colour.">
+                                    <ComboBoxItem Content="None" />
+                                    <ComboBoxItem Content="Yellow" Tag="note1" />
+                                    <ComboBoxItem Content="Green" Tag="note2" />
+                                    <ComboBoxItem Content="Blue" Tag="note3" />
+                                    <ComboBoxItem Content="Purple" Tag="note4" />
+                                    <ComboBoxItem Content="Pink" Tag="note5" />
+                                    <ComboBoxItem Content="Grey" Tag="note6" />
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- #245 (F14, J18): the chip after a #rrggbb code on a card (#155). -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Show colour chips" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="A small square of the colour after a hex colour code in a note. The text stays as written." Style="{StaticResource SettingDescriptionStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="ColorChipsSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingToggleSwitchStyle}"
+                                    Toggled="OnColorChipsToggled"
+                                    AutomationProperties.Name="Show colour chips"
+                                    AutomationProperties.HelpText="A small square of the colour after a hex colour code in a note. The text stays as written." />
+                            </Grid>
+
                             <!-- F13 (#154): the note text's family and size (D47, D48, J12, J13). -->
                             <Grid Style="{StaticResource SettingRowStyle}">
                                 <Grid.ColumnDefinitions>

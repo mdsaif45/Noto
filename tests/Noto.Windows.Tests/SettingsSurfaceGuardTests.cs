@@ -39,6 +39,8 @@ public sealed class SettingsSurfaceGuardTests
             ("AppearanceLineHeight", @"NoteSpacing\.Apply\(preferences\.LineHeight, preferences\.ParagraphSpacing\)"),
             ("AppearanceParagraphSpacing", @"NoteSpacing\.Apply\(preferences\.LineHeight, preferences\.ParagraphSpacing\)"),
             ("AppearanceNoteColorStyle", @"_main\.ApplyNoteColorStyle\(preferences\.NoteColorStyle\)"),
+            ("AppearanceNewNoteColor", @"_main\.NewNoteColor = preferences\.NewNoteColor"),
+            ("AppearanceColorChips", @"MarkdownReadView\.ShowsColorChips = preferences\.ColorChips"),
             ("BackupAutomatic", @"_ = CheckAutomaticBackup\(\)"),
             ("BackupFrequency", @"_ = CheckAutomaticBackup\(\)"),
             ("BackupFolder", @"_ = CheckAutomaticBackup\(\)"),
@@ -114,7 +116,7 @@ public sealed class SettingsSurfaceGuardTests
 
         var used = forbidden.Where(f => Page.Contains(f, StringComparison.Ordinal)).ToList();
         Assert.True(used.Count == 0, "Settings page bypasses the typed preferences: " + string.Join(", ", used));
-        Assert.Equal(35, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
+        Assert.Equal(37, Regex.Count(Page, @"Write\(p => [^;]*p\.Set\w+\("));
         Assert.Contains("_context.SetLogin(requested)", Page, StringComparison.Ordinal);
     }
 
@@ -355,14 +357,14 @@ public sealed class SettingsSurfaceGuardTests
         string window = string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code));
         Assert.Equal(1, Regex.Count(window, @"_stack\.Create\("));
         Assert.DoesNotContain("new CreateNote(", window, StringComparison.Ordinal);
-        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode, NewNoteColor);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Contains("CreateNoteInOpenFolder();", Body(Main, "OnCreateNoteAccelerator"), StringComparison.Ordinal);
         Assert.Contains("private void OnNewNoteClick(object sender, RoutedEventArgs e) => CreateNoteInOpenFolder();", Main, StringComparison.Ordinal);
         Assert.Contains("MenuItem(\"New note\", \"Ctrl+N\", () => CreateNoteInOpenFolder())", Main, StringComparison.Ordinal);
         Assert.Contains("CreateNoteInOpenFolder(content);", Body(Code(Path.Join(Windows, "MainWindow.NewNoteShortcut.cs")), "NewNoteFromShortcut"), StringComparison.Ordinal);
 
         // The session hands the placement to the command, and the command's handler decides through the one rule.
-        Assert.Contains("new CreateNote(folder, content, placement, selected, mode)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
+        Assert.Contains("new CreateNote(folder, content, placement, selected, mode, colorKey)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
         Assert.Contains("NewNotePlacementRule.Resolve(command.Placement, command.Selected,", Code(SourcePath("src", "Noto.UseCases", "Notes", "CreateNote.cs")), StringComparison.Ordinal);
     }
 
@@ -374,7 +376,7 @@ public sealed class SettingsSurfaceGuardTests
         string[] ids =
         [
             "SettingsBackButton", "LaunchAtLoginSetting", "HideOnDeactivationSetting", "SingleClickSetting", "OpenLastFolderSetting", "NewNotePlacementSetting", "NewNoteModeSetting", "AskFolderSetting", "SideSetting",
-            "EscapeSetting", "HotSideSetting", "DragRevealSetting", "OpenBarSetting", "OpenBarDropSetting", "ThemeSetting", "NoteColorStyleSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
+            "EscapeSetting", "HotSideSetting", "DragRevealSetting", "OpenBarSetting", "OpenBarDropSetting", "ThemeSetting", "NoteColorStyleSetting", "NewNoteColorSetting", "ColorChipsSetting", "HotkeyEnabledSetting", "HotkeyMessage", "RevealDataFolderButton", "ShowWelcomeButton",
         ];
         var names = PageXaml.Descendants().Select(e => (string?)e.Attribute(X + "Name")).OfType<string>().ToHashSet();
 
@@ -424,9 +426,9 @@ public sealed class SettingsSurfaceGuardTests
         // Data group's Back up, Restore, Export, Import and their progress line (ADR-020), Help's Welcome tour
         // (ADR-021), opening the last folder at start (#193), and file links and the two Importing choices (#196), Hot
         // Side and drag to reveal (#185), the Open Bar and its drop (#185 part 2), the backup folder (#233), moving
-        // imported files to the Windows Recycle Bin (#267), asking which folder for a note from a shortcut (#243), and
-        // moving a checked task to the bottom (#244).
-        Assert.Equal(48, rows.Count);
+        // imported files to the Windows Recycle Bin (#267), asking which folder for a note from a shortcut (#243),
+        // moving a checked task to the bottom (#244), and the new note colour and the colour chips (#245).
+        Assert.Equal(50, rows.Count);
 
         foreach (XElement row in rows)
         {

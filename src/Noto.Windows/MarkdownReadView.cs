@@ -17,7 +17,8 @@ namespace Noto;
 
 /// <summary>
 /// A card's read view (ADR-016 §3): the note rendered from the same Core parse the editor styles with, markup left
-/// out. The brushes are theme resources, so a theme switch renders it again.
+/// out. The brushes are theme resources, so a theme switch renders it again. The same renderer prints a note (#248):
+/// on paper it is ink on white, whole, every picture decoded first (<see cref="Paper"/>).
 /// </summary>
 internal sealed partial class MarkdownReadView : UserControl
 {
@@ -47,6 +48,14 @@ internal sealed partial class MarkdownReadView : UserControl
     // The runs of this render inside a ::highlight:: (F8, #151), marked once they are laid in the view.
     private readonly List<Run> _marked = [];
 
+    private static bool _showsColorChips = true;
+
+    // Whether this view's last render drew colour chips (#245): a view loaded again after the setting changed renders again.
+    private bool _chips = true;
+
+    // On paper (#248): the pictures and the room a page gives them; null on a card.
+    private readonly Paper? _paper;
+
     public MarkdownReadView()
     {
         Content = _view;
@@ -64,6 +73,19 @@ internal sealed partial class MarkdownReadView : UserControl
             OnSpacingChanged(null, EventArgs.Empty);
         };
         Unloaded += (_, _) => NoteSpacing.Changed -= OnSpacingChanged;
+
+        // The colour chip setting (#245) reaches every card in the tree, recycled ones included, and none that has left it.
+        Loaded += (_, _) =>
+        {
+            ColorChipsChanged -= Render;
+            ColorChipsChanged += Render;
+
+            if (_chips != ShowsColorChips)
+            {
+                Render();
+            }
+        };
+        Unloaded += (_, _) => ColorChipsChanged -= Render;
     }
 
     /// <summary>The line height and paragraph spacing this view was last rendered in (#234).</summary>
@@ -97,6 +119,61 @@ internal sealed partial class MarkdownReadView : UserControl
             paragraph.LineStackingStrategy = pictures ? LineStackingStrategy.MaxHeight : LineStackingStrategy.BlockLineHeight;
         }
     }
+
+    /// <summary>
+    /// Whether a <c>#rrggbb</c> code shows a chip of its colour after it (#245; parity F14, J18): the "Show colour chips"
+    /// setting, set by the composition root and again when Settings changes it. Off renders every card again without
+    /// them, live; the text is the same either way.
+    /// </summary>
+    internal static bool ShowsColorChips
+    {
+        get => _showsColorChips;
+        set
+        {
+            if (_showsColorChips != value)
+            {
+                _showsColorChips = value;
+                ColorChipsChanged?.Invoke();
+            }
+        }
+    }
+
+    private static event Action? ColorChipsChanged;
+
+    /// <summary>
+    /// The note on paper (#248), for one print layout: dark text on white whatever the theme, the design system's body
+    /// type, a grey for what a card draws in its markup colour and a dark blue for links, each above 6:1 on white. A
+    /// card's colour is not printed: it marks the card in the drawer, and paper keeps the ink for the text.
+    /// </summary>
+    internal MarkdownReadView(string source, NoteMode mode, Paper paper)
+        : this()
+    {
+        _paper = paper;
+        var resources = Application.Current.Resources;
+        RequestedTheme = ElementTheme.Light;
+        FontFamily = (FontFamily)resources["FontFamilyBody"];
+        FontSize = (double)resources["FontSizeBody"];
+        Foreground = new SolidColorBrush(Microsoft.UI.Colors.Black);
+        MarkupBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x5F, 0x5F, 0x5F));
+        LinkBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x00, 0x4E, 0x8C));
+        Mode = mode;
+        Source = source;
+    }
+
+    /// <summary>
+    /// What a printed render needs (#248): the note's pictures, decoded before the print dialog opened, by their
+    /// reference, and the page's text width and tallest picture.
+    /// </summary>
+    internal sealed record Paper(IReadOnlyDictionary<string, PrintedPicture> Pictures, double Width, double PictureHeight);
+
+    /// <summary>
+    /// A picture's pixels, decoded (microsoft-ui-xaml#11095: a BitmapImage still decoding prints blank), and their size.
+    /// The printer disposes them when its job is over.
+    /// </summary>
+    internal sealed record PrintedPicture(Microsoft.UI.Xaml.Media.Imaging.SoftwareBitmapSource Source, int Width, int Height);
+
+    /// <summary>The text itself, which a printed page flows on from with a RichTextBlockOverflow (#248).</summary>
+    internal RichTextBlock Text => _view;
 
     /// <summary>
     /// A heading's size: the design system's heading step over its body size, at this view's size, so a larger note text
@@ -171,11 +248,12 @@ internal sealed partial class MarkdownReadView : UserControl
         view.TextHighlighters.Clear();
         _marked.Clear();
         _spacing = (NoteSpacing.LineHeight, NoteSpacing.Paragraphs);
+        _chips = ShowsColorChips;
         string source = Source ?? string.Empty;
 
-        // A Code or plain text note is its text as typed (#195), as a very long note is. With paragraph spacing, each line
-        // is a paragraph, as each is in the editor (#234); a very long note stays one.
-        if (source.Length > RenderedLimit || Mode != NoteMode.Markdown)
+        // A Code or plain text note is its text as typed (#195), as a very long note is on a card; paper has room for it.
+        // With paragraph spacing, each line is a paragraph, as each is in the editor (#234); a very long note stays one.
+        if ((source.Length > RenderedLimit && _paper is null) || Mode != NoteMode.Markdown)
         {
             bool lines = source.Length <= RenderedLimit && NoteSpacing.SpaceAfter(FontSize) > 0;
             foreach (string line in lines ? source.Split('\n') : [source])
@@ -199,8 +277,8 @@ internal sealed partial class MarkdownReadView : UserControl
 
         // In high contrast the row's own text colour must win: on a selected row that is HighlightText, and a
         // secondary or link colour there measured 1.37:1. So the read view sets no colour of its own; the brushes
-        // change with the theme, which renders it again when high contrast turns on or off.
-        bool highContrast = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
+        // change with the theme, which renders it again when high contrast turns on or off. Paper is never high contrast.
+        bool highContrast = _paper is null && new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
         Brush? markup = highContrast ? null : MarkupBrush;
         Brush? link = highContrast ? null : LinkBrush;
         var code = (FontFamily)Application.Current.Resources["FontFamilyCode"];
@@ -215,17 +293,32 @@ internal sealed partial class MarkdownReadView : UserControl
             bool pictures = false;
 
             // Each image below its caption, the caption being what a reader of the screen hears.
+            // On paper every picture is drawn, from the pixels decoded before the dialog opened.
             foreach (MarkdownSpan image in block.Spans.Where(s => s.Kind == MarkdownSpanKind.Image))
             {
-                if (ResolveImage is null || ++images > ImageLimit)
+                UIElement picture;
+                Border? holder = null;
+                if (_paper is not null)
+                {
+                    picture = Printed(_paper, ReferenceOf(document, block, image), markup);
+                }
+                else if (ResolveImage is null || ++images > ImageLimit)
                 {
                     break;
                 }
+                else
+                {
+                    holder = new Border();
+                    picture = holder;
+                }
 
-                var holder = new Border();
                 paragraph.Inlines.Add(new LineBreak());
-                paragraph.Inlines.Add(new InlineUIContainer { Child = holder });
-                _ = Picture(holder, ReferenceOf(document, block, image), room, markup);
+                paragraph.Inlines.Add(new InlineUIContainer { Child = picture });
+                if (holder is not null)
+                {
+                    _ = Picture(holder, ReferenceOf(document, block, image), room, markup);
+                }
+
                 pictures = true;
             }
 
@@ -247,8 +340,8 @@ internal sealed partial class MarkdownReadView : UserControl
         }
     }
 
-    /// <summary>The image's source as written, if it has one.</summary>
-    private static string? ReferenceOf(MarkdownDocument document, MarkdownBlock block, MarkdownSpan image) =>
+    /// <summary>The image's source as written, if it has one; the printer decodes pictures by it (#248).</summary>
+    internal static string? ReferenceOf(MarkdownDocument document, MarkdownBlock block, MarkdownSpan image) =>
         block.Spans.Where(s => s.Kind == MarkdownSpanKind.LinkTarget && s.Start > image.Start && s.End < image.End)
             .Select(s => document.Source.Substring(s.Start, s.Length))
             .LastOrDefault();
@@ -276,6 +369,21 @@ internal sealed partial class MarkdownReadView : UserControl
         }
 
         holder.Child = Notice(path is null ? "Image not found" : "This image can't be shown", markup);
+    }
+
+    /// <summary>
+    /// A picture on paper (#248): its decoded pixels as wide as the page's text and no taller than
+    /// <see cref="Paper.PictureHeight"/>, never enlarged; a one-line notice when it was not found or could not be read.
+    /// </summary>
+    private static UIElement Printed(Paper paper, string? reference, Brush? markup)
+    {
+        if (reference is null || !paper.Pictures.TryGetValue(reference, out PrintedPicture? picture))
+        {
+            return Notice("Image not found", markup);
+        }
+
+        (double width, double height) = ImageSize.Fit(picture.Width, picture.Height, paper.Width, paper.PictureHeight);
+        return new Image { Source = picture.Source, Width = width, Height = height, Stretch = Stretch.Uniform };
     }
 
     private static TextBlock Notice(string text, Brush? markup)
@@ -367,8 +475,12 @@ internal sealed partial class MarkdownReadView : UserControl
                     case MarkdownSpanKind.Underline:
                         run.TextDecorations |= TextDecorations.Underline;
                         break;
-                    case MarkdownSpanKind.Highlight:
+                    case MarkdownSpanKind.Highlight when _paper is null:
                         _marked.Add(run);
+                        break;
+                    case MarkdownSpanKind.Highlight:
+                        // On paper a highlight is underlined: ink, where a highlighter's fill is not known to print (#248).
+                        run.TextDecorations |= TextDecorations.Underline;
                         break;
                     case MarkdownSpanKind.Code or MarkdownSpanKind.CodeBlock:
                         run.FontFamily = code;
@@ -407,6 +519,13 @@ internal sealed partial class MarkdownReadView : UserControl
             hyperlink.Inlines.Add(run);
             hyperlink.Click += (_, _) => OpenLink?.Invoke(destination);
             paragraph.Inlines.Add(hyperlink);
+            return;
+        }
+
+        // With colour chips off (#245) the run is the text alone.
+        if (!_chips)
+        {
+            paragraph.Inlines.Add(run);
             return;
         }
 

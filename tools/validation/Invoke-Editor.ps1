@@ -55,6 +55,11 @@
         first of three tasks checks it and moves it below the other two, the selection still on its text; one Ctrl+Z
         brings the list back as it was. The setting is turned off again (stored) for the cases after it
 
+    28  #248 (B21, G25, I6): Ctrl+P in the editor opens Windows' print dialog (a new top-level window, found by UI
+        Automation) while Noto stays shown, held open (Noto.Workspace held=True); Escape, sent only while the dialog is
+        the foreground window, cancels it: the task completes, the hold is let go, Noto is still shown, focus is back in
+        the editor and the note is unchanged on screen and in the database. Printing a page is a manual check.
+
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Editor.ps1 -NotoExe <path>\Noto.exe
 #>
@@ -652,6 +657,43 @@ exit (Invoke-IsolatedRun $run -Title 'The markdown editor (ADR-017)' -Body {
     Send-ToNoto @() 0x1B 1200
     $want26 = "Today`n- [ ] beta`n- [ ] gamma`n- [x] alpha"
     Add-Result $run '27 Move checked tasks to the bottom on (stored): Ctrl+. on the first of three tasks moves it last, selection with it; one Ctrl+Z restores the list' ($bottomOn -eq 'true' -and $moved26 -eq $want26 -and $selected26 -eq 'alpha' -and $restored26 -eq $three -and $bottomOff -eq 'false') "stored=$bottomOn moved='$($moved26 -replace "`n", ' | ')' selected='$selected26' restored same=$($restored26 -eq $three) off=$bottomOff"
+
+    # 28 - #248 (B21, G25, I6): Ctrl+P opens Windows' print dialog with Noto still shown; Escape cancels it
+    Edit-Card 'Groceries'
+    $before28 = Editor-Value
+    $stored28 = Stored $Groceries
+    $mark28 = @(Traces 'Noto\.(Print|Workspace held)').Count
+    $tops = @($AE::RootElement.FindAll($Scope::Children, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.NativeWindowHandle })
+    Send-ToNoto @(0x11) 0x50 0   # Ctrl+P
+    $dialog = $null; $deadline = (Get-Date).AddSeconds(15)
+    while (-not $dialog -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 300
+        $new = @($AE::RootElement.FindAll($Scope::Children, [System.Windows.Automation.Condition]::TrueCondition) | Where-Object { $_.Current.NativeWindowHandle -notin $tops -and $_.Current.NativeWindowHandle -ne $script:noto.Hwnd.ToInt32() })
+        $dialog = @($new | Where-Object { $_.Current.Name -match 'Print' }) + @($new) | Select-Object -First 1
+    }
+    Start-Sleep -Milliseconds 2000   # long enough for a deactivation hide, were the drawer not held
+    $during28 = Get-WindowEvidence $script:noto
+    $dialogPid = if ($dialog) { $dialog.Current.ProcessId } else { 0 }
+    $dialogText = if ($dialog) { "name='$($dialog.Current.Name)' class='$($dialog.Current.ClassName)' pid=$dialogPid noto-pid=$($script:noto.Pid)" } else { 'no dialog' }
+    $shot28 = Shot 'print-dialog'
+    if ($dialog) {
+        # Escape only reaches the dialog: never sent unless the foreground window is it, or is in its process.
+        $fg = [NotoVal.Win32]::GetForegroundWindow(); $fgPid = 0; [void][NotoVal.Win32]::GetWindowThreadProcessId($fg, [ref]$fgPid)
+        if ($fg -ne [IntPtr]$dialog.Current.NativeWindowHandle -and ($fgPid -ne $dialogPid -or $fgPid -eq $script:noto.Pid)) { throw "refusing to send Escape: the foreground window is not the print dialog (fg pid $fgPid)" }
+        [NotoVal.Win32]::Keys(@([NotoVal.Win32]::Vk(0x1B, $false), [NotoVal.Win32]::Vk(0x1B, $true)))
+    }
+    $deadline = (Get-Date).AddSeconds(10); $done28 = $null
+    while (-not $done28 -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300; $done28 = @(Traces 'Noto\.Print completed')[-1] }
+    Start-Sleep -Milliseconds 1200
+    $traces28 = @(Traces 'Noto\.(Print|Workspace held)' | Select-Object -Skip $mark28)
+    $after28 = Get-WindowEvidence $script:noto
+    $focus28 = $AE::FocusedElement.Current.AutomationId
+    $shown28 = { param($e) $e.WsVisible -and -not $e.Minimized -and $e.Cloaked -eq 0 }
+    $held28 = ($traces28 -match 'held=True').Count -ge 1 -and ($traces28 -match 'held=False').Count -ge 1
+    $value28 = Editor-Value
+    Add-Result $run '28 Ctrl+P opens Windows'' print dialog with Noto shown and held; Escape cancels it: Noto still shown, focus in the note, the note unchanged' ($null -ne $dialog -and ($traces28 -match 'Noto\.Print shown=True').Count -ge 1 -and (& $shown28 $during28) -and $done28 -match 'completion=(Canceled|Abandoned)' -and $held28 -and (& $shown28 $after28) -and $focus28 -eq 'NoteEditor' -and $value28 -eq $before28 -and (Stored $Groceries) -eq $stored28) "dialog: $dialogText; during: visible=$($during28.WsVisible) cloaked=$($during28.Cloaked) foreground-pid=$($during28.ForegroundPid); after: visible=$($after28.WsVisible) cloaked=$($after28.Cloaked) foreground=$($after28.IsForeground) focus=$focus28; unchanged: editor=$($value28 -eq $before28) stored=$((Stored $Groceries) -eq $stored28); traces: $($traces28 -replace '^.*(Noto\.)', '$1' -join ' | ') $shot28"
+    if ([NotoVal.Win32]::GetForegroundWindow() -ne $script:noto.Hwnd) { Bring-Forward }
+    Send-ToNoto @() 0x1B 900
 
     # 13 - cost on realistic notes
     # The long notes follow the three short ones; Ctrl+Alt+Down (G12) edits the next card, scrolling it into view, so

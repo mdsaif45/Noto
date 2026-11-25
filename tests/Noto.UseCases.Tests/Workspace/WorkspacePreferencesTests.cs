@@ -297,6 +297,8 @@ public sealed class WorkspacePreferencesTests
         Assert.Equal(string.Empty, preferences.BackupFolder);
         Assert.False(preferences.RecycleImportedFiles);
         Assert.False(preferences.AskFolder);
+        Assert.Null(preferences.NewNoteColor);
+        Assert.True(preferences.ColorChips);
     }
 
     [Theory]
@@ -354,6 +356,8 @@ public sealed class WorkspacePreferencesTests
         { "SetParagraphSpacing", SettingKeys.AppearanceParagraphSpacing.Name, TextSpacing.Compact },
         { "SetNewNoteMode", SettingKeys.NotesNewMode.Name, NoteMode.Code },
         { "SetAskFolder", SettingKeys.NotesAskFolder.Name, true },
+        { "SetNewNoteColor", SettingKeys.AppearanceNewNoteColor.Name, "note3" },
+        { "SetColorChips", SettingKeys.AppearanceColorChips.Name, false },
         { "SetHotkeyEnabled", SettingKeys.HotkeyEnabled.Name, false },
         { "SetHotkeyBinding", SettingKeys.HotkeyBinding.Name, "Ctrl+Alt+Win+K" },
         { "SetBackupFolder", SettingKeys.BackupFolder.Name, @"D:\Backups\Noto" },
@@ -433,6 +437,33 @@ public sealed class WorkspacePreferencesTests
 
         store.Seed(SettingKeys.BackupFolder.Name, folder);
         Assert.Equal(string.Empty, preferences.BackupFolder);
+    }
+
+    [Theory]
+    [InlineData("note7")]
+    [InlineData("NOTE1")]
+    [InlineData("Blue")]
+    public void A_new_note_colour_that_is_not_one_of_the_six_is_refused_and_nothing_is_written(string colorKey)
+    {
+        // #245: the palette's keys (ADR-011), or none; never a name or a seventh key.
+        var store = new FakeSettings();
+
+        Assert.False(new WorkspacePreferences(store).SetNewNoteColor(colorKey));
+        Assert.Empty(store.Writes);
+    }
+
+    [Fact]
+    public void None_is_stored_as_empty_and_read_back_as_no_colour()
+    {
+        // A setting always has a value, so none is the empty key; the creation path sees null, as a note's no colour is.
+        var store = new FakeSettings();
+        var preferences = new WorkspacePreferences(store);
+        Assert.True(preferences.SetNewNoteColor("note1"));
+
+        Assert.True(preferences.SetNewNoteColor(null));
+
+        Assert.Equal(string.Empty, store.Raw(SettingKeys.AppearanceNewNoteColor.Name));
+        Assert.Null(new WorkspacePreferences(store).NewNoteColor);
     }
 
     [Fact]
@@ -520,6 +551,8 @@ public sealed class WorkspacePreferencesTests
         "SetParagraphSpacing" => preferences.SetParagraphSpacing((TextSpacing)value),
         "SetNewNoteMode" => preferences.SetNewNoteMode((NoteMode)value),
         "SetAskFolder" => preferences.SetAskFolder((bool)value),
+        "SetNewNoteColor" => preferences.SetNewNoteColor((string)value),
+        "SetColorChips" => preferences.SetColorChips((bool)value),
         "SetHotkeyEnabled" => preferences.SetHotkeyEnabled((bool)value),
         "SetHotkeyBinding" => preferences.SetHotkeyBinding(HotkeyChord.Parse((string)value)),
         "SetBackupFolder" => preferences.SetBackupFolder((string)value),
@@ -545,6 +578,8 @@ public sealed class WorkspacePreferencesTests
         "SetParagraphSpacing" => preferences.ParagraphSpacing,
         "SetNewNoteMode" => preferences.NewNoteMode,
         "SetAskFolder" => preferences.AskFolder,
+        "SetNewNoteColor" => preferences.NewNoteColor!,
+        "SetColorChips" => preferences.ColorChips,
         "SetHotkeyEnabled" => preferences.HotkeyEnabled,
         "SetHotkeyBinding" => preferences.HotkeyBinding,
         "SetBackupFolder" => preferences.BackupFolder,

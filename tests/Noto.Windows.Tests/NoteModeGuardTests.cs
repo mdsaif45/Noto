@@ -109,7 +109,7 @@ public sealed class NoteModeGuardTests
         // The read view: the text as typed outside Markdown, Code in the code family.
         XElement view = Named(MainXaml, "CardReadView");
         Assert.Equal("{x:Bind Mode, Mode=OneWay}", (string?)view.Attribute("Mode"));
-        Assert.Contains("if (source.Length > RenderedLimit || Mode != NoteMode.Markdown)", ReadView, StringComparison.Ordinal);
+        Assert.Contains("if ((source.Length > RenderedLimit && _paper is null) || Mode != NoteMode.Markdown)", ReadView, StringComparison.Ordinal);
         Assert.Matches(@"if \(Mode == NoteMode\.Code\)\s*\{\s*text\.FontFamily = \(FontFamily\)Application\.Current\.Resources\[""FontFamilyCode""\];", ReadView);
 
         // The editor is loaded in the card's mode.
@@ -158,7 +158,7 @@ public sealed class NoteModeGuardTests
         // From the first frame, and again when it changes; Ctrl+N, the new-note shortcuts and the clipboard's all create
         // through CreateNoteInOpenFolder.
         Assert.Contains("NewNoteMode = preferences.NewNoteMode,", App, StringComparison.Ordinal);
-        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode)", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode, NewNoteColor)", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
         Assert.Equal(1, Regex.Count(Main, @"_stack\.Create\("));
     }
 

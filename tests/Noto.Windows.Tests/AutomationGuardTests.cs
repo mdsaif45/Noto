@@ -83,9 +83,9 @@ public sealed class AutomationGuardTests
         Assert.Contains("internal void ShowQuery(string query) => SearchBox.Text = query;", File.ReadAllText(SourcePath("src", "Noto.Windows", "SearchPage.xaml.cs")), StringComparison.Ordinal);
 
         // The new-note path carries the text to the command, with its placement rule.
-        Assert.Contains("CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content, NewNoteMode);", Main, StringComparison.Ordinal);
+        Assert.Contains("CommandResult<NoteId> result = _stack.Create(NewNotePlacement, selected, content, NewNoteMode, NewNoteColor);", Main, StringComparison.Ordinal);
         Assert.Contains(
-            "_commands.Dispatch(new CreateNote(folder, content, placement, selected, mode))",
+            "_commands.Dispatch(new CreateNote(folder, content, placement, selected, mode, colorKey))",
             File.ReadAllText(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")),
             StringComparison.Ordinal);
     }

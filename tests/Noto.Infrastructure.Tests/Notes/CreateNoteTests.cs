@@ -110,6 +110,20 @@ public sealed class CreateNoteTests : IDisposable
         Assert.False(note.IsDeleted);
     }
 
+    [Theory]
+    [InlineData("note3", "note3")]
+    [InlineData(null, null)]
+    [InlineData("note7", null)]
+    [InlineData("NOTE1", null)]
+    public void A_note_starts_with_the_colour_it_is_created_with_and_a_key_outside_the_palette_is_never_stored(string? asked, string? stored)
+    {
+        // #245 (J24): the "New note colour" setting reaches the note through the command; anything but one of the six
+        // keys leaves it uncoloured, as an unknown mode leaves it Markdown (ADR-011).
+        var id = Handler().Handle(new CreateNote(Home, "x", ColorKey: asked)).Value;
+
+        Assert.Equal(stored, _notes.FindActive(id)!.ColorKey);
+    }
+
     [Fact]
     public void Creates_a_note_inside_an_existing_folder()
     {

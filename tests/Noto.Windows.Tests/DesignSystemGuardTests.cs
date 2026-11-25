@@ -258,7 +258,7 @@ public sealed class DesignSystemGuardTests
         // A card's rendered read view (ADR-017) colours markers and links in Light and Dark, and none in high contrast,
         // where the row's text colour must win on a selected row.
         string readView = File.ReadAllText(Path.Join(Path.GetDirectoryName(AppPath)!, "MarkdownReadView.cs"));
-        Assert.Matches(@"bool highContrast = new Windows\.UI\.ViewManagement\.AccessibilitySettings\(\)\.HighContrast;\s*Brush\? markup = highContrast \? null : MarkupBrush;\s*Brush\? link = highContrast \? null : LinkBrush;", readView);
+        Assert.Matches(@"bool highContrast = _paper is null && new Windows\.UI\.ViewManagement\.AccessibilitySettings\(\)\.HighContrast;\s*Brush\? markup = highContrast \? null : MarkupBrush;\s*Brush\? link = highContrast \? null : LinkBrush;", readView);
         Assert.DoesNotMatch(@"run\.Foreground = (markup|link);", readView);
 
         // Secondary text elsewhere keeps its brush: it is still a token in every theme, used by the design system.
