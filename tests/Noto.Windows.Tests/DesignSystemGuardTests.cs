@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Noto.Core.Themes;
 using Xunit;
 
 namespace Noto.Windows.Tests;
@@ -101,7 +102,7 @@ public sealed class DesignSystemGuardTests
 
             foreach (var (fore, back, minimum) in pairs)
             {
-                double ratio = Contrast(ColourOf(colours, fore), ColourOf(colours, back));
+                double ratio = ThemeColor.Contrast(ColourOf(colours, fore), ColourOf(colours, back));
 
                 if (ratio < minimum)
                 {
@@ -154,16 +155,16 @@ public sealed class DesignSystemGuardTests
             for (int n = 1; n <= 6; n++)
             {
                 var tint = ColourOf(colours, $"Note{n}TintColor");
-                Assert.True(tint.A is > 0 and < 1, $"{theme} Note{n}TintColor must be translucent");
+                Assert.True(tint.A is > 0 and < 255, $"{theme} Note{n}TintColor must be translucent");
 
                 foreach (var (fill, texts) in states)
                 {
                     var card = ColourOf(colours, fill);
-                    (double A, double R, double G, double B) tinted = (1, Over(tint.R, card.R), Over(tint.G, card.G), Over(tint.B, card.B));
+                    ThemeColor tinted = tint.Over(card);
 
                     foreach (string text in texts)
                     {
-                        double ratio = Contrast(ColourOf(colours, text), tinted);
+                        double ratio = ThemeColor.Contrast(ColourOf(colours, text), tinted);
 
                         if (ratio < 4.5)
                         {
@@ -171,10 +172,9 @@ public sealed class DesignSystemGuardTests
                         }
                     }
 
-                    double Over(double f, double b) => (tint.A * f) + ((1 - tint.A) * b);
                 }
 
-                double marker = Contrast(ColourOf(colours, $"Note{n}MarkerColor"), ColourOf(colours, "SurfaceCardColor"));
+                double marker = ThemeColor.Contrast(ColourOf(colours, $"Note{n}MarkerColor"), ColourOf(colours, "SurfaceCardColor"));
 
                 if (marker < 3)
                 {
@@ -342,13 +342,15 @@ public sealed class DesignSystemGuardTests
         // At rest the template takes brushes, unchanged: the off switch's outline is still the secondary text.
         Assert.All(Themes, t => Assert.Equal("TextSecondaryBrush", Target(ThemeDictionary(t), "ToggleSwitchStrokeOff")));
 
-        // Noto restyles only the off switch's colours and text: the on switch, and the switch's shape (its outline's
-        // thickness among it), stay WinUI's own in every theme.
+        // Noto restyles only the off switch's colours and text, and the on switch's fill, which takes the accent through
+        // SelectionIndicator so a theme's accent shows there (#269, ADR-023 §7): the switch's shape (its outline's
+        // thickness among it) stays WinUI's own in every theme.
         string[] restyled =
         [
             "ToggleSwitchContentForeground", "ToggleSwitchContentForegroundDisabled", "ToggleSwitchHeaderForeground",
             "ToggleSwitchHeaderForegroundDisabled", "ToggleSwitchFillOff", "ToggleSwitchStrokeOff", "ToggleSwitchKnobFillOff",
-            "ToggleSwitchKnobFillOffPointerOver", "ToggleSwitchKnobFillOffPressed", "ToggleSwitchKnobFillOffDisabled", .. switchStates,
+            "ToggleSwitchKnobFillOffPointerOver", "ToggleSwitchKnobFillOffPressed", "ToggleSwitchKnobFillOffDisabled",
+            "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed", .. switchStates,
         ];
         Assert.All(Themes, t => Assert.Equal(
             restyled.Order(StringComparer.Ordinal),
@@ -394,6 +396,70 @@ public sealed class DesignSystemGuardTests
 
         return "unresolved";
     }
+
+    [Fact]
+    public void Notos_own_light_and_dark_pass_the_full_theme_readability_table()
+    {
+        // ADR-023 §4: one table, in Core, holds installed themes and Noto's own colours alike. The accent is the user's
+        // Windows accent, not Noto's to measure (accent: false).
+        foreach (string theme in LightAndDark)
+        {
+            XElement colours = ThemeDictionary(theme);
+            var own = OwnPaletteKeys.ToDictionary(k => k.Key, k => ColourOf(colours, k.Colour));
+            Assert.Equal(ThemePalette.Keys.Order(StringComparer.Ordinal), own.Keys.Order(StringComparer.Ordinal));
+
+            var failures = ThemePalette.Measure(own, theme == "Light" ? ThemeMode.Light : ThemeMode.Dark, accent: false);
+            Assert.True(failures.Count == 0, $"{theme}: " + string.Join("; ", failures.Select(f => f.Reason)));
+        }
+    }
+
+    [Fact]
+    public void The_quote_and_task_mark_tokens_are_the_secondary_text_and_every_alias_a_theme_reaches_names_the_brush()
+    {
+        // ADR-023 §7: two new tokens in all three dictionaries; Noto's own look is unchanged by them.
+        foreach (string theme in Themes)
+        {
+            XElement dictionary = ThemeDictionary(theme);
+            foreach (string token in new[] { "TextQuote", "TaskMark" })
+            {
+                Assert.Single(dictionary.Elements(), e => KeyOf(e) == token + "Brush");
+                Assert.Equal(theme == "HighContrast" ? "SystemColorGrayTextColor" : "TextSecondaryColor", (string?)dictionary.Elements().Single(e => KeyOf(e) == token + "Color").Attribute("ResourceKey"));
+            }
+        }
+
+        // ADR-023 rule 6: an alias of a colour a theme sets or derives names the brush, so it follows the theme. The six
+        // keys WinUI's switch template animates as colours cannot (Every_key_a_native_template_animates_as_a_colour...):
+        // ThemeColors writes their values instead, and they are exactly the colour aliases left.
+        string[] themeColours = [.. OwnPaletteKeys.Select(k => k.Colour), "SurfaceSidebarColor", "SurfaceWindowColor", "SurfaceInputColor", "SurfaceCardSelectedColor", "InteractionTextColor", "InteractionSelectedTextColor"];
+        foreach (string theme in LightAndDark)
+        {
+            var colourAliases = ThemeDictionary(theme).Elements(Xaml + "StaticResource")
+                .Where(e => themeColours.Contains((string?)e.Attribute("ResourceKey")) && !(KeyOf(e) ?? string.Empty).EndsWith("Color", StringComparison.Ordinal))
+                .Select(KeyOf)
+                .Order(StringComparer.Ordinal);
+            Assert.Equal(
+                ["ToggleSwitchFillOffDisabled", "ToggleSwitchFillOffPointerOver", "ToggleSwitchFillOffPressed", "ToggleSwitchStrokeOffDisabled", "ToggleSwitchStrokeOffPointerOver", "ToggleSwitchStrokeOffPressed"],
+                colourAliases);
+        }
+
+        string colours = File.ReadAllText(Path.Join(Path.GetDirectoryName(AppPath)!, "ThemeColors.cs"));
+        foreach (string key in new[] { "ToggleSwitchFillOffDisabled", "ToggleSwitchFillOffPointerOver", "ToggleSwitchFillOffPressed", "ToggleSwitchStrokeOffDisabled", "ToggleSwitchStrokeOffPointerOver", "ToggleSwitchStrokeOffPressed" })
+        {
+            Assert.Contains($"\"{key}\")", colours, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>Each palette key of ADR-023 and the Colors.xaml colour it reads in Noto's own Light and Dark.</summary>
+    private static readonly (string Key, string Colour)[] OwnPaletteKeys =
+    [
+        ("background", "SurfaceSidebarColor"), ("card", "SurfaceCardColor"), ("code", "SurfaceCodeColor"), ("text", "TextPrimaryColor"),
+        ("textSecondary", "TextSecondaryColor"), ("textDisabled", "TextDisabledColor"), ("link", "TextLinkColor"), ("quote", "TextQuoteColor"),
+        ("checkmark", "TaskMarkColor"), ("danger", "TextDangerColor"), ("accent", "TextPrimaryColor"), ("border", "BorderSubtleColor"),
+        ("highlight", "MarkColor"), ("highlightText", "MarkTextColor"),
+        .. Enumerable.Range(1, 6).SelectMany(n => new[] { ($"note{n}.tint", $"Note{n}TintColor"), ($"note{n}.marker", $"Note{n}MarkerColor") }),
+        (ThemePalette.Hover, "InteractionHoverColor"), (ThemePalette.Pressed, "InteractionPressedColor"), (ThemePalette.Selected, "InteractionSelectedColor"),
+        (ThemePalette.CardHover, "SurfaceCardHoverColor"), (ThemePalette.Focus, "BorderFocusColor"), (ThemePalette.FocusInner, "BorderFocusInnerColor"),
+    ];
 
     // ---------------------------------------------------------------- resolution
 
@@ -710,8 +776,8 @@ public sealed class DesignSystemGuardTests
         return Reference.Match(value) is { Success: true } match ? match.Groups[2].Value : value;
     }
 
-    /// <summary>A colour's sRGB value; an alias is followed within its theme. Alpha is kept for compositing.</summary>
-    private static (double A, double R, double G, double B) ColourOf(XElement theme, string key)
+    /// <summary>A colour's value; an alias is followed within its theme. Alpha is kept for compositing.</summary>
+    private static ThemeColor ColourOf(XElement theme, string key)
     {
         XElement element = theme.Elements().Single(e => KeyOf(e) == key);
 
@@ -720,21 +786,10 @@ public sealed class DesignSystemGuardTests
             return ColourOf(theme, alias);
         }
 
+        // XAML's #aarrggbb: alpha first, as a theme file's is not.
         string hex = element.Value.Trim().TrimStart('#');
         uint value = uint.Parse(hex.Length == 6 ? "FF" + hex : hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-        return (((value >> 24) & 0xFF) / 255.0, ((value >> 16) & 0xFF) / 255.0, ((value >> 8) & 0xFF) / 255.0, (value & 0xFF) / 255.0);
-    }
-
-    /// <summary>WCAG 2.x contrast ratio, the foreground composited over an opaque background.</summary>
-    private static double Contrast((double A, double R, double G, double B) fore, (double A, double R, double G, double B) back)
-    {
-        double Over(double f, double b) => (fore.A * f) + ((1 - fore.A) * b);
-        double l1 = Luminance(Over(fore.R, back.R), Over(fore.G, back.G), Over(fore.B, back.B));
-        double l2 = Luminance(back.R, back.G, back.B);
-        return (Math.Max(l1, l2) + 0.05) / (Math.Min(l1, l2) + 0.05);
-
-        static double Luminance(double r, double g, double b) => (0.2126 * Linear(r)) + (0.7152 * Linear(g)) + (0.0722 * Linear(b));
-        static double Linear(double c) => c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        return new ThemeColor((byte)(value >> 16), (byte)(value >> 8), (byte)value, (byte)(value >> 24));
     }
 
     /// <summary>Walks up to the repository root; a guard that silently skips is worse than none.</summary>

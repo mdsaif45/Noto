@@ -402,6 +402,15 @@ value is a token; nothing here adds a literal.
 - The contrast pairs move to one table in Core, used by the theme loader and by
   `DesignSystemGuardTests`.
 
+**2026-11-25 — theme files, as built (#269).**
+
+- **An on switch takes the accent through `SelectionIndicator`**
+  (`ToggleSwitchFillOn*`), as WinUI draws it otherwise; in high contrast,
+  WinUI's own Highlight and ButtonFace. A focused input's underline stays the
+  Windows accent (ADR-023's amendment).
+- The six switch keys WinUI animates as colours stay colour aliases; a theme
+  writes their values instead (ADR-023's amendment).
+
 ---
 
 ## Alternatives rejected

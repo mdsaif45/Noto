@@ -349,6 +349,7 @@ public sealed class WorkspacePreferencesTests
         { "SetNewNotePlacement", SettingKeys.NotesNewPlacement.Name, NewNotePlacement.AboveSelected },
         { "SetOpenLastFolder", SettingKeys.WorkspaceOpenLastFolder.Name, true },
         { "SetTheme", SettingKeys.AppearanceTheme.Name, WorkspaceTheme.Dark },
+        { "SetThemeFile", SettingKeys.AppearanceThemeFile.Name, "Harbour.nototheme" },
         { "SetNoteColorStyle", SettingKeys.AppearanceNoteColorStyle.Name, NoteColorStyle.Bar },
         { "SetLineHeight", SettingKeys.AppearanceLineHeight.Name, TextSpacing.Relaxed },
         { "SetParagraphSpacing", SettingKeys.AppearanceParagraphSpacing.Name, TextSpacing.Compact },
@@ -515,6 +516,7 @@ public sealed class WorkspacePreferencesTests
         "SetNewNotePlacement" => preferences.SetNewNotePlacement((NewNotePlacement)value),
         "SetOpenLastFolder" => preferences.SetOpenLastFolder((bool)value),
         "SetTheme" => preferences.SetTheme((WorkspaceTheme)value),
+        "SetThemeFile" => preferences.SetThemeFile((string)value),
         "SetNoteColorStyle" => preferences.SetNoteColorStyle((NoteColorStyle)value),
         "SetLineHeight" => preferences.SetLineHeight((TextSpacing)value),
         "SetParagraphSpacing" => preferences.SetParagraphSpacing((TextSpacing)value),
@@ -540,6 +542,7 @@ public sealed class WorkspacePreferencesTests
         "SetNewNotePlacement" => preferences.NewNotePlacement,
         "SetOpenLastFolder" => preferences.OpenLastFolder,
         "SetTheme" => preferences.Theme,
+        "SetThemeFile" => preferences.ThemeFile,
         "SetNoteColorStyle" => preferences.NoteColorStyle,
         "SetLineHeight" => preferences.LineHeight,
         "SetParagraphSpacing" => preferences.ParagraphSpacing,
@@ -551,4 +554,18 @@ public sealed class WorkspacePreferencesTests
         "SetRecycleImportedFiles" => preferences.RecycleImportedFiles,
         _ => throw new ArgumentOutOfRangeException(nameof(setter), setter, null),
     };
+
+    [Theory]
+    [InlineData(@"..\Harbour.nototheme")]
+    [InlineData(@"C:\themes\Harbour.nototheme")]
+    [InlineData("sub/Harbour.nototheme")]
+    [InlineData("Harbour.json")]
+    public void A_theme_file_that_is_not_a_bare_installed_name_is_refused_and_nothing_is_written(string file)
+    {
+        // #269 (ADR-023 §8): no value can point outside the themes folder.
+        var store = new FakeSettings();
+
+        Assert.False(new WorkspacePreferences(store).SetThemeFile(file));
+        Assert.Empty(store.Writes);
+    }
 }

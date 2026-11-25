@@ -63,9 +63,10 @@
         SystemControlFocusVisual* for the focus ring every native control draws.
         They are mapped to Noto's roles at the end of each dictionary
         (lightweight styling): every native control then has Noto's states
-        without a copied template, and the focus ring has one source. Left as
-        Windows draws them: a focused input's accent underline, a switch that
-        is on (the accent), a list item's selection pill (the accent). In high
+        without a copied template, and the focus ring has one source. A switch
+        that is on takes the accent through SelectionIndicator, so a theme's
+        accent shows there too (#269); left as Windows draws them: a focused
+        input's accent underline, a list item's selection pill. In high
         contrast, a control with no "text on hover" key of its own shows hover
         as a Highlight border on the window colour, never as a Highlight fill
         under window text.
@@ -188,6 +189,13 @@
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
+            <!--
+                #269 (ADR-023 §7): an on switch in the accent, so a theme's accent shows there too. Noto's own is WinUI's:
+                the accent, then the same at 0.9 and 0.8 under the pointer and pressed (AccentFillColor*Brush).
+            -->
+            <StaticResource x:Key="ToggleSwitchFillOn" ResourceKey="SelectionIndicatorBrush" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{ThemeResource SystemAccentColorDark1}" Opacity="0.9" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{ThemeResource SystemAccentColorDark1}" Opacity="0.8" />
 
             <!-- The editor (ADR-017): a link's text, and the surface behind inline and fenced code. -->
             <Color x:Key="TextLinkColor">#0B5CAD</Color>
@@ -206,6 +214,15 @@
             <Color x:Key="MarkTextColor">#1A1A1A</Color>
             <SolidColorBrush x:Key="MarkBrush" Color="{StaticResource MarkColor}" />
             <SolidColorBrush x:Key="MarkTextBrush" Color="{StaticResource MarkTextColor}" />
+
+            <!--
+                #269 (ADR-023 §7): a quote's text and a task's checkbox, which a theme may colour on their own. Noto's own
+                is the secondary text, so the look is as before.
+            -->
+            <StaticResource x:Key="TextQuoteColor" ResourceKey="TextSecondaryColor" />
+            <StaticResource x:Key="TaskMarkColor" ResourceKey="TextSecondaryColor" />
+            <SolidColorBrush x:Key="TextQuoteBrush" Color="{StaticResource TextQuoteColor}" />
+            <SolidColorBrush x:Key="TaskMarkBrush" Color="{StaticResource TaskMarkColor}" />
 
             <!--
                 The note palette (F7, #150; ADR-011): note1 to note6 are Yellow, Green, Blue, Purple, Pink and Grey.
@@ -354,6 +371,13 @@
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="TextPrimaryBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
+            <!--
+                #269 (ADR-023 §7): an on switch in the accent, so a theme's accent shows there too. Noto's own is WinUI's:
+                the accent, then the same at 0.9 and 0.8 under the pointer and pressed (AccentFillColor*Brush).
+            -->
+            <StaticResource x:Key="ToggleSwitchFillOn" ResourceKey="SelectionIndicatorBrush" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.9" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.8" />
 
             <!-- The editor (ADR-017): a link's text, and the surface behind inline and fenced code. -->
             <Color x:Key="TextLinkColor">#8CC2FF</Color>
@@ -372,6 +396,15 @@
             <Color x:Key="MarkTextColor">#FFFFFF</Color>
             <SolidColorBrush x:Key="MarkBrush" Color="{StaticResource MarkColor}" />
             <SolidColorBrush x:Key="MarkTextBrush" Color="{StaticResource MarkTextColor}" />
+
+            <!--
+                #269 (ADR-023 §7): a quote's text and a task's checkbox, which a theme may colour on their own. Noto's own
+                is the secondary text, so the look is as before.
+            -->
+            <StaticResource x:Key="TextQuoteColor" ResourceKey="TextSecondaryColor" />
+            <StaticResource x:Key="TaskMarkColor" ResourceKey="TextSecondaryColor" />
+            <SolidColorBrush x:Key="TextQuoteBrush" Color="{StaticResource TextQuoteColor}" />
+            <SolidColorBrush x:Key="TaskMarkBrush" Color="{StaticResource TaskMarkColor}" />
 
             <!--
                 The note palette (F7, #150; ADR-011). Dark tints are fainter than light ones: a brighter hue lifts the
@@ -517,6 +550,10 @@
             <StaticResource x:Key="ToggleSwitchKnobFillOffPointerOver" ResourceKey="InteractionHoverBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffPressed" ResourceKey="InteractionHoverBrush" />
             <StaticResource x:Key="ToggleSwitchKnobFillOffDisabled" ResourceKey="TextDisabledBrush" />
+            <!-- #269: an on switch as WinUI draws it in high contrast: Highlight, and ButtonFace under the pointer and pressed. -->
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{ThemeResource SystemColorButtonFaceColor}" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{ThemeResource SystemColorButtonFaceColor}" />
 
             <!-- The editor (ADR-017): a link in the system's hyperlink colour, code with no fill. -->
             <StaticResource x:Key="TextLinkColor" ResourceKey="SystemColorHotlightColor" />
@@ -535,6 +572,12 @@
             <StaticResource x:Key="MarkTextColor" ResourceKey="SystemColorHighlightTextColor" />
             <SolidColorBrush x:Key="MarkBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="MarkTextBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+
+            <!-- #269: a quote's text and a task's checkbox, as the secondary text is in high contrast. -->
+            <StaticResource x:Key="TextQuoteColor" ResourceKey="SystemColorGrayTextColor" />
+            <StaticResource x:Key="TaskMarkColor" ResourceKey="SystemColorGrayTextColor" />
+            <SolidColorBrush x:Key="TextQuoteBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
+            <SolidColorBrush x:Key="TaskMarkBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
 
             <!--
                 The note palette in high contrast (F7, #150): the user's colours win, so a card is never tinted (the

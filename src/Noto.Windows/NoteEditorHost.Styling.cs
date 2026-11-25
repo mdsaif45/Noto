@@ -16,6 +16,7 @@ internal readonly record struct EditorPalette(
     Color Text,
     Color Markup,
     Color Link,
+    Color Quote,
     Color CodeSurface,
     Color Surface,
     Color Mark,
@@ -66,17 +67,20 @@ internal static class MarkdownStyling
 
         /// <summary>A highlight (F8, #151): the mark's colour behind, its text colour on it.</summary>
         Mark = 1024,
+
+        /// <summary>A quote's text, in its own colour (#269, ADR-023 §7).</summary>
+        Quote = 2048,
     }
 
     /// <summary>
     /// Each look's RTF control word. Colour 2 is markup, 3 a link, 4 the code surface, 5 the editor's surface, 6 a
-    /// highlight and 7 its text (the colour table's order). A highlight comes before code and links, so code inside a
+    /// highlight, 7 its text and 8 a quote (the colour table's order). A highlight comes before code and links, so code inside a
     /// highlight keeps its own surface and a link its colour.
     /// </summary>
     private static readonly (Look Flag, string Word)[] ControlWords =
     [
         (Look.Bold, @"\b"), (Look.Italic, @"\i"), (Look.Strike, @"\strike"), (Look.Underline, @"\ul"), (Look.Mono, @"\f1"),
-        (Look.Mark, @"\highlight6\cf7"), (Look.CodeSurface, @"\highlight4"), (Look.Link, @"\cf3"), (Look.Dim, @"\cf2"), (Look.Hidden, @"\v"), (Look.Invisible, @"\cf5"),
+        (Look.Mark, @"\highlight6\cf7"), (Look.CodeSurface, @"\highlight4"), (Look.Link, @"\cf3"), (Look.Dim, @"\cf2"), (Look.Quote, @"\cf8"), (Look.Hidden, @"\v"), (Look.Invisible, @"\cf5"),
     ];
 
     /// <summary>Space above a heading that is not the note's first line, in points: it separates sections.</summary>
@@ -97,7 +101,7 @@ internal static class MarkdownStyling
         MarkdownSpanKind.Highlight => Look.Mark,
         MarkdownSpanKind.Code or MarkdownSpanKind.CodeBlock => Look.Mono | Look.CodeSurface,
         MarkdownSpanKind.Link => Look.Link | Look.Underline,
-        MarkdownSpanKind.Quote => Look.Italic | Look.Dim,
+        MarkdownSpanKind.Quote => Look.Italic | Look.Quote,
         MarkdownSpanKind.Image => Look.Italic | Look.Dim,
         MarkdownSpanKind.ListMarker or MarkdownSpanKind.TaskBox or MarkdownSpanKind.Separator => Look.Dim,
         MarkdownSpanKind.TaskDone => Look.Strike | Look.Dim,
@@ -141,7 +145,7 @@ internal static class MarkdownStyling
 
         var rtf = new StringBuilder(text.Length * 2 + 256);
         rtf.Append(@"{\rtf1\ansi\uc1\deff0{\fonttbl{\f0 ").Append(palette.BodyFont).Append(@";}{\f1 ").Append(palette.CodeFont).Append(";}}")
-           .Append(@"{\colortbl;").Append(Rgb(palette.Text)).Append(Rgb(palette.Markup)).Append(Rgb(palette.Link)).Append(Rgb(palette.CodeSurface)).Append(Rgb(palette.Surface)).Append(Rgb(palette.Mark)).Append(Rgb(palette.MarkText)).Append('}')
+           .Append(@"{\colortbl;").Append(Rgb(palette.Text)).Append(Rgb(palette.Markup)).Append(Rgb(palette.Link)).Append(Rgb(palette.CodeSurface)).Append(Rgb(palette.Surface)).Append(Rgb(palette.Mark)).Append(Rgb(palette.MarkText)).Append(Rgb(palette.Quote)).Append('}')
            .Append(@"\f0\fs").Append(HalfPoints(palette.BodySize)).Append(@"\cf1 ");
 
         int run = 0;
@@ -300,9 +304,9 @@ internal static class MarkdownStyling
             format.BackgroundColor = palette.CodeSurface;
         }
 
-        if (look.HasFlag(Look.Link) || look.HasFlag(Look.Dim))
+        if (look.HasFlag(Look.Link) || look.HasFlag(Look.Dim) || look.HasFlag(Look.Quote))
         {
-            format.ForegroundColor = look.HasFlag(Look.Link) ? palette.Link : palette.Markup;
+            format.ForegroundColor = look.HasFlag(Look.Link) ? palette.Link : look.HasFlag(Look.Quote) ? palette.Quote : palette.Markup;
         }
 
         if (look.HasFlag(Look.Invisible))

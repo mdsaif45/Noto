@@ -3,6 +3,7 @@ using Noto.Core.Diagnostics;
 using Noto.Core.Folders;
 using Noto.Core.Links;
 using Noto.Core.Notes;
+using Noto.Core.Themes;
 using AutomaticBackups = Noto.Core.Portability.AutomaticBackups;
 using Edge = Noto.Core.Workspace.WorkspaceEdge;
 using EscapeBehavior = Noto.Core.Workspace.EscapeBehavior;
@@ -368,6 +369,19 @@ public static class SettingKeys
         new("appearance.theme", WorkspaceTheme.System, Enum.IsDefined);
 
     /// <summary>
+    /// The installed theme file Noto is drawn in (#269, ADR-023 §8; parity F2–F7, J22): empty for Default, Noto's own
+    /// colours, or a file's name in the data root's <c>themes</c> folder.
+    /// </summary>
+    /// <remarks>
+    /// Default empty. Only a bare <c>*.nototheme</c> file name is kept (<see cref="ThemeFile.IsFileName"/>): a path, a
+    /// separator or <c>..</c> is refused when written and reads as the default, so no value, a restored one included,
+    /// points outside <c>themes</c>. A file that is gone or can't be read is kept here and Default is drawn, so a file
+    /// fixed later applies at the next start.
+    /// </remarks>
+    public static readonly SettingKey<string> AppearanceThemeFile =
+        new("appearance.theme-file", string.Empty, ThemeFile.IsFileName);
+
+    /// <summary>
     /// The family notes are written and read in (F13, #154; parity D47, J12).
     /// </summary>
     /// <remarks>
@@ -619,6 +633,7 @@ public static class SettingKeys
         WorkspaceOpenLastFolder,
         WorkspaceRecentFolders,
         AppearanceTheme,
+        AppearanceThemeFile,
         AppearanceNoteFont,
         AppearanceNoteSize,
         AppearanceLineHeight,

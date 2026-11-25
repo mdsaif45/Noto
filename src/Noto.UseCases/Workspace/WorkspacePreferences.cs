@@ -77,6 +77,9 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>The workspace's theme (parity J21).</summary>
     public WorkspaceTheme Theme => _settings.Read(SettingKeys.AppearanceTheme);
 
+    /// <summary>The installed theme file Noto is drawn in: empty for Default (#269, ADR-023 §8).</summary>
+    public string ThemeFile => _settings.Read(SettingKeys.AppearanceThemeFile);
+
     /// <summary>The family notes are shown in: empty for the design system's own (F13, D47).</summary>
     public string NoteFont => _settings.Read(SettingKeys.AppearanceNoteFont);
 
@@ -252,6 +255,10 @@ public sealed class WorkspacePreferences(ISettingsStore settings)
     /// <summary>Sets the workspace's theme.</summary>
     /// <returns>Whether it was kept.</returns>
     public bool SetTheme(WorkspaceTheme theme) => TryWrite(SettingKeys.AppearanceTheme, theme);
+
+    /// <summary>Chooses the theme file Noto is drawn in, empty for Default (#269).</summary>
+    /// <returns>Whether it was kept: anything but a bare installed file name is refused.</returns>
+    public bool SetThemeFile(string file) => TryWrite(SettingKeys.AppearanceThemeFile, file);
 
     /// <summary>Sets whether the formatting toolbar shows above selected text.</summary>
     /// <returns>Whether it was kept.</returns>

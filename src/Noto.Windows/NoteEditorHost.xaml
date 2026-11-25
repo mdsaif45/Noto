@@ -30,6 +30,8 @@
             ClipboardCopyFormat="PlainText"
             MarkupBrush="{ThemeResource TextSecondaryBrush}"
             LinkBrush="{ThemeResource TextLinkBrush}"
+            QuoteBrush="{ThemeResource TextQuoteBrush}"
+            TaskBrush="{ThemeResource TaskMarkBrush}"
             CodeSurfaceBrush="{ThemeResource SurfaceCodeBrush}"
             MarkBrush="{ThemeResource MarkBrush}"
             MarkTextBrush="{ThemeResource MarkTextBrush}"

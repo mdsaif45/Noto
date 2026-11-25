@@ -30,6 +30,10 @@
         written, with no object character for the swatch
     14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
         content is pinned Dark under a see-through window, and the chosen theme is set on the drawer below it)
+    19  a theme file (#269, ADR-023): docs/themes/example.nototheme ("Harbour") seeded into the isolated data root's
+        themes folder and chosen in the setting draws the drawer in its light background, on the very brushes Colors.xaml
+        declares (trace shared=True); Settings' Theme row shows Harbour; choosing Default there applies it live
+        (trace applied=Default), stores an empty setting, and gives Noto's own surface back
 
 .EXAMPLE
   pwsh -NoProfile -File tools/validation/Invoke-Visual.ps1 -NotoExe <path>\Noto.exe
@@ -454,6 +458,38 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
     }
 
     Add-Result $run '13 every surface captured in both themes (for review)' ($shots.Count -eq 14) ($shots -join ' ')
+
+    # 19 - #269: a theme file. Seeded the way the harness seeds settings: copied into this run's data root only.
+    $themes = Join-Path $script:data 'themes'; Assert-UnderRun $run $themes
+    New-Item -ItemType Directory $themes -Force | Out-Null
+    Copy-Item (Join-Path $PSScriptRoot '..' '..' 'docs' 'themes' 'example.nototheme') (Join-Path $themes 'Harbour.nototheme')
+    Set-NotoSetting $run -Exe $NotoExe -DataRoot $script:data -Key 'appearance.theme' -Value 'Light'
+    Set-NotoSetting $run -Exe $NotoExe -DataRoot $script:data -Key 'appearance.theme-file' -Value 'Harbour.nototheme'
+    $script:noto = Start-Noto $run -Exe $NotoExe -DataRoot $script:data
+    Bring-Forward
+    function Theme-Trace { @($script:log.Lines($script:noto.Pid)) -join ' | ' }
+    function Wait-Theme([string] $Pattern) {
+        $deadline = (Get-Date).AddSeconds(5)
+        while ((Get-Date) -lt $deadline) { if ((Theme-Trace) -match $Pattern) { return $true }; Start-Sleep -Milliseconds 100 }
+        $false
+    }
+    function Stored-ThemeFile { [string](Get-NotoScalar $run -Exe $NotoExe -DataRoot $script:data -Sql 'SELECT Value FROM Settings WHERE Key = $k' -Parameters @{ '$k' = 'appearance.theme-file' }) }
+    $harbourBackground = [System.Drawing.Color]::FromArgb(255, 0xEE, 0xF2, 0xF5)   # example.nototheme, light.background
+    $ownBackground = [System.Drawing.Color]::FromArgb(255, 0xF3, 0xF3, 0xF3)       # Colors.xaml, Light SurfaceSidebarColor
+    $applied = Wait-Theme 'Noto\.Theme applied=Harbour warnings=0 fallbacks=0 shared=True'
+    $themed = [System.Drawing.ColorTranslator]::FromHtml((Top-Edge).Surface)
+    Send-ToNoto @(0x11) 0xBC 1400   # Ctrl+,
+    $box = Find-ById 'ThemeFileSetting'
+    $selection = $box.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+    $shown = if ($selection.Count) { $selection[0].Current.Name } else { '' }
+    Send-ToNoto @() 0x1B 900
+    Set-Choice 'ThemeFileSetting' 'Default'
+    $restored = Wait-Theme 'Noto\.Theme applied=Default warnings=0 fallbacks=0'
+    Start-Sleep -Milliseconds 400
+    $own = [System.Drawing.ColorTranslator]::FromHtml((Top-Edge).Surface)
+    $stored = Stored-ThemeFile
+    Add-Result $run '19 a theme file draws the drawer in its colours on the shared brushes; Settings shows it; Default restores Noto''s own, live and stored' ($applied -and (Distance $themed $harbourBackground) -le 3 -and $shown -eq 'Harbour' -and $restored -and $stored -eq '' -and (Distance $own $ownBackground) -le 3) "themed surface=$($themed.Name) (want EEF2F5) row='$shown' default surface=$($own.Name) (want F3F3F3) stored='$stored'; trace: $(@($script:log.Lines($script:noto.Pid) | Where-Object { $_ -match 'Noto\.Theme' }) -join ' | ')"
+    if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
 }) }
 finally {
     $script:log.Dispose()

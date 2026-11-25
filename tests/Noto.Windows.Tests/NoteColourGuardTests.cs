@@ -131,9 +131,10 @@ public sealed class NoteColourGuardTests
         Assert.Equal("OnNoteColorStyleChanged", (string?)box.Attribute("SelectionChanged"));
         Assert.Equal(Enum.GetNames<Noto.Core.Notes.NoteColorStyle>(), box.Elements(Xaml + "ComboBoxItem").Select(i => (string?)i.Attribute("Tag")));
 
-        // In the Appearance group, right after the theme.
+        // In the Appearance group, right after the mode and the theme file (#269).
         var names = page.Descendants(Xaml + "ComboBox").Select(e => (string?)e.Attribute(X + "Name")).ToList();
-        Assert.Equal(names.IndexOf("ThemeSetting") + 1, names.IndexOf("NoteColorStyleSetting"));
+        Assert.Equal(names.IndexOf("ThemeSetting") + 1, names.IndexOf("ThemeFileSetting"));
+        Assert.Equal(names.IndexOf("ThemeFileSetting") + 1, names.IndexOf("NoteColorStyleSetting"));
 
         string code = Code(Path.Join(Windows, "SettingsPage.xaml.cs"));
         Assert.Contains("Select(NoteColorStyleSetting, preferences.NoteColorStyle.ToString());", code, StringComparison.Ordinal);

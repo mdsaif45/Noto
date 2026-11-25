@@ -5,8 +5,9 @@ using Noto.Core.Links;
 namespace Noto.Platform.Windows;
 
 /// <summary>
-/// Hands something to the Windows shell to open: the data folder in Explorer, the Startup apps page of Windows Settings
-/// (Slice 1), and a note's links (ADR-019 §2), only through <see cref="OpenLink"/>.
+/// Hands something to the Windows shell to open: the data folder in Explorer, an installed theme file selected in it
+/// (#269), the Startup apps page of Windows Settings (Slice 1), and a note's links (ADR-019 §2), only through
+/// <see cref="OpenLink"/>.
 /// </summary>
 /// <remarks>
 /// The shell opens it, not Noto: no process is waited on and nothing is read back. A path is never written to a
@@ -24,6 +25,15 @@ public static class ShellLaunch
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
 
         return Directory.Exists(folder) && Open(folder);
+    }
+
+    /// <summary>Opens Explorer on the folder holding <paramref name="file"/>, with the file selected (#269: Show in Explorer).</summary>
+    /// <returns>Whether the shell accepted it. A file that does not exist is refused.</returns>
+    public static bool ShowInFolder(string file)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(file);
+
+        return File.Exists(file) && Open("explorer.exe", $"/select,\"{file}\"");
     }
 
     /// <summary>Opens Windows Settings at the Startup apps page.</summary>
@@ -68,11 +78,11 @@ public static class ShellLaunch
         return outcome;
     }
 
-    private static bool Open(string target)
+    private static bool Open(string target, string arguments = "")
     {
         try
         {
-            using Process? process = Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            using Process? process = Process.Start(new ProcessStartInfo(target, arguments) { UseShellExecute = true });
             return true;
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or FileNotFoundException)

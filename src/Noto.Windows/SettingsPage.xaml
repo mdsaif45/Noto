@@ -361,7 +361,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
-                                    <TextBlock Text="Theme" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock Text="Mode" Style="{StaticResource SettingLabelStyle}" />
                                     <TextBlock Text="High contrast, when on in Windows, is used instead." Style="{StaticResource SettingDescriptionStyle}" />
                                 </StackPanel>
                                 <ComboBox
@@ -369,12 +369,60 @@
                                     Grid.Column="1"
                                     Style="{StaticResource SettingComboBoxStyle}"
                                     SelectionChanged="OnThemeChanged"
-                                    AutomationProperties.Name="Theme"
+                                    AutomationProperties.Name="Mode"
                                     AutomationProperties.HelpText="High contrast, when on in Windows, is used instead.">
                                     <ComboBoxItem Content="Use Windows setting" Tag="System" />
                                     <ComboBoxItem Content="Light" Tag="Light" />
                                     <ComboBoxItem Content="Dark" Tag="Dark" />
                                 </ComboBox>
+                            </Grid>
+
+                            <!--
+                                #269 (ADR-023 §8; parity F2-F7, J22): the theme file Noto is drawn in, Default or an installed
+                                one, listed from the themes folder each time Settings opens; installed, shown in Explorer and
+                                removed (to the Windows Recycle Bin) here.
+                            -->
+                            <Grid Style="{StaticResource SettingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="{StaticResource SpaceXS}" VerticalAlignment="Center">
+                                    <TextBlock Text="Theme" Style="{StaticResource SettingLabelStyle}" />
+                                    <TextBlock
+                                        x:Name="ThemeFileText"
+                                        Text="Noto's own colours."
+                                        Style="{StaticResource SettingDescriptionStyle}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource SpaceS}">
+                                        <Button
+                                            x:Name="InstallThemeButton"
+                                            Style="{StaticResource SettingSubtleButtonStyle}"
+                                            Content="Install theme…"
+                                            Click="OnInstallThemeClick"
+                                            AutomationProperties.Name="Install a theme file" />
+                                        <Button
+                                            x:Name="RevealThemeButton"
+                                            Style="{StaticResource SettingSubtleButtonStyle}"
+                                            Content="Show in Explorer"
+                                            IsEnabled="False"
+                                            Click="OnRevealThemeClick"
+                                            AutomationProperties.Name="Show the theme's file in Explorer" />
+                                        <Button
+                                            x:Name="RemoveThemeButton"
+                                            Style="{StaticResource SettingSubtleButtonStyle}"
+                                            Content="Remove"
+                                            IsEnabled="False"
+                                            Click="OnRemoveThemeClick"
+                                            AutomationProperties.Name="Remove the theme to the Windows Recycle Bin" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <ComboBox
+                                    x:Name="ThemeFileSetting"
+                                    Grid.Column="1"
+                                    Style="{StaticResource SettingComboBoxStyle}"
+                                    SelectionChanged="OnThemeFileChanged"
+                                    AutomationProperties.Name="Theme"
+                                    AutomationProperties.HelpText="Noto's own colours, or a theme file you installed." />
                             </Grid>
 
                             <!-- #191: how a coloured note shows its colour (F10, J23). -->
