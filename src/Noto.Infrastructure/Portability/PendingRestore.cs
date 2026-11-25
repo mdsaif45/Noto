@@ -169,11 +169,11 @@ public static class PendingRestore
     {
         if (Directory.Exists(from))
         {
-            Directory.Move(from, to);
+            TransientMove.Run(() => Directory.Move(from, to));
         }
         else
         {
-            File.Move(from, to);
+            TransientMove.Run(() => File.Move(from, to));
         }
     }
 }

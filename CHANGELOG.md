@@ -71,6 +71,8 @@ format or behavior. Breaking changes are always called out explicitly.
 
 ### Fixed
 
+- Export, backup and restore no longer fail when Windows Defender or the search indexer holds a just-written file
+  for a moment: the final rename is tried again briefly (#280).
 - With Narrator on, Alt+Shift+Left and Alt+Shift+Right fold and unfold a note, and Alt+Shift+Up and Alt+Shift+Down
   move to the previous and next note while editing. Narrator keeps Ctrl+Alt+arrows for itself; without Narrator they
   still work (#202).
