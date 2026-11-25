@@ -330,8 +330,21 @@ public static class MarkdownCommands
             order[next++] = moved;
         }
 
-        // The k-th item takes the k-th number, so the list's numbering is where it was.
-        for (int k = 0; k < units.Count && head.Digits > 0; k++)
+        if (head.Digits > 0)
+        {
+            Renumber(units, numbers, info, lines, ends);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The k-th item of <paramref name="units"/> takes the k-th of <paramref name="numbers"/>, so a numbered list's
+    /// numbering stays where it was after a move; a selection end on a renumbered marker keeps its place.
+    /// </summary>
+    private static void Renumber(List<List<int>> units, string[] numbers, ListLine[] info, string[] lines, (int Line, int Column)[] ends)
+    {
+        for (int k = 0; k < units.Count; k++)
         {
             int first = units[k][0];
             ListLine item = info[first];
@@ -347,8 +360,6 @@ public static class MarkdownCommands
                 }
             }
         }
-
-        return true;
     }
 
     /// <summary>The line holding <paramref name="offset"/>, and its column there.</summary>
