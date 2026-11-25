@@ -28,6 +28,8 @@
         the height it had with nothing stored (the look before the setting); the same for Paragraph spacing
     16  per theme: a #rrggbb code (F14, #155) shows a swatch of its colour, and UI Automation reads the card's text as
         written, with no object character for the swatch
+    19  per theme: Settings' New note colour set to Blue (#245), Ctrl+N makes a blue note; Show colour chips off hides
+        that note's #ff0000 chip live, its text read as written; on again, the chip is back; both settings put back
     14  per theme: a folder's context menu and a Settings drop-down list are drawn in that theme (F2: the window's
         content is pinned Dark under a see-through window, and the chosen theme is set on the drawer below it)
 
@@ -397,6 +399,42 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         Set-Choice 'ParagraphSpacingSetting' 'Relaxed'; $spaced = Sync-Height; $storedSpaced = Stored 'appearance.paragraph-spacing'
         Set-Choice 'ParagraphSpacingSetting' 'Normal'; $unspaced = Sync-Height
         Add-Result $run "18 ${theme}: Relaxed line height and Relaxed paragraph spacing each make a multi-line card taller, live; Normal gives back today's height" ($today -gt 0 -and $relaxed -gt $today + 4 -and [Math]::Abs($normal - $today) -le 1 -and $spaced -gt $today + 4 -and [Math]::Abs($unspaced - $today) -le 1 -and $storedRelaxed -eq 'Relaxed' -and $storedSpaced -eq 'Relaxed' -and (Stored 'appearance.line-height') -eq 'Normal' -and (Stored 'appearance.paragraph-spacing') -eq 'Normal') "today=$today line relaxed=$relaxed normal=$normal; paragraphs relaxed=$spaced normal=$unspaced; stored=$storedRelaxed/$storedSpaced"
+
+        # 19 - #245: New note colour Blue makes Ctrl+N's note blue; Show colour chips off hides its #ff0000 chip, live,
+        # the text unchanged; on again, the chip is back. Both settings are put back, and the note binned after the run.
+        $chipNote = 'Blue by default #ff0000'
+        $pure = [System.Drawing.Color]::FromArgb(255, 255, 0, 0)
+        function Chip-Card {
+            $c = @((Find-ById 'NoteList').FindAll($Scope::Children, [System.Windows.Automation.PropertyCondition]::new($AE::ControlTypeProperty, $CT::ListItem)) | Where-Object { (Get-RowTitle $_.Current.Name) -eq $chipNote })[0]
+            if ($c) { try { $c.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { } }
+            $c
+        }
+        function Chip-Red { $c = Chip-Card; if ($c) { Colour-Count $c.Current.BoundingRectangle $pure } else { -1 } }
+        function Toggle-Chips {
+            Send-ToNoto @(0x11) 0xBC 1400   # Ctrl+,
+            (Find-ById 'ColorChipsSetting').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle(); Start-Sleep -Milliseconds 400
+            Send-ToNoto @() 0x1B 900   # back to the stack
+        }
+        function Stored-Setting([string] $Key) { Get-NotoScalar $run -Exe $NotoExe -DataRoot $script:data -Sql 'SELECT Value FROM Settings WHERE Key = $k' -Parameters @{ '$k' = $Key } }
+        Set-Choice 'NewNoteColorSetting' 'Blue'
+        Send-ToNoto @(0x11) 0x4E 1200   # Ctrl+N
+        Type-Text $chipNote
+        Send-ToNoto @() 0x1B 900   # leave the editor, saving
+        $madeKey = Get-NotoScalar $run -Exe $NotoExe -DataRoot $script:data -Sql 'SELECT ColorKey FROM Notes WHERE Content = $c AND DeletedAt IS NULL' -Parameters @{ '$c' = $chipNote }
+        $chipCard = Chip-Card
+        $madeHelp = if ($chipCard) { $chipCard.Current.HelpText } else { '' }
+        $redOn = Chip-Red
+        Toggle-Chips
+        $redOff = Chip-Red
+        $chipCard = Chip-Card
+        $chipText = if ($chipCard) { $chipCard.FindFirst($Scope::Subtree, [System.Windows.Automation.PropertyCondition]::new($AE::IsTextPatternAvailableProperty, $true)) }
+        $readOff = if ($chipText) { $chipText.GetCurrentPattern($TP::Pattern).DocumentRange.GetText(-1) } else { '' }
+        $chipsOff = Stored-Setting 'appearance.color-chips'
+        Toggle-Chips
+        $redBack = Chip-Red
+        Set-Choice 'NewNoteColorSetting' 'None'
+        $colourBack = Stored-Setting 'appearance.new-note-color'
+        Add-Result $run "19 ${theme}: New note colour Blue makes Ctrl+N's note blue; Show colour chips off hides its #ff0000 chip live, the text unchanged, and on shows it again" ($madeKey -eq 'note3' -and $madeHelp -match 'Blue' -and $redOn -ge 25 -and $redOff -eq 0 -and $readOff -match '#ff0000' -and $chipsOff -eq 'False' -and $redBack -ge 25 -and $colourBack -eq '') "stored colour=$madeKey help='$madeHelp' red px on=$redOn off=$redOff again=$redBack read off='$($readOff -replace "`r?`n", ' | ')' chips stored off=$chipsOff; new note colour put back='$colourBack'"
         $cards = Items (Find-ById 'NoteList')
 
         # 4 - type hierarchy
@@ -450,6 +488,8 @@ exit (Invoke-IsolatedRun $run -Title 'Visual acceptance' -Body {
         $shots += Shot "$t-search"
         Send-ToNoto @() 0x1B 900
         if (-not (Stop-Noto $script:noto)) { throw 'Noto did not exit cleanly' }
+        # Case 18's note, binned, so the next theme starts from the same cards.
+        Sql $script:data "UPDATE Notes SET DeletedAt = `$t, UpdatedAt = `$t WHERE Content = `$c AND DeletedAt IS NULL" @{ '$t' = [DateTimeOffset]::UtcNow.ToString('O'); '$c' = $chipNote }
         $base += 6
     }
 

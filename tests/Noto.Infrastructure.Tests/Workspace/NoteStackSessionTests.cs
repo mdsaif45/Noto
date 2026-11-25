@@ -325,6 +325,20 @@ public sealed class NoteStackSessionTests : IDisposable
     }
 
     [Fact]
+    public void A_new_note_takes_the_colour_it_is_created_with_and_the_card_shows_it()
+    {
+        // J24: the "New note colour" setting reaches the note through creation (#245), as the mode does (#195).
+        CommandResult<NoteId> created = _stack.Create(NewNotePlacement.Bottom, null, "Blue by default", NoteMode.Markdown, "note3");
+
+        Assert.Equal("note3", _stack.Notes.Single(n => n.Id == created.Value).ColorKey);
+        Assert.Equal(created.Value, _stack.Editing);
+
+        // None is the default: a note made without one is uncoloured.
+        CommandResult<NoteId> plain = _stack.Create(NewNotePlacement.Bottom, null);
+        Assert.Null(_stack.Notes.Single(n => n.Id == plain.Value).ColorKey);
+    }
+
+    [Fact]
     public void A_links_note_is_created_holding_its_text_at_the_placement()
     {
         // #192: noto://new?text=… through the same path as Ctrl+N.

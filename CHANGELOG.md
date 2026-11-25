@@ -26,6 +26,8 @@ format or behavior. Breaking changes are always called out explicitly.
   first ask where the note goes. Recent folders come first; type to filter, Enter to choose, Escape to cancel (#243).
 - Settings › *Move checked tasks to the bottom*: when on, checking a task moves it, with its nested items, below the
   open tasks in its list, and unchecking moves it back. The check and the move are one undo step (#244).
+- Settings › Appearance › *New note colour*: every new note can start in one of the six colours. *Show colour chips*
+  hides the colour square shown after a hex colour code in a card (#245).
 - Noto can show itself when the pointer rests at the screen edge it docks to, or when you drag something to that edge
   to drop it in. Both are off by default, and each is turned on separately in Settings › Sidebar (#185).
 - Duplicate a note from its card menu or with Ctrl+Shift+D: the copy appears directly below it with the same text,

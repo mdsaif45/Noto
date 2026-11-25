@@ -17,12 +17,14 @@ namespace Noto.UseCases.Notes;
 /// <param name="Placement">Where it goes in the folder (B5, J8). <see cref="NewNotePlacement.Bottom"/> by default.</param>
 /// <param name="Selected">The selected note, for the placements relative to it.</param>
 /// <param name="Mode">How the note's text is read (#195): the "New notes are" setting (D28). Markdown by default.</param>
+/// <param name="ColorKey">The colour it starts with (#245): the "New note colour" setting (J24). None by default.</param>
 public sealed record CreateNote(
     FolderId FolderId,
     string Content,
     NewNotePlacement Placement = NewNotePlacement.Bottom,
     NoteId? Selected = null,
-    NoteMode Mode = NoteMode.Markdown) : ICommand<CommandResult<NoteId>>;
+    NoteMode Mode = NoteMode.Markdown,
+    string? ColorKey = null) : ICommand<CommandResult<NoteId>>;
 
 /// <summary>
 /// A note was created (ADR-010, #21): the reference event, published by the dispatcher after <see cref="CreateNote"/>
@@ -109,11 +111,15 @@ public sealed class CreateNoteHandler(INoteRepository notes, IClock clock)
             Content = command.Content,
             FolderId = command.FolderId,
             Mode = Enum.IsDefined(command.Mode) ? command.Mode : NoteMode.Markdown,
+
+            // A key outside the palette is never stored (ADR-011): the note
+            // starts uncoloured, as an unknown mode starts as Markdown.
+            ColorKey = NoteColor.IsValid(command.ColorKey) ? command.ColorKey : null,
             CreatedAt = now,
             UpdatedAt = now,
 
-            // Remaining fields take their documented defaults: no colour, not
-            // pinned, not folded, not deleted.
+            // Remaining fields take their documented defaults: not pinned, not
+            // folded, not deleted.
         };
 
         // B5, J8: the setting decides where in the folder the note goes. The

@@ -420,6 +420,25 @@ public static class SettingKeys
         new("appearance.note-color-style", NoteColorStyle.Background, Enum.IsDefined);
 
     /// <summary>
+    /// The colour a new note starts with (#245; parity J24): one of <see cref="NoteColor.Keys"/>, or empty for none.
+    /// </summary>
+    /// <remarks>
+    /// Default empty, no colour, as every note was before the setting existed. Applied by note creation, the paths the
+    /// new-note mode takes (Ctrl+N, the + button, the card menu, the new-note and clipboard shortcuts, a link); an
+    /// import keeps the colour it brings, and a note's own colour never changes with this. Empty rather than absent
+    /// because a setting always has a value; anything that is neither is refused when written and reads as the default.
+    /// </remarks>
+    public static readonly SettingKey<string> AppearanceNewNoteColor =
+        new("appearance.new-note-color", string.Empty, static key => key.Length == 0 || NoteColor.IsValid(key));
+
+    /// <summary>
+    /// Whether a <c>#rrggbb</c> code in a note shows a chip of its colour on the card (#245; parity F14, J18).
+    /// </summary>
+    /// <remarks>Default on, as #155 drew them; off hides the chips and leaves the text exactly as written.</remarks>
+    public static readonly SettingKey<bool> AppearanceColorChips =
+        new("appearance.color-chips", true);
+
+    /// <summary>
     /// Whether a small formatting toolbar shows above selected text in the editor (F8, #151).
     /// </summary>
     /// <remarks>Default on, as SideNotes has it; the keys and the Format menu do the same either way.</remarks>
@@ -624,6 +643,8 @@ public static class SettingKeys
         AppearanceLineHeight,
         AppearanceParagraphSpacing,
         AppearanceNoteColorStyle,
+        AppearanceNewNoteColor,
+        AppearanceColorChips,
         EditorFormatToolbar,
         EditorFileLinks,
         ImportingPicture,

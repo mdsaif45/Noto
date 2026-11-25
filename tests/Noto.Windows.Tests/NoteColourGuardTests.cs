@@ -140,6 +140,43 @@ public sealed class NoteColourGuardTests
         Assert.Contains("Write(p => NoteColorStyleSetting.SelectedItem is not null && p.SetNoteColorStyle(Selected<NoteColorStyle>(NoteColorStyleSetting)));", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void New_note_colour_is_a_settings_row_by_the_palette_names_applied_live_by_every_creation_path()
+    {
+        // #245 (J24): None, then the six by the palette's own keys and names, in shortcut order, after the colour style.
+        XDocument page = XDocument.Load(Path.Join(Windows, "SettingsPage.xaml"));
+        XElement box = page.Descendants(Xaml + "ComboBox").Single(e => (string?)e.Attribute(X + "Name") == "NewNoteColorSetting");
+        var items = box.Elements(Xaml + "ComboBoxItem").ToList();
+
+        Assert.Equal("New note colour", (string?)box.Attribute("AutomationProperties.Name"));
+        Assert.NotNull(box.Attribute("AutomationProperties.HelpText"));
+        Assert.Equal("OnNewNoteColorChanged", (string?)box.Attribute("SelectionChanged"));
+        Assert.Equal(["None", "Yellow", "Green", "Blue", "Purple", "Pink", "Grey"], items.Select(i => (string?)i.Attribute("Content")));
+        Assert.Null(items[0].Attribute("Tag"));
+        Assert.Equal(Noto.Core.Notes.NoteColor.Keys, items.Skip(1).Select(i => (string?)i.Attribute("Tag")));
+        Assert.Equal(Regex.Matches(Palette, @"\(""note\d"", ""(\w+)""\)").Select(m => m.Groups[1].Value), items.Skip(1).Select(i => (string?)i.Attribute("Content")));
+
+        var names = page.Descendants(Xaml + "ComboBox").Select(e => (string?)e.Attribute(X + "Name")).ToList();
+        Assert.Equal(names.IndexOf("NoteColorStyleSetting") + 1, names.IndexOf("NewNoteColorSetting"));
+
+        string code = Code(Path.Join(Windows, "SettingsPage.xaml.cs"));
+        Assert.Contains("NewNoteColorSetting.SelectedItem = NewNoteColorSetting.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag as string == preferences.NewNoteColor);", Body(code, "ShowStored"), StringComparison.Ordinal);
+        Assert.Contains("Write(p => NewNoteColorSetting.SelectedItem is ComboBoxItem item && p.SetNewNoteColor(item.Tag as string));", code, StringComparison.Ordinal);
+
+        // From the first frame and whenever it changes; the one creation path (Ctrl+N, the + button, the card menu, the
+        // new-note and clipboard shortcuts, a link) passes it on, through the session, to the command.
+        string app = Code(Path.Join(Windows, "App.xaml.cs"));
+        Assert.Contains("NewNoteColor = preferences.NewNoteColor,", app, StringComparison.Ordinal);
+        Assert.Contains("_main.NewNoteColor = preferences.NewNoteColor;", Body(app, "OnSettingChanged"), StringComparison.Ordinal);
+        Assert.Contains("_stack.Create(NewNotePlacement, selected, content, NewNoteMode, NewNoteColor);", Body(Main, "CreateNoteInOpenFolder"), StringComparison.Ordinal);
+        Assert.Equal(1, Regex.Count(string.Join('\n', Directory.EnumerateFiles(Windows, "*.cs").Select(Code)), @"_stack\.Create\("));
+        Assert.Contains("new CreateNote(folder, content, placement, selected, mode, colorKey)", Code(SourcePath("src", "Noto.UseCases", "Workspace", "NoteStackSession.cs")), StringComparison.Ordinal);
+        Assert.Contains("ColorKey = NoteColor.IsValid(command.ColorKey) ? command.ColorKey : null,", Code(SourcePath("src", "Noto.UseCases", "Notes", "CreateNote.cs")), StringComparison.Ordinal);
+
+        // An import never creates through CreateNote, so it keeps the colour it brings.
+        Assert.DoesNotContain("CreateNote", Code(SourcePath("src", "Noto.Infrastructure", "Portability", "MarkdownImporter.cs")), StringComparison.Ordinal);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static int Index(string text, string value)

@@ -187,10 +187,10 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
 
     /// <summary>
     /// Creates a note at <paramref name="placement"/> beside <paramref name="selected"/> (B5), in <paramref name="mode"/>
-    /// (#195, D28), and edits it, saving the card being edited first. Empty, unless a <c>noto://</c> link gave it
-    /// <paramref name="content"/> (#192).
+    /// (#195, D28) and <paramref name="colorKey"/> (#245, J24), and edits it, saving the card being edited first. Empty,
+    /// unless a <c>noto://</c> link gave it <paramref name="content"/> (#192).
     /// </summary>
-    public CommandResult<NoteId> Create(NewNotePlacement placement, NoteId? selected, string content = "", NoteMode mode = NoteMode.Markdown)
+    public CommandResult<NoteId> Create(NewNotePlacement placement, NoteId? selected, string content = "", NoteMode mode = NoteMode.Markdown, string? colorKey = null)
     {
         if (Folder is not { } folder)
         {
@@ -204,7 +204,7 @@ public sealed class NoteStackSession(ListNotesInFolderQuery list, CommandDispatc
             return CommandResult.Failed<NoteId>(left.Failure!);
         }
 
-        CommandResult<NoteId> created = _commands.Dispatch(new CreateNote(folder, content, placement, selected, mode));
+        CommandResult<NoteId> created = _commands.Dispatch(new CreateNote(folder, content, placement, selected, mode, colorKey));
 
         if (created.IsSuccess)
         {

@@ -47,6 +47,11 @@ internal sealed partial class MarkdownReadView : UserControl
     // The runs of this render inside a ::highlight:: (F8, #151), marked once they are laid in the view.
     private readonly List<Run> _marked = [];
 
+    private static bool _showsColorChips = true;
+
+    // Whether this view's last render drew colour chips (#245): a view loaded again after the setting changed renders again.
+    private bool _chips = true;
+
     public MarkdownReadView()
     {
         Content = _view;
@@ -64,6 +69,19 @@ internal sealed partial class MarkdownReadView : UserControl
             OnSpacingChanged(null, EventArgs.Empty);
         };
         Unloaded += (_, _) => NoteSpacing.Changed -= OnSpacingChanged;
+
+        // The colour chip setting (#245) reaches every card in the tree, recycled ones included, and none that has left it.
+        Loaded += (_, _) =>
+        {
+            ColorChipsChanged -= Render;
+            ColorChipsChanged += Render;
+
+            if (_chips != ShowsColorChips)
+            {
+                Render();
+            }
+        };
+        Unloaded += (_, _) => ColorChipsChanged -= Render;
     }
 
     /// <summary>The line height and paragraph spacing this view was last rendered in (#234).</summary>
@@ -97,6 +115,26 @@ internal sealed partial class MarkdownReadView : UserControl
             paragraph.LineStackingStrategy = pictures ? LineStackingStrategy.MaxHeight : LineStackingStrategy.BlockLineHeight;
         }
     }
+
+    /// <summary>
+    /// Whether a <c>#rrggbb</c> code shows a chip of its colour after it (#245; parity F14, J18): the "Show colour chips"
+    /// setting, set by the composition root and again when Settings changes it. Off renders every card again without
+    /// them, live; the text is the same either way.
+    /// </summary>
+    internal static bool ShowsColorChips
+    {
+        get => _showsColorChips;
+        set
+        {
+            if (_showsColorChips != value)
+            {
+                _showsColorChips = value;
+                ColorChipsChanged?.Invoke();
+            }
+        }
+    }
+
+    private static event Action? ColorChipsChanged;
 
     /// <summary>
     /// A heading's size: the design system's heading step over its body size, at this view's size, so a larger note text
@@ -171,6 +209,7 @@ internal sealed partial class MarkdownReadView : UserControl
         view.TextHighlighters.Clear();
         _marked.Clear();
         _spacing = (NoteSpacing.LineHeight, NoteSpacing.Paragraphs);
+        _chips = ShowsColorChips;
         string source = Source ?? string.Empty;
 
         // A Code or plain text note is its text as typed (#195), as a very long note is. With paragraph spacing, each line
@@ -407,6 +446,13 @@ internal sealed partial class MarkdownReadView : UserControl
             hyperlink.Inlines.Add(run);
             hyperlink.Click += (_, _) => OpenLink?.Invoke(destination);
             paragraph.Inlines.Add(hyperlink);
+            return;
+        }
+
+        // With colour chips off (#245) the run is the text alone.
+        if (!_chips)
+        {
+            paragraph.Inlines.Add(run);
             return;
         }
 

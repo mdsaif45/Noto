@@ -605,7 +605,7 @@ neither is required by a principle.
 | `[ ]` | F11 | Transparency | Open Bar semi-transparent; theme alpha supported | Alpha in themes; edge handle translucent | SHOULD | — | ⚠ provisional — UNKNOWN whether a window opacity setting exists **v0.4 decision (2026-11-24):** theme alpha in ADR-023 §5 (#265): kept on note tints and borders, flattened over the card for code and highlight, opaque elsewhere; window translucency stays ADR-007's root `Opacity`. |
 | `[ ]` | F12 | Density | No global density setting; line height + compact file links only | Same — no global density setting | DROP | — | ⚠ provisional — INFERRED. Do not invent one |
 | `[ ]` | F13 | Icon refresh | Icons refreshed across releases | **Not applicable** | DROP | — | Noto has its own icon set (ADR-011) |
-| `[ ]` | F14 | Disable color swatches | Setting to hide `#rrggbb` swatches | Same setting | SHOULD | — | Pairs with D15 |
+| `[x]` | F14 | Disable color swatches | Setting to hide `#rrggbb` swatches | Same setting | SHOULD | — | Pairs with D15 **v0.3 score (2026-11-16):** Settings › Appearance › Show colour chips: off hides the hex colour chips on cards, live; the text is unchanged (#245; `Invoke-Visual` case 19). |
 
 **F1 and F10 are the only MUSTs here, and that is intentional.** Light/dark
 following the Windows theme is a principle-8 requirement, and the six note
@@ -873,13 +873,13 @@ also the list of every configuration surface M3 is allowed to ship.
 | `[x]` | J15 | Text → Paragraph spacing | Tight / Normal / Relaxed | Same | SHOULD | — | = D50 **v0.3 score (2026-11-16):** = D50 (#234). |
 | `[x]` | J16 | Text → File links | standard / compact | Same | MUST | #196 | = D34 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › File links: Standard (the default) or Compact, applied at once (#196). |
 | `[ ]` | J17 | Text → Color copy format | output format for `#rrggbb` | Same | SHOULD | — | |
-| `[ ]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 |
+| `[x]` | J18 | Text → Disable color display | on / off | Same | SHOULD | — | = F14 **v0.3 score (2026-11-16):** = F14 (#245). |
 | `[ ]` | J19 | Text → No auto-spaces on paste | on / off | Same | SHOULD | — | = D41 **v0.3 score (2026-11-16):** = D41: nothing adds spaces, so no switch (#187). |
 | `[x]` | J20 | Text → Code detection on paste | code block / code note | Same | SHOULD | — | = D39 **v0.3 score (2026-11-16):** = D39: the code-block half; a code note is not offered (#187). |
 | `[x]` | J21 | Appearance → Light / Dark / System | manual or follow system | Same | MUST | — | = F1 **v0.2 score (2026-11-13):** Settings › Theme. |
 | `[ ]` | J22 | Appearance → Themes → Manage | install, list, reveal | Install, list, reveal in Explorer | SHOULD | — | = F2, F7 **v0.4 decision (2026-11-24):** Settings › Appearance › Theme in ADR-023 §8 (#265); built in #269. |
 | `[x]` | J23 | Appearance → Note colors | Background / Bar | Same | MUST | #191 | = F10 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Settings › Appearance › Note colour style, Background or Bar (#191). |
-| `[ ]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 |
+| `[x]` | J24 | Appearance → Default new-note color | one of six, or empty | Same | SHOULD | — | = B15 **v0.3 score (2026-11-16):** Settings › Appearance › New note colour, None (default) or one of the six, used by every way of making a note; duplicates and imports keep their own (#245; `Invoke-Visual` case 19). |
 | `[x]` | J25 | Shortcuts → Global shortcuts | record 6 global chords | Same 6, rebindable | MUST | #198 | = G50 **v0.2 score (2026-11-13):** As G50: four of the six are recorded in Settings. **v0.3 score (2026-11-16):** = G50: all six global chords recorded in Settings (#198). |
 | `[x]` | J26 | Shortcuts → Escape behavior | 4 options | Same 4 | MUST | — | = A12 **v0.2 score (2026-11-13):** Settings › Escape. |
 | `[x]` | J27 | Importing → DnD on screen edge | enable / disable | Same | MUST | #185 | = A15 **v0.2 score (2026-11-13):** Not built. **v0.3 score (2026-11-16):** Drop files on the Open Bar, its own toggle: a drop shows Noto and imports them as a drop on Noto does (#185; ADR-007 §10). |
